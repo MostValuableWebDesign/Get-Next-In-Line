@@ -18,12 +18,7 @@ tenantId?: number;
  */
 limit?: number;
 /**
- * Number of items to skip (default 0). Deprecated — prefer cursor pagination via before_timestamp/before_id.
- * @minimum 0
- */
-offset?: number;
-/**
- * Keyset cursor — return items strictly older than this (timestamp, id) pair. Must be paired with before_id. Takes precedence over offset.
+ * Keyset cursor — return items strictly older than this (timestamp, id) pair. Must be paired with before_id.
  */
 before_timestamp?: Date;
 /**

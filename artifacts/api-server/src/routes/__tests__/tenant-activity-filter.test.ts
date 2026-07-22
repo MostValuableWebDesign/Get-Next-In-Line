@@ -5,10 +5,10 @@ import request from "supertest";
 // Mock @workspace/db so tests run without a real database.
 // 25 fake activity rows across two tenants let us verify:
 //   - no query param  → global feed capped at the default page size (20)
-//   - ?tenantId=N     → only tenant N's rows, paginated with limit/offset
+//   - ?tenantId=N     → only tenant N's rows, paginated with limit + keyset cursor
 //   - ?tenantId=abc   → 400 (zod coercion fails)
 // The mock replays the query chain the route builds
-// (.where() → .limit() → .offset()), so a silent regression in the branch
+// (.where() → .orderBy() → .limit()), so a silent regression in the branch
 // (e.g. dropping the where clause or the bounds) fails these tests.
 // ---------------------------------------------------------------------------
 
@@ -54,8 +54,7 @@ vi.mock("@workspace/db", () => {
   const agencySettingsTable = {};
 
   // Query chain that mimics drizzle's builder for the activity route:
-  // .where(cond?) → .orderBy(...) → .limit(n) (awaitable), with an optional
-  // trailing .offset(m) for the legacy offset path.
+  // .where(cond?) → .orderBy(...) → .limit(n) (awaitable).
   type Cond =
     | { rhs: number } // eq() mock
     | { and: Cond[] } // and() mock
@@ -91,12 +90,7 @@ vi.mock("@workspace/db", () => {
           orderBy: (...cols: unknown[]) => {
             capturedOrderBy = cols;
             return {
-              // Awaiting .limit(n) directly serves the keyset path; the
-              // legacy offset path chains .offset(m) afterwards.
-              limit: (n: number) =>
-                Object.assign(Promise.resolve(rows.slice(0, n)), {
-                  offset: (m: number) => Promise.resolve(rows.slice(m, m + n)),
-                }),
+              limit: (n: number) => Promise.resolve(rows.slice(0, n)),
             };
           },
         };
@@ -183,8 +177,12 @@ describe("GET /api/tenants/activity", () => {
       expect(item.tenantId).toBe(1);
       expect(item.tenantName).toBe(TENANT_NAMES[1]);
     }
-    // The next page returns the remaining 2 rows and hasMore=false
-    const page2 = await agent.get("/api/tenants/activity?tenantId=1&limit=20&offset=20");
+    // The next page (via keyset cursor from the last row of page 1) returns
+    // the remaining 2 rows and hasMore=false
+    const last = res.body.items[res.body.items.length - 1];
+    const page2 = await agent.get(
+      `/api/tenants/activity?tenantId=1&limit=20&before_timestamp=${encodeURIComponent(last.timestamp)}&before_id=${last.id}`,
+    );
     expect(page2.status).toBe(200);
     expect(page2.body.items).toHaveLength(2);
     expect(page2.body.hasMore).toBe(false);
@@ -228,10 +226,14 @@ describe("GET /api/tenants/activity", () => {
     expect(tooBig.body).toHaveProperty("error");
   });
 
-  it("supports a custom offset within a page (no off-by-one at page edges)", async () => {
+  it("pages via keyset cursor with no off-by-one at page edges", async () => {
     const agent = await loggedInAgent();
     // Tenant 1 has 22 rows, all distinct timestamps: ids 22..1 in desc order.
-    const res = await agent.get("/api/tenants/activity?tenantId=1&limit=5&offset=5");
+    // Cursor at row id 18 → next page must be exactly ids 17..13.
+    const ts = new Date(Date.UTC(2026, 0, 1, 0, 17)).toISOString(); // row id 18
+    const res = await agent.get(
+      `/api/tenants/activity?tenantId=1&limit=5&before_timestamp=${encodeURIComponent(ts)}&before_id=18`,
+    );
     expect(res.status).toBe(200);
     expect(res.body.items.map((r: { id: number }) => r.id)).toEqual([17, 16, 15, 14, 13]);
     expect(res.body.hasMore).toBe(true);
@@ -250,13 +252,18 @@ describe("GET /api/tenants/activity", () => {
     expect(short.body.items).toHaveLength(2);
     expect(short.body.hasMore).toBe(true);
 
-    // offset+limit == total is also an exact boundary.
-    const lastPage = await agent.get("/api/tenants/activity?tenantId=2&limit=2&offset=1");
-    expect(lastPage.body.items).toHaveLength(2);
+    // Cursor landing exactly on the last row is also an exact boundary.
+    const last = short.body.items[short.body.items.length - 1];
+    const lastPage = await agent.get(
+      `/api/tenants/activity?tenantId=2&limit=2&before_timestamp=${encodeURIComponent(last.timestamp)}&before_id=${last.id}`,
+    );
+    expect(lastPage.body.items).toHaveLength(1);
     expect(lastPage.body.hasMore).toBe(false);
 
-    // offset past the end → empty page, hasMore false.
-    const beyond = await agent.get("/api/tenants/activity?tenantId=2&limit=2&offset=3");
+    // Cursor past the end → empty page, hasMore false.
+    const beyond = await agent.get(
+      `/api/tenants/activity?tenantId=2&limit=2&before_timestamp=${encodeURIComponent(last.timestamp)}&before_id=100`,
+    );
     expect(beyond.body.items).toHaveLength(0);
     expect(beyond.body.hasMore).toBe(false);
   });

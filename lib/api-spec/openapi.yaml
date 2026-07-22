@@ -130,18 +130,10 @@ paths:
             type: integer
             minimum: 1
             maximum: 100
-        - name: offset
-          in: query
-          required: false
-          description: Number of items to skip (default 0). Deprecated — prefer cursor pagination via before_timestamp/before_id.
-          deprecated: true
-          schema:
-            type: integer
-            minimum: 0
         - name: before_timestamp
           in: query
           required: false
-          description: Keyset cursor — return items strictly older than this (timestamp, id) pair. Must be paired with before_id. Takes precedence over offset.
+          description: Keyset cursor — return items strictly older than this (timestamp, id) pair. Must be paired with before_id.
           schema:
             type: string
             format: date-time

@@ -113,16 +113,13 @@ export const CreateTenantResponse = zod.object({
  */
 export const getTenantActivityQueryLimitMax = 100;
 
-export const getTenantActivityQueryOffsetMin = 0;
-
 
 
 
 export const GetTenantActivityQueryParams = zod.object({
   "tenantId": zod.coerce.number().optional().describe('Filter activity to a single tenant'),
   "limit": zod.coerce.number().min(1).max(getTenantActivityQueryLimitMax).optional().describe('Maximum number of items per page (default 20, max 100)'),
-  "offset": zod.coerce.number().min(getTenantActivityQueryOffsetMin).optional().describe('Number of items to skip (default 0). Deprecated — prefer cursor pagination via before_timestamp\/before_id.'),
-  "before_timestamp": zod.coerce.date().optional().describe('Keyset cursor — return items strictly older than this (timestamp, id) pair. Must be paired with before_id. Takes precedence over offset.'),
+  "before_timestamp": zod.coerce.date().optional().describe('Keyset cursor — return items strictly older than this (timestamp, id) pair. Must be paired with before_id.'),
   "before_id": zod.coerce.number().min(1).optional().describe('Keyset cursor id tiebreaker; must be paired with before_timestamp.')
 })
 

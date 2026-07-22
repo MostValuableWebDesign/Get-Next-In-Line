@@ -6,7 +6,7 @@ import { inArray } from "drizzle-orm";
 // ---------------------------------------------------------------------------
 // Integration tests: GET /api/tenants/activity against the REAL Postgres dev
 // database (no mocks). This exercises the actual Drizzle SQL — ordering
-// (timestamp desc, id desc tiebreak), limit/offset paging, and hasMore
+// (timestamp desc, id desc tiebreak), keyset cursor paging, and hasMore
 // boundaries — which the mock-based suite can only simulate.
 //
 // Isolation strategy:
@@ -125,33 +125,6 @@ describe("GET /api/tenants/activity (real database)", () => {
     expect(res.body.hasMore).toBe(false);
   });
 
-  it("pages with limit/offset: no overlap, no gaps, stable across ties", async () => {
-    const agent = await loggedInAgent();
-    const page1 = await agent.get(`/api/tenants/activity?tenantId=${alphaId}&limit=3`);
-    const page2 = await agent.get(`/api/tenants/activity?tenantId=${alphaId}&limit=3&offset=3`);
-    const page3 = await agent.get(`/api/tenants/activity?tenantId=${alphaId}&limit=3&offset=6`);
-    expect(page1.status).toBe(200);
-    expect(page2.status).toBe(200);
-    expect(page3.status).toBe(200);
-
-    expect(page1.body.items).toHaveLength(3);
-    expect(page1.body.hasMore).toBe(true);
-    expect(page2.body.items).toHaveLength(3);
-    expect(page2.body.hasMore).toBe(true);
-    expect(page3.body.items).toHaveLength(1);
-    expect(page3.body.hasMore).toBe(false);
-
-    const stitched = [
-      ...page1.body.items,
-      ...page2.body.items,
-      ...page3.body.items,
-    ].map((r: { id: number }) => r.id);
-    // Concatenated pages reproduce the full ordered result exactly —
-    // proves the tied rows page deterministically (page2/page3 straddle them).
-    expect(stitched).toEqual(alphaExpectedIds);
-    expect(new Set(stitched).size).toBe(stitched.length);
-  });
-
   it("pages with keyset cursor (before_timestamp/before_id): no overlap, no gaps, stable across ties", async () => {
     const agent = await loggedInAgent();
     const pages: { id: number; timestamp: string }[][] = [];
@@ -198,11 +171,19 @@ describe("GET /api/tenants/activity (real database)", () => {
     expect(short.body.items).toHaveLength(2);
     expect(short.body.hasMore).toBe(true);
 
-    const lastPage = await agent.get(`/api/tenants/activity?tenantId=${betaId}&limit=2&offset=1`);
-    expect(lastPage.body.items).toHaveLength(2);
+    // Cursor page containing exactly the final row → exact boundary, no more.
+    const last = short.body.items[short.body.items.length - 1];
+    const lastPage = await agent.get(
+      `/api/tenants/activity?tenantId=${betaId}&limit=2&before_timestamp=${encodeURIComponent(last.timestamp)}&before_id=${last.id}`,
+    );
+    expect(lastPage.body.items).toHaveLength(1);
     expect(lastPage.body.hasMore).toBe(false);
 
-    const beyond = await agent.get(`/api/tenants/activity?tenantId=${betaId}&limit=2&offset=3`);
+    // Cursor past the end → empty page, hasMore false.
+    const oldest = betaExpectedIds[betaExpectedIds.length - 1];
+    const beyond = await agent.get(
+      `/api/tenants/activity?tenantId=${betaId}&limit=2&before_timestamp=${encodeURIComponent(last.timestamp)}&before_id=${oldest}`,
+    );
     expect(beyond.body.items).toHaveLength(0);
     expect(beyond.body.hasMore).toBe(false);
   });
