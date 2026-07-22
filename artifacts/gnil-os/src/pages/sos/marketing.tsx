@@ -170,7 +170,8 @@ function MessageLogList() {
       <table className="w-full text-sm text-left">
         <thead className="bg-muted/50 text-muted-foreground sticky top-0">
           <tr>
-            <th className="px-4 py-3 font-medium">Recipient</th>
+            <th className="px-4 py-3 font-medium">Direction</th>
+            <th className="px-4 py-3 font-medium">Contact</th>
             <th className="px-4 py-3 font-medium">Message</th>
             <th className="px-4 py-3 font-medium">Type</th>
             <th className="px-4 py-3 font-medium">Status</th>
@@ -180,6 +181,11 @@ function MessageLogList() {
         <tbody className="divide-y">
           {messages?.map(msg => (
             <tr key={msg.id} className="hover:bg-muted/30">
+              <td className="px-4 py-3">
+                <Badge variant={msg.direction === 'inbound' ? 'default' : 'secondary'} className="text-[10px] capitalize">
+                  {msg.direction === 'inbound' ? 'Inbound' : 'Outbound'}
+                </Badge>
+              </td>
               <td className="px-4 py-3 font-medium">{msg.customerName || msg.toNumber}</td>
               <td className="px-4 py-3 max-w-xs truncate" title={msg.body}>{msg.body}</td>
               <td className="px-4 py-3">
@@ -202,7 +208,7 @@ function MessageLogList() {
             </tr>
           ))}
           {messages?.length === 0 && (
-            <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No messages sent.</td></tr>
+            <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No messages yet.</td></tr>
           )}
         </tbody>
       </table>

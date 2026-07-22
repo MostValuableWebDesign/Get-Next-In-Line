@@ -383,6 +383,8 @@ export const GetSosSettingsResponse = zod.object({
   "smsFromNumber": zod.string().nullish(),
   "smsMode": zod.enum(['live', 'simulated']).optional(),
   "smsActiveFromNumber": zod.string().nullish(),
+  "smsInboundWebhookUrl": zod.string().nullish(),
+  "smsInboundReady": zod.boolean().optional(),
   "updatedAt": zod.string()
 })
 
@@ -409,6 +411,8 @@ export const UpdateSosSettingsResponse = zod.object({
   "smsFromNumber": zod.string().nullish(),
   "smsMode": zod.enum(['live', 'simulated']).optional(),
   "smsActiveFromNumber": zod.string().nullish(),
+  "smsInboundWebhookUrl": zod.string().nullish(),
+  "smsInboundReady": zod.boolean().optional(),
   "updatedAt": zod.string()
 })
 
@@ -801,8 +805,8 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound']),
-  "deliveryStatus": zod.enum(['sent', 'delivered', 'failed', 'simulated']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation']),
+  "deliveryStatus": zod.enum(['sent', 'delivered', 'failed', 'simulated', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
   "errorMessage": zod.string().nullish(),
@@ -830,8 +834,8 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound']),
-  "deliveryStatus": zod.enum(['sent', 'delivered', 'failed', 'simulated']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation']),
+  "deliveryStatus": zod.enum(['sent', 'delivered', 'failed', 'simulated', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
   "errorMessage": zod.string().nullish(),

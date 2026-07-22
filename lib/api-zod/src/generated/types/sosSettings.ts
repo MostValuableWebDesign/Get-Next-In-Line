@@ -19,5 +19,8 @@ export interface SosSettings {
   smsMode?: SosSettingsSmsMode;
   /** @nullable */
   smsActiveFromNumber?: string | null;
+  /** @nullable */
+  smsInboundWebhookUrl?: string | null;
+  smsInboundReady?: boolean;
   updatedAt: string;
 }

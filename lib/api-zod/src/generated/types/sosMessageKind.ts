@@ -15,4 +15,5 @@ export const SosMessageKind = {
   ai_followup: 'ai_followup',
   manual: 'manual',
   inbound: 'inbound',
+  claim_confirmation: 'claim_confirmation',
 } as const;

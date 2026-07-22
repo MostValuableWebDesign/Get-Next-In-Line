@@ -16,7 +16,7 @@ interface SendSmsOptions {
   customerId?: number | null;
   toNumber: string | null | undefined;
   body: string;
-  kind: "you_are_next" | "slot_open" | "ai_followup" | "manual";
+  kind: "you_are_next" | "slot_open" | "ai_followup" | "manual" | "claim_confirmation";
 }
 
 interface TwilioCreds {
@@ -102,6 +102,16 @@ export function normalizeToE164(raw: string | null | undefined): string | null {
   if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
   if (digits.length >= 11 && digits.length <= 15) return `+${digits}`;
   return null;
+}
+
+/**
+ * Auth token used to verify Twilio inbound-webhook signatures. Falls back to
+ * TWILIO_AUTH_TOKEN so signature validation can work even when outbound
+ * sending is not fully configured (e.g. no From number yet).
+ */
+export async function getTwilioAuthToken(): Promise<string | null> {
+  const creds = await getTwilioCreds();
+  return creds?.authToken ?? process.env.TWILIO_AUTH_TOKEN ?? null;
 }
 
 /** Live vs. simulated SMS status, for the Settings page. */

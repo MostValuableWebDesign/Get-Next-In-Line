@@ -138,6 +138,40 @@ export function SettingsPage() {
             </Badge>
           </div>
 
+          <div className="p-4 border rounded-lg space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-base">Inbound SMS (reply-to-claim)</Label>
+              <Badge variant={settings?.smsInboundReady ? 'default' : 'secondary'} data-testid="badge-inbound-sms">
+                {settings?.smsInboundReady ? 'Ready' : 'Not configured'}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Customers can reply YES to claim an open slot, and STOP/START to manage texts.
+              In your Twilio console, set your number's "A message comes in" webhook to this URL (HTTP POST):
+            </p>
+            {settings?.smsInboundWebhookUrl ? (
+              <div className="flex items-center gap-2">
+                <Input readOnly value={settings.smsInboundWebhookUrl} className="font-mono text-xs" data-testid="input-inbound-webhook-url" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(settings.smsInboundWebhookUrl!);
+                    toast({ title: 'Webhook URL copied' });
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No public URL available for this environment yet.</p>
+            )}
+            {!settings?.smsInboundReady && (
+              <p className="text-xs text-muted-foreground">Connect Twilio (auth token) so inbound webhook requests can be verified.</p>
+            )}
+          </div>
+
           <div className="grid gap-2 pt-2">
             <Label>Outbound SMS Number</Label>
             <Input 

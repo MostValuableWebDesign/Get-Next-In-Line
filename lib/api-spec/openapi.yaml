@@ -859,6 +859,10 @@ components:
           enum: [live, simulated]
         smsActiveFromNumber:
           type: ["string", "null"]
+        smsInboundWebhookUrl:
+          type: ["string", "null"]
+        smsInboundReady:
+          type: boolean
         updatedAt:
           type: string
 
@@ -1141,10 +1145,10 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation]
         deliveryStatus:
           type: string
-          enum: [sent, delivered, failed, simulated]
+          enum: [sent, delivered, failed, simulated, received]
         providerSid:
           type: ["string", "null"]
         errorCode:

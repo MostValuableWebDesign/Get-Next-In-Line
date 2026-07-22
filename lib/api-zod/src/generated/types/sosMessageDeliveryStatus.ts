@@ -14,4 +14,5 @@ export const SosMessageDeliveryStatus = {
   delivered: 'delivered',
   failed: 'failed',
   simulated: 'simulated',
+  received: 'received',
 } as const;

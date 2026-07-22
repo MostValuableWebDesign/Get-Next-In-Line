@@ -25,6 +25,9 @@ export interface SosSettings {
   smsMode?: SosSettingsSmsMode;
   /** @nullable */
   smsActiveFromNumber?: string | null;
+  /** @nullable */
+  smsInboundWebhookUrl?: string | null;
+  smsInboundReady?: boolean;
   updatedAt: string;
 }
 
@@ -285,6 +288,7 @@ export const SosMessageKind = {
   ai_followup: 'ai_followup',
   manual: 'manual',
   inbound: 'inbound',
+  claim_confirmation: 'claim_confirmation',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];
@@ -295,6 +299,7 @@ export const SosMessageDeliveryStatus = {
   delivered: 'delivered',
   failed: 'failed',
   simulated: 'simulated',
+  received: 'received',
 } as const;
 
 export interface SosMessage {

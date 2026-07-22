@@ -47,8 +47,12 @@ import {
   GetSosReportsSummaryResponse,
 } from "@workspace/api-zod";
 import { and, desc, eq, gte, ilike, inArray, lte, ne, sql } from "drizzle-orm";
-import { sendSms, getSmsStatus } from "../lib/sms";
+import twilio from "twilio";
+import { sendSms, getSmsStatus, getTwilioAuthToken, normalizeToE164 } from "../lib/sms";
 import { parseCallIntent } from "../lib/receptionist";
+import { parseInboundKeyword, getInboundWebhookUrl } from "../lib/inboundSms";
+import { claimWaitlistSlot } from "../lib/waitlistClaim";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -171,7 +175,7 @@ async function broadcastOpenSlot(slotStart: Date, slotEnd: Date, service: string
         customerId: customer.id,
         toNumber: customer.phone,
         kind: "slot_open",
-        body: `Good news ${customer.name}! A ${service} slot just opened at ${slotStart.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}. Reply YES or tap your link to claim it — first come, first served.`,
+        body: `Good news ${customer.name}! A ${service} slot just opened at ${slotStart.toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" })}. Reply YES to this text to claim it — first come, first served.`,
       });
       messagesSent++;
     }
@@ -260,6 +264,8 @@ router.get("/sos/settings", async (_req, res): Promise<void> => {
       smsFromNumber: s.smsFromNumber,
       smsMode: sms.smsMode,
       smsActiveFromNumber: sms.activeFromNumber,
+      smsInboundWebhookUrl: getInboundWebhookUrl(),
+      smsInboundReady: (await getTwilioAuthToken()) != null,
       updatedAt: s.updatedAt.toISOString(),
     }),
   );
@@ -285,6 +291,8 @@ router.patch("/sos/settings", async (req, res): Promise<void> => {
       smsFromNumber: updated.smsFromNumber,
       smsMode: sms.smsMode,
       smsActiveFromNumber: sms.activeFromNumber,
+      smsInboundWebhookUrl: getInboundWebhookUrl(),
+      smsInboundReady: (await getTwilioAuthToken()) != null,
       updatedAt: updated.updatedAt.toISOString(),
     }),
   );
@@ -710,60 +718,25 @@ router.post("/sos/waitlist", async (req, res): Promise<void> => {
 
 router.post("/sos/waitlist/:id/claim", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const [found] = await db
-    .select({ entry: sosWaitlistTable, customer: sosCustomersTable })
-    .from(sosWaitlistTable)
-    .innerJoin(sosCustomersTable, eq(sosWaitlistTable.customerId, sosCustomersTable.id))
-    .where(eq(sosWaitlistTable.id, id));
-  if (!found) {
-    res.status(404).json({ message: "Waitlist entry not found" });
-    return;
+  const result = await claimWaitlistSlot(id);
+  switch (result.outcome) {
+    case "not_found":
+      res.status(404).json({ message: "Waitlist entry not found" });
+      return;
+    case "no_slot_held":
+      res.status(409).json({ message: "No open slot is held for this entry" });
+      return;
+    case "already_claimed":
+      res.status(409).json({ message: "Slot was already claimed" });
+      return;
+    case "claimed":
+      res.json(
+        ClaimSosWaitlistSlotResponse.parse(
+          serializeAppointment(result.appointment, result.customer.name),
+        ),
+      );
+      return;
   }
-  const { entry, customer } = found;
-  if (entry.status !== "notified" || !entry.openSlotStartsAt || !entry.openSlotEndsAt) {
-    res.status(409).json({ message: "No open slot is held for this entry" });
-    return;
-  }
-  const slotStart = entry.openSlotStartsAt;
-  const slotEnd = entry.openSlotEndsAt;
-
-  // Atomic claim: only wins if the entry is still notified (first come, first served).
-  const [won] = await db
-    .update(sosWaitlistTable)
-    .set({ status: "booked" })
-    .where(and(eq(sosWaitlistTable.id, id), eq(sosWaitlistTable.status, "notified")))
-    .returning({ id: sosWaitlistTable.id });
-  if (!won) {
-    res.status(409).json({ message: "Slot was already claimed" });
-    return;
-  }
-
-  const [appointment] = await db
-    .insert(sosAppointmentsTable)
-    .values({
-      customerId: entry.customerId,
-      serviceType: entry.desiredService,
-      startsAt: slotStart,
-      endsAt: slotEnd,
-      source: "waitlist_fill",
-    })
-    .returning();
-
-  // Everyone else who was notified for this same slot goes back to waiting.
-  await db
-    .update(sosWaitlistTable)
-    .set({ status: "waiting", notifiedAt: null, openSlotStartsAt: null, openSlotEndsAt: null })
-    .where(
-      and(
-        eq(sosWaitlistTable.status, "notified"),
-        eq(sosWaitlistTable.openSlotStartsAt, slotStart),
-        ne(sosWaitlistTable.id, id),
-      ),
-    );
-
-  res.json(
-    ClaimSosWaitlistSlotResponse.parse(serializeAppointment(appointment, customer.name)),
-  );
 });
 
 // ── messages ─────────────────────────────────────────────────────────────────
@@ -829,6 +802,142 @@ router.post("/sos/messages", async (req, res): Promise<void> => {
       createdAt: msg.createdAt.toISOString(),
     }),
   );
+});
+
+// ── Twilio inbound SMS webhook ───────────────────────────────────────────────
+
+/** Find a customer whose phone matches the (normalized) inbound From number. */
+async function findCustomerByPhone(from: string | null) {
+  if (!from) return null;
+  const candidates = await db
+    .select()
+    .from(sosCustomersTable)
+    .where(sql`${sosCustomersTable.phone} is not null`);
+  return candidates.find((c) => normalizeToE164(c.phone) === from) ?? null;
+}
+
+const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
+
+// Public endpoint Twilio calls when a text arrives ("A message comes in").
+// Authenticated via Twilio's request signature, not the session — spoofed
+// requests without a valid X-Twilio-Signature are rejected.
+router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
+  const authToken = await getTwilioAuthToken();
+  if (!authToken) {
+    logger.warn("Inbound SMS webhook hit but no Twilio auth token is configured");
+    res.status(503).json({ message: "Inbound SMS is not configured" });
+    return;
+  }
+  const signature = req.header("X-Twilio-Signature") ?? "";
+  const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+  const params = (req.body ?? {}) as Record<string, string>;
+  if (!twilio.validateRequest(authToken, signature, url, params)) {
+    logger.warn({ url }, "Rejected inbound SMS webhook: invalid Twilio signature");
+    res.status(403).json({ message: "Invalid Twilio signature" });
+    return;
+  }
+
+  const fromNumber = normalizeToE164(params.From) ?? params.From ?? null;
+  const body = typeof params.Body === "string" ? params.Body : "";
+  const customer = await findCustomerByPhone(normalizeToE164(params.From));
+
+  // Every inbound text is logged, matched to a customer when possible.
+  await db.insert(sosMessagesTable).values({
+    customerId: customer?.id ?? null,
+    toNumber: fromNumber, // the sender — shown as the counterparty in the log
+    direction: "inbound",
+    body,
+    kind: "inbound",
+    deliveryStatus: "received",
+    providerSid: params.MessageSid ?? null,
+  });
+
+  const keyword = parseInboundKeyword(body);
+
+  if (!customer) {
+    // Unknown sender: logged above, no auto-response.
+    res.type("text/xml").send(twiml);
+    return;
+  }
+
+  if (keyword === "stop") {
+    await db
+      .update(sosCustomersTable)
+      .set({ smsOptIn: false })
+      .where(eq(sosCustomersTable.id, customer.id));
+    logger.info({ customerId: customer.id }, "Customer opted out of SMS via STOP");
+    // Twilio sends its own compliance auto-reply for STOP; don't double-text.
+  } else if (keyword === "start") {
+    await db
+      .update(sosCustomersTable)
+      .set({ smsOptIn: true })
+      .where(eq(sosCustomersTable.id, customer.id));
+    logger.info({ customerId: customer.id }, "Customer opted back in to SMS via START");
+  } else if (keyword === "yes") {
+    // Reply-to-claim: act on the customer's notified waitlist entry.
+    const [notified] = await db
+      .select()
+      .from(sosWaitlistTable)
+      .where(
+        and(
+          eq(sosWaitlistTable.customerId, customer.id),
+          eq(sosWaitlistTable.status, "notified"),
+        ),
+      )
+      .orderBy(desc(sosWaitlistTable.notifiedAt))
+      .limit(1);
+
+    if (notified) {
+      const result = await claimWaitlistSlot(notified.id);
+      if (result.outcome === "claimed") {
+        const when = result.appointment.startsAt.toLocaleString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+        await sendSms({
+          customerId: customer.id,
+          toNumber: customer.phone,
+          kind: "claim_confirmation",
+          body: `You're in, ${customer.name}! Your ${result.appointment.serviceType} is booked for ${when}. See you then!`,
+        });
+      } else {
+        await sendSms({
+          customerId: customer.id,
+          toNumber: customer.phone,
+          kind: "claim_confirmation",
+          body: `Sorry ${customer.name}, that slot was just claimed by someone else. You're still on the waitlist — we'll text you when the next one opens.`,
+        });
+      }
+    } else {
+      // A "YES" with no held slot: if they recently lost the race their entry
+      // is back to "waiting" — let them know instead of staying silent.
+      const [waiting] = await db
+        .select()
+        .from(sosWaitlistTable)
+        .where(
+          and(
+            eq(sosWaitlistTable.customerId, customer.id),
+            eq(sosWaitlistTable.status, "waiting"),
+          ),
+        )
+        .limit(1);
+      if (waiting) {
+        await sendSms({
+          customerId: customer.id,
+          toNumber: customer.phone,
+          kind: "claim_confirmation",
+          body: `Sorry ${customer.name}, that slot was already claimed. You're still on the waitlist — we'll text you when the next one opens.`,
+        });
+      }
+      // No waitlist entry at all: logged, no auto-response.
+    }
+  }
+  // keyword === "none": logged, no auto-response.
+
+  res.type("text/xml").send(twiml);
 });
 
 // ── AI receptionist calls ────────────────────────────────────────────────────
