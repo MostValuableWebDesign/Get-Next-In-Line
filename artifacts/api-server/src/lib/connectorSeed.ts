@@ -142,7 +142,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "vibe_co",
-    name: "Connected TV & OTT Ad Network",
+    name: "Connected TV Ad Network",
     category: "White-Label Resale Engines",
     categorySlug: "media",
     description: "Programmatic connected-TV and OTT advertising.",
