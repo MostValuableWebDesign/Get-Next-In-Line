@@ -1,0 +1,20 @@
+You are an expert full-stack software engineer and system architect building "SOS", an elite multi-tenant enterprise operations platform. 
+
+Please implement the following three major architectural components and core features into our existing codebase:
+
+1. Operations Center Module & Resource Management Engine
+   - Create a unified "Operations Center" live dashboard view that provides a real-time command center for businesses across multiple industries.
+   - Implement a dynamic Resource Management system that abstracts physical assets (e.g., chairs, rooms, tables, booths, bays, treatment rooms, dental chairs, workstations, vehicles) so they can be configured per tenant type.
+   - Build out the full customer journey state machine: Check-in -> Live Queue -> Assignment (Automatic/Manual) -> Wait-time updates -> "You're Next" notifications -> Resource routing -> Service start -> Payment -> Check-out.
+   - Update the primary navigation menu to include: Dashboard, Calendar, Customers, Operations Center, POS, Employees, Payroll (Powered by Gusto), Business Protection, Employee Benefits, Reports, Marketing, and Settings.
+
+2. Smart Waitlist & Cancellation Fill Engine
+   - Build an automated real-time queue manager that monitors last-minute cancellations or schedule gaps.
+   - Implement an automated SMS/push broadcast trigger that instantly texts waitlisted clients when a time slot opens up, enabling instant self-booking to fill empty resources within minutes without manual intervention.
+
+3. AI Voice & Phone Receptionist Assistant Integration
+   - Set up an AI voice and phone integration layer to handle inbound calls seamlessly, eliminating missed leads when staff are busy.
+   - Ensure the AI receptionist can answer inquiries, book appointments directly into the SOS calendar, and instantly follow up with callers via SMS text links.
+   - Integrate the AI assistant directly with the SMS broadcast engine and calendar availability backend.
+
+Please write clean, modular, production-ready code with appropriate database schemas, API routes, state handlers, and UI components for these modules.
