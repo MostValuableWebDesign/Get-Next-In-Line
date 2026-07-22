@@ -16,6 +16,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Play, ArrowRight, CheckSquare, Bell, CreditCard, Check, LogOut, Clock, Plus, Settings2, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -42,6 +46,30 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
   const advanceVisit = useAdvanceSosVisit();
   const updateResource = useUpdateSosResource();
   const claimSlot = useClaimSosWaitlistSlot();
+  const deleteResource = useDeleteSosResource();
+  const [resourceToDelete, setResourceToDelete] = useState<{ id: number; name: string } | null>(null);
+
+  const handleDeleteResource = () => {
+    if (!resourceToDelete) return;
+    deleteResource.mutate(
+      { id: resourceToDelete.id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSosResourcesQueryKey() });
+          toast({ title: 'Resource removed', description: `${resourceToDelete.name} was deleted.` });
+          setResourceToDelete(null);
+        },
+        onError: (err: any) => {
+          toast({
+            title: 'Could not delete resource',
+            description: err?.response?.data?.message || err?.message || 'Deletion failed. Please try again.',
+            variant: 'destructive',
+          });
+          setResourceToDelete(null);
+        },
+      },
+    );
+  };
 
   const handleAdvance = (id: number, action: any, extraData: any = {}) => {
     advanceVisit.mutate(
@@ -149,7 +177,23 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
                         <SelectItem value="offline">Offline</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      data-testid={`btn-delete-resource-${res.id}`}
+                      onClick={() => {
+                        if (res.status === 'occupied' || res.currentCustomerName) {
+                          toast({
+                            title: 'Resource is in use',
+                            description: `${res.name} is currently occupied. Finish or reassign the active visit before deleting it.`,
+                            variant: 'destructive',
+                          });
+                          return;
+                        }
+                        setResourceToDelete({ id: res.id, name: res.name });
+                      }}
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -211,6 +255,28 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
 
         </div>
       </div>
+
+      <AlertDialog open={!!resourceToDelete} onOpenChange={(open) => { if (!open) setResourceToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete resource?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {resourceToDelete?.name} from the Resource Board. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="btn-cancel-delete-resource">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="btn-confirm-delete-resource"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteResource}
+              disabled={deleteResource.isPending}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
