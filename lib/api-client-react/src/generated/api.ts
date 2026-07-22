@@ -31,6 +31,7 @@ import type {
   HealthStatus,
   Module,
   ModulePricing,
+  ModuleTenantCount,
   Tenant,
   TenantActivity,
   TenantInput,
@@ -965,6 +966,83 @@ export function useGetModulesPricing<TData = Awaited<ReturnType<typeof getModule
 
 
 
+export const getGetModuleTenantCountsUrl = () => {
+
+
+
+
+  return `/api/modules/tenant-counts`
+}
+
+/**
+ * @summary Get count of active tenants subscribed to each module
+ */
+export const getModuleTenantCounts = async ( options?: RequestInit): Promise<ModuleTenantCount[]> => {
+
+  return customFetch<ModuleTenantCount[]>(getGetModuleTenantCountsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetModuleTenantCountsQueryKey = () => {
+    return [
+    `/api/modules/tenant-counts`
+    ] as const;
+    }
+
+
+export const getGetModuleTenantCountsQueryOptions = <TData = Awaited<ReturnType<typeof getModuleTenantCounts>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getModuleTenantCounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetModuleTenantCountsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getModuleTenantCounts>>> = ({ signal }) => getModuleTenantCounts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getModuleTenantCounts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetModuleTenantCountsQueryResult = NonNullable<Awaited<ReturnType<typeof getModuleTenantCounts>>>
+export type GetModuleTenantCountsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get count of active tenants subscribed to each module
+ */
+
+export function useGetModuleTenantCounts<TData = Awaited<ReturnType<typeof getModuleTenantCounts>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getModuleTenantCounts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetModuleTenantCountsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetConnectorRegistryUrl = () => {
 
 
@@ -1217,7 +1295,7 @@ export const simulateCheckout = async (checkoutInput: CheckoutInput, options?: R
 
 
 
-export const getSimulateCheckoutMutationOptions = <TError = ErrorType<unknown>,
+export const getSimulateCheckoutMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof simulateCheckout>>, TError,{data: BodyType<CheckoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof simulateCheckout>>, TError,{data: BodyType<CheckoutInput>}, TContext> => {
 
@@ -1246,12 +1324,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type SimulateCheckoutMutationResult = NonNullable<Awaited<ReturnType<typeof simulateCheckout>>>
     export type SimulateCheckoutMutationBody = BodyType<CheckoutInput>
-    export type SimulateCheckoutMutationError = ErrorType<unknown>
+    export type SimulateCheckoutMutationError = ErrorType<void>
 
     /**
  * @summary Simulate Stripe checkout for module provisioning
  */
-export const useSimulateCheckout = <TError = ErrorType<unknown>,
+export const useSimulateCheckout = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof simulateCheckout>>, TError,{data: BodyType<CheckoutInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof simulateCheckout>>,

@@ -48,6 +48,11 @@ const tenants = [
 
 const settings = { markupPercent: 50, platformName: 'GNIL', deploymentMode: 'live', updatedAt: '2026-01-01T00:00:00Z' };
 
+const tenantCounts = [
+  { moduleId: 1, activeTenantCount: 1 },
+  { moduleId: 2, activeTenantCount: 0 },
+];
+
 const mutateMock = vi.fn();
 
 vi.mock('@workspace/api-client-react', () => ({
@@ -55,6 +60,8 @@ vi.mock('@workspace/api-client-react', () => ({
   useGetModulesPricing: () => ({ data: pricing, isLoading: false }),
   useGetAgencySettings: () => ({ data: settings, isLoading: false }),
   useListTenants: () => ({ data: tenants, isLoading: false }),
+  useGetModuleTenantCounts: () => ({ data: tenantCounts, isLoading: false }),
+  getGetModuleTenantCountsQueryKey: () => ['tenant-counts'],
   useSimulateCheckout: () => ({ mutate: mutateMock, isPending: false }),
   getListTenantsQueryKey: () => ['tenants'],
   getGetBillingSummaryQueryKey: () => ['billing'],

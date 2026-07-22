@@ -18,6 +18,7 @@ export * from './connectorRegistryEntryUpdate';
 export * from './healthStatus';
 export * from './module';
 export * from './modulePricing';
+export * from './moduleTenantCount';
 export * from './tenant';
 export * from './tenantActivity';
 export * from './tenantBillingSummary';

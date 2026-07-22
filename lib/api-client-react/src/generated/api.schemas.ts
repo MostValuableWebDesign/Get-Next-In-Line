@@ -166,6 +166,11 @@ export interface BillingSummary {
   topTenants: TenantBillingSummary[];
 }
 
+export interface ModuleTenantCount {
+  moduleId: number;
+  activeTenantCount: number;
+}
+
 export interface CheckoutInput {
   tenantId: number;
   moduleIds: number[];
@@ -179,6 +184,7 @@ export interface CheckoutResult {
   totalResale: number;
   margin: number;
   modulesProvisioned: number;
+  modulesSkipped?: number;
   message: string;
 }
 

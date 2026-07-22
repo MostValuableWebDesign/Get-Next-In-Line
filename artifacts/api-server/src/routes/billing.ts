@@ -5,8 +5,9 @@ import {
   agencySettingsTable,
   tenantsTable,
   tenantActivitiesTable,
+  tenantModulesTable,
 } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   GetBillingSummaryResponse,
   SimulateCheckoutBody,
@@ -75,9 +76,25 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
     .from(modulesTable)
     .then((all) => all.filter((m) => moduleIds.includes(m.id)));
 
+  // Skip modules the tenant already has — no double-provisioning.
+  const existingAssignments = await db
+    .select()
+    .from(tenantModulesTable)
+    .where(eq(tenantModulesTable.tenantId, tenantId));
+  const alreadyProvisionedIds = new Set(existingAssignments.map((a) => a.moduleId));
+  const skippedModules = selectedModules.filter((m) => alreadyProvisionedIds.has(m.id));
+  const modulesToProvision = selectedModules.filter((m) => !alreadyProvisionedIds.has(m.id));
+
+  if (selectedModules.length > 0 && modulesToProvision.length === 0) {
+    res.status(409).json({
+      error: `All selected module(s) are already provisioned for ${tenant.brandName}: ${skippedModules.map((m) => m.name).join(", ")}`,
+    });
+    return;
+  }
+
   let totalWholesale = 0;
   let totalResale = 0;
-  for (const mod of selectedModules) {
+  for (const mod of modulesToProvision) {
     const wholesale = parseFloat(mod.wholesalePrice);
     const resale = applyMarkup !== false ? wholesale * (1 + markup / 100) : wholesale;
     totalWholesale += wholesale;
@@ -90,7 +107,15 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
 
   // Update tenant MRR and modules count
   const newMrr = parseFloat(tenant.mrr ?? "0") + totalResale;
-  const newModulesEnabled = tenant.modulesEnabled + selectedModules.length;
+  const newModulesEnabled = tenant.modulesEnabled + modulesToProvision.length;
+
+  // Record per-tenant module assignments
+  if (modulesToProvision.length > 0) {
+    await db
+      .insert(tenantModulesTable)
+      .values(modulesToProvision.map((m) => ({ tenantId, moduleId: m.id })))
+      .onConflictDoNothing();
+  }
 
   await db
     .update(tenantsTable)
@@ -106,8 +131,13 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
   await db.insert(tenantActivitiesTable).values({
     tenantId,
     action: `Modules provisioned`,
-    details: `${selectedModules.length} module(s) activated — ${selectedModules.map((m) => m.name).join(", ")}`,
+    details: `${modulesToProvision.length} module(s) activated — ${modulesToProvision.map((m) => m.name).join(", ")}${skippedModules.length > 0 ? ` (skipped already-active: ${skippedModules.map((m) => m.name).join(", ")})` : ""}`,
   });
+
+  const skippedNote =
+    skippedModules.length > 0
+      ? ` Skipped ${skippedModules.length} already-provisioned module(s): ${skippedModules.map((m) => m.name).join(", ")}.`
+      : "";
 
   res.json(
     SimulateCheckoutResponse.parse({
@@ -116,8 +146,9 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
       totalWholesale,
       totalResale,
       margin,
-      modulesProvisioned: selectedModules.length,
-      message: `Successfully provisioned ${selectedModules.length} module(s) for ${tenant.brandName}. Transaction ${transactionId} authorized.`,
+      modulesProvisioned: modulesToProvision.length,
+      modulesSkipped: skippedModules.length,
+      message: `Successfully provisioned ${modulesToProvision.length} module(s) for ${tenant.brandName}. Transaction ${transactionId} authorized.${skippedNote}`,
     })
   );
 });

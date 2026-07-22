@@ -216,6 +216,21 @@ paths:
                 items:
                   $ref: "#/components/schemas/ModulePricing"
 
+  /modules/tenant-counts:
+    get:
+      operationId: getModuleTenantCounts
+      tags: [modules]
+      summary: Get count of active tenants subscribed to each module
+      responses:
+        "200":
+          description: Per-module active tenant counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModuleTenantCount"
+
   /admin/connector-registry:
     get:
       operationId: getConnectorRegistry
@@ -289,6 +304,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CheckoutResult"
+        "409":
+          description: All selected modules are already provisioned for this tenant
 
 components:
   schemas:
@@ -527,6 +544,15 @@ components:
         mrr:
           type: number
 
+    ModuleTenantCount:
+      type: object
+      required: [moduleId, activeTenantCount]
+      properties:
+        moduleId:
+          type: integer
+        activeTenantCount:
+          type: integer
+
     CheckoutInput:
       type: object
       required: [tenantId, moduleIds]
@@ -555,6 +581,8 @@ components:
         margin:
           type: number
         modulesProvisioned:
+          type: integer
+        modulesSkipped:
           type: integer
         message:
           type: string

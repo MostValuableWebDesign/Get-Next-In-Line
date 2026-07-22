@@ -211,6 +211,16 @@ export const GetModulesPricingResponse = zod.array(GetModulesPricingResponseItem
 
 
 /**
+ * @summary Get count of active tenants subscribed to each module
+ */
+export const GetModuleTenantCountsResponseItem = zod.object({
+  "moduleId": zod.number(),
+  "activeTenantCount": zod.number()
+})
+export const GetModuleTenantCountsResponse = zod.array(GetModuleTenantCountsResponseItem)
+
+
+/**
  * @summary Admin-only — full module list including hidden upstream connector mapping
  */
 export const GetConnectorRegistryResponseItem = zod.object({
@@ -287,6 +297,7 @@ export const SimulateCheckoutResponse = zod.object({
   "totalResale": zod.number(),
   "margin": zod.number(),
   "modulesProvisioned": zod.number(),
+  "modulesSkipped": zod.number().optional(),
   "message": zod.string()
 })
 

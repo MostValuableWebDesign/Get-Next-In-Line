@@ -5,8 +5,10 @@ import {
   useGetModulesPricing,
   useGetAgencySettings,
   useListTenants,
+  useGetModuleTenantCounts,
   useSimulateCheckout,
   getListTenantsQueryKey,
+  getGetModuleTenantCountsQueryKey,
   getGetBillingSummaryQueryKey,
   getGetAgencyDashboardQueryKey,
   getGetTenantActivityQueryKey,
@@ -40,7 +42,7 @@ export default function ModuleConsole() {
   const { data: modules, isLoading: isLoadingModules } = useListModules();
   const { data: pricing, isLoading: isLoadingPricing } = useGetModulesPricing();
   const { data: settings, isLoading: isLoadingSettings } = useGetAgencySettings();
-  const { data: tenants } = useListTenants();
+  const { data: tenantCounts } = useGetModuleTenantCounts();
   const { toast } = useToast();
 
   if (isLoadingModules || isLoadingPricing || isLoadingSettings) {
@@ -73,7 +75,7 @@ export default function ModuleConsole() {
   const priceInfo = pricing?.find((p) => p.id === module.id);
   const isPartner = module.categorySlug === 'partners';
   const markupPercent = settings?.markupPercent ?? priceInfo?.markupPercent ?? 0;
-  const activeTenants = tenants?.filter((t) => t.status === 'active').length ?? 0;
+  const activeTenants = tenantCounts?.find((c) => c.moduleId === module.id)?.activeTenantCount ?? 0;
   const backRoute = CATEGORY_ROUTES[module.categorySlug] ?? { path: '/', label: 'Command Center' };
 
   return (
@@ -226,6 +228,7 @@ function ProvisionModuleDialog({ moduleId, moduleName }: { moduleId: number; mod
           setOpen(false);
           setSelectedTenant('');
           queryClient.invalidateQueries({ queryKey: getListTenantsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetModuleTenantCountsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetBillingSummaryQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetAgencyDashboardQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetTenantActivityQueryKey() });

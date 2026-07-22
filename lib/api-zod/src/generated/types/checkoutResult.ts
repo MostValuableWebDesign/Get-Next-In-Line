@@ -13,5 +13,6 @@ export interface CheckoutResult {
   totalResale: number;
   margin: number;
   modulesProvisioned: number;
+  modulesSkipped?: number;
   message: string;
 }
