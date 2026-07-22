@@ -1,7 +1,8 @@
-import React from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
+import { useListModules } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CheckoutSimulationDialog } from '@/components/checkout/CheckoutSimulationDialog';
 import { Zap } from 'lucide-react';
 
 interface StaticPageProps {
@@ -9,10 +10,20 @@ interface StaticPageProps {
   description: string;
   partner: string;
   features: string[];
+  /**
+   * Display name of the marketplace module backing this partner offering
+   * (as seeded in the modules table — /api/modules intentionally exposes no
+   * machine slug). Activate opens the shared checkout-simulation flow locked
+   * to that module.
+   */
+  moduleName: string;
 }
 
-export function StaticPlaceholderPage({ title, description, partner, features }: StaticPageProps) {
-  const { toast } = useToast();
+export function StaticPlaceholderPage({ title, description, partner, features, moduleName }: StaticPageProps) {
+  const { data: modules, isLoading } = useListModules();
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+
+  const module = modules?.find((m) => m.name === moduleName && m.isActive);
 
   return (
     <div className="p-8 max-w-4xl mx-auto mt-12">
@@ -41,16 +52,27 @@ export function StaticPlaceholderPage({ title, description, partner, features }:
           </div>
 
           <div className="flex justify-center">
-            <Button 
-              size="lg" 
-              onClick={() => toast({ title: 'Coming soon', description: 'This module is currently being provisioned.' })}
+            <Button
+              size="lg"
+              disabled={isLoading || !module}
+              onClick={() => setCheckoutOpen(true)}
               data-testid={`btn-activate-${title.toLowerCase().replace(/\s+/g, '-')}`}
             >
-              Activate Module
+              {isLoading ? 'Loading…' : module ? 'Activate Module' : 'Module Unavailable'}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {module && (
+        <CheckoutSimulationDialog
+          open={checkoutOpen}
+          onOpenChange={setCheckoutOpen}
+          title={`Activate ${title}`}
+          description={`Provision the ${partner} partner module for a tenant via the checkout simulation.`}
+          lockedModuleId={module.id}
+        />
+      )}
     </div>
   );
 }

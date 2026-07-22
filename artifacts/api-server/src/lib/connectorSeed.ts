@@ -183,6 +183,42 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     proxyNotes: null,
   },
   {
+    slug: "deel",
+    name: "Global Team & HR Management",
+    category: "Partner Integrations",
+    categorySlug: "partners",
+    description:
+      "Workforce onboarding, time & attendance, shift scheduling, and HR compliance.",
+    wholesalePrice: "0.00",
+    upstreamVendor: "Deel",
+    hiddenConnector: "Deel HR & Workforce Management API Gateway",
+    proxyNotes: null,
+  },
+  {
+    slug: "next_insurance",
+    name: "Small Business Insurance & COI",
+    category: "Partner Integrations",
+    categorySlug: "partners",
+    description:
+      "General & professional liability, workers' comp, and instant COI generation.",
+    wholesalePrice: "0.00",
+    upstreamVendor: "Next Insurance",
+    hiddenConnector: "Next Insurance Embedded Quoting & Certificate API",
+    proxyNotes: null,
+  },
+  {
+    slug: "guideline",
+    name: "401(k) & Employee Benefits",
+    category: "Partner Integrations",
+    categorySlug: "partners",
+    description:
+      "Zero-fee 401(k) administration and payroll-integrated employee benefits.",
+    wholesalePrice: "0.00",
+    upstreamVendor: "Guideline",
+    hiddenConnector: "Guideline 401(k) Administration & Payroll Deduction Sync API",
+    proxyNotes: null,
+  },
+  {
     slug: "quickbooks",
     name: "General Ledger & Financial Sync",
     category: "Partner Integrations",

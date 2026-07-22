@@ -11,6 +11,7 @@ const PARTNER_PLACEHOLDERS = {
   employees: {
     title: 'Team Management',
     partner: 'Deel',
+    moduleName: 'Global Team & HR Management',
     description:
       'Manage your entire workforce from a single dashboard. Onboard new staff, track hours, and manage schedules with automated compliance.',
     features: [
@@ -23,6 +24,7 @@ const PARTNER_PLACEHOLDERS = {
   payroll: {
     title: 'Payroll & Compliance',
     partner: 'Gusto',
+    moduleName: 'Integrated W-2 & Contractor Payroll',
     description:
       'Run payroll in minutes. We handle tax filings, W-2s, and 1099s automatically so you can focus on running your business.',
     features: [
@@ -35,6 +37,7 @@ const PARTNER_PLACEHOLDERS = {
   protection: {
     title: 'Business Protection',
     partner: 'Next Insurance',
+    moduleName: 'Small Business Insurance & COI',
     description:
       'Comprehensive coverage tailored to your industry. Get insured in minutes and manage your certificates of insurance directly from SOS.',
     features: [
@@ -47,6 +50,7 @@ const PARTNER_PLACEHOLDERS = {
   benefits: {
     title: 'Employee Benefits',
     partner: 'Guideline',
+    moduleName: '401(k) & Employee Benefits',
     description:
       'Offer Fortune 500 benefits to your team. 401(k), health, dental, and vision plans fully integrated with your payroll.',
     features: [
