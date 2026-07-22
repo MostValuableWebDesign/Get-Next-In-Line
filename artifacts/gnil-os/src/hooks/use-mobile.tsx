@@ -1,6 +1,8 @@
 import * as React from 'react';
 
-const MOBILE_BREAKPOINT = 768;
+// Only true phone widths get the slide-over drawer; narrow tablet/preview
+// widths keep the always-visible icon rail instead.
+const MOBILE_BREAKPOINT = 480;
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(

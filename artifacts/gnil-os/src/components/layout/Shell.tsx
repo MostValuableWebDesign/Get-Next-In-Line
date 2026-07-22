@@ -37,6 +37,7 @@ function NavMenu({ location }: { location: string }) {
           <SidebarMenuButton
             asChild
             isActive={location === item.path}
+            tooltip={item.name}
             className="data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium h-10"
           >
             <Link
@@ -66,15 +67,15 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
-        <Sidebar variant="sidebar" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-          <SidebarHeader className="p-4 border-b border-sidebar-border/50">
+        <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+          <SidebarHeader className="p-4 border-b border-sidebar-border/50 group-data-[collapsible=icon]:p-2">
             <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-              <div className="size-8 bg-primary rounded flex items-center justify-center text-primary-foreground shadow-sm">
+              <div className="size-8 shrink-0 bg-primary rounded flex items-center justify-center text-primary-foreground shadow-sm">
                 GN
               </div>
-              <span className="text-white">GNIL OS</span>
+              <span className="text-white group-data-[collapsible=icon]:hidden">GNIL OS</span>
             </div>
-            <div className="text-xs text-sidebar-foreground/60 font-mono tracking-widest mt-1 uppercase">
+            <div className="text-xs text-sidebar-foreground/60 font-mono tracking-widest mt-1 uppercase group-data-[collapsible=icon]:hidden">
               Operator Terminal
             </div>
           </SidebarHeader>
