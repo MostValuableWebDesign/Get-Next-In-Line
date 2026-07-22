@@ -25,6 +25,7 @@ const NAV_ITEMS = [
   { name: 'Media Resale', path: '/media', icon: Radio },
   { name: 'Billing', path: '/billing', icon: CreditCard },
   { name: 'Connector Registry', path: '/connectors', icon: Cable },
+  { name: 'Configuration', path: '/settings', icon: Settings },
 ];
 
 const SOS_NAV_ITEMS = [
@@ -39,7 +40,6 @@ const SOS_NAV_ITEMS = [
   { name: 'Payroll (Gusto)', path: '/sos/payroll', icon: Briefcase },
   { name: 'Business Protection', path: '/sos/business-protection', icon: ShieldCheck },
   { name: 'Employee Benefits', path: '/sos/employee-benefits', icon: Heart },
-  { name: 'SOS Settings', path: '/sos/settings', icon: Settings },
 ];
 
 import { useOnlineStatus } from '@/hooks/use-online';

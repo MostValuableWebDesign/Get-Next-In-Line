@@ -27,8 +27,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatCurrency } from '@/lib/format';
 import { useToast } from '@/hooks/use-toast';
 import {
-  ArrowLeft, CreditCard, FileText, Lock, RefreshCw, Server, ShieldCheck, Sliders, Users,
+  ArrowLeft, CreditCard, FileText, Lock, RefreshCw, Server, Settings, ShieldCheck, Sliders, Users,
 } from 'lucide-react';
+
+// Maps a module category to the matching section of the unified
+// Configuration screen so each console links to one obvious settings home.
+const CATEGORY_SETTINGS_ANCHOR: Record<string, string> = {
+  operations: '/settings#sos-operations',
+  marketing: '/settings#sms',
+};
 
 const CATEGORY_ROUTES: Record<string, { path: string; label: string }> = {
   marketing: { path: '/marketing', label: 'Marketing OS & Bridge' },
@@ -132,6 +139,11 @@ export default function ModuleConsole() {
                 )}
               </div>
             )}
+            <Button asChild variant="outline" className="gap-2" data-testid="link-module-settings">
+              <Link href={CATEGORY_SETTINGS_ANCHOR[module.categorySlug] ?? '/settings'}>
+                <Settings className="w-4 h-4" /> Configure
+              </Link>
+            </Button>
             {!isPartner && <ProvisionModuleDialog moduleId={module.id} moduleName={module.name} />}
           </div>
         </CardContent>

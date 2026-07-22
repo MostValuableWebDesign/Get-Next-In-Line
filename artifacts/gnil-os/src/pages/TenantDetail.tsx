@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
 import {
-  Activity, ArrowLeft, Building2, CalendarClock, DollarSign, Mail, Package, User,
+  Activity, ArrowLeft, Building2, CalendarClock, DollarSign, Mail, Package, Settings, User,
 } from 'lucide-react';
 
 const ACTIVITY_PAGE_SIZE = 20;
@@ -153,6 +153,12 @@ export default function TenantDetail() {
               </p>
             </div>
           </div>
+          <div className="flex items-center gap-4 self-stretch md:self-auto justify-end">
+          <Button asChild variant="outline" className="gap-2" data-testid="link-tenant-settings">
+            <Link href="/settings">
+              <Settings className="w-4 h-4" /> Configuration
+            </Link>
+          </Button>
           <div className="text-right mr-2">
             <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
               <DollarSign className="w-3 h-3" /> Monthly Recurring Revenue
@@ -161,6 +167,7 @@ export default function TenantDetail() {
               {formatCurrency(tenant.mrr)}
               <span className="text-xs text-muted-foreground font-normal font-sans">/mo</span>
             </div>
+          </div>
           </div>
         </CardContent>
       </Card>

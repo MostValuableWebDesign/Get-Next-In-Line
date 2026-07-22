@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EditConnectorDialog } from '@/components/EditConnectorDialog';
 import { formatCurrency } from '@/lib/format';
-import { ArrowLeft, Cable, History, Pencil, ShieldAlert, Users } from 'lucide-react';
+import { ArrowLeft, Cable, History, Pencil, Settings, ShieldAlert, Users } from 'lucide-react';
 
 const STATUS_BADGE: Record<string, string> = {
   active: 'border-emerald-500/40 text-emerald-600 bg-emerald-500/5',
@@ -74,10 +74,17 @@ export default function AdminModuleDetail() {
             {detail.description}
           </p>
         </div>
-        <Badge variant="destructive" className="shrink-0 gap-1.5 uppercase tracking-wider font-mono">
-          <ShieldAlert className="size-3.5" />
-          Admin Only
-        </Badge>
+        <div className="flex items-center gap-3 shrink-0">
+          <Button asChild variant="outline" size="sm" className="gap-2" data-testid="link-module-settings">
+            <Link href="/settings">
+              <Settings className="size-3.5" /> Configure
+            </Link>
+          </Button>
+          <Badge variant="destructive" className="shrink-0 gap-1.5 uppercase tracking-wider font-mono">
+            <ShieldAlert className="size-3.5" />
+            Admin Only
+          </Badge>
+        </div>
       </div>
 
       {/* Connector mapping */}

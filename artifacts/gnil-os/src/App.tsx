@@ -27,7 +27,7 @@ import { CustomersPage as SosCustomers } from "@/pages/sos/customers";
 import { PosPage as SosPos } from "@/pages/sos/pos";
 import { ReportsPage as SosReports } from "@/pages/sos/reports";
 import { MarketingPage as SosMarketing } from "@/pages/sos/marketing";
-import { SettingsPage as SosSettings } from "@/pages/sos/settings";
+import Settings from "@/pages/Settings";
 import {
   EmployeesPage as SosEmployees,
   PayrollPage as SosPayroll,
@@ -82,6 +82,7 @@ function ProtectedApp() {
         <Route path="/billing" component={Billing} />
         <Route path="/connectors" component={ConnectorRegistry} />
         <Route path="/admin/modules/:id" component={AdminModuleDetail} />
+        <Route path="/settings" component={Settings} />
         {/* SOS Operations section */}
         <Route path="/sos" component={SosDashboard} />
         <Route path="/sos/operations" component={SosOperations} />
@@ -90,7 +91,10 @@ function ProtectedApp() {
         <Route path="/sos/pos" component={SosPos} />
         <Route path="/sos/reports" component={SosReports} />
         <Route path="/sos/marketing" component={SosMarketing} />
-        <Route path="/sos/settings" component={SosSettings} />
+        {/* Old standalone SOS settings page — folded into the unified Configuration screen */}
+        <Route path="/sos/settings">
+          <Redirect to="/settings" replace />
+        </Route>
         <Route path="/sos/employees" component={SosEmployees} />
         <Route path="/sos/payroll" component={SosPayroll} />
         <Route path="/sos/business-protection" component={SosBusinessProtection} />
