@@ -3,20 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Get Next In Line — GHL + GNIL OS API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: agency
+    description: Agency command center
+  - name: tenants
+    description: Tenant provisioning and management
+  - name: modules
+    description: Service modules and pricing
+  - name: billing
+    description: Billing and checkout simulation
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +32,450 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /agency/dashboard:
+    get:
+      operationId: getAgencyDashboard
+      tags: [agency]
+      summary: Get agency dashboard summary — MRR, tenant counts, revenue totals
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgencyDashboard"
+
+  /agency/settings:
+    get:
+      operationId: getAgencySettings
+      tags: [agency]
+      summary: Get global agency settings including markup percentage
+      responses:
+        "200":
+          description: Agency settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgencySettings"
+    patch:
+      operationId: updateAgencySettings
+      tags: [agency]
+      summary: Update global agency settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgencySettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgencySettings"
+
+  /tenants:
+    get:
+      operationId: listTenants
+      tags: [tenants]
+      summary: List all provisioned tenants
+      responses:
+        "200":
+          description: List of tenants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tenant"
+    post:
+      operationId: createTenant
+      tags: [tenants]
+      summary: Provision a new tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantInput"
+      responses:
+        "201":
+          description: Created tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+
+  /tenants/activity:
+    get:
+      operationId: getTenantActivity
+      tags: [tenants]
+      summary: Recent tenant provisioning and status change activity feed
+      responses:
+        "200":
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantActivity"
+
+  /tenants/{id}:
+    get:
+      operationId: getTenant
+      tags: [tenants]
+      summary: Get a single tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTenant
+      tags: [tenants]
+      summary: Update tenant status or details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantUpdate"
+      responses:
+        "200":
+          description: Updated tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteTenant
+      tags: [tenants]
+      summary: Remove a tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /modules:
+    get:
+      operationId: listModules
+      tags: [modules]
+      summary: List all service modules with wholesale and resale pricing
+      responses:
+        "200":
+          description: List of modules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Module"
+
+  /modules/pricing:
+    get:
+      operationId: getModulesPricing
+      tags: [modules]
+      summary: Get all module pricing with current markup applied
+      responses:
+        "200":
+          description: Pricing with markup
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModulePricing"
+
+  /billing/summary:
+    get:
+      operationId: getBillingSummary
+      tags: [billing]
+      summary: Get billing summary — total MRR breakdown by category
+      responses:
+        "200":
+          description: Billing summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingSummary"
+
+  /billing/checkout:
+    post:
+      operationId: simulateCheckout
+      tags: [billing]
+      summary: Simulate Stripe checkout for module provisioning
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutInput"
+      responses:
+        "200":
+          description: Checkout result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResult"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    AgencyDashboard:
+      type: object
+      required: [totalMrr, activeTenants, suspendedTenants, totalTenants, mrrGrowthPercent, totalModulesProvisioned, revenueByCategory]
+      properties:
+        totalMrr:
+          type: number
+        activeTenants:
+          type: integer
+        suspendedTenants:
+          type: integer
+        totalTenants:
+          type: integer
+        mrrGrowthPercent:
+          type: number
+        totalModulesProvisioned:
+          type: integer
+        revenueByCategory:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryRevenue"
+
+    CategoryRevenue:
+      type: object
+      required: [category, mrr]
+      properties:
+        category:
+          type: string
+        mrr:
+          type: number
+
+    AgencySettings:
+      type: object
+      required: [id, markupPercent, platformName, deploymentMode, updatedAt]
+      properties:
+        id:
+          type: integer
+        markupPercent:
+          type: number
+        platformName:
+          type: string
+        deploymentMode:
+          type: string
+        updatedAt:
+          type: string
+
+    AgencySettingsUpdate:
+      type: object
+      properties:
+        markupPercent:
+          type: number
+        platformName:
+          type: string
+        deploymentMode:
+          type: string
+
+    Tenant:
+      type: object
+      required: [id, brandName, subdomain, status, mrr, modulesEnabled, createdAt]
+      properties:
+        id:
+          type: integer
+        brandName:
+          type: string
+        subdomain:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended, pending]
+        mrr:
+          type: number
+        modulesEnabled:
+          type: integer
+        contactEmail:
+          type: ["string", "null"]
+        contactName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    TenantInput:
+      type: object
+      required: [brandName, subdomain]
+      properties:
+        brandName:
+          type: string
+          minLength: 1
+        subdomain:
+          type: string
+          minLength: 1
+        contactEmail:
+          type: string
+        contactName:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended, pending]
+
+    TenantUpdate:
+      type: object
+      properties:
+        brandName:
+          type: string
+        subdomain:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended, pending]
+        contactEmail:
+          type: string
+        contactName:
+          type: string
+
+    TenantActivity:
+      type: object
+      required: [id, tenantId, tenantName, action, timestamp]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        action:
+          type: string
+        details:
+          type: ["string", "null"]
+        timestamp:
+          type: string
+
+    Module:
+      type: object
+      required: [id, name, category, categorySlug, description, wholesalePrice, isActive]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+        categorySlug:
+          type: string
+        description:
+          type: string
+        wholesalePrice:
+          type: number
+        isActive:
+          type: boolean
+
+    ModulePricing:
+      type: object
+      required: [id, name, category, wholesalePrice, resalePrice, markupPercent, margin]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+        wholesalePrice:
+          type: number
+        resalePrice:
+          type: number
+        markupPercent:
+          type: number
+        margin:
+          type: number
+
+    BillingSummary:
+      type: object
+      required: [totalMrr, byCategory, topTenants]
+      properties:
+        totalMrr:
+          type: number
+        byCategory:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryRevenue"
+        topTenants:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantBillingSummary"
+
+    TenantBillingSummary:
+      type: object
+      required: [tenantId, brandName, mrr]
+      properties:
+        tenantId:
+          type: integer
+        brandName:
+          type: string
+        mrr:
+          type: number
+
+    CheckoutInput:
+      type: object
+      required: [tenantId, moduleIds]
+      properties:
+        tenantId:
+          type: integer
+        moduleIds:
+          type: array
+          items:
+            type: integer
+        applyMarkup:
+          type: boolean
+
+    CheckoutResult:
+      type: object
+      required: [success, transactionId, totalWholesale, totalResale, margin, modulesProvisioned, message]
+      properties:
+        success:
+          type: boolean
+        transactionId:
+          type: string
+        totalWholesale:
+          type: number
+        totalResale:
+          type: number
+        margin:
+          type: number
+        modulesProvisioned:
+          type: integer
+        message:
+          type: string

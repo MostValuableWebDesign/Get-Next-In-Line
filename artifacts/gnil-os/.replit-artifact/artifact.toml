@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Get Next In Line — GHL + GNIL OS"
+version = "1.0.0"
+id = "artifacts/gnil-os"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25576
+
+[services.development]
+run = "pnpm --filter @workspace/gnil-os run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/gnil-os", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/gnil-os/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25576"
+BASE_PATH = "/"

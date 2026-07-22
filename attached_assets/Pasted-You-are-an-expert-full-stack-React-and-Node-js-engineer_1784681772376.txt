@@ -1,0 +1,28 @@
+You are an expert full-stack React and Node.js engineer. I want you to build, deploy, and structure a fully functional production-ready web application for my platform called **Get Next In Line (GHL + GNIL OS)**.
+
+This is a multi-tenant, white-label agency operating system that combines front-end marketing automation (GoHighLevel/GHL bridge) with back-end business operations (payroll, smart booking, no-show protection, staff commissions) and high-margin programmatic media resale (CTV, audio, programmatic display, AI video/audio generation).
+
+### Technical Requirements & Architecture
+
+1. **Tech Stack:**
+   - **Frontend:** React (with Tailwind CSS for styling and Lucide React for modern icons).
+   - **Backend / API Routing:** Node.js / Express server-side runtime proxy with a secure abstraction layer.
+   - **State Management & Persistence:** LocalStorage / Database synchronization for multi-tenant subdomains and active subscriptions.
+
+2. **Core System Layout & Navigation:**
+   - **Master Sticky Header:** Displays platform branding (`Get Next In Line - GHL + GNIL OS`), active ecosystem deployment status (`Full-Stack Agency Mode`), and a Master Billing trigger.
+   - **Left-Hand Structured Sidebar (Navigation Directory):**
+     - **Category 0: Agency Command Center** (Super-Admin Dashboard with MRR metrics, active tenant counts, global markup slider, and tenant provisioning tools).
+     - **Category 0.5: Marketing OS / GHL Bridge** (Lead Pipelines & CRM Core, Unified Omnichannel Inbox, High-Converting Funnel & Site Builder, AI Voice & SMS Nurture Bots).
+     - **Category 1: Public Core Service Modules** (Complete Payroll & Tax Suite, Smart Booking System, No-Show Shield & Deposits, Commission & Split Tracker, Service Payroll Hub).
+     - **Category 2: Partner Integrations / 0% Markup** (Commercial Liability & Workers Comp, Automated Retirement & 401(k), Group Health Insurance Hub, Integrated W-2 & Contractor Payroll, General Ledger & Financial Sync).
+     - **Category 3: White-Label Resale Engines** (High-Definition Live Stream Studio, Connected TV & OTT Ad Network, Omnichannel Retargeting & Display, Programmatic Digital Audio Ads, AI Voice & Audio Script Synthesis, Automated AI Video Ad Generator, Unified Social Analytics & Scheduler).
+
+3. **Key Functional Features to Implement:**
+   - **Global Profit Markup Engine:** An interactive slider (0% to 100%) that dynamically recalculates wholesale base pricing into tenant resale pricing across all marketing, operations, and media modules.
+   - **Multi-Tenant Subdomain Provisioning:** A form to provision new client instances (e.g., `brand.getnextinline.io`), toggle active/suspended statuses, and manage monthly recurring revenue (MRR).
+   - **Server-Side Obfuscation & Security Guard:** Ensure all underlying APIs (GHL, The Hartford, Gusto, QuickBooks, Vibe.co, etc.) are tunneled through secure server-side proxy routes with zero vendor watermark disclosures or upstream branding leaks in the UI code.
+   - **Simulated Stripe Checkout Modal:** Tokenized payment simulation that calculates base costs against the global agency markup percentage and confirms module provisioning.
+   - **Toast Notification System:** Floating alert banners providing real-time visual feedback for data synchronization, billing authorizations, and tenant state changes.
+
+Please provide the complete, clean, and production-ready code structure so I can immediately copy and paste it into Replit to run the full application.
