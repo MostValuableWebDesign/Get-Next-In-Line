@@ -5,7 +5,7 @@ export default function Marketing() {
     <ModuleGrid 
       categorySlug="marketing" 
       title="Marketing OS & Bridge" 
-      description="GoHighLevel integration modules and core marketing pipelines."
+      description="GNIL integration modules and core marketing pipelines."
     />
   );
 }
