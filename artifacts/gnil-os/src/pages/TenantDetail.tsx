@@ -38,10 +38,10 @@ export default function TenantDetail() {
     query: { queryKey: getGetTenantModulesQueryKey(tenantId), enabled: validId },
   });
   const { data: activityPage, isLoading: isLoadingActivity } = useGetTenantActivity(
-    { tenantId, limit: ACTIVITY_PAGE_SIZE, offset: 0 },
+    { tenantId, limit: ACTIVITY_PAGE_SIZE },
     {
       query: {
-        queryKey: getGetTenantActivityQueryKey({ tenantId, limit: ACTIVITY_PAGE_SIZE, offset: 0 }),
+        queryKey: getGetTenantActivityQueryKey({ tenantId, limit: ACTIVITY_PAGE_SIZE }),
         enabled: validId,
       },
     }
@@ -70,13 +70,20 @@ export default function TenantDetail() {
 
   const loadMoreActivity = async () => {
     const requestTenantId = tenantId;
+    // Keyset cursor: the (timestamp, id) of the last loaded item.
+    const lastItem =
+      extraActivity.length > 0
+        ? extraActivity[extraActivity.length - 1]
+        : firstPageItems[firstPageItems.length - 1];
+    if (!lastItem) return;
     setIsLoadingMore(true);
     setLoadMoreError(false);
     try {
       const page = await getTenantActivity({
         tenantId: requestTenantId,
         limit: ACTIVITY_PAGE_SIZE,
-        offset: firstPageItems.length + extraActivity.length,
+        before_timestamp: lastItem.timestamp,
+        before_id: lastItem.id,
       });
       // Ignore stale responses that resolve after switching tenants.
       if (activityTenantRef.current !== requestTenantId) return;

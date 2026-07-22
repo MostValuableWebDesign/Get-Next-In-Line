@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { tenantsTable, tenantActivitiesTable, tenantModulesTable, modulesTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import {
   GetTenantModulesParams,
   GetTenantModulesResponse,
@@ -79,9 +79,16 @@ router.get("/tenants/activity", async (req, res): Promise<void> => {
     res.status(400).json({ error: query.error.message });
     return;
   }
-  const { tenantId } = query.data;
+  const { tenantId, before_timestamp: beforeTimestamp, before_id: beforeId } = query.data;
   const limit = query.data.limit ?? 20;
   const offset = query.data.offset ?? 0;
+
+  if ((beforeTimestamp === undefined) !== (beforeId === undefined)) {
+    res.status(400).json({
+      error: "before_timestamp and before_id must be provided together",
+    });
+    return;
+  }
 
   if (tenantId !== undefined) {
     const [tenant] = await db
@@ -92,6 +99,19 @@ router.get("/tenants/activity", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Tenant not found" });
       return;
     }
+  }
+
+  // Keyset (cursor) pagination: (timestamp, id) < (before_timestamp, before_id)
+  // lets the composite indexes serve every page in constant time, unlike offset.
+  const conditions = [];
+  if (tenantId !== undefined) {
+    conditions.push(eq(tenantActivitiesTable.tenantId, tenantId));
+  }
+  const usingCursor = beforeTimestamp !== undefined && beforeId !== undefined;
+  if (usingCursor) {
+    conditions.push(
+      sql`(${tenantActivitiesTable.timestamp}, ${tenantActivitiesTable.id}) < (${beforeTimestamp}, ${beforeId})`
+    );
   }
 
   const baseQuery = db
@@ -105,16 +125,13 @@ router.get("/tenants/activity", async (req, res): Promise<void> => {
     })
     .from(tenantActivitiesTable)
     .leftJoin(tenantsTable, eq(tenantActivitiesTable.tenantId, tenantsTable.id))
-    .orderBy(desc(tenantActivitiesTable.timestamp), desc(tenantActivitiesTable.id));
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(tenantActivitiesTable.timestamp), desc(tenantActivitiesTable.id))
+    // Fetch one extra row to determine whether more pages exist
+    .limit(limit + 1);
 
-  // Fetch one extra row to determine whether more pages exist
-  const rows =
-    tenantId !== undefined
-      ? await baseQuery
-          .where(eq(tenantActivitiesTable.tenantId, tenantId))
-          .limit(limit + 1)
-          .offset(offset)
-      : await baseQuery.limit(limit + 1).offset(offset);
+  // Offset is retained for backward compatibility; the cursor takes precedence.
+  const rows = usingCursor ? await baseQuery : await baseQuery.offset(offset);
 
   const hasMore = rows.length > limit;
   const activities = rows.slice(0, limit);

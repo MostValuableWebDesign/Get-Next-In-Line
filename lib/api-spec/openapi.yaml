@@ -133,10 +133,25 @@ paths:
         - name: offset
           in: query
           required: false
-          description: Number of items to skip (default 0)
+          description: Number of items to skip (default 0). Deprecated — prefer cursor pagination via before_timestamp/before_id.
+          deprecated: true
           schema:
             type: integer
             minimum: 0
+        - name: before_timestamp
+          in: query
+          required: false
+          description: Keyset cursor — return items strictly older than this (timestamp, id) pair. Must be paired with before_id. Takes precedence over offset.
+          schema:
+            type: string
+            format: date-time
+        - name: before_id
+          in: query
+          required: false
+          description: Keyset cursor id tiebreaker; must be paired with before_timestamp.
+          schema:
+            type: integer
+            minimum: 1
       responses:
         "200":
           description: Paginated activity feed

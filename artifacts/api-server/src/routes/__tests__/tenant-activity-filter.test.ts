@@ -54,25 +54,53 @@ vi.mock("@workspace/db", () => {
   const agencySettingsTable = {};
 
   // Query chain that mimics drizzle's builder for the activity route:
-  // .where(cond)? → .limit(n) → .offset(m) resolving to the rows.
+  // .where(cond?) → .orderBy(...) → .limit(n) (awaitable), with an optional
+  // trailing .offset(m) for the legacy offset path.
+  type Cond =
+    | { rhs: number } // eq() mock
+    | { and: Cond[] } // and() mock
+    | { cursor: { ts: Date; id: number } } // sql`` keyset mock
+    | undefined;
+
+  function applyConditions(cond: Cond, rows: typeof fakeActivities) {
+    if (!cond) return rows;
+    const conds = "and" in cond ? cond.and : [cond];
+    let out = rows;
+    for (const c of conds) {
+      if (c && "rhs" in c) out = out.filter((r) => r.tenantId === c.rhs);
+      if (c && "cursor" in c) {
+        const { ts, id } = c.cursor;
+        out = out.filter(
+          (r) =>
+            r.timestamp.getTime() < ts.getTime() ||
+            (r.timestamp.getTime() === ts.getTime() && r.id < id),
+        );
+      }
+    }
+    return out;
+  }
+
   function makeActivityQuery() {
     const sorted = [...fakeActivities].sort(
       (a, b) => b.timestamp.getTime() - a.timestamp.getTime() || b.id - a.id,
     );
-    const paginate = (rows: typeof sorted) => ({
-      limit: (n: number) => ({
-        offset: (m: number) => Promise.resolve(rows.slice(m, m + n)),
-      }),
-    });
     return {
-      // route: .where(eq(tenantActivitiesTable.tenantId, tenantId)).limit(...).offset(...)
-      where: (cond: { rhs?: unknown } | unknown) => {
-        // our eq() mock returns { rhs }
-        const tenantId = (cond as { rhs: number }).rhs;
-        return paginate(sorted.filter((r) => r.tenantId === tenantId));
+      where: (cond: Cond) => {
+        const rows = applyConditions(cond, sorted);
+        return {
+          orderBy: (...cols: unknown[]) => {
+            capturedOrderBy = cols;
+            return {
+              // Awaiting .limit(n) directly serves the keyset path; the
+              // legacy offset path chains .offset(m) afterwards.
+              limit: (n: number) =>
+                Object.assign(Promise.resolve(rows.slice(0, n)), {
+                  offset: (m: number) => Promise.resolve(rows.slice(m, m + n)),
+                }),
+            };
+          },
+        };
       },
-      // route: .limit(...).offset(...)
-      ...paginate(sorted),
     };
   }
 
@@ -81,12 +109,7 @@ vi.mock("@workspace/db", () => {
   const db = {
     select: () => ({
       from: (table: unknown) => ({
-        leftJoin: () => ({
-          orderBy: (...cols: unknown[]) => {
-            capturedOrderBy = cols;
-            return makeActivityQuery();
-          },
-        }),
+        leftJoin: () => makeActivityQuery(),
         orderBy: () => Promise.resolve([]),
         limit: () => Promise.resolve([]),
         // route: tenant-existence check .where(eq(tenantsTable.id, tenantId))
@@ -108,6 +131,12 @@ vi.mock("@workspace/db", () => {
 vi.mock("drizzle-orm", () => ({
   eq: (_lhs: unknown, rhs: unknown) => ({ rhs }),
   desc: (col: unknown) => ({ dir: "desc", col }),
+  and: (...conds: unknown[]) => ({ and: conds }),
+  // route: sql`(${tsCol}, ${idCol}) < (${beforeTimestamp}, ${beforeId})`
+  // → values are [tsCol, idCol, beforeTimestamp, beforeId]
+  sql: (_strings: TemplateStringsArray, ...vals: unknown[]) => ({
+    cursor: { ts: vals[2] as Date, id: vals[3] as number },
+  }),
 }));
 
 process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "test-admin-password";

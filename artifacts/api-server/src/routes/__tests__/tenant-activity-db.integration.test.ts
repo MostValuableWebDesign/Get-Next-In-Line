@@ -152,6 +152,41 @@ describe("GET /api/tenants/activity (real database)", () => {
     expect(new Set(stitched).size).toBe(stitched.length);
   });
 
+  it("pages with keyset cursor (before_timestamp/before_id): no overlap, no gaps, stable across ties", async () => {
+    const agent = await loggedInAgent();
+    const pages: { id: number; timestamp: string }[][] = [];
+    let cursor: { before_timestamp: string; before_id: number } | null = null;
+    // Walk the whole alpha feed 3 rows at a time using the cursor.
+    for (let i = 0; i < 10; i++) {
+      const qs =
+        `tenantId=${alphaId}&limit=3` +
+        (cursor
+          ? `&before_timestamp=${encodeURIComponent(cursor.before_timestamp)}&before_id=${cursor.before_id}`
+          : "");
+      const res = await agent.get(`/api/tenants/activity?${qs}`);
+      expect(res.status).toBe(200);
+      pages.push(res.body.items);
+      if (!res.body.hasMore) break;
+      const last = res.body.items[res.body.items.length - 1];
+      cursor = { before_timestamp: last.timestamp, before_id: last.id };
+    }
+    const stitched = pages.flat().map((r) => r.id);
+    // Cursor-stitched pages reproduce the full ordered result exactly,
+    // including deterministic paging through the tied-timestamp rows.
+    expect(stitched).toEqual(alphaExpectedIds);
+    expect(new Set(stitched).size).toBe(stitched.length);
+  });
+
+  it("rejects a cursor half (before_timestamp without before_id, and vice versa)", async () => {
+    const agent = await loggedInAgent();
+    const noId = await agent.get(
+      `/api/tenants/activity?before_timestamp=${encodeURIComponent(new Date().toISOString())}`,
+    );
+    expect(noId.status).toBe(400);
+    const noTs = await agent.get(`/api/tenants/activity?before_id=1`);
+    expect(noTs.status).toBe(400);
+  });
+
   it("hasMore boundaries: exact fit false, one-short true, past-the-end empty", async () => {
     const agent = await loggedInAgent();
     // Beta has exactly 3 rows.
