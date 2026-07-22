@@ -8,7 +8,8 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm run db:push` (or `pnpm --filter @workspace/db run push`) — apply DB schema changes via generated migrations (non-interactive; dev only). Migration files live in `lib/db/migrations`.
+- `pnpm run db:check-drift` — verify the dev DB matches `lib/db/src/schema` (also runs as a startup warning in the API server)
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack
