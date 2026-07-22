@@ -1,12 +1,150 @@
-import { useGetConnectorRegistry } from '@workspace/api-client-react';
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  useGetConnectorRegistry,
+  useUpdateConnectorRegistryEntry,
+  getGetConnectorRegistryQueryKey,
+  type ConnectorRegistryEntry,
+} from '@workspace/api-client-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShieldAlert, Cable } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { ShieldAlert, Cable, Pencil } from 'lucide-react';
 
 const CATEGORY_ORDER = ['marketing', 'operations', 'partners', 'media'];
 
+function EditConnectorDialog({
+  entry,
+  onClose,
+}: {
+  entry: ConnectorRegistryEntry;
+  onClose: () => void;
+}) {
+  const [slug, setSlug] = useState(entry.slug ?? '');
+  const [upstreamVendor, setUpstreamVendor] = useState(entry.upstreamVendor ?? '');
+  const [hiddenConnector, setHiddenConnector] = useState(entry.hiddenConnector ?? '');
+  const [proxyNotes, setProxyNotes] = useState(entry.proxyNotes ?? '');
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useUpdateConnectorRegistryEntry({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetConnectorRegistryQueryKey() });
+        toast({ title: 'Connector updated', description: `${entry.name} saved.` });
+        onClose();
+      },
+      onError: () => {
+        toast({
+          title: 'Update failed',
+          description: 'Could not save connector details. Please try again.',
+          variant: 'destructive',
+        });
+      },
+    },
+  });
+
+  const toNullable = (v: string) => {
+    const t = v.trim();
+    return t === '' ? null : t;
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent data-testid="dialog-edit-connector">
+        <DialogHeader>
+          <DialogTitle>Edit Connector — {entry.name}</DialogTitle>
+          <DialogDescription>
+            Update the hidden connector mapping. These details are admin-only and never shown to
+            tenants.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-slug">Slug</Label>
+            <Input
+              id="edit-slug"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder="e.g. ghl_crm_pipelines"
+              className="font-mono"
+              data-testid="input-slug"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-vendor">Upstream Vendor</Label>
+            <Input
+              id="edit-vendor"
+              value={upstreamVendor}
+              onChange={(e) => setUpstreamVendor(e.target.value)}
+              placeholder="e.g. GoHighLevel"
+              data-testid="input-upstream-vendor"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-connector">Hidden Connector</Label>
+            <Input
+              id="edit-connector"
+              value={hiddenConnector}
+              onChange={(e) => setHiddenConnector(e.target.value)}
+              placeholder="Connector description"
+              data-testid="input-hidden-connector"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-notes">Proxy Notes</Label>
+            <Textarea
+              id="edit-notes"
+              value={proxyNotes}
+              onChange={(e) => setProxyNotes(e.target.value)}
+              placeholder="Routing / white-label notes"
+              rows={3}
+              data-testid="input-proxy-notes"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} data-testid="button-cancel-edit">
+            Cancel
+          </Button>
+          <Button
+            onClick={() =>
+              mutation.mutate({
+                id: entry.id,
+                data: {
+                  slug: toNullable(slug),
+                  upstreamVendor: toNullable(upstreamVendor),
+                  hiddenConnector: toNullable(hiddenConnector),
+                  proxyNotes: toNullable(proxyNotes),
+                },
+              })
+            }
+            disabled={mutation.isPending}
+            data-testid="button-save-connector"
+          >
+            {mutation.isPending ? 'Saving…' : 'Save Changes'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function ConnectorRegistry() {
   const { data: entries, isLoading } = useGetConnectorRegistry();
+  const [editing, setEditing] = useState<ConnectorRegistryEntry | null>(null);
 
   if (isLoading) {
     return (
@@ -63,7 +201,7 @@ export default function ConnectorRegistry() {
                 {group.items.map((m) => (
                   <div
                     key={m.id}
-                    className="px-6 py-4 grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-8 gap-y-1.5"
+                    className="px-6 py-4 grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_auto] gap-x-8 gap-y-1.5 items-start"
                     data-testid={`row-module-${m.id}`}
                   >
                     <div className="min-w-0">
@@ -95,6 +233,17 @@ export default function ConnectorRegistry() {
                         </div>
                       )}
                     </div>
+                    <div className="flex md:justify-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditing(m)}
+                        aria-label={`Edit ${m.name} connector`}
+                        data-testid={`button-edit-${m.id}`}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -102,6 +251,10 @@ export default function ConnectorRegistry() {
           </Card>
         );
       })}
+
+      {editing && (
+        <EditConnectorDialog key={editing.id} entry={editing} onClose={() => setEditing(null)} />
+      )}
     </div>
   );
 }

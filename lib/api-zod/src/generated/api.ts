@@ -228,6 +228,33 @@ export const GetConnectorRegistryResponse = zod.array(GetConnectorRegistryRespon
 
 
 /**
+ * @summary Admin-only — update a module's hidden connector details
+ */
+export const UpdateConnectorRegistryEntryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateConnectorRegistryEntryBody = zod.object({
+  "slug": zod.string().nullish(),
+  "upstreamVendor": zod.string().nullish(),
+  "hiddenConnector": zod.string().nullish(),
+  "proxyNotes": zod.string().nullish()
+})
+
+export const UpdateConnectorRegistryEntryResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "slug": zod.string().nullable(),
+  "category": zod.string(),
+  "categorySlug": zod.string(),
+  "isActive": zod.boolean(),
+  "upstreamVendor": zod.string().nullable(),
+  "hiddenConnector": zod.string().nullable(),
+  "proxyNotes": zod.string().nullable()
+})
+
+
+/**
  * @summary Get billing summary — total MRR breakdown by category
  */
 export const GetBillingSummaryResponse = zod.object({

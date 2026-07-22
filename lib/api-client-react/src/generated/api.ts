@@ -27,6 +27,7 @@ import type {
   CheckoutInput,
   CheckoutResult,
   ConnectorRegistryEntry,
+  ConnectorRegistryEntryUpdate,
   HealthStatus,
   Module,
   ModulePricing,
@@ -1040,6 +1041,78 @@ export function useGetConnectorRegistry<TData = Awaited<ReturnType<typeof getCon
 
 
 
+
+export const getUpdateConnectorRegistryEntryUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/connector-registry/${id}`
+}
+
+/**
+ * @summary Admin-only — update a module's hidden connector details
+ */
+export const updateConnectorRegistryEntry = async (id: number,
+    connectorRegistryEntryUpdate: ConnectorRegistryEntryUpdate, options?: RequestInit): Promise<ConnectorRegistryEntry> => {
+
+  return customFetch<ConnectorRegistryEntry>(getUpdateConnectorRegistryEntryUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(connectorRegistryEntryUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateConnectorRegistryEntryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateConnectorRegistryEntry>>, TError,{id: number;data: BodyType<ConnectorRegistryEntryUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateConnectorRegistryEntry>>, TError,{id: number;data: BodyType<ConnectorRegistryEntryUpdate>}, TContext> => {
+
+const mutationKey = ['updateConnectorRegistryEntry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateConnectorRegistryEntry>>, {id: number;data: BodyType<ConnectorRegistryEntryUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateConnectorRegistryEntry(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateConnectorRegistryEntryMutationResult = NonNullable<Awaited<ReturnType<typeof updateConnectorRegistryEntry>>>
+    export type UpdateConnectorRegistryEntryMutationBody = BodyType<ConnectorRegistryEntryUpdate>
+    export type UpdateConnectorRegistryEntryMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — update a module's hidden connector details
+ */
+export const useUpdateConnectorRegistryEntry = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateConnectorRegistryEntry>>, TError,{id: number;data: BodyType<ConnectorRegistryEntryUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateConnectorRegistryEntry>>,
+        TError,
+        {id: number;data: BodyType<ConnectorRegistryEntryUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateConnectorRegistryEntryMutationOptions(options));
+    }
 
 export const getGetBillingSummaryUrl = () => {
 

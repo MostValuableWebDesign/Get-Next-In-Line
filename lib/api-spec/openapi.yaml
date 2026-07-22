@@ -231,6 +231,33 @@ paths:
                 items:
                   $ref: "#/components/schemas/ConnectorRegistryEntry"
 
+  /admin/connector-registry/{id}:
+    patch:
+      operationId: updateConnectorRegistryEntry
+      tags: [admin]
+      summary: Admin-only — update a module's hidden connector details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectorRegistryEntryUpdate"
+      responses:
+        "200":
+          description: Updated registry entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectorRegistryEntry"
+        "404":
+          description: Not found
+
   /billing/summary:
     get:
       operationId: getBillingSummary
@@ -436,6 +463,18 @@ components:
           type: string
         isActive:
           type: boolean
+        upstreamVendor:
+          type: ["string", "null"]
+        hiddenConnector:
+          type: ["string", "null"]
+        proxyNotes:
+          type: ["string", "null"]
+
+    ConnectorRegistryEntryUpdate:
+      type: object
+      properties:
+        slug:
+          type: ["string", "null"]
         upstreamVendor:
           type: ["string", "null"]
         hiddenConnector:

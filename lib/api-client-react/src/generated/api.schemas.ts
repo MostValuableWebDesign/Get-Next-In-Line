@@ -133,6 +133,17 @@ export interface ConnectorRegistryEntry {
   proxyNotes: string | null;
 }
 
+export interface ConnectorRegistryEntryUpdate {
+  /** @nullable */
+  slug?: string | null;
+  /** @nullable */
+  upstreamVendor?: string | null;
+  /** @nullable */
+  hiddenConnector?: string | null;
+  /** @nullable */
+  proxyNotes?: string | null;
+}
+
 export interface ModulePricing {
   id: number;
   name: string;
