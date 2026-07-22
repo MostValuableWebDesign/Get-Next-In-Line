@@ -49,6 +49,7 @@ import {
   SimulateSosCallBody,
   SimulateSosCallResponse,
   GetSosReportsSummaryResponse,
+  GetSosCustomerTimelineResponse,
 } from "@workspace/api-zod";
 import { and, desc, eq, gte, ilike, inArray, lte, ne, sql } from "drizzle-orm";
 import twilio from "twilio";
@@ -480,6 +481,114 @@ router.patch("/sos/customers/:id", async (req, res): Promise<void> => {
     if (profile) row.clientProfileId = profile.id;
   }
   res.json(UpdateSosCustomerResponse.parse(serializeCustomer(row, profile)));
+});
+
+// ── unified customer communications timeline ────────────────────────────────
+
+type TimelineEntry = {
+  id: string;
+  channel: "ai_call" | "sms" | "concierge";
+  kind: string;
+  direction: "inbound" | "outbound";
+  status: string;
+  timestamp: string;
+  body: string | null;
+};
+
+// Merges AI receptionist calls, SOS SMS, and concierge automated messages
+// into one chronological feed, matched by customer id, linked concierge
+// profile, and normalized phone number.
+router.get("/sos/customers/:id/timeline", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const [customer] = await db
+    .select()
+    .from(sosCustomersTable)
+    .where(eq(sosCustomersTable.id, id));
+  if (!customer) {
+    res.status(404).json({ message: "Customer not found" });
+    return;
+  }
+
+  const phone = normalizeToE164(customer.phone);
+
+  const [calls, messages, logs] = await Promise.all([
+    // Calls only carry a phone number; match by normalized phone.
+    phone
+      ? db.select().from(sosCallsTable).orderBy(desc(sosCallsTable.createdAt))
+      : Promise.resolve([] as (typeof sosCallsTable.$inferSelect)[]),
+    // SOS messages: linked by customer id, or by normalized to-number.
+    db
+      .select()
+      .from(sosMessagesTable)
+      .where(
+        phone
+          ? sql`${sosMessagesTable.customerId} = ${id} or ${sosMessagesTable.toNumber} is not null`
+          : eq(sosMessagesTable.customerId, id),
+      )
+      .orderBy(desc(sosMessagesTable.createdAt)),
+    // Concierge logs: linked concierge profile, or normalized to-number.
+    customer.clientProfileId != null || phone
+      ? db
+          .select()
+          .from(messageLogsTable)
+          .where(
+            customer.clientProfileId != null
+              ? sql`${messageLogsTable.clientProfileId} = ${customer.clientProfileId} or ${messageLogsTable.toNumber} is not null`
+              : sql`${messageLogsTable.toNumber} is not null`,
+          )
+          .orderBy(desc(messageLogsTable.createdAt))
+      : Promise.resolve([] as (typeof messageLogsTable.$inferSelect)[]),
+  ]);
+
+  const entries: TimelineEntry[] = [];
+
+  for (const c of calls) {
+    if (normalizeToE164(c.fromNumber) !== phone) continue;
+    entries.push({
+      id: `call-${c.id}`,
+      channel: "ai_call",
+      kind: c.outcome,
+      direction: "inbound",
+      status: c.outcome,
+      timestamp: c.createdAt.toISOString(),
+      body: c.transcriptSummary ?? c.intent,
+    });
+  }
+
+  for (const m of messages) {
+    const matches =
+      m.customerId === id || (phone != null && normalizeToE164(m.toNumber) === phone);
+    if (!matches) continue;
+    entries.push({
+      id: `sms-${m.id}`,
+      channel: "sms",
+      kind: m.kind,
+      direction: m.direction === "inbound" ? "inbound" : "outbound",
+      status: m.deliveryStatus,
+      timestamp: m.createdAt.toISOString(),
+      body: m.body,
+    });
+  }
+
+  for (const l of logs) {
+    const matches =
+      (customer.clientProfileId != null && l.clientProfileId === customer.clientProfileId) ||
+      (phone != null && normalizeToE164(l.toNumber) === phone);
+    if (!matches) continue;
+    const payload = (l.payload ?? {}) as Record<string, unknown>;
+    entries.push({
+      id: `concierge-${l.id}`,
+      channel: "concierge",
+      kind: l.jobType,
+      direction: "outbound",
+      status: l.status,
+      timestamp: l.createdAt.toISOString(),
+      body: typeof payload.body === "string" ? payload.body : null,
+    });
+  }
+
+  entries.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  res.json(GetSosCustomerTimelineResponse.parse(entries));
 });
 
 // ── visits (customer journey state machine) ──────────────────────────────────
@@ -1013,10 +1122,14 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
 
 // ── AI receptionist calls ────────────────────────────────────────────────────
 
-function serializeCall(c: typeof sosCallsTable.$inferSelect) {
+function serializeCall(
+  c: typeof sosCallsTable.$inferSelect,
+  customerId: number | null = null,
+) {
   return {
     id: c.id,
     fromNumber: c.fromNumber,
+    customerId,
     callerName: c.callerName,
     intent: c.intent,
     transcriptSummary: c.transcriptSummary,
@@ -1026,13 +1139,33 @@ function serializeCall(c: typeof sosCallsTable.$inferSelect) {
   };
 }
 
-router.get("/sos/calls", async (_req, res): Promise<void> => {
+/** Map of normalized phone → customer id, for matching call logs to customers. */
+async function customerIdByNormalizedPhone(): Promise<Map<string, number>> {
   const rows = await db
-    .select()
-    .from(sosCallsTable)
-    .orderBy(desc(sosCallsTable.createdAt))
-    .limit(100);
-  res.json(ListSosCallsResponse.parse(rows.map(serializeCall)));
+    .select({ id: sosCustomersTable.id, phone: sosCustomersTable.phone })
+    .from(sosCustomersTable)
+    .where(sql`${sosCustomersTable.phone} is not null`);
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    const normalized = normalizeToE164(r.phone);
+    if (normalized && !map.has(normalized)) map.set(normalized, r.id);
+  }
+  return map;
+}
+
+router.get("/sos/calls", async (_req, res): Promise<void> => {
+  const [rows, phoneMap] = await Promise.all([
+    db.select().from(sosCallsTable).orderBy(desc(sosCallsTable.createdAt)).limit(100),
+    customerIdByNormalizedPhone(),
+  ]);
+  res.json(
+    ListSosCallsResponse.parse(
+      rows.map((c) => {
+        const normalized = normalizeToE164(c.fromNumber);
+        return serializeCall(c, normalized ? (phoneMap.get(normalized) ?? null) : null);
+      }),
+    ),
+  );
 });
 
 router.post("/sos/calls", async (req, res): Promise<void> => {
@@ -1118,7 +1251,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
     })
     .returning();
 
-  res.status(201).json(SimulateSosCallResponse.parse(serializeCall(call)));
+  res.status(201).json(SimulateSosCallResponse.parse(serializeCall(call, customer.id)));
 });
 
 // ── reports ──────────────────────────────────────────────────────────────────

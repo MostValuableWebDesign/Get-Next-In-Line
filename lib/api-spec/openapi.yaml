@@ -604,6 +604,29 @@ paths:
         "404":
           description: Not found
 
+  /sos/customers/{id}/timeline:
+    get:
+      operationId: getSosCustomerTimeline
+      tags: [sos]
+      summary: Unified per-customer communications timeline (AI calls, texts, concierge messages)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Timeline entries, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosTimelineEntry"
+        "404":
+          description: Not found
+
   /sos/visits:
     get:
       operationId: listSosVisits
@@ -1362,12 +1385,15 @@ components:
 
     SosCall:
       type: object
-      required: [id, fromNumber, intent, outcome, createdAt]
+      required: [id, fromNumber, intent, outcome, createdAt, customerId]
       properties:
         id:
           type: integer
         fromNumber:
           type: string
+        customerId:
+          type: ["integer", "null"]
+          description: Matching SOS customer (by normalized phone), when known
         callerName:
           type: ["string", "null"]
         intent:
@@ -1381,6 +1407,31 @@ components:
           type: ["integer", "null"]
         createdAt:
           type: string
+
+    SosTimelineEntry:
+      type: object
+      description: One entry in a customer's unified communications timeline.
+      required: [id, channel, kind, direction, status, timestamp, body]
+      properties:
+        id:
+          type: string
+          description: Stable synthetic id, e.g. "call-3", "sms-7", "concierge-4"
+        channel:
+          type: string
+          enum: [ai_call, sms, concierge]
+        kind:
+          type: string
+          description: Source-specific kind (call outcome, message kind, or concierge job type)
+        direction:
+          type: string
+          enum: [inbound, outbound]
+        status:
+          type: string
+        timestamp:
+          type: string
+        body:
+          type: ["string", "null"]
+          description: Message body or call summary/intent
 
     SosCallInput:
       type: object

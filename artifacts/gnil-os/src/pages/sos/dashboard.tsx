@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'wouter';
 import { useGetSosDashboard, useListSosMessages, useListSosCalls } from '@workspace/api-client-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -13,6 +14,10 @@ export function DashboardPage() {
   const { data: calls, isLoading: isLoadingCalls } = useListSosCalls();
 
   const recentCalls = calls?.slice(0, 5) || [];
+  const [, navigate] = useLocation();
+  const openTimeline = (customerId: number | null | undefined) => {
+    if (customerId != null) navigate(`/sos/customers?customer=${customerId}`);
+  };
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
@@ -90,7 +95,12 @@ export function DashboardPage() {
               <div className="text-sm text-muted-foreground text-center py-4">No messages today</div>
             ) : (
               messages?.map(msg => (
-                <div key={msg.id} className="flex justify-between items-center text-sm p-2 rounded bg-muted/30">
+                <div
+                  key={msg.id}
+                  className={`flex justify-between items-center text-sm p-2 rounded bg-muted/30 ${msg.customerId != null ? 'cursor-pointer hover:bg-muted/60 transition-colors' : ''}`}
+                  onClick={() => openTimeline(msg.customerId)}
+                  title={msg.customerId != null ? 'View customer timeline' : undefined}
+                >
                   <div className="truncate pr-4 flex-1">
                     <span className="font-medium mr-2">{msg.customerName || msg.toNumber}</span>
                     <span className="text-muted-foreground">{msg.body}</span>
@@ -118,7 +128,12 @@ export function DashboardPage() {
               <div className="text-sm text-muted-foreground text-center py-4">No calls today</div>
             ) : (
               recentCalls.map(call => (
-                <div key={call.id} className="flex flex-col text-sm p-3 rounded bg-muted/30 gap-1">
+                <div
+                  key={call.id}
+                  className={`flex flex-col text-sm p-3 rounded bg-muted/30 gap-1 ${call.customerId != null ? 'cursor-pointer hover:bg-muted/60 transition-colors' : ''}`}
+                  onClick={() => openTimeline(call.customerId)}
+                  title={call.customerId != null ? 'View customer timeline' : undefined}
+                >
                   <div className="flex justify-between items-center">
                     <span className="font-medium">{call.callerName || call.fromNumber}</span>
                     <Badge variant={call.outcome === 'booked' ? 'default' : 'secondary'} className="capitalize">

@@ -60,6 +60,7 @@ import type {
   SosResourceUpdate,
   SosSettings,
   SosSettingsUpdate,
+  SosTimelineEntry,
   SosVisit,
   SosVisitAdvance,
   SosVisitInput,
@@ -2431,6 +2432,83 @@ export const useUpdateSosCustomer = <TError = ErrorType<void>,
       > => {
       return useMutation(getUpdateSosCustomerMutationOptions(options));
     }
+
+export const getGetSosCustomerTimelineUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/customers/${id}/timeline`
+}
+
+/**
+ * @summary Unified per-customer communications timeline (AI calls, texts, concierge messages)
+ */
+export const getSosCustomerTimeline = async (id: number, options?: RequestInit): Promise<SosTimelineEntry[]> => {
+
+  return customFetch<SosTimelineEntry[]>(getGetSosCustomerTimelineUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSosCustomerTimelineQueryKey = (id: number,) => {
+    return [
+    `/api/sos/customers/${id}/timeline`
+    ] as const;
+    }
+
+
+export const getGetSosCustomerTimelineQueryOptions = <TData = Awaited<ReturnType<typeof getSosCustomerTimeline>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosCustomerTimeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSosCustomerTimelineQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSosCustomerTimeline>>> = ({ signal }) => getSosCustomerTimeline(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSosCustomerTimeline>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSosCustomerTimelineQueryResult = NonNullable<Awaited<ReturnType<typeof getSosCustomerTimeline>>>
+export type GetSosCustomerTimelineQueryError = ErrorType<void>
+
+
+/**
+ * @summary Unified per-customer communications timeline (AI calls, texts, concierge messages)
+ */
+
+export function useGetSosCustomerTimeline<TData = Awaited<ReturnType<typeof getSosCustomerTimeline>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosCustomerTimeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSosCustomerTimelineQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListSosVisitsUrl = (params?: ListSosVisitsParams,) => {
   const normalizedParams = new URLSearchParams();

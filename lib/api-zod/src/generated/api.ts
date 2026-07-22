@@ -670,6 +670,25 @@ export const UpdateSosCustomerResponse = zod.object({
 
 
 /**
+ * @summary Unified per-customer communications timeline (AI calls, texts, concierge messages)
+ */
+export const GetSosCustomerTimelineParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetSosCustomerTimelineResponseItem = zod.object({
+  "id": zod.string().describe('Stable synthetic id, e.g. \"call-3\", \"sms-7\", \"concierge-4\"'),
+  "channel": zod.enum(['ai_call', 'sms', 'concierge']),
+  "kind": zod.string().describe('Source-specific kind (call outcome, message kind, or concierge job type)'),
+  "direction": zod.enum(['inbound', 'outbound']),
+  "status": zod.string(),
+  "timestamp": zod.string(),
+  "body": zod.string().nullable().describe('Message body or call summary\/intent')
+}).describe('One entry in a customer\'s unified communications timeline.')
+export const GetSosCustomerTimelineResponse = zod.array(GetSosCustomerTimelineResponseItem)
+
+
+/**
  * @summary List visits (live queue + in service), newest first
  */
 export const ListSosVisitsQueryParams = zod.object({
@@ -958,6 +977,7 @@ export const SendSosMessageResponse = zod.object({
 export const ListSosCallsResponseItem = zod.object({
   "id": zod.number(),
   "fromNumber": zod.string(),
+  "customerId": zod.number().nullable().describe('Matching SOS customer (by normalized phone), when known'),
   "callerName": zod.string().nullish(),
   "intent": zod.string(),
   "transcriptSummary": zod.string().nullish(),
@@ -984,6 +1004,7 @@ export const SimulateSosCallBody = zod.object({
 export const SimulateSosCallResponse = zod.object({
   "id": zod.number(),
   "fromNumber": zod.string(),
+  "customerId": zod.number().nullable().describe('Matching SOS customer (by normalized phone), when known'),
   "callerName": zod.string().nullish(),
   "intent": zod.string(),
   "transcriptSummary": zod.string().nullish(),

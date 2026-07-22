@@ -440,6 +440,11 @@ export const SosCallOutcome = {
 export interface SosCall {
   id: number;
   fromNumber: string;
+  /**
+     * Matching SOS customer (by normalized phone), when known
+     * @nullable
+     */
+  customerId: number | null;
   /** @nullable */
   callerName?: string | null;
   intent: string;
@@ -449,6 +454,42 @@ export interface SosCall {
   /** @nullable */
   appointmentId?: number | null;
   createdAt: string;
+}
+
+export type SosTimelineEntryChannel = typeof SosTimelineEntryChannel[keyof typeof SosTimelineEntryChannel];
+
+
+export const SosTimelineEntryChannel = {
+  ai_call: 'ai_call',
+  sms: 'sms',
+  concierge: 'concierge',
+} as const;
+
+export type SosTimelineEntryDirection = typeof SosTimelineEntryDirection[keyof typeof SosTimelineEntryDirection];
+
+
+export const SosTimelineEntryDirection = {
+  inbound: 'inbound',
+  outbound: 'outbound',
+} as const;
+
+/**
+ * One entry in a customer's unified communications timeline.
+ */
+export interface SosTimelineEntry {
+  /** Stable synthetic id, e.g. "call-3", "sms-7", "concierge-4" */
+  id: string;
+  channel: SosTimelineEntryChannel;
+  /** Source-specific kind (call outcome, message kind, or concierge job type) */
+  kind: string;
+  direction: SosTimelineEntryDirection;
+  status: string;
+  timestamp: string;
+  /**
+     * Message body or call summary/intent
+     * @nullable
+     */
+  body: string | null;
 }
 
 export interface SosCallInput {

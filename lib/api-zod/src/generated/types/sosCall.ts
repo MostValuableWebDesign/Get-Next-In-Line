@@ -10,6 +10,11 @@ import type { SosCallOutcome } from './sosCallOutcome';
 export interface SosCall {
   id: number;
   fromNumber: string;
+  /**
+     * Matching SOS customer (by normalized phone), when known
+     * @nullable
+     */
+  customerId: number | null;
   /** @nullable */
   callerName?: string | null;
   intent: string;

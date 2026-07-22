@@ -1,22 +1,32 @@
 import React, { useState } from 'react';
 import { 
-  useListSosCustomers, useCreateSosCustomer, useGetSosCustomer,
-  getListSosCustomersQueryKey, getGetSosCustomerQueryKey
+  useListSosCustomers, useCreateSosCustomer, useGetSosCustomer, useGetSosCustomerTimeline,
+  getListSosCustomersQueryKey, getGetSosCustomerQueryKey, getGetSosCustomerTimelineQueryKey
 } from '@workspace/api-client-react';
-import type { SosCustomer } from '@workspace/api-client-react';
+import type { SosCustomer, SosTimelineEntry } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSearch } from 'wouter';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Phone, Mail, MessageSquare, Sparkles, CalendarClock } from 'lucide-react';
+import { Search, Plus, Phone, Mail, MessageSquare, Sparkles, CalendarClock, PhoneIncoming, Bot } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function CustomersPage() {
   const [search, setSearch] = useState('');
-  const [detailId, setDetailId] = useState<number | null>(null);
+  const searchString = useSearch();
+  // Support deep links from the dashboard: /sos/customers?customer=<id>
+  const initialCustomer = React.useMemo(() => {
+    const raw = new URLSearchParams(searchString).get('customer');
+    const n = raw ? Number(raw) : NaN;
+    return Number.isInteger(n) && n > 0 ? n : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [detailId, setDetailId] = useState<number | null>(initialCustomer);
   const { data: customers } = useListSosCustomers({ search: search || undefined });
 
   return (
@@ -135,7 +145,7 @@ function CustomerDetailDialog({ customerId, onClose }: { customerId: number | nu
 
   return (
     <Dialog open={customerId != null} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{c?.name ?? 'Customer'}</DialogTitle>
         </DialogHeader>
@@ -183,10 +193,89 @@ function CustomerDetailDialog({ customerId, onClose }: { customerId: number | nu
                 </p>
               )}
             </div>
+            <CustomerTimeline customerId={c.id} />
           </div>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+const CHANNEL_META: Record<
+  string,
+  { label: string; icon: React.ComponentType<{ className?: string }>; badgeClass: string }
+> = {
+  ai_call: { label: 'AI call', icon: PhoneIncoming, badgeClass: 'text-sky-700 border-sky-200 bg-sky-50' },
+  sms: { label: 'Text', icon: MessageSquare, badgeClass: 'text-emerald-700 border-emerald-200 bg-emerald-50' },
+  concierge: { label: 'Concierge', icon: Bot, badgeClass: 'text-violet-700 border-violet-200 bg-violet-50' },
+};
+
+function timelineLabel(e: SosTimelineEntry): string {
+  if (e.channel === 'ai_call') return 'AI call';
+  if (e.channel === 'concierge') {
+    if (e.kind === 'send_reminder') return 'Reminder';
+    if (e.kind === 'rebooking_nudge') return 'Rebooking nudge';
+    return 'Concierge message';
+  }
+  if (e.direction === 'inbound') return 'Inbound text';
+  return 'Staff/system text';
+}
+
+function statusBadgeClass(status: string): string {
+  if (status === 'failed') return 'text-red-700 border-red-200 bg-red-50';
+  if (status === 'skipped') return 'text-amber-700 border-amber-200 bg-amber-50';
+  if (status === 'delivered' || status === 'sent' || status === 'booked')
+    return 'text-emerald-700 border-emerald-200 bg-emerald-50';
+  return 'text-muted-foreground border-border bg-muted/50';
+}
+
+function CustomerTimeline({ customerId }: { customerId: number }) {
+  const { data: entries, isLoading } = useGetSosCustomerTimeline(customerId, {
+    query: {
+      queryKey: getGetSosCustomerTimelineQueryKey(customerId),
+      refetchInterval: 15000,
+    },
+  });
+
+  return (
+    <div>
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+        Communications Timeline
+      </h3>
+      {isLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      ) : !entries || entries.length === 0 ? (
+        <p className="text-sm text-muted-foreground border rounded-md px-3 py-3">
+          No calls, texts, or automated messages yet for this customer.
+        </p>
+      ) : (
+        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+          {entries.map((e) => {
+            const meta = CHANNEL_META[e.channel] ?? CHANNEL_META.sms;
+            const Icon = meta.icon;
+            return (
+              <div key={e.id} className="border rounded-md px-3 py-2 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border ${meta.badgeClass}`}>
+                    <Icon className="w-3 h-3" /> {timelineLabel(e)}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium border capitalize ${statusBadgeClass(e.status)}`}>
+                    {e.status.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                {e.body && <p className="mt-1.5 text-muted-foreground line-clamp-3">{e.body}</p>}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {new Date(e.timestamp).toLocaleString()}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
