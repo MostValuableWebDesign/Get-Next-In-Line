@@ -43,7 +43,7 @@ const NAV_ITEMS: NavItem[] = [
       '/sos/employee-benefits',
     ],
   },
-  { name: 'Media Resale', path: '/media', icon: Radio },
+  { name: 'Media & Assets', path: '/media', icon: Radio },
   { name: 'Billing', path: '/billing', icon: CreditCard },
   { name: 'Connector Registry', path: '/connectors', icon: Cable },
   { name: 'Configuration', path: '/settings', icon: Settings },

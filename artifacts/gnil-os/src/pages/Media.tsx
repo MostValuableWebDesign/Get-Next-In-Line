@@ -4,7 +4,7 @@ export default function Media() {
   return (
     <ModuleGrid 
       categorySlug="media" 
-      title="Media Resale Engines" 
+      title="Media & Assets" 
       description="High-margin white-label media buying, ads, and streaming networks."
     />
   );
