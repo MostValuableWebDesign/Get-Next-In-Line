@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useListModules,
   useGetModulesPricing,
@@ -7,20 +8,22 @@ import {
   useGetModuleTenantCounts,
   useGetModuleTenants,
   getGetModuleTenantsQueryKey,
+  useGetAdminModuleDetail,
+  getGetAdminModuleDetailQueryKey,
+  type AdminModuleDetail,
 } from '@workspace/api-client-react';
 import { CheckoutSimulationDialog } from '@/components/checkout/CheckoutSimulationDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
-} from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { ActivityFeed } from '@/components/shared/ActivityFeed';
+import { EditConnectorDialog } from '@/components/EditConnectorDialog';
 import { formatCurrency } from '@/lib/format';
 import { useToast } from '@/hooks/use-toast';
 import {
-  ArrowLeft, CreditCard, FileText, Lock, RefreshCw, Server, Settings, ShieldCheck, Sliders, Users,
+  ArrowLeft, CreditCard, FileText, History, Lock, Pencil, RefreshCw, Server, Settings, ShieldAlert, ShieldCheck, Sliders, Users,
 } from 'lucide-react';
 
 // Maps a module category to the matching section of the unified
@@ -43,9 +46,17 @@ const CATEGORY_ROUTES: Record<string, { path: string; label: string }> = {
   media: { path: '/media', label: 'Media' },
 };
 
+/**
+ * Unified module detail page. Serves both /modules/:id (console view) and
+ * /admin/modules/:id (formerly the separate Admin Module Detail page).
+ * The connector-mapping section renders only when the admin module-detail
+ * endpoint is accessible to the current session.
+ */
 export default function ModuleConsole() {
   const params = useParams<{ id: string }>();
   const moduleId = Number(params.id);
+  const [location] = useLocation();
+  const isAdminRoute = location.startsWith('/admin/');
 
   const { data: modules, isLoading: isLoadingModules } = useListModules();
   const { data: pricing, isLoading: isLoadingPricing } = useGetModulesPricing();
@@ -53,6 +64,11 @@ export default function ModuleConsole() {
   const { data: tenantCounts } = useGetModuleTenantCounts();
   const { data: subscribers, isLoading: isLoadingSubscribers } = useGetModuleTenants(moduleId, {
     query: { queryKey: getGetModuleTenantsQueryKey(moduleId), enabled: Number.isInteger(moduleId) },
+  });
+  // Admin-only data: succeeds for admin sessions, errors otherwise — the
+  // connector-mapping section simply doesn't render for non-admins.
+  const { data: adminDetail } = useGetAdminModuleDetail(moduleId, {
+    query: { queryKey: getGetAdminModuleDetailQueryKey(moduleId), enabled: Number.isInteger(moduleId) },
   });
   const { toast } = useToast();
 
@@ -77,7 +93,9 @@ export default function ModuleConsole() {
         <h1 className="text-2xl font-bold tracking-tight">Module not found</h1>
         <p className="text-muted-foreground">This module does not exist or is no longer available.</p>
         <Button asChild variant="outline">
-          <Link href="/">Back to Command Center</Link>
+          <Link href={isAdminRoute ? '/connectors' : '/'}>
+            {isAdminRoute ? 'Back to Connector Registry' : 'Back to Command Center'}
+          </Link>
         </Button>
       </div>
     );
@@ -87,7 +105,9 @@ export default function ModuleConsole() {
   const isPartner = module.categorySlug === 'partners';
   const markupPercent = settings?.markupPercent ?? priceInfo?.markupPercent ?? 0;
   const activeTenants = tenantCounts?.find((c) => c.moduleId === module.id)?.activeTenantCount ?? 0;
-  const backRoute = CATEGORY_ROUTES[module.categorySlug] ?? { path: '/', label: 'Command Center' };
+  const backRoute = isAdminRoute
+    ? { path: '/connectors', label: 'Connector Registry' }
+    : CATEGORY_ROUTES[module.categorySlug] ?? { path: '/', label: 'Command Center' };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -238,18 +258,7 @@ export default function ModuleConsole() {
                       <span className="text-xs text-muted-foreground">
                         Provisioned {new Date(s.provisionedAt).toLocaleDateString()}
                       </span>
-                      <Badge
-                        variant="outline"
-                        className={
-                          s.status === 'active'
-                            ? 'border-emerald-500/40 text-emerald-600 bg-emerald-500/5'
-                            : s.status === 'suspended'
-                              ? 'border-red-500/40 text-red-600 bg-red-500/5'
-                              : 'border-amber-500/40 text-amber-600 bg-amber-500/5'
-                        }
-                      >
-                        {s.status}
-                      </Badge>
+                      <StatusBadge status={s.status} variant="outline" />
                     </div>
                   </Link>
                 ))}
@@ -276,6 +285,135 @@ export default function ModuleConsole() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Admin-only: connector mapping + provisioning activity (formerly the
+          separate Admin Module Detail page). Rendered only when the admin
+          module-detail endpoint is accessible. */}
+      {adminDetail && <AdminConnectorSection moduleId={moduleId} detail={adminDetail} />}
+    </div>
+  );
+}
+
+function AdminConnectorSection({
+  moduleId,
+  detail,
+}: {
+  moduleId: number;
+  detail: AdminModuleDetail;
+}) {
+  const [editing, setEditing] = useState(false);
+  const queryClient = useQueryClient();
+  const { mapping } = detail;
+
+  return (
+    <div className="space-y-6" data-testid="section-admin-connector">
+      <Card data-testid="card-connector-mapping">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-base font-semibold">Connector Mapping</CardTitle>
+          <div className="flex items-center gap-3">
+            <Badge variant="destructive" className="shrink-0 gap-1.5 uppercase tracking-wider font-mono">
+              <ShieldAlert className="size-3.5" />
+              Admin Only
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setEditing(true)}
+              data-testid="button-edit-mapping"
+            >
+              <Pencil className="size-3.5" /> Edit Mapping
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+          <div>
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Slug</div>
+            {mapping.slug ? (
+              <code className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded" data-testid="text-mapping-slug">{mapping.slug}</code>
+            ) : (
+              <span className="text-sm text-muted-foreground italic">no slug</span>
+            )}
+          </div>
+          <div>
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Upstream Vendor</div>
+            <div className="text-sm" data-testid="text-mapping-vendor">
+              {mapping.upstreamVendor ?? <span className="text-muted-foreground italic">—</span>}
+            </div>
+          </div>
+          <div className="md:col-span-2">
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Hidden Connector</div>
+            <div className="text-sm" data-testid="text-mapping-connector">
+              {mapping.hiddenConnector ?? (
+                <span className="text-muted-foreground italic">Internal — no external connector mapped</span>
+              )}
+            </div>
+          </div>
+          <div className="md:col-span-2">
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Proxy Notes</div>
+            <div className="text-sm" data-testid="text-mapping-notes">
+              {mapping.proxyNotes ?? <span className="text-muted-foreground italic">—</span>}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Wholesale / Resale</div>
+            <div className="text-sm font-mono" data-testid="text-mapping-pricing">
+              {formatCurrency(detail.wholesalePrice)} → {formatCurrency(detail.resalePrice)}/mo
+              <span className="text-muted-foreground font-sans"> ({detail.markupPercent}% markup)</span>
+              {detail.resalePriceBiweekly != null && (
+                <span className="text-muted-foreground"> · {formatCurrency(detail.resalePriceBiweekly)}/2wk</span>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Status</div>
+            <StatusBadge
+              status={mapping.isActive ? 'active' : 'inactive'}
+              variant="outline"
+              data-testid="badge-mapping-active"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-provisioning-activity">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <History className="size-4 text-primary" /> Recent Provisioning Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <ActivityFeed
+            variant="divided"
+            items={detail.activity.map((a) => ({
+              id: a.id,
+              action: a.action,
+              timestamp: a.timestamp,
+              details: a.details,
+              tenantName: a.tenantName,
+              tenantHref: `/tenants/${a.tenantId}`,
+            }))}
+            itemClassName="px-6"
+            itemTestIdPrefix="activity-"
+            listTestId="list-provisioning-activity"
+            empty={
+              <p className="text-sm text-muted-foreground px-6 pb-6" data-testid="text-no-activity">
+                No provisioning activity recorded for this module yet.
+              </p>
+            }
+          />
+        </CardContent>
+      </Card>
+
+      {editing && (
+        <EditConnectorDialog
+          entry={mapping}
+          onClose={() => setEditing(false)}
+          onSaved={() =>
+            queryClient.invalidateQueries({ queryKey: getGetAdminModuleDetailQueryKey(moduleId) })
+          }
+        />
+      )}
     </div>
   );
 }

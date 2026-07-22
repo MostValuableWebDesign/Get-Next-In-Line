@@ -14,7 +14,6 @@ import Media from "@/pages/Media";
 import Billing from "@/pages/Billing";
 import ModuleConsole from "@/pages/ModuleConsole";
 import ConnectorRegistry from "@/pages/ConnectorRegistry";
-import AdminModuleDetail from "@/pages/AdminModuleDetail";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
@@ -78,7 +77,9 @@ function ProtectedApp() {
         <Route path="/modules/:id" component={ModuleConsole} />
         <Route path="/billing" component={Billing} />
         <Route path="/connectors" component={ConnectorRegistry} />
-        <Route path="/admin/modules/:id" component={AdminModuleDetail} />
+        {/* Same merged module detail page as /modules/:id — the admin route is
+            kept so Connector Registry links and old bookmarks keep working. */}
+        <Route path="/admin/modules/:id" component={ModuleConsole} />
         <Route path="/settings" component={Settings} />
         {/* SOS Operations section — the old standalone SOS Dashboard is folded
             into Business Bookings (its KPI stats now render there) */}

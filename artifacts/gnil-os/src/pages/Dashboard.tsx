@@ -7,6 +7,8 @@ import { Activity, DollarSign, Users, Target, Clock } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StatCard } from '@/components/shared/StatCard';
+import { ActivityFeed } from '@/components/shared/ActivityFeed';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useRef, useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -94,7 +96,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <ActivityFeed />
+        <GlobalActivityFeed />
       </div>
     </div>
   );
@@ -102,7 +104,7 @@ export default function Dashboard() {
 
 const FEED_PAGE_SIZE = 20;
 
-function ActivityFeed() {
+function GlobalActivityFeed() {
   const { data: activityPage, isLoading } = useGetTenantActivity(
     { limit: FEED_PAGE_SIZE },
     { query: { queryKey: getGetTenantActivityQueryKey({ limit: FEED_PAGE_SIZE }) } }
@@ -151,63 +153,19 @@ function ActivityFeed() {
       <CardContent>
         {isLoading ? (
           <Skeleton className="h-32 w-full" />
-        ) : !activities?.length ? (
-          <div className="text-center text-muted-foreground py-8">No recent activity.</div>
         ) : (
-          <>
-          <div className="space-y-4">
-            {activities.map(activity => (
-              <div key={activity.id} className="flex items-start gap-4 text-sm">
-                <div className="w-2 h-2 mt-1.5 rounded-full bg-primary shrink-0" />
-                <div className="flex-1">
-                  <div className="font-medium">{activity.action}</div>
-                  <div className="text-muted-foreground mt-0.5">{activity.tenantName} {activity.details && `— ${activity.details}`}</div>
-                </div>
-                <div className="text-muted-foreground font-mono text-xs whitespace-nowrap">
-                  {new Date(activity.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </div>
-            ))}
-          </div>
-          {loadMoreError && (
-            <p className="pt-4 text-xs text-destructive text-center" data-testid="text-feed-load-more-error">
-              Couldn't load more activity. Please try again.
-            </p>
-          )}
-          {hasMore && (
-            <div className="pt-4 flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isLoadingMore}
-                onClick={loadMore}
-                data-testid="button-feed-load-more"
-              >
-                {isLoadingMore ? 'Loading…' : loadMoreError ? 'Retry' : 'Load more'}
-              </Button>
-            </div>
-          )}
-          </>
+          <ActivityFeed
+            variant="dots"
+            items={activities}
+            empty={<div className="text-center text-muted-foreground py-8">No recent activity.</div>}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+            loadMoreError={loadMoreError}
+            onLoadMore={loadMore}
+            loadMoreTestId="button-feed-load-more"
+            loadMoreErrorTestId="text-feed-load-more-error"
+          />
         )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function StatCard({ title, value, icon: Icon, trend, subtitle }: any) {
-  return (
-    <Card className="border-none shadow-md overflow-hidden relative group">
-      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-        <Icon className="w-16 h-16" />
-      </div>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-bold font-mono tracking-tight">{value}</div>
-        {trend && <p className="text-xs text-emerald-600 font-medium mt-1">{trend} from last month</p>}
-        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </CardContent>
     </Card>
   );

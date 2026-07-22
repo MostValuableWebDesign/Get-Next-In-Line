@@ -13,18 +13,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { ActivityFeed } from '@/components/shared/ActivityFeed';
 import { formatCurrency } from '@/lib/format';
 import {
   Activity, ArrowLeft, Bot, Building2, CalendarClock, DollarSign, Mail, Package, Settings, User,
 } from 'lucide-react';
 
 const ACTIVITY_PAGE_SIZE = 20;
-
-const STATUS_STYLES: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200',
-  suspended: 'bg-destructive/10 text-destructive hover:bg-destructive/10 border-destructive/20',
-  pending: 'bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200',
-};
 
 export default function TenantDetail() {
   const params = useParams<{ id: string }>();
@@ -140,13 +136,7 @@ export default function TenantDetail() {
             <div>
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-2xl font-bold tracking-tight" data-testid="text-tenant-brand">{tenant.brandName}</h1>
-                <Badge
-                  variant="outline"
-                  className={`uppercase tracking-wider text-[10px] font-bold ${STATUS_STYLES[tenant.status] ?? ''}`}
-                  data-testid="badge-tenant-status"
-                >
-                  {tenant.status}
-                </Badge>
+                <StatusBadge status={tenant.status} data-testid="badge-tenant-status" />
               </div>
               <p className="text-muted-foreground text-sm font-mono mt-1" data-testid="text-tenant-subdomain">
                 {tenant.subdomain}.gnil.os
@@ -273,44 +263,23 @@ export default function TenantDetail() {
                 <Skeleton className="h-12 w-full rounded-lg" />
                 <Skeleton className="h-12 w-full rounded-lg" />
               </div>
-            ) : tenantActivity.length === 0 ? (
-              <p className="text-sm text-muted-foreground" data-testid="text-no-activity">
-                No recent activity for this tenant.
-              </p>
             ) : (
-              <>
-                <div className="divide-y" data-testid="list-tenant-activity">
-                  {tenantActivity.map((a) => (
-                    <div key={a.id} className="py-3">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="text-sm font-medium">{a.action}</div>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          {new Date(a.timestamp).toLocaleString()}
-                        </span>
-                      </div>
-                      {a.details && <div className="text-xs text-muted-foreground mt-0.5">{a.details}</div>}
-                    </div>
-                  ))}
-                </div>
-                {loadMoreError && (
-                  <p className="pt-3 text-xs text-destructive text-center" data-testid="text-load-more-error">
-                    Couldn't load more activity. Please try again.
+              <ActivityFeed
+                variant="divided"
+                items={tenantActivity}
+                listTestId="list-tenant-activity"
+                empty={
+                  <p className="text-sm text-muted-foreground" data-testid="text-no-activity">
+                    No recent activity for this tenant.
                   </p>
-                )}
-                {hasMoreActivity && (
-                  <div className="pt-3 flex justify-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={isLoadingMore}
-                      onClick={loadMoreActivity}
-                      data-testid="button-load-more-activity"
-                    >
-                      {isLoadingMore ? 'Loading…' : loadMoreError ? 'Retry' : 'Load more'}
-                    </Button>
-                  </div>
-                )}
-              </>
+                }
+                hasMore={hasMoreActivity}
+                isLoadingMore={isLoadingMore}
+                loadMoreError={loadMoreError}
+                onLoadMore={loadMoreActivity}
+                loadMoreTestId="button-load-more-activity"
+                loadMoreErrorTestId="text-load-more-error"
+              />
             )}
           </CardContent>
         </Card>

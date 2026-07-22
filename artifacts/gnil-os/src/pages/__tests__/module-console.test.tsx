@@ -73,6 +73,10 @@ vi.mock('@workspace/api-client-react', () => ({
   getGetModuleTenantCountsQueryKey: () => ['tenant-counts'],
   useGetModuleTenants: (id: number) => ({ data: moduleTenants[id] ?? [], isLoading: false }),
   getGetModuleTenantsQueryKey: (id: number) => ['module-tenants', id],
+  // Non-admin case: the admin module-detail query errors, so the merged page
+  // hides the connector-mapping section.
+  useGetAdminModuleDetail: () => ({ data: undefined, isLoading: false, isError: true }),
+  getGetAdminModuleDetailQueryKey: (id: number) => ['admin-module-detail', id],
   useSimulateCheckout: () => ({ mutate: mutateMock, isPending: false }),
   getListTenantsQueryKey: () => ['tenants'],
   getGetBillingSummaryQueryKey: () => ['billing'],

@@ -6,6 +6,7 @@ import {
   PieChart, Pie, Cell
 } from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StatCard } from '@/components/shared/StatCard';
 
 export function ReportsPage() {
   const { data: summary, isLoading } = useGetSosReportsSummary();
@@ -21,10 +22,10 @@ export function ReportsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <MetricCard title="Avg Wait Time" value={summary?.avgWaitMinutes ? `${summary.avgWaitMinutes}m` : '-'} loading={isLoading} />
-        <MetricCard title="Waitlist Slots Filled" value={summary?.slotsFilled} loading={isLoading} />
-        <MetricCard title="Waitlist Fill Rate" value={summary?.fillRate ? `${Math.round(summary.fillRate)}%` : '-'} loading={isLoading} />
-        <MetricCard title="Total Revenue" value={summary?.totalRevenue ? `$${summary.totalRevenue.toFixed(2)}` : '-'} loading={isLoading} />
+        <StatCard title="Avg Wait Time" value={summary?.avgWaitMinutes ? `${summary.avgWaitMinutes}m` : '-'} loading={isLoading} />
+        <StatCard title="Waitlist Slots Filled" value={summary?.slotsFilled} loading={isLoading} />
+        <StatCard title="Waitlist Fill Rate" value={summary?.fillRate ? `${Math.round(summary.fillRate)}%` : '-'} loading={isLoading} />
+        <StatCard title="Total Revenue" value={summary?.totalRevenue ? `$${summary.totalRevenue.toFixed(2)}` : '-'} loading={isLoading} />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -90,10 +91,10 @@ export function ReportsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <MetricCard title="Reminders Sent" value={automation?.remindersSent} loading={isLoading} />
-        <MetricCard title="Rebooking Nudges Sent" value={automation?.nudgesSent} loading={isLoading} />
-        <MetricCard title="Failed Messages" value={automation?.failedCount} loading={isLoading} />
-        <MetricCard title="Skipped Messages" value={automation?.skippedCount} loading={isLoading} />
+        <StatCard title="Reminders Sent" value={automation?.remindersSent} loading={isLoading} />
+        <StatCard title="Rebooking Nudges Sent" value={automation?.nudgesSent} loading={isLoading} />
+        <StatCard title="Failed Messages" value={automation?.failedCount} loading={isLoading} />
+        <StatCard title="Skipped Messages" value={automation?.skippedCount} loading={isLoading} />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -153,18 +154,5 @@ export function ReportsPage() {
         </Card>
       </div>
     </div>
-  );
-}
-
-function MetricCard({ title, value, loading }: any) {
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? <Skeleton className="h-8 w-20" /> : <div className="text-3xl font-bold">{value ?? 0}</div>}
-      </CardContent>
-    </Card>
   );
 }

@@ -14,6 +14,7 @@ import { MoreHorizontal, Plus, Power, Trash2, Edit2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 
 export default function Tenants() {
   const { data: tenants, isLoading } = useListTenants();
@@ -101,20 +102,6 @@ export default function Tenants() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    active: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200",
-    suspended: "bg-destructive/10 text-destructive hover:bg-destructive/10 border-destructive/20",
-    pending: "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200"
-  };
-
-  return (
-    <Badge variant="outline" className={`uppercase tracking-wider text-[10px] font-bold ${styles[status]}`}>
-      {status}
-    </Badge>
   );
 }
 
