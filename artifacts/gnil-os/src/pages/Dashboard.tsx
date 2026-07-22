@@ -12,6 +12,7 @@ import { ActivityFeed } from '@/components/shared/ActivityFeed';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useRef, useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { OperationsPage as LiveOperations } from '@/pages/sos/operations';
 
 export default function Dashboard() {
   const { data: dashboard, isLoading: isLoadingDashboard } = useGetAgencyDashboard();
@@ -97,6 +98,13 @@ export default function Dashboard() {
         </Card>
 
         <GlobalActivityFeed />
+      </div>
+
+      {/* Live Operations — the former Operations Hub "Live Operations" tab,
+          merged into the Command Center landing page. /sos/operations
+          redirects here. */}
+      <div data-testid="section-live-operations">
+        <LiveOperations embedded />
       </div>
     </div>
   );

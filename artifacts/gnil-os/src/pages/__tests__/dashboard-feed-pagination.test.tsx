@@ -12,6 +12,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Dashboard from '@/pages/Dashboard';
 
+// The Command Center embeds Live Operations (its own hooks/polling) — out of
+// scope for these feed-pagination tests.
+vi.mock('@/pages/sos/operations', () => ({ OperationsPage: () => <div /> }));
+
 const PAGE_SIZE = 20;
 const TOTAL = 90;
 

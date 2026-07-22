@@ -36,7 +36,7 @@ import { ConnectorRegistrySection } from '@/pages/ConnectorRegistry';
  *  - `/settings` — the legacy/global configuration record
  *  - `/tenants/:id/settings` — that tenant's own settings record
  */
-export default function Settings() {
+export default function Settings({ embedded = false }: { embedded?: boolean }) {
   const params = useParams<{ id?: string }>();
   const tenantId = params.id != null ? Number(params.id) : null;
   const isTenantScoped = tenantId != null && Number.isInteger(tenantId);
@@ -185,8 +185,8 @@ export default function Settings() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6" data-testid="page-settings">
-      {isTenantScoped && (
+    <div className={embedded ? "space-y-6" : "max-w-3xl mx-auto space-y-6"} data-testid="page-settings">
+      {isTenantScoped && !embedded && (
         <Button
           asChild
           variant="ghost"
@@ -200,7 +200,7 @@ export default function Settings() {
         </Button>
       )}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Configuration</h1>
+        <h1 className={embedded ? "text-xl font-semibold tracking-tight" : "text-3xl font-bold tracking-tight"}>Configuration</h1>
         <p className="text-muted-foreground text-sm mt-1">
           {isTenantScoped ? (
             <>
@@ -302,7 +302,7 @@ export default function Settings() {
                 <Link
                   href={
                     isTenantScoped
-                      ? `/tenants/${tenantId}/ai-receptionist`
+                      ? `/tenants/${tenantId}?tab=ai-receptionist`
                       : '/sos/ai-receptionist'
                   }
                 >

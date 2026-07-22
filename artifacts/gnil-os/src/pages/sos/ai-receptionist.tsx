@@ -40,7 +40,7 @@ import { MessageHistoryTable, type MessageHistoryItem } from '@/components/messa
  * This page is the single editing home for AI Receptionist settings — the
  * Configuration page only shows read-only status linking here.
  */
-export function AiReceptionistPage() {
+export function AiReceptionistPage({ embedded = false }: { embedded?: boolean }) {
   const params = useParams<{ id?: string }>();
   const tenantId = params.id != null ? Number(params.id) : null;
   const isTenantScoped = tenantId != null && Number.isInteger(tenantId);
@@ -116,8 +116,8 @@ export function AiReceptionistPage() {
   };
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6" data-testid="page-ai-receptionist">
-      {isTenantScoped && (
+    <div className={embedded ? "space-y-6" : "p-8 max-w-6xl mx-auto space-y-6"} data-testid="page-ai-receptionist">
+      {isTenantScoped && !embedded && (
         <Button
           asChild
           variant="ghost"
@@ -131,7 +131,7 @@ export function AiReceptionistPage() {
         </Button>
       )}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">AI Receptionist</h1>
+        <h1 className={embedded ? "text-xl font-semibold tracking-tight" : "text-3xl font-bold tracking-tight"}>AI Receptionist</h1>
         <p className="text-muted-foreground text-sm mt-1">
           {isTenantScoped ? (
             <>

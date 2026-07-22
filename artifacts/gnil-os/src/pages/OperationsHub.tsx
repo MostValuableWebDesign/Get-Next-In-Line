@@ -3,7 +3,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Settings } from 'lucide-react';
 import { ModuleGrid } from '@/components/modules/ModuleGrid';
-import { OperationsPage as LiveOperations } from '@/pages/sos/operations';
 import { StaticPlaceholderPage } from '@/components/static-page';
 
 // Partner placeholder tabs (former SOS static pages) — pure content, rendered
@@ -63,18 +62,18 @@ const PARTNER_PLACEHOLDERS = {
  * Unified Operations hub.
  *
  * Merges the former "Waitlist & Booking" module marketplace (/operations),
- * the SOS "Operations Center" (/sos/operations), the "Partners (0%)" module
+ * the "Partners (0%)" module
  * marketplace (/partners), and the combined Partner Services tab
  * (/sos/partner-services — the four former SOS partner placeholder pages,
  * whose old URLs redirect there) — plus the former GNIL Bridge marketing
  * marketplace (/marketing) —
  * into one tabbed page. All old URLs still work as deep links, each
  * selecting the matching tab, so refresh/back and bookmarks stay correct.
- * Backends and page content are untouched.
+ * Backends and page content are untouched. The former Live Operations tab
+ * (/sos/operations) now lives on the Command Center landing page.
  */
 
 const TAB_ROUTES: Record<string, string> = {
-  live: '/sos/operations',
   modules: '/operations',
   marketing: '/marketing',
   media: '/media',
@@ -103,7 +102,6 @@ export default function OperationsHub() {
         }}
       >
         <TabsList data-testid="operations-tabs" className="flex-wrap h-auto">
-          <TabsTrigger value="live" data-testid="tab-live-operations">Live Operations</TabsTrigger>
           <TabsTrigger value="modules" data-testid="tab-modules">Modules</TabsTrigger>
           <TabsTrigger value="marketing" data-testid="tab-marketing">Marketing</TabsTrigger>
           <TabsTrigger value="media" data-testid="tab-media">Media</TabsTrigger>
@@ -114,9 +112,6 @@ export default function OperationsHub() {
             Partner Services
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="live" className="mt-4">
-          <LiveOperations />
-        </TabsContent>
         <TabsContent value="modules" className="mt-4">
           <ModuleGrid
             categorySlug="operations"

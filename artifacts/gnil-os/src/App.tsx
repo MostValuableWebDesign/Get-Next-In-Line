@@ -58,10 +58,14 @@ function ProtectedApp() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/tenants" component={Tenants} />
-        <Route path="/tenants/:id/settings" component={Settings} />
-        {/* Tenant-scoped AI Receptionist configuration — the single editing
-            home for that tenant's receptionist settings. */}
-        <Route path="/tenants/:id/ai-receptionist" component={AiReceptionistPage} />
+        {/* Tenant Settings and AI Receptionist are now tabs inside Tenant
+            Detail — old standalone URLs redirect to the matching tab. */}
+        <Route path="/tenants/:id/settings">
+          {(params) => <Redirect to={`/tenants/${params.id}?tab=settings`} replace />}
+        </Route>
+        <Route path="/tenants/:id/ai-receptionist">
+          {(params) => <Redirect to={`/tenants/${params.id}?tab=ai-receptionist`} replace />}
+        </Route>
         <Route path="/tenants/:id" component={TenantDetail} />
         {/* Concierge is folded into Tenant Detail as tabs — old deep links
             land on the Engagement Rules tab. */}
@@ -88,14 +92,18 @@ function ProtectedApp() {
         <Route path="/admin/modules/:id">
           {(params) => <Redirect to={`/modules/${params.id}`} replace />}
         </Route>
-        <Route path="/settings" component={Settings} />
+        <Route path="/settings">
+          <Settings />
+        </Route>
         {/* SOS Operations section — the old standalone SOS Dashboard is folded
             into Business Bookings (its KPI stats now render there) */}
         <Route path="/sos">
           <Redirect to="/sos/bookings" replace />
         </Route>
-        {/* Unified Operations hub — Live Operations tab (old SOS Operations Center URL) */}
-        <Route path="/sos/operations" component={OperationsHub} />
+        {/* Live Operations now lives on the Command Center landing page */}
+        <Route path="/sos/operations">
+          <Redirect to="/" replace />
+        </Route>
         {/* Calendar is now a view inside Business Bookings */}
         <Route path="/sos/calendar">
           <Redirect to="/sos/bookings" replace />
@@ -114,7 +122,9 @@ function ProtectedApp() {
         <Route path="/sos/memberships">
           <Redirect to="/sos/customers?tab=plans" replace />
         </Route>
-        <Route path="/sos/ai-receptionist" component={AiReceptionistPage} />
+        <Route path="/sos/ai-receptionist">
+          <AiReceptionistPage />
+        </Route>
         {/* Old Marketing & Comms page — its receptionist and SMS tabs are now
             part of the unified AI Receptionist view, so any ?tab= deep link
             lands there too. */}

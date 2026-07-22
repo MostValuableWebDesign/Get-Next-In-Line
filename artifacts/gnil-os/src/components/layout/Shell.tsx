@@ -27,15 +27,15 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { name: 'Command Center', path: '/', icon: LayoutDashboard },
   { name: 'Tenant Dashboards', path: '/tenants', icon: Users },
-  // Unified hub: Modules (/operations), Live Operations (/sos/operations),
+  // Unified hub: Modules (/operations),
   // Marketing marketplace (/marketing, the old GNIL Bridge page),
-  // Partner Integrations (/partners), and the Partner Services tab
+  // Partner Integrations (/partners), and the Partner Services tab.
+  // Live Operations moved to the Command Center landing page.
   {
     name: 'Operations',
     path: '/operations',
     icon: Activity,
     aliases: [
-      '/sos/operations',
       '/marketing',
       '/media',
       '/partners',

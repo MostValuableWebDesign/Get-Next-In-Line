@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Play, ArrowRight, CheckSquare, Bell, CreditCard, Check, LogOut, Clock, Plus, Settings2, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export function OperationsPage() {
+export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -69,11 +69,20 @@ export function OperationsPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col space-y-6 max-w-[1600px] mx-auto">
+    <div className={embedded ? "flex flex-col space-y-6" : "p-6 h-full flex flex-col space-y-6 max-w-[1600px] mx-auto"}>
       <div className="flex justify-between items-center shrink-0">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Operations Center</h1>
-          <p className="text-muted-foreground text-sm mt-1">Live command center for active visits and resources.</p>
+          {embedded ? (
+            <>
+              <h2 className="text-xl font-semibold tracking-tight">Live Operations</h2>
+              <p className="text-muted-foreground text-sm mt-1">Active visits, resources, and the smart waitlist.</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold tracking-tight">Operations Center</h1>
+              <p className="text-muted-foreground text-sm mt-1">Live command center for active visits and resources.</p>
+            </>
+          )}
         </div>
         <CheckInDialog />
       </div>

@@ -17,15 +17,17 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { ActivityFeed } from '@/components/shared/ActivityFeed';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RulesTab, ClientsTab, MessageLogTab } from '@/components/concierge-tabs';
+import { AiReceptionistPage } from '@/pages/sos/ai-receptionist';
+import SettingsPage from '@/pages/Settings';
 import { formatCurrency } from '@/lib/format';
 import {
   Activity, ArrowLeft, Bot, Building2, CalendarClock, DollarSign, LayoutDashboard, Mail, Package,
-  ScrollText, Settings, User, Users,
+  Phone, ScrollText, Settings, User, Users,
 } from 'lucide-react';
 
 const ACTIVITY_PAGE_SIZE = 20;
 
-const TAB_VALUES = ['overview', 'rules', 'clients', 'log'] as const;
+const TAB_VALUES = ['overview', 'rules', 'clients', 'log', 'ai-receptionist', 'settings'] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
 export default function TenantDetail() {
@@ -165,7 +167,7 @@ export default function TenantDetail() {
           </div>
           <div className="flex items-center gap-4 self-stretch md:self-auto justify-end">
           <Button asChild variant="outline" className="gap-2" data-testid="link-tenant-settings">
-            <Link href={`/tenants/${tenantId}/settings`}>
+            <Link href={`/tenants/${tenantId}?tab=settings`}>
               <Settings className="w-4 h-4" /> Configuration
             </Link>
           </Button>
@@ -195,6 +197,12 @@ export default function TenantDetail() {
           </TabsTrigger>
           <TabsTrigger value="log" data-testid="tab-log">
             <ScrollText className="w-4 h-4 mr-1.5" /> Message Log
+          </TabsTrigger>
+          <TabsTrigger value="ai-receptionist" data-testid="tab-ai-receptionist">
+            <Phone className="w-4 h-4 mr-1.5" /> AI Receptionist
+          </TabsTrigger>
+          <TabsTrigger value="settings" data-testid="tab-settings">
+            <Settings className="w-4 h-4 mr-1.5" /> Settings
           </TabsTrigger>
         </TabsList>
 
@@ -326,6 +334,16 @@ export default function TenantDetail() {
         </TabsContent>
         <TabsContent value="log" className="mt-4">
           <MessageLogTab tenantId={tenantId} />
+        </TabsContent>
+        {/* Former standalone pages, folded in as tabs. Both read the tenant
+            id from the /tenants/:id route params, so tenant scoping is
+            preserved. Old URLs (/tenants/:id/ai-receptionist and
+            /tenants/:id/settings) redirect here. */}
+        <TabsContent value="ai-receptionist" className="mt-4">
+          <AiReceptionistPage embedded />
+        </TabsContent>
+        <TabsContent value="settings" className="mt-4">
+          <SettingsPage embedded />
         </TabsContent>
       </Tabs>
     </div>
