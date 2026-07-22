@@ -3,6 +3,7 @@ import { Link } from 'wouter';
 import {
   useListSosAppointments, getListSosAppointmentsQueryKey,
   useListSosVisits, useMarkSosAppointmentNoShow, useCancelSosAppointment,
+  useGetSosDashboard,
   type SosAppointment,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -17,7 +18,8 @@ import { BookAppointmentDialog } from '@/components/sos/book-appointment-dialog'
 import { OpenTicketsPanel } from '@/components/sos/open-tickets-panel';
 import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
-  LayoutDashboard, Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
+  Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
+  Activity, ListOrdered, CheckCircle2, Phone, DollarSign,
 } from 'lucide-react';
 
 /**
@@ -28,6 +30,7 @@ import {
 export function BookingsPage() {
   const { data: appointments, isLoading: isLoadingAppointments } = useListSosAppointments({});
   const { data: visits, isLoading: isLoadingVisits } = useListSosVisits({ active: true });
+  const { data: dashboard, isLoading: isLoadingDash } = useGetSosDashboard();
 
   const now = Date.now();
   const { upcoming, past } = useMemo(() => {
@@ -52,14 +55,35 @@ export function BookingsPage() {
         <BookAppointmentDialog />
       </div>
 
+      {/* Live business KPIs — folded in from the retired standalone SOS Dashboard */}
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-4" data-testid="grid-sos-kpis">
+        <KpiStat title="In Service" value={dashboard?.inService} icon={Activity} isLoading={isLoadingDash} />
+        <KpiStat title="In Queue" value={dashboard?.inQueue} icon={Users} isLoading={isLoadingDash} />
+        <KpiStat
+          title="Avg Wait"
+          value={dashboard?.avgWaitMinutes ? `${dashboard.avgWaitMinutes}m` : '0m'}
+          icon={Clock}
+          isLoading={isLoadingDash}
+        />
+        <KpiStat title="Waitlist" value={dashboard?.waitlistWaiting} icon={ListOrdered} isLoading={isLoadingDash} />
+        <KpiStat
+          title="Resources"
+          value={dashboard ? `${dashboard.availableResources}/${dashboard.totalResources}` : '-'}
+          icon={CheckCircle2}
+          isLoading={isLoadingDash}
+        />
+        <KpiStat title="Appointments" value={dashboard?.appointmentsToday} icon={CalIcon} isLoading={isLoadingDash} />
+        <KpiStat title="AI Calls" value={dashboard?.callsHandledToday} icon={Phone} isLoading={isLoadingDash} />
+        <KpiStat
+          title="Revenue Today"
+          value={dashboard?.revenueToday ? `$${dashboard.revenueToday.toFixed(2)}` : '$0.00'}
+          icon={DollarSign}
+          isLoading={isLoadingDash}
+        />
+      </div>
+
       {/* Jump links to the other operational views */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <JumpLinkCard
-          href="/sos"
-          icon={LayoutDashboard}
-          title="SOS Dashboard"
-          description="Live KPIs, queue status, and recent AI activity"
-        />
         <JumpLinkCard
           href="/sos/customers"
           icon={Users}
@@ -184,6 +208,31 @@ export function BookingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function KpiStat({
+  title, value, icon: Icon, isLoading,
+}: {
+  title: string;
+  value: string | number | undefined;
+  icon: React.ComponentType<{ className?: string }>;
+  isLoading: boolean;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-8 w-20" />
+        ) : (
+          <div className="text-2xl font-bold">{value !== undefined ? value : '-'}</div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

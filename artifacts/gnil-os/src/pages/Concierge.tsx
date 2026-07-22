@@ -37,6 +37,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import { MessageHistoryTable } from '@/components/message-history';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Bot, Pencil, Plus, Trash2, Users, ScrollText } from 'lucide-react';
 
@@ -49,14 +50,6 @@ const RULE_TYPES = [
 const RULE_TYPE_LABEL: Record<string, string> = Object.fromEntries(
   RULE_TYPES.map((r) => [r.value, r.label]),
 );
-
-const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  sent: 'default',
-  simulated: 'secondary',
-  pending: 'outline',
-  failed: 'destructive',
-  skipped: 'destructive',
-};
 
 /**
  * Tenant-scoped Concierge management screen: engagement rule editing,
@@ -620,42 +613,20 @@ function MessageLogTab({ tenantId }: { tenantId: number }) {
             No messages have been dispatched for this tenant yet.
           </p>
         ) : (
-          <Table data-testid="table-message-logs">
-            <TableHeader>
-              <TableRow>
-                <TableHead>When</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Details</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {logs.map((log) => (
-                <TableRow key={log.id} data-testid={`row-log-${log.id}`}>
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                    {new Date(log.createdAt).toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-sm">{log.clientName ?? '—'}</TableCell>
-                  <TableCell className="text-xs uppercase">{log.jobType.replace(/_/g, ' ')}</TableCell>
-                  <TableCell>
-                    <Badge variant={STATUS_VARIANT[log.status] ?? 'outline'} className="text-[10px] uppercase" data-testid={`badge-log-status-${log.id}`}>
-                      {log.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="max-w-md">
-                    {log.status === 'failed' || log.status === 'skipped' ? (
-                      <span className="text-xs text-destructive" data-testid={`text-log-error-${log.id}`}>
-                        {log.errorMessage ?? log.errorCode ?? 'Unknown error'}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground truncate block">{log.body ?? '—'}</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <MessageHistoryTable
+            items={logs.map((log) => ({
+              id: log.id,
+              createdAt: log.createdAt,
+              contact: log.clientName ?? null,
+              body: log.body ?? null,
+              kind: log.jobType,
+              status: log.status,
+              errorMessage: log.errorMessage ?? null,
+              errorCode: log.errorCode ?? null,
+            }))}
+            testId="table-message-logs"
+            emptyMessage="No messages have been dispatched for this tenant yet."
+          />
         )}
       </CardContent>
     </Card>

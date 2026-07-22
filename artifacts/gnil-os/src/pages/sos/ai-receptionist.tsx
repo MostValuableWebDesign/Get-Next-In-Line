@@ -18,6 +18,7 @@ import { Bot, MessageSquare, Phone, Play, Send } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
+import { MessageHistoryTable, type MessageHistoryItem } from '@/components/message-history';
 
 /**
  * Unified AI Receptionist view.
@@ -327,55 +328,19 @@ function MessageLogList() {
     },
   );
 
-  return (
-    <div className="border rounded-lg overflow-x-auto">
-      <table className="w-full text-sm text-left">
-        <thead className="bg-muted/50 text-muted-foreground sticky top-0">
-          <tr>
-            <th className="px-4 py-3 font-medium">Direction</th>
-            <th className="px-4 py-3 font-medium">Contact</th>
-            <th className="px-4 py-3 font-medium">Message</th>
-            <th className="px-4 py-3 font-medium">Type</th>
-            <th className="px-4 py-3 font-medium">Status</th>
-            <th className="px-4 py-3 font-medium">Time</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {messages?.map(msg => (
-            <tr key={msg.id} className="hover:bg-muted/30">
-              <td className="px-4 py-3">
-                <Badge variant={msg.direction === 'inbound' ? 'default' : 'secondary'} className="text-[10px] capitalize">
-                  {msg.direction === 'inbound' ? 'Inbound' : 'Outbound'}
-                </Badge>
-              </td>
-              <td className="px-4 py-3 font-medium">{msg.customerName || msg.toNumber}</td>
-              <td className="px-4 py-3 max-w-xs truncate" title={msg.body}>{msg.body}</td>
-              <td className="px-4 py-3">
-                <Badge variant="outline" className="text-[10px] capitalize">{msg.kind.replace('_', ' ')}</Badge>
-              </td>
-              <td className="px-4 py-3">
-                <span
-                  className={`text-xs ${msg.deliveryStatus === 'failed' ? 'text-destructive' : 'text-muted-foreground'}`}
-                  title={msg.deliveryStatus === 'failed' && msg.errorMessage ? `${msg.errorCode ? `[${msg.errorCode}] ` : ''}${msg.errorMessage}` : undefined}
-                >
-                  {msg.deliveryStatus}
-                  {msg.deliveryStatus === 'failed' && msg.errorMessage && (
-                    <span className="block max-w-[200px] truncate text-[10px] text-destructive/80">{msg.errorMessage}</span>
-                  )}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-muted-foreground text-xs">
-                {new Date(msg.createdAt).toLocaleString()}
-              </td>
-            </tr>
-          ))}
-          {messages?.length === 0 && (
-            <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No messages yet.</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
+  const items: MessageHistoryItem[] | undefined = messages?.map((msg) => ({
+    id: msg.id,
+    createdAt: msg.createdAt,
+    contact: msg.customerName || msg.toNumber || null,
+    body: msg.body,
+    kind: msg.kind,
+    status: msg.deliveryStatus,
+    direction: msg.direction as 'inbound' | 'outbound',
+    errorMessage: msg.errorMessage,
+    errorCode: msg.errorCode,
+  }));
+
+  return <MessageHistoryTable items={items} showDirection testId="table-sms-history" />;
 }
 
 function SendSmsDialog() {

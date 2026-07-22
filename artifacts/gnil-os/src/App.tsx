@@ -19,7 +19,6 @@ import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
-import { DashboardPage as SosDashboard } from "@/pages/sos/dashboard";
 import { CustomersPage as SosCustomers } from "@/pages/sos/customers";
 import { PosPage as SosPos } from "@/pages/sos/pos";
 import { ReportsPage as SosReports } from "@/pages/sos/reports";
@@ -68,7 +67,6 @@ function ProtectedApp() {
         <Route path="/tenants" component={Tenants} />
         <Route path="/tenants/:id/settings" component={Settings} />
         <Route path="/tenants/:id" component={TenantDetail} />
-        <Route path="/tenants/:id/settings" component={Settings} />
         <Route path="/tenants/:id/concierge" component={Concierge} />
         {/* Unified Operations hub — Marketing tab (old GNIL Bridge URL) */}
         <Route path="/marketing" component={OperationsHub} />
@@ -82,8 +80,11 @@ function ProtectedApp() {
         <Route path="/connectors" component={ConnectorRegistry} />
         <Route path="/admin/modules/:id" component={AdminModuleDetail} />
         <Route path="/settings" component={Settings} />
-        {/* SOS Operations section */}
-        <Route path="/sos" component={SosDashboard} />
+        {/* SOS Operations section — the old standalone SOS Dashboard is folded
+            into Business Bookings (its KPI stats now render there) */}
+        <Route path="/sos">
+          <Redirect to="/sos/bookings" replace />
+        </Route>
         {/* Unified Operations hub — Live Operations tab (old SOS Operations Center URL) */}
         <Route path="/sos/operations" component={OperationsHub} />
         {/* Calendar is now a view inside Business Bookings */}
