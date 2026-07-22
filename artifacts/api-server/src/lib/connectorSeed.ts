@@ -22,11 +22,11 @@ interface ConnectorMappingEntry {
 }
 
 export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
-  // ── Category 0.5: Marketing OS (GHL Bridge) ──────────────────────────────
+  // ── Category 0.5: Marketing OS (GNIL Bridge) ──────────────────────────────
   {
     slug: "ghl_crm_pipelines",
     name: "Lead Pipelines & CRM Core",
-    category: "Marketing OS / GHL Bridge",
+    category: "Marketing OS / GNIL Bridge",
     categorySlug: "marketing",
     description: "Full CRM with visual lead pipelines, contact management, and deal tracking.",
     wholesalePrice: "97.00",
@@ -38,7 +38,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   {
     slug: "ghl_omnichannel_inbox",
     name: "Unified Omnichannel Inbox",
-    category: "Marketing OS / GHL Bridge",
+    category: "Marketing OS / GNIL Bridge",
     categorySlug: "marketing",
     description: "One inbox for SMS, email, chat, and social conversations.",
     wholesalePrice: "97.00",
@@ -50,7 +50,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   {
     slug: "ghl_funnel_builder",
     name: "High-Converting Funnel & Site Builder",
-    category: "Marketing OS / GHL Bridge",
+    category: "Marketing OS / GNIL Bridge",
     categorySlug: "marketing",
     description: "Drag-and-drop funnel and website builder with custom domains.",
     wholesalePrice: "97.00",
@@ -62,7 +62,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   {
     slug: "ghl_ai_automation",
     name: "AI Voice & SMS Nurture Bots",
-    category: "Marketing OS / GHL Bridge",
+    category: "Marketing OS / GNIL Bridge",
     categorySlug: "marketing",
     description: "AI-powered conversational bots that follow up leads via voice and SMS automatically.",
     wholesalePrice: "147.00",
@@ -229,6 +229,7 @@ export async function seedConnectorMapping(): Promise<void> {
         .update(modulesTable)
         .set({
           slug: entry.slug,
+          category: entry.category,
           upstreamVendor: entry.upstreamVendor,
           hiddenConnector: entry.hiddenConnector,
           proxyNotes: entry.proxyNotes,

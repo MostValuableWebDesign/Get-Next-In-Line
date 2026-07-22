@@ -16,7 +16,7 @@ import { Activity, LayoutDashboard, Users, Zap, Briefcase, Radio, CreditCard, Ca
 const NAV_ITEMS = [
   { name: 'Command Center', path: '/', icon: LayoutDashboard },
   { name: 'Tenant Dashboards', path: '/tenants', icon: Users },
-  { name: 'GHL Bridge', path: '/marketing', icon: Zap },
+  { name: 'GNIL Bridge', path: '/marketing', icon: Zap },
   { name: 'Waitlist & Booking', path: '/operations', icon: Activity },
   { name: 'Partners (0%)', path: '/partners', icon: Briefcase },
   { name: 'Media Resale', path: '/media', icon: Radio },
