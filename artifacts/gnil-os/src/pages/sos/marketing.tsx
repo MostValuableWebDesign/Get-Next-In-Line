@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { Link, useSearch } from 'wouter';
 import { 
   useListSosCalls, useListSosMessages, useSimulateSosCall, useSendSosMessage,
+  useGetSosSettings, getGetSosSettingsQueryKey,
   getListSosCallsQueryKey, getListSosMessagesQueryKey
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -12,35 +14,103 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Phone, MessageSquare, Bot, Play, Send } from 'lucide-react';
+import { Phone, MessageSquare, Bot, Play, Send, Settings2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 
+/** Query-param values accepted for `?tab=` deep links. */
+const TAB_VALUES = ['receptionist', 'sms'] as const;
+type TabValue = (typeof TAB_VALUES)[number];
+
 export function MarketingPage() {
+  const searchString = useSearch();
+  // Deep links: /sos/marketing?tab=sms selects the SMS tab. An optional
+  // `settings=<path>` param lets the caller (e.g. a tenant-scoped
+  // Configuration page) control where the "settings" shortcuts lead back to.
+  const params = new URLSearchParams(searchString);
+  const rawTab = params.get('tab');
+  const initialTab: TabValue = TAB_VALUES.includes(rawTab as TabValue)
+    ? (rawTab as TabValue)
+    : 'receptionist';
+  const settingsParam = params.get('settings');
+  // Only allow in-app absolute paths, so the param can't point elsewhere.
+  const settingsBase =
+    settingsParam && settingsParam.startsWith('/') && !settingsParam.startsWith('//')
+      ? settingsParam
+      : '/settings';
+  const [tab, setTab] = useState<TabValue>(initialTab);
+
+  const { data: settings } = useGetSosSettings({
+    query: { queryKey: getGetSosSettingsQueryKey() },
+  });
+
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 h-full flex flex-col">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Communications</h1>
-        <p className="text-muted-foreground text-sm mt-1">AI Receptionist logs and SMS Broadcasts.</p>
+        <h1 className="text-3xl font-bold tracking-tight">Marketing &amp; Comms</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Live operations — AI Receptionist call logs and SMS broadcast history. Feature setup lives
+          in{' '}
+          <Link href={settingsBase} className="underline underline-offset-2 hover:text-foreground" data-testid="link-configuration">
+            Configuration
+          </Link>
+          .
+        </p>
       </div>
 
-      <Tabs defaultValue="receptionist" className="flex-1 flex flex-col min-h-0">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="flex-1 flex flex-col min-h-0">
         <TabsList className="w-[400px]">
-          <TabsTrigger value="receptionist" className="flex-1"><Bot className="w-4 h-4 mr-2"/> AI Receptionist</TabsTrigger>
-          <TabsTrigger value="sms" className="flex-1"><MessageSquare className="w-4 h-4 mr-2"/> SMS Broadcasts</TabsTrigger>
+          <TabsTrigger value="receptionist" className="flex-1" data-testid="tab-receptionist"><Bot className="w-4 h-4 mr-2"/> AI Receptionist</TabsTrigger>
+          <TabsTrigger value="sms" className="flex-1" data-testid="tab-sms"><MessageSquare className="w-4 h-4 mr-2"/> SMS Broadcasts</TabsTrigger>
         </TabsList>
         
         <TabsContent value="receptionist" className="flex-1 flex flex-col min-h-0 mt-4 space-y-4">
+          {settings && !settings.aiReceptionistEnabled && (
+            <div
+              className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-400 shrink-0"
+              data-testid="banner-ai-disabled"
+            >
+              <span>The AI Receptionist is currently disabled — new calls won't be answered.</span>
+              <Button asChild variant="outline" size="sm" className="shrink-0">
+                <Link href={`${settingsBase}#ai-receptionist`}>Enable in Configuration</Link>
+              </Button>
+            </div>
+          )}
           <div className="flex justify-between items-center shrink-0">
             <h2 className="text-xl font-semibold">Call Logs</h2>
-            <SimulateCallDialog />
+            <div className="flex items-center gap-2">
+              <Button asChild variant="ghost" size="sm" className="text-muted-foreground" data-testid="link-ai-settings">
+                <Link href={`${settingsBase}#ai-receptionist`}>
+                  <Settings2 className="w-4 h-4 mr-2" /> AI Receptionist settings
+                </Link>
+              </Button>
+              <SimulateCallDialog />
+            </div>
           </div>
           <CallLogList />
         </TabsContent>
 
         <TabsContent value="sms" className="flex-1 flex flex-col min-h-0 mt-4 space-y-4">
+          {settings && settings.smsMode !== 'live' && (
+            <div
+              className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-400 shrink-0"
+              data-testid="banner-sms-simulated"
+            >
+              <span>SMS is in simulated mode — messages are logged but not actually sent.</span>
+              <Button asChild variant="outline" size="sm" className="shrink-0">
+                <Link href={`${settingsBase}#sms`}>Go live in Configuration</Link>
+              </Button>
+            </div>
+          )}
           <div className="flex justify-between items-center shrink-0">
             <h2 className="text-xl font-semibold">Message History</h2>
-            <SendSmsDialog />
+            <div className="flex items-center gap-2">
+              <Button asChild variant="ghost" size="sm" className="text-muted-foreground" data-testid="link-sms-settings">
+                <Link href={`${settingsBase}#sms`}>
+                  <Settings2 className="w-4 h-4 mr-2" /> SMS settings
+                </Link>
+              </Button>
+              <SendSmsDialog />
+            </div>
           </div>
           <MessageLogList />
         </TabsContent>

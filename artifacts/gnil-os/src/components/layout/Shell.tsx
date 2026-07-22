@@ -55,7 +55,8 @@ const SOS_NAV_ITEMS: NavItem[] = [
   { name: 'Customers', path: '/sos/customers', icon: Users },
   { name: 'POS', path: '/sos/pos', icon: CreditCard },
   { name: 'Reports', path: '/sos/reports', icon: BarChart3 },
-  { name: 'Marketing', path: '/sos/marketing', icon: Megaphone },
+  // Live communications logs (AI calls + SMS); setup lives in Configuration.
+  { name: 'Marketing & Comms', path: '/sos/marketing', icon: Megaphone },
 ];
 
 import { useOnlineStatus } from '@/hooks/use-online';

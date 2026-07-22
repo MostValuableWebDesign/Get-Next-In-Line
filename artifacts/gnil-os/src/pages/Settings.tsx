@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Activity, ArrowLeft, Bot, Building2, MessageSquare } from 'lucide-react';
+import { Activity, ArrowLeft, Bot, Building2, ExternalLink, MessageSquare } from 'lucide-react';
 
 /**
  * Unified configuration screen.
@@ -142,6 +142,12 @@ export default function Settings() {
       updateGlobal.mutate({ data }, { onSuccess, onError });
     }
   };
+
+  // Cross-links into the live Marketing & Comms logs. When tenant-scoped,
+  // carry a `settings=` param so its "settings" shortcuts lead back here.
+  const settingsPath = isTenantScoped ? `/tenants/${tenantId}/settings` : '/settings';
+  const marketingLink = (tab: 'receptionist' | 'sms') =>
+    `/sos/marketing?tab=${tab}${isTenantScoped ? `&settings=${encodeURIComponent(settingsPath)}` : ''}`;
 
   const parseServiceNames = (text: string): string[] =>
     text
@@ -297,7 +303,18 @@ export default function Settings() {
               recognize what callers are asking for.
             </p>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center gap-3">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground -ml-2"
+              data-testid="link-ai-call-logs"
+            >
+              <Link href={marketingLink('receptionist')}>
+                <ExternalLink className="w-4 h-4 mr-2" /> View AI call logs
+              </Link>
+            </Button>
             <Button
               onClick={() => saveSection('AI Receptionist', { aiReceptionistEnabled, serviceNames })}
               disabled={isPending}
@@ -432,7 +449,18 @@ export default function Settings() {
               This number is used for all outgoing AI and waitlist texts.
             </p>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center gap-3">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground -ml-2"
+              data-testid="link-sms-history"
+            >
+              <Link href={marketingLink('sms')}>
+                <ExternalLink className="w-4 h-4 mr-2" /> View SMS broadcast history
+              </Link>
+            </Button>
             <Button
               onClick={() => saveSection('SMS settings', { smsFromNumber })}
               disabled={isPending}
