@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 import Dashboard from "@/pages/Dashboard";
 import Tenants from "@/pages/Tenants";
+import TenantDetail from "@/pages/TenantDetail";
 import Marketing from "@/pages/Marketing";
 import Operations from "@/pages/Operations";
 import Partners from "@/pages/Partners";
@@ -55,6 +56,7 @@ function ProtectedApp() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/tenants" component={Tenants} />
+        <Route path="/tenants/:id" component={TenantDetail} />
         <Route path="/marketing" component={Marketing} />
         <Route path="/operations" component={Operations} />
         <Route path="/partners" component={Partners} />

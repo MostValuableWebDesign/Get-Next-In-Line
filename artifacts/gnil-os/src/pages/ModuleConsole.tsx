@@ -206,7 +206,7 @@ export default function ModuleConsole() {
                 {subscribers.map((s) => (
                   <Link
                     key={s.tenantId}
-                    href="/tenants"
+                    href={`/tenants/${s.tenantId}`}
                     className="flex items-center justify-between gap-4 py-3 px-2 -mx-2 rounded-lg hover:bg-muted/50 transition-colors"
                     data-testid={`link-subscriber-${s.tenantId}`}
                   >

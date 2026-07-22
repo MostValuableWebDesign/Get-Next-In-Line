@@ -107,6 +107,14 @@ export interface TenantActivity {
   timestamp: string;
 }
 
+export interface TenantSubscribedModule {
+  moduleId: number;
+  name: string;
+  category: string;
+  categorySlug: string;
+  provisionedAt: string;
+}
+
 export interface Module {
   id: number;
   name: string;

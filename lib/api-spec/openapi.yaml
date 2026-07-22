@@ -186,6 +186,29 @@ paths:
         "404":
           description: Not found
 
+  /tenants/{id}/modules:
+    get:
+      operationId: getTenantModules
+      tags: [tenants]
+      summary: List modules a tenant is subscribed to
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Modules the tenant is subscribed to
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantSubscribedModule"
+        "404":
+          description: Tenant not found
+
   /modules:
     get:
       operationId: listModules
@@ -466,6 +489,21 @@ components:
         details:
           type: ["string", "null"]
         timestamp:
+          type: string
+
+    TenantSubscribedModule:
+      type: object
+      required: [moduleId, name, category, categorySlug, provisionedAt]
+      properties:
+        moduleId:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+        categorySlug:
+          type: string
+        provisionedAt:
           type: string
 
     Module:

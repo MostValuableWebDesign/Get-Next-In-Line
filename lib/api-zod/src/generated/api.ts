@@ -181,6 +181,23 @@ export const DeleteTenantResponse = zod.void()
 
 
 /**
+ * @summary List modules a tenant is subscribed to
+ */
+export const GetTenantModulesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetTenantModulesResponseItem = zod.object({
+  "moduleId": zod.number(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "categorySlug": zod.string(),
+  "provisionedAt": zod.string()
+})
+export const GetTenantModulesResponse = zod.array(GetTenantModulesResponseItem)
+
+
+/**
  * @summary List all service modules with wholesale and resale pricing
  */
 export const ListModulesResponseItem = zod.object({

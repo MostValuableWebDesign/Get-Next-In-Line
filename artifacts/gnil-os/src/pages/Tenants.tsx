@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'wouter';
 import { useListTenants, useUpdateTenant, useDeleteTenant, useCreateTenant, getListTenantsQueryKey, useGetTenant } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Tenants() {
   const { data: tenants, isLoading } = useListTenants();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [, navigate] = useLocation();
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -65,7 +67,12 @@ export default function Tenants() {
               </TableHeader>
               <TableBody>
                 {tenants.map(tenant => (
-                  <TableRow key={tenant.id}>
+                  <TableRow
+                    key={tenant.id}
+                    className="cursor-pointer"
+                    onClick={() => navigate(`/tenants/${tenant.id}`)}
+                    data-testid={`row-tenant-${tenant.id}`}
+                  >
                     <TableCell>
                       <div className="font-semibold">{tenant.brandName}</div>
                       <div className="text-xs font-mono text-muted-foreground">{tenant.subdomain}.gnil.os</div>
@@ -83,7 +90,7 @@ export default function Tenants() {
                     <TableCell className="text-center">
                       <Badge variant="outline" className="font-mono">{tenant.modulesEnabled}</Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <TenantActions tenant={tenant} />
                     </TableCell>
                   </TableRow>

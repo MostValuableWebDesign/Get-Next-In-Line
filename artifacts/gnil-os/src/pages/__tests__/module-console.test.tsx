@@ -133,7 +133,7 @@ describe('ModuleConsole', () => {
     expect(apex).toHaveTextContent('Apex Salon');
     expect(apex).toHaveTextContent('apex');
     expect(apex).toHaveTextContent('active');
-    expect(apex).toHaveAttribute('href', '/tenants');
+    expect(apex).toHaveAttribute('href', '/tenants/10');
 
     const metro = screen.getByTestId('link-subscriber-11');
     expect(metro).toHaveTextContent('Metro Clinics');

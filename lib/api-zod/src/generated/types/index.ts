@@ -27,5 +27,6 @@ export * from './tenantBillingSummary';
 export * from './tenantInput';
 export * from './tenantInputStatus';
 export * from './tenantStatus';
+export * from './tenantSubscribedModule';
 export * from './tenantUpdate';
 export * from './tenantUpdateStatus';

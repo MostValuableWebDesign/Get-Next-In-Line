@@ -1,8 +1,10 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { tenantsTable, tenantActivitiesTable } from "@workspace/db";
+import { tenantsTable, tenantActivitiesTable, tenantModulesTable, modulesTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import {
+  GetTenantModulesParams,
+  GetTenantModulesResponse,
   ListTenantsResponse,
   CreateTenantBody,
   CreateTenantResponse,
@@ -119,6 +121,45 @@ router.get("/tenants/:id", async (req, res): Promise<void> => {
       mrr: parseFloat(tenant.mrr ?? "0"),
       createdAt: tenant.createdAt.toISOString(),
     })
+  );
+});
+
+router.get("/tenants/:id/modules", async (req, res): Promise<void> => {
+  const params = GetTenantModulesParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [tenant] = await db
+    .select({ id: tenantsTable.id })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, params.data.id));
+  if (!tenant) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
+
+  const rows = await db
+    .select({
+      moduleId: modulesTable.id,
+      name: modulesTable.name,
+      category: modulesTable.category,
+      categorySlug: modulesTable.categorySlug,
+      provisionedAt: tenantModulesTable.provisionedAt,
+    })
+    .from(tenantModulesTable)
+    .innerJoin(modulesTable, eq(tenantModulesTable.moduleId, modulesTable.id))
+    .where(eq(tenantModulesTable.tenantId, params.data.id))
+    .orderBy(modulesTable.name);
+
+  res.json(
+    GetTenantModulesResponse.parse(
+      rows.map((r) => ({
+        ...r,
+        provisionedAt: r.provisionedAt.toISOString(),
+      }))
+    )
   );
 });
 
