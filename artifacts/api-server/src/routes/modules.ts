@@ -5,6 +5,7 @@ import {
   ListModulesResponse,
   GetModulesPricingResponse,
   GetModuleTenantCountsResponse,
+  GetModuleTenantsResponse,
 } from "@workspace/api-zod";
 import { eq, sql } from "drizzle-orm";
 
@@ -50,6 +51,45 @@ router.get("/modules/tenant-counts", async (_req, res): Promise<void> => {
       modules.map((m) => ({
         moduleId: m.id,
         activeTenantCount: countMap.get(m.id) ?? 0,
+      }))
+    )
+  );
+});
+
+router.get("/modules/:id/tenants", async (req, res): Promise<void> => {
+  const moduleId = Number(req.params.id);
+  if (!Number.isInteger(moduleId)) {
+    res.status(404).json({ error: "Module not found" });
+    return;
+  }
+
+  const [module] = await db.select({ id: modulesTable.id }).from(modulesTable).where(eq(modulesTable.id, moduleId));
+  if (!module) {
+    res.status(404).json({ error: "Module not found" });
+    return;
+  }
+
+  const rows = await db
+    .select({
+      tenantId: tenantsTable.id,
+      brandName: tenantsTable.brandName,
+      subdomain: tenantsTable.subdomain,
+      status: tenantsTable.status,
+      provisionedAt: tenantModulesTable.provisionedAt,
+    })
+    .from(tenantModulesTable)
+    .innerJoin(tenantsTable, eq(tenantModulesTable.tenantId, tenantsTable.id))
+    .where(eq(tenantModulesTable.moduleId, moduleId))
+    .orderBy(tenantsTable.brandName);
+
+  res.json(
+    GetModuleTenantsResponse.parse(
+      rows.map((r) => ({
+        tenantId: r.tenantId,
+        brandName: r.brandName,
+        subdomain: r.subdomain,
+        status: r.status,
+        provisionedAt: r.provisionedAt.toISOString(),
       }))
     )
   );

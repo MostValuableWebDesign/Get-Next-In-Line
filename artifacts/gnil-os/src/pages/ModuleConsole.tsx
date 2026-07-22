@@ -6,9 +6,11 @@ import {
   useGetAgencySettings,
   useListTenants,
   useGetModuleTenantCounts,
+  useGetModuleTenants,
   useSimulateCheckout,
   getListTenantsQueryKey,
   getGetModuleTenantCountsQueryKey,
+  getGetModuleTenantsQueryKey,
   getGetBillingSummaryQueryKey,
   getGetAgencyDashboardQueryKey,
   getGetTenantActivityQueryKey,
@@ -25,7 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatCurrency } from '@/lib/format';
 import { useToast } from '@/hooks/use-toast';
 import {
-  ArrowLeft, CreditCard, FileText, Lock, RefreshCw, Server, ShieldCheck, Sliders,
+  ArrowLeft, CreditCard, FileText, Lock, RefreshCw, Server, ShieldCheck, Sliders, Users,
 } from 'lucide-react';
 
 const CATEGORY_ROUTES: Record<string, { path: string; label: string }> = {
@@ -43,6 +45,9 @@ export default function ModuleConsole() {
   const { data: pricing, isLoading: isLoadingPricing } = useGetModulesPricing();
   const { data: settings, isLoading: isLoadingSettings } = useGetAgencySettings();
   const { data: tenantCounts } = useGetModuleTenantCounts();
+  const { data: subscribers, isLoading: isLoadingSubscribers } = useGetModuleTenants(moduleId, {
+    query: { queryKey: getGetModuleTenantsQueryKey(moduleId), enabled: Number.isInteger(moduleId) },
+  });
   const { toast } = useToast();
 
   if (isLoadingModules || isLoadingPricing || isLoadingSettings) {
@@ -180,6 +185,59 @@ export default function ModuleConsole() {
           </CardContent>
         </Card>
 
+        <Card className="lg:col-span-2 border-none shadow-md">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" /> Subscribed Tenants
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingSubscribers ? (
+              <div className="space-y-3">
+                <Skeleton className="h-12 w-full rounded-lg" />
+                <Skeleton className="h-12 w-full rounded-lg" />
+              </div>
+            ) : !subscribers || subscribers.length === 0 ? (
+              <p className="text-sm text-muted-foreground" data-testid="text-no-subscribers">
+                No tenants are subscribed to this module yet.
+              </p>
+            ) : (
+              <div className="divide-y" data-testid="list-module-subscribers">
+                {subscribers.map((s) => (
+                  <Link
+                    key={s.tenantId}
+                    href="/tenants"
+                    className="flex items-center justify-between gap-4 py-3 px-2 -mx-2 rounded-lg hover:bg-muted/50 transition-colors"
+                    data-testid={`link-subscriber-${s.tenantId}`}
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{s.brandName}</div>
+                      <div className="text-xs text-muted-foreground font-mono truncate">{s.subdomain}</div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-xs text-muted-foreground">
+                        Provisioned {new Date(s.provisionedAt).toLocaleDateString()}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className={
+                          s.status === 'active'
+                            ? 'border-emerald-500/40 text-emerald-600 bg-emerald-500/5'
+                            : s.status === 'suspended'
+                              ? 'border-red-500/40 text-red-600 bg-red-500/5'
+                              : 'border-amber-500/40 text-amber-600 bg-amber-500/5'
+                        }
+                      >
+                        {s.status}
+                      </Badge>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card className="border-none shadow-md">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -229,6 +287,7 @@ function ProvisionModuleDialog({ moduleId, moduleName }: { moduleId: number; mod
           setSelectedTenant('');
           queryClient.invalidateQueries({ queryKey: getListTenantsQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetModuleTenantCountsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetModuleTenantsQueryKey(moduleId) });
           queryClient.invalidateQueries({ queryKey: getGetBillingSummaryQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetAgencyDashboardQueryKey() });
           queryClient.invalidateQueries({ queryKey: getGetTenantActivityQueryKey() });

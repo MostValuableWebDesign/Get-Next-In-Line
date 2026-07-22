@@ -231,6 +231,29 @@ paths:
                 items:
                   $ref: "#/components/schemas/ModuleTenantCount"
 
+  /modules/{id}/tenants:
+    get:
+      operationId: getModuleTenants
+      tags: [modules]
+      summary: List tenants subscribed to a module
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tenants subscribed to the module
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ModuleTenantSubscriber"
+        "404":
+          description: Module not found
+
   /admin/connector-registry:
     get:
       operationId: getConnectorRegistry
@@ -552,6 +575,22 @@ components:
           type: integer
         activeTenantCount:
           type: integer
+
+    ModuleTenantSubscriber:
+      type: object
+      required: [tenantId, brandName, subdomain, status, provisionedAt]
+      properties:
+        tenantId:
+          type: integer
+        brandName:
+          type: string
+        subdomain:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended, pending]
+        provisionedAt:
+          type: string
 
     CheckoutInput:
       type: object

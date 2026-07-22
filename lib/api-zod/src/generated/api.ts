@@ -221,6 +221,23 @@ export const GetModuleTenantCountsResponse = zod.array(GetModuleTenantCountsResp
 
 
 /**
+ * @summary List tenants subscribed to a module
+ */
+export const GetModuleTenantsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetModuleTenantsResponseItem = zod.object({
+  "tenantId": zod.number(),
+  "brandName": zod.string(),
+  "subdomain": zod.string(),
+  "status": zod.enum(['active', 'suspended', 'pending']),
+  "provisionedAt": zod.string()
+})
+export const GetModuleTenantsResponse = zod.array(GetModuleTenantsResponseItem)
+
+
+/**
  * @summary Admin-only — full module list including hidden upstream connector mapping
  */
 export const GetConnectorRegistryResponseItem = zod.object({

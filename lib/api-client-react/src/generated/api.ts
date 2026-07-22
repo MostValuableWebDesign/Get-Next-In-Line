@@ -32,6 +32,7 @@ import type {
   Module,
   ModulePricing,
   ModuleTenantCount,
+  ModuleTenantSubscriber,
   Tenant,
   TenantActivity,
   TenantInput,
@@ -1031,6 +1032,83 @@ export function useGetModuleTenantCounts<TData = Awaited<ReturnType<typeof getMo
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetModuleTenantCountsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetModuleTenantsUrl = (id: number,) => {
+
+
+
+
+  return `/api/modules/${id}/tenants`
+}
+
+/**
+ * @summary List tenants subscribed to a module
+ */
+export const getModuleTenants = async (id: number, options?: RequestInit): Promise<ModuleTenantSubscriber[]> => {
+
+  return customFetch<ModuleTenantSubscriber[]>(getGetModuleTenantsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetModuleTenantsQueryKey = (id: number,) => {
+    return [
+    `/api/modules/${id}/tenants`
+    ] as const;
+    }
+
+
+export const getGetModuleTenantsQueryOptions = <TData = Awaited<ReturnType<typeof getModuleTenants>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getModuleTenants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetModuleTenantsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getModuleTenants>>> = ({ signal }) => getModuleTenants(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getModuleTenants>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetModuleTenantsQueryResult = NonNullable<Awaited<ReturnType<typeof getModuleTenants>>>
+export type GetModuleTenantsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List tenants subscribed to a module
+ */
+
+export function useGetModuleTenants<TData = Awaited<ReturnType<typeof getModuleTenants>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getModuleTenants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetModuleTenantsQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

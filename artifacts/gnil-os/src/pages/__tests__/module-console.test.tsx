@@ -53,6 +53,14 @@ const tenantCounts = [
   { moduleId: 2, activeTenantCount: 0 },
 ];
 
+const moduleTenants: Record<number, Array<{ tenantId: number; brandName: string; subdomain: string; status: string; provisionedAt: string }>> = {
+  1: [
+    { tenantId: 10, brandName: 'Apex Salon', subdomain: 'apex', status: 'active', provisionedAt: '2026-03-15T00:00:00Z' },
+    { tenantId: 11, brandName: 'Metro Clinics', subdomain: 'metro', status: 'suspended', provisionedAt: '2026-04-02T00:00:00Z' },
+  ],
+  2: [],
+};
+
 const mutateMock = vi.fn();
 
 vi.mock('@workspace/api-client-react', () => ({
@@ -62,6 +70,8 @@ vi.mock('@workspace/api-client-react', () => ({
   useListTenants: () => ({ data: tenants, isLoading: false }),
   useGetModuleTenantCounts: () => ({ data: tenantCounts, isLoading: false }),
   getGetModuleTenantCountsQueryKey: () => ['tenant-counts'],
+  useGetModuleTenants: (id: number) => ({ data: moduleTenants[id] ?? [], isLoading: false }),
+  getGetModuleTenantsQueryKey: (id: number) => ['module-tenants', id],
   useSimulateCheckout: () => ({ mutate: mutateMock, isPending: false }),
   getListTenantsQueryKey: () => ['tenants'],
   getGetBillingSummaryQueryKey: () => ['billing'],
@@ -113,6 +123,32 @@ describe('ModuleConsole', () => {
     expect(screen.queryByTestId('button-provision-module')).not.toBeInTheDocument();
   });
 
+  it('lists subscribed tenants with status and links to the tenant roster', () => {
+    renderConsole('/modules/1');
+
+    const list = screen.getByTestId('list-module-subscribers');
+    expect(list).toBeInTheDocument();
+
+    const apex = screen.getByTestId('link-subscriber-10');
+    expect(apex).toHaveTextContent('Apex Salon');
+    expect(apex).toHaveTextContent('apex');
+    expect(apex).toHaveTextContent('active');
+    expect(apex).toHaveAttribute('href', '/tenants');
+
+    const metro = screen.getByTestId('link-subscriber-11');
+    expect(metro).toHaveTextContent('Metro Clinics');
+    expect(metro).toHaveTextContent('suspended');
+
+    expect(screen.queryByTestId('text-no-subscribers')).not.toBeInTheDocument();
+  });
+
+  it('shows an empty state when no tenants subscribe to the module', () => {
+    renderConsole('/modules/2');
+
+    expect(screen.getByTestId('text-no-subscribers')).toHaveTextContent('No tenants are subscribed to this module yet.');
+    expect(screen.queryByTestId('list-module-subscribers')).not.toBeInTheDocument();
+  });
+
   it('renders a not-found state for an unknown module id', () => {
     renderConsole('/modules/999');
     expect(screen.getByText(/module not found/i)).toBeInTheDocument();
@@ -131,7 +167,7 @@ describe('ModuleConsole', () => {
     expect(screen.getByTestId('button-confirm-provision')).toBeDisabled();
 
     fireEvent.click(screen.getByTestId('select-provision-tenant'));
-    fireEvent.click(await screen.findByText('Apex Salon'));
+    fireEvent.click(await screen.findByRole('option', { name: 'Apex Salon' }));
 
     // Order summary shows the module's resale price
     expect(screen.getByTestId('text-provision-total')).toHaveTextContent('$224');
@@ -157,7 +193,7 @@ describe('ModuleConsole', () => {
     renderConsole('/modules/1');
     fireEvent.click(screen.getByTestId('button-provision-module'));
     fireEvent.click(screen.getByTestId('select-provision-tenant'));
-    fireEvent.click(await screen.findByText('Apex Salon'));
+    fireEvent.click(await screen.findByRole('option', { name: 'Apex Salon' }));
     fireEvent.click(screen.getByTestId('button-confirm-provision'));
 
     await waitFor(() => {

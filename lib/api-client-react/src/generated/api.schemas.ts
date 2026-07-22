@@ -171,6 +171,23 @@ export interface ModuleTenantCount {
   activeTenantCount: number;
 }
 
+export type ModuleTenantSubscriberStatus = typeof ModuleTenantSubscriberStatus[keyof typeof ModuleTenantSubscriberStatus];
+
+
+export const ModuleTenantSubscriberStatus = {
+  active: 'active',
+  suspended: 'suspended',
+  pending: 'pending',
+} as const;
+
+export interface ModuleTenantSubscriber {
+  tenantId: number;
+  brandName: string;
+  subdomain: string;
+  status: ModuleTenantSubscriberStatus;
+  provisionedAt: string;
+}
+
 export interface CheckoutInput {
   tenantId: number;
   moduleIds: number[];
