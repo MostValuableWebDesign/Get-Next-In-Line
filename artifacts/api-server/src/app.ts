@@ -98,6 +98,15 @@ const isHttps =
   Boolean(process.env.REPLIT_DEV_DOMAIN) ||
   process.env.NODE_ENV === "production";
 
+// The production frontend (getnextinline.com) and this API (a *.replit.app
+// domain) are different sites. With SameSite=Lax the browser drops the
+// session cookie on cross-site fetches, so logins would silently fail even
+// though CORS passes. Cross-site cookies require SameSite=None, which
+// browsers only accept together with Secure — so we use "none" whenever the
+// cookie is Secure (Replit dev + production) and fall back to "lax" for
+// plain-HTTP local development, where "none" would be rejected.
+const sameSite: "none" | "lax" = isHttps ? "none" : "lax";
+
 app.use(
   session({
     name: "gnil.sid",
@@ -107,7 +116,7 @@ app.use(
     cookie: {
       httpOnly: true,
       secure: isHttps,
-      sameSite: "lax",
+      sameSite,
       maxAge: 8 * 60 * 60 * 1000, // 8 hours
     },
   }),
