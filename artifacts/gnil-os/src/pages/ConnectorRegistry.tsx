@@ -80,7 +80,7 @@ function EditConnectorDialog({
               id="edit-slug"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="e.g. ghl_crm_pipelines"
+              placeholder="e.g. crm_pipelines"
               className="font-mono"
               data-testid="input-slug"
             />
@@ -91,7 +91,7 @@ function EditConnectorDialog({
               id="edit-vendor"
               value={upstreamVendor}
               onChange={(e) => setUpstreamVendor(e.target.value)}
-              placeholder="e.g. GoHighLevel"
+              placeholder="e.g. Upstream CRM Vendor"
               data-testid="input-upstream-vendor"
             />
           </div>
