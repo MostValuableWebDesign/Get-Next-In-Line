@@ -5,8 +5,10 @@ import {
   useUpdateSosResource, useCreateSosResource, useDeleteSosResource,
   getListSosVisitsQueryKey, getListSosResourcesQueryKey, getListSosWaitlistQueryKey,
   useGetSosSettings, getGetSosSettingsQueryKey,
-  SosVisitStatus
+  SosVisitStatus,
+  type SosCustomer
 } from '@workspace/api-client-react';
+import { CustomerPicker } from '@/components/sos/customer-picker';
 import { Link } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -372,7 +374,7 @@ function VisitCard({ visit, onAdvance, resources }: { visit: any, onAdvance: any
 
 function CheckInDialog() {
   const [open, setOpen] = useState(false);
-  const [customerId, setCustomerId] = useState("1"); // Hardcoded for demo, normally would search customers
+  const [customer, setCustomer] = useState<SosCustomer | null>(null);
   const [serviceType, setServiceType] = useState("");
   const [partySize, setPartySize] = useState("1");
   const checkIn = useCheckInSosVisit();
@@ -380,12 +382,14 @@ function CheckInDialog() {
   const { toast } = useToast();
 
   const handleSave = () => {
+    if (!customer) return;
     checkIn.mutate(
-      { data: { customerId: parseInt(customerId), serviceType, partySize: parseInt(partySize) } },
+      { data: { customerId: customer.id, serviceType, partySize: parseInt(partySize) } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListSosVisitsQueryKey({ active: true }) });
           setOpen(false);
+          setCustomer(null);
           toast({ title: 'Checked in' });
         }
       }
@@ -403,8 +407,8 @@ function CheckInDialog() {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Customer ID</Label>
-            <Input value={customerId} onChange={e => setCustomerId(e.target.value)} placeholder="e.g. 1" />
+            <Label>Customer</Label>
+            <CustomerPicker value={customer} onChange={setCustomer} />
           </div>
           <div className="space-y-2">
             <Label>Service Type</Label>
@@ -417,7 +421,7 @@ function CheckInDialog() {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!serviceType}>Check In</Button>
+          <Button onClick={handleSave} disabled={!serviceType || !customer || checkIn.isPending}>Check In</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

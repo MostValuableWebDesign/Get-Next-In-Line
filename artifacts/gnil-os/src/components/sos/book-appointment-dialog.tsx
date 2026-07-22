@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useCreateSosAppointment, getListSosAppointmentsQueryKey } from '@workspace/api-client-react';
+import { useCreateSosAppointment, getListSosAppointmentsQueryKey, type SosCustomer } from '@workspace/api-client-react';
+import { CustomerPicker } from '@/components/sos/customer-picker';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +19,7 @@ import { Plus } from 'lucide-react';
  */
 export function BookAppointmentDialog({ triggerLabel = 'Book Appointment' }: { triggerLabel?: string }) {
   const [open, setOpen] = useState(false);
-  const [customerId, setCustomerId] = useState('1');
+  const [customer, setCustomer] = useState<SosCustomer | null>(null);
   const [serviceType, setServiceType] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -27,15 +28,14 @@ export function BookAppointmentDialog({ triggerLabel = 'Book Appointment' }: { t
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const parsedCustomerId = parseInt(customerId, 10);
-
   const handleSave = () => {
+    if (!customer) return;
     const startsAt = new Date(`${date}T${time}`).toISOString();
     const dEnd = new Date(`${date}T${time}`);
     dEnd.setHours(dEnd.getHours() + 1);
 
     create.mutate(
-      { data: { customerId: parsedCustomerId, serviceType, startsAt, endsAt: dEnd.toISOString(), source: 'staff' } },
+      { data: { customerId: customer.id, serviceType, startsAt, endsAt: dEnd.toISOString(), source: 'staff' } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListSosAppointmentsQueryKey({}) });
@@ -62,11 +62,9 @@ export function BookAppointmentDialog({ triggerLabel = 'Book Appointment' }: { t
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Customer ID</Label>
-            <Input value={customerId} onChange={e => setCustomerId(e.target.value)} data-testid="input-customer-id" />
-            <CustomerPlanBadges
-              customerId={Number.isInteger(parsedCustomerId) && parsedCustomerId > 0 ? parsedCustomerId : null}
-            />
+            <Label>Customer</Label>
+            <CustomerPicker value={customer} onChange={setCustomer} />
+            <CustomerPlanBadges customerId={customer?.id ?? null} />
           </div>
           <div className="space-y-2">
             <Label>Service Type</Label>
@@ -87,7 +85,7 @@ export function BookAppointmentDialog({ triggerLabel = 'Book Appointment' }: { t
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           <Button
             onClick={handleSave}
-            disabled={create.isPending || !serviceType || !date || !time || !(Number.isInteger(parsedCustomerId) && parsedCustomerId > 0)}
+            disabled={create.isPending || !serviceType || !date || !time || !customer}
             data-testid="button-confirm-book"
           >
             Book
