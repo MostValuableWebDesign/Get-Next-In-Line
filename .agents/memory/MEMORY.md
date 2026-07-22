@@ -7,6 +7,7 @@
 - Stale `lib/*/dist` .d.ts (db, api-zod) causes phantom "no exported member" typecheck errors in api-server; fix with `npx tsc -b lib/<pkg>`, not code changes.
 - [SOS platform decisions](sos-platform.md) — SOS routes intentionally public (no auth yet), simulated-SMS fallback, AI parse fallback, conditional-update concurrency guards.
 - [Dev DB drift behind Drizzle schema](dev-db-drift.md) — on missing-column query errors, diff information_schema vs schema and push additive DDL.
+- [SOS tenant scoping](sos-tenant-scoping.md) — `x-tenant-id` header carries tenant context; NULL tenant_id = legacy rows; strict NULL-vs-tenant matching in broadcasts.
 - [Drizzle silent migrate failures](drizzle-migrations.md) — migrate can exit 1 silently; verify tables, apply SQL manually, stamp hash/`when` into drizzle.__drizzle_migrations. Hash = sha256 of the migration .sql contents.
 - api-zod schemas come from a different zod instance than api-server's; `instanceof ZodError` fails across them — duck-type on `err.name === "ZodError"` in error middleware.
 - [Validation gates](validation-gates.md) — api-server-test now runs the full suite (exclude removed); fix red suites at root cause (often DB drift) instead of excluding.

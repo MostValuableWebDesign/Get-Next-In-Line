@@ -86,9 +86,12 @@ import {
 import { logger } from "../lib/logger";
 import {
   getLegacySettings,
+  resolveSettings,
   serializeSettings,
   toSettingsColumnUpdates,
 } from "../lib/settings";
+import type { Request } from "express";
+import type { PgColumn } from "drizzle-orm/pg-core";
 import {
   placeDepositHoldIfActive,
   settleHoldOnCancellation,
@@ -178,7 +181,7 @@ function serializeAppointment(
   };
 }
 
-async function getAppointmentWithName(id: number) {
+async function getAppointmentWithName(id: number, tenantId: number | null) {
   const [row] = await db
     .select({
       appt: sosAppointmentsTable,
@@ -194,18 +197,52 @@ async function getAppointmentWithName(id: number) {
       sosDepositHoldsTable,
       eq(sosDepositHoldsTable.appointmentId, sosAppointmentsTable.id),
     )
-    .where(eq(sosAppointmentsTable.id, id));
+    .where(
+      and(
+        eq(sosAppointmentsTable.id, id),
+        tenantMatch(sosAppointmentsTable.tenantId, tenantId),
+      ),
+    );
   return row ?? null;
 }
 
-// Legacy/global settings record — SOS operational routes have no tenant
-// context yet, so they keep reading the tenant_id-NULL row.
+// Legacy/global settings record — used by the legacy /sos/settings endpoints.
 const getSettings = getLegacySettings;
+
+// ── tenant context ───────────────────────────────────────────────────────────
+
+/**
+ * Optional tenant context for SOS operational routes, passed as the
+ * `x-tenant-id` header. When absent (or invalid), routes fall back to the
+ * legacy scope: only NULL-tenant rows, never other tenants' data.
+ */
+function tenantIdFrom(req: Request): number | null {
+  const raw = req.header("x-tenant-id");
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/**
+ * Strict per-row tenant match: with tenant context only that tenant's rows
+ * match; without it only legacy (NULL-tenant) rows match. Reads/writes must
+ * never span tenants.
+ */
+function tenantMatch(column: PgColumn, tenantId: number | null) {
+  return tenantId == null ? isNull(column) : eq(column, tenantId);
+}
 
 // ── waitlist fill engine ─────────────────────────────────────────────────────
 
-async function broadcastOpenSlot(slotStart: Date, slotEnd: Date, service: string) {
-  // Only notify entries waiting for a matching service (case-insensitive).
+async function broadcastOpenSlot(
+  slotStart: Date,
+  slotEnd: Date,
+  service: string,
+  tenantId: number | null,
+) {
+  // Only notify entries waiting for a matching service (case-insensitive)
+  // within the same tenant scope as the cancelled appointment (legacy
+  // NULL-tenant slots only reach legacy waitlist entries, and vice versa).
   const entries = await db
     .select({ entry: sosWaitlistTable, customer: sosCustomersTable })
     .from(sosWaitlistTable)
@@ -216,6 +253,7 @@ async function broadcastOpenSlot(slotStart: Date, slotEnd: Date, service: string
     .where(
       and(
         eq(sosWaitlistTable.status, "waiting"),
+        tenantMatch(sosWaitlistTable.tenantId, tenantId),
         sql`lower(${sosWaitlistTable.desiredService}) = lower(${service})`,
       ),
     )
@@ -254,17 +292,24 @@ async function broadcastOpenSlot(slotStart: Date, slotEnd: Date, service: string
 
 // ── dashboard ────────────────────────────────────────────────────────────────
 
-router.get("/sos/dashboard", async (_req, res): Promise<void> => {
+router.get("/sos/dashboard", async (req, res): Promise<void> => {
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
+  // Scope all operational metrics strictly: the tenant's rows under tenant
+  // context, legacy NULL-tenant rows otherwise.
+  const tenantId = tenantIdFrom(req);
+  const scope = (col: PgColumn) => tenantMatch(col, tenantId);
 
   const [visits, resources, waitlist] = await Promise.all([
-    db.select().from(sosVisitsTable).where(ne(sosVisitsTable.status, "checked_out")),
-    db.select().from(sosResourcesTable),
+    db
+      .select()
+      .from(sosVisitsTable)
+      .where(and(ne(sosVisitsTable.status, "checked_out"), scope(sosVisitsTable.tenantId))),
+    db.select().from(sosResourcesTable).where(scope(sosResourcesTable.tenantId)),
     db
       .select({ n: sql<number>`count(*)::int` })
       .from(sosWaitlistTable)
-      .where(eq(sosWaitlistTable.status, "waiting")),
+      .where(and(eq(sosWaitlistTable.status, "waiting"), scope(sosWaitlistTable.tenantId))),
   ]);
 
   const [apptsToday, msgsToday, callsToday, revenueRows, waitRows] =
@@ -276,28 +321,57 @@ router.get("/sos/dashboard", async (_req, res): Promise<void> => {
           and(
             gte(sosAppointmentsTable.startsAt, startOfDay),
             ne(sosAppointmentsTable.status, "cancelled"),
+            scope(sosAppointmentsTable.tenantId),
           ),
         ),
-      db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(messagesTable)
-        .where(and(gte(messagesTable.createdAt, startOfDay), isNull(messagesTable.tenantId))),
+      // Operational messages (messages.tenant_id IS NULL distinguishes them
+      // from concierge automation sends); attributed to a tenant through the
+      // customer the message was sent to.
+      tenantId == null
+        ? db
+            .select({ n: sql<number>`count(*)::int` })
+            .from(messagesTable)
+            .leftJoin(
+              sosCustomersTable,
+              eq(messagesTable.customerId, sosCustomersTable.id),
+            )
+            .where(
+              and(
+                gte(messagesTable.createdAt, startOfDay),
+                isNull(messagesTable.tenantId),
+                isNull(sosCustomersTable.tenantId),
+              ),
+            )
+        : db
+            .select({ n: sql<number>`count(*)::int` })
+            .from(messagesTable)
+            .innerJoin(
+              sosCustomersTable,
+              eq(messagesTable.customerId, sosCustomersTable.id),
+            )
+            .where(
+              and(
+                gte(messagesTable.createdAt, startOfDay),
+                isNull(messagesTable.tenantId),
+                eq(sosCustomersTable.tenantId, tenantId),
+              ),
+            ),
       db
         .select({ n: sql<number>`count(*)::int` })
         .from(sosCallsTable)
-        .where(gte(sosCallsTable.createdAt, startOfDay)),
+        .where(and(gte(sosCallsTable.createdAt, startOfDay), scope(sosCallsTable.tenantId))),
       db
         .select({
           total: sql<string>`coalesce(sum(${sosVisitsTable.paymentAmount}), 0)`,
         })
         .from(sosVisitsTable)
-        .where(gte(sosVisitsTable.checkedInAt, startOfDay)),
+        .where(and(gte(sosVisitsTable.checkedInAt, startOfDay), scope(sosVisitsTable.tenantId))),
       db
         .select({
           avg: sql<string>`coalesce(avg(extract(epoch from (${sosVisitsTable.serviceStartedAt} - ${sosVisitsTable.checkedInAt})) / 60), 0)`,
         })
         .from(sosVisitsTable)
-        .where(sql`${sosVisitsTable.serviceStartedAt} is not null`),
+        .where(and(sql`${sosVisitsTable.serviceStartedAt} is not null`, scope(sosVisitsTable.tenantId))),
     ]);
 
   const queueStatuses = ["checked_in", "queued", "assigned", "notified"];
@@ -338,8 +412,12 @@ router.patch("/sos/settings", async (req, res): Promise<void> => {
 
 // ── resources ────────────────────────────────────────────────────────────────
 
-async function serializeResources() {
-  const rows = await db.select().from(sosResourcesTable).orderBy(sosResourcesTable.id);
+async function serializeResources(tenantId: number | null) {
+  const rows = await db
+    .select()
+    .from(sosResourcesTable)
+    .where(tenantMatch(sosResourcesTable.tenantId, tenantId))
+    .orderBy(sosResourcesTable.id);
   const visitIds = rows.map((r) => r.currentVisitId).filter((x): x is number => x != null);
   const nameByVisit = new Map<number, string>();
   if (visitIds.length > 0) {
@@ -361,13 +439,16 @@ async function serializeResources() {
   }));
 }
 
-router.get("/sos/resources", async (_req, res): Promise<void> => {
-  res.json(ListSosResourcesResponse.parse(await serializeResources()));
+router.get("/sos/resources", async (req, res): Promise<void> => {
+  res.json(ListSosResourcesResponse.parse(await serializeResources(tenantIdFrom(req))));
 });
 
 router.post("/sos/resources", async (req, res): Promise<void> => {
   const body = CreateSosResourceBody.parse(req.body);
-  const [row] = await db.insert(sosResourcesTable).values(body).returning();
+  const [row] = await db
+    .insert(sosResourcesTable)
+    .values({ ...body, tenantId: tenantIdFrom(req) })
+    .returning();
   res.status(201).json(
     CreateSosResourceResponse.parse({
       id: row.id,
@@ -387,7 +468,7 @@ router.patch("/sos/resources/:id", async (req, res): Promise<void> => {
   const [row] = await db
     .update(sosResourcesTable)
     .set(body)
-    .where(eq(sosResourcesTable.id, id))
+    .where(and(eq(sosResourcesTable.id, id), tenantMatch(sosResourcesTable.tenantId, tenantIdFrom(req))))
     .returning();
   if (!row) {
     res.status(404).json({ message: "Resource not found" });
@@ -410,7 +491,7 @@ router.delete("/sos/resources/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const [row] = await db
     .delete(sosResourcesTable)
-    .where(eq(sosResourcesTable.id, id))
+    .where(and(eq(sosResourcesTable.id, id), tenantMatch(sosResourcesTable.tenantId, tenantIdFrom(req))))
     .returning({ id: sosResourcesTable.id });
   if (!row) {
     res.status(404).json({ message: "Resource not found" });
@@ -423,6 +504,7 @@ router.delete("/sos/resources/:id", async (req, res): Promise<void> => {
 
 router.get("/sos/customers", async (req, res): Promise<void> => {
   const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+  const tenantId = tenantIdFrom(req);
   const rows = await db
     .select({ customer: sosCustomersTable, profile: clientProfilesTable })
     .from(sosCustomersTable)
@@ -430,7 +512,12 @@ router.get("/sos/customers", async (req, res): Promise<void> => {
       clientProfilesTable,
       eq(sosCustomersTable.clientProfileId, clientProfilesTable.id),
     )
-    .where(search ? ilike(sosCustomersTable.name, `%${search}%`) : undefined)
+    .where(
+      and(
+        search ? ilike(sosCustomersTable.name, `%${search}%`) : undefined,
+        tenantMatch(sosCustomersTable.tenantId, tenantId),
+      ),
+    )
     .orderBy(desc(sosCustomersTable.createdAt));
   res.json(
     ListSosCustomersResponse.parse(
@@ -448,7 +535,7 @@ router.get("/sos/customers/:id", async (req, res): Promise<void> => {
       clientProfilesTable,
       eq(sosCustomersTable.clientProfileId, clientProfilesTable.id),
     )
-    .where(eq(sosCustomersTable.id, id));
+    .where(and(eq(sosCustomersTable.id, id), tenantMatch(sosCustomersTable.tenantId, tenantIdFrom(req))));
   if (!row) {
     res.status(404).json({ message: "Customer not found" });
     return;
@@ -458,7 +545,10 @@ router.get("/sos/customers/:id", async (req, res): Promise<void> => {
 
 router.post("/sos/customers", async (req, res): Promise<void> => {
   const body = CreateSosCustomerBody.parse(req.body);
-  const [row] = await db.insert(sosCustomersTable).values(body).returning();
+  const [row] = await db
+    .insert(sosCustomersTable)
+    .values({ ...body, tenantId: tenantIdFrom(req) })
+    .returning();
   // Establish the concierge link by phone match when unambiguous.
   const profile = await autoLinkCustomer(row);
   const created = profile ? { ...row, clientProfileId: profile.id } : row;
@@ -473,7 +563,7 @@ router.patch("/sos/customers/:id", async (req, res): Promise<void> => {
   const [row] = await db
     .update(sosCustomersTable)
     .set(body)
-    .where(eq(sosCustomersTable.id, id))
+    .where(and(eq(sosCustomersTable.id, id), tenantMatch(sosCustomersTable.tenantId, tenantIdFrom(req))))
     .returning();
   if (!row) {
     res.status(404).json({ message: "Customer not found" });
@@ -517,7 +607,7 @@ router.get("/sos/customers/:id/timeline", async (req, res): Promise<void> => {
   const [customer] = await db
     .select()
     .from(sosCustomersTable)
-    .where(eq(sosCustomersTable.id, id));
+    .where(and(eq(sosCustomersTable.id, id), tenantMatch(sosCustomersTable.tenantId, tenantIdFrom(req))));
   if (!customer) {
     res.status(404).json({ message: "Customer not found" });
     return;
@@ -526,9 +616,15 @@ router.get("/sos/customers/:id/timeline", async (req, res): Promise<void> => {
   const phone = normalizeToE164(customer.phone);
 
   const [calls, messages] = await Promise.all([
-    // Calls only carry a phone number; match by normalized phone.
+    // Calls only carry a phone number; match by normalized phone within the
+    // customer's own tenant scope (strict: legacy customers only match
+    // legacy calls) so shared numbers never pull in another tenant's calls.
     phone
-      ? db.select().from(sosCallsTable).orderBy(desc(sosCallsTable.createdAt))
+      ? db
+          .select()
+          .from(sosCallsTable)
+          .where(tenantMatch(sosCallsTable.tenantId, customer.tenantId))
+          .orderBy(desc(sosCallsTable.createdAt))
       : Promise.resolve([] as (typeof sosCallsTable.$inferSelect)[]),
     // Unified messages table holds both SOS SMS and concierge automation
     // sends: linked by customer id, linked concierge profile, or to-number.
@@ -687,7 +783,7 @@ router.get("/sos/customers/:id/plans", async (req, res): Promise<void> => {
   const [customer] = await db
     .select({ id: sosCustomersTable.id })
     .from(sosCustomersTable)
-    .where(eq(sosCustomersTable.id, id));
+    .where(and(eq(sosCustomersTable.id, id), tenantMatch(sosCustomersTable.tenantId, tenantIdFrom(req))));
   if (!customer) {
     res.status(404).json({ message: "Customer not found" });
     return;
@@ -732,7 +828,15 @@ router.get("/sos/customers/:id/plans", async (req, res): Promise<void> => {
 router.post("/sos/customer-plans", async (req, res): Promise<void> => {
   const body = SellSosPlanBody.parse(req.body);
   const [[customer], [plan]] = await Promise.all([
-    db.select().from(sosCustomersTable).where(eq(sosCustomersTable.id, body.customerId)),
+    db
+      .select()
+      .from(sosCustomersTable)
+      .where(
+        and(
+          eq(sosCustomersTable.id, body.customerId),
+          tenantMatch(sosCustomersTable.tenantId, tenantIdFrom(req)),
+        ),
+      ),
     db.select().from(sosPlansTable).where(eq(sosPlansTable.id, body.planId)),
   ]);
   if (!customer) {
@@ -768,18 +872,28 @@ router.post("/sos/customer-plans", async (req, res): Promise<void> => {
   res.status(201).json(SellSosPlanResponse.parse(serializeCustomerPlan(cp, plan)));
 });
 
-async function getCustomerPlanWithPlan(id: number) {
+async function getCustomerPlanWithPlan(id: number, tenantId: number | null) {
+  // Enrollments have no tenant column; they inherit scope from the customer.
   const [row] = await db
     .select({ cp: sosCustomerPlansTable, plan: sosPlansTable })
     .from(sosCustomerPlansTable)
     .innerJoin(sosPlansTable, eq(sosCustomerPlansTable.planId, sosPlansTable.id))
-    .where(eq(sosCustomerPlansTable.id, id));
+    .innerJoin(
+      sosCustomersTable,
+      eq(sosCustomerPlansTable.customerId, sosCustomersTable.id),
+    )
+    .where(
+      and(
+        eq(sosCustomerPlansTable.id, id),
+        tenantMatch(sosCustomersTable.tenantId, tenantId),
+      ),
+    );
   return row ?? null;
 }
 
 router.post("/sos/customer-plans/:id/renew", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const found = await getCustomerPlanWithPlan(id);
+  const found = await getCustomerPlanWithPlan(id, tenantIdFrom(req));
   if (!found) {
     res.status(404).json({ message: "Enrollment not found" });
     return;
@@ -810,7 +924,7 @@ router.post("/sos/customer-plans/:id/renew", async (req, res): Promise<void> => 
 
 router.post("/sos/customer-plans/:id/cancel", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const found = await getCustomerPlanWithPlan(id);
+  const found = await getCustomerPlanWithPlan(id, tenantIdFrom(req));
   if (!found) {
     res.status(404).json({ message: "Enrollment not found" });
     return;
@@ -836,7 +950,7 @@ router.post("/sos/customer-plans/:id/cancel", async (req, res): Promise<void> =>
 
 // ── visits (customer journey state machine) ──────────────────────────────────
 
-async function serializeVisits(activeOnly: boolean) {
+async function serializeVisits(activeOnly: boolean, tenantId: number | null) {
   const rows = await db
     .select({
       visit: sosVisitsTable,
@@ -846,14 +960,19 @@ async function serializeVisits(activeOnly: boolean) {
     .from(sosVisitsTable)
     .innerJoin(sosCustomersTable, eq(sosVisitsTable.customerId, sosCustomersTable.id))
     .leftJoin(sosResourcesTable, eq(sosVisitsTable.resourceId, sosResourcesTable.id))
-    .where(activeOnly ? ne(sosVisitsTable.status, "checked_out") : undefined)
+    .where(
+      and(
+        activeOnly ? ne(sosVisitsTable.status, "checked_out") : undefined,
+        tenantMatch(sosVisitsTable.tenantId, tenantId),
+      ),
+    )
     .orderBy(sosVisitsTable.checkedInAt);
   return rows.map((r) => serializeVisit(r.visit, r.customerName, r.resourceName));
 }
 
 router.get("/sos/visits", async (req, res): Promise<void> => {
   const active = req.query.active === "true";
-  res.json(ListSosVisitsResponse.parse(await serializeVisits(active)));
+  res.json(ListSosVisitsResponse.parse(await serializeVisits(active, tenantIdFrom(req))));
 });
 
 router.post("/sos/visits", async (req, res): Promise<void> => {
@@ -861,7 +980,7 @@ router.post("/sos/visits", async (req, res): Promise<void> => {
   const [customer] = await db
     .select()
     .from(sosCustomersTable)
-    .where(eq(sosCustomersTable.id, body.customerId));
+    .where(and(eq(sosCustomersTable.id, body.customerId), tenantMatch(sosCustomersTable.tenantId, tenantIdFrom(req))));
   if (!customer) {
     res.status(404).json({ message: "Customer not found" });
     return;
@@ -870,6 +989,9 @@ router.post("/sos/visits", async (req, res): Promise<void> => {
     .insert(sosVisitsTable)
     .values({
       customerId: body.customerId,
+      // Visits belong to the customer's tenant (header as fallback for
+      // legacy customers checked in under tenant context).
+      tenantId: customer.tenantId ?? tenantIdFrom(req),
       serviceType: body.serviceType,
       partySize: body.partySize ?? 1,
       estimatedWaitMinutes: body.estimatedWaitMinutes ?? null,
@@ -901,7 +1023,7 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     .select({ visit: sosVisitsTable, customer: sosCustomersTable })
     .from(sosVisitsTable)
     .innerJoin(sosCustomersTable, eq(sosVisitsTable.customerId, sosCustomersTable.id))
-    .where(eq(sosVisitsTable.id, id));
+    .where(and(eq(sosVisitsTable.id, id), tenantMatch(sosVisitsTable.tenantId, tenantIdFrom(req))));
   if (!found) {
     res.status(404).json({ message: "Visit not found" });
     return;
@@ -934,6 +1056,8 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
         and(
           eq(sosResourcesTable.id, body.resourceId),
           eq(sosResourcesTable.status, "available"),
+          // A visit may only claim a resource in its own tenant scope.
+          tenantMatch(sosResourcesTable.tenantId, tenantIdFrom(req)),
         ),
       )
       .returning({ id: sosResourcesTable.id });
@@ -972,7 +1096,7 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
       res.status(400).json({ message: "benefitType is required with benefitCustomerPlanId" });
       return;
     }
-    const found = await getCustomerPlanWithPlan(body.benefitCustomerPlanId);
+    const found = await getCustomerPlanWithPlan(body.benefitCustomerPlanId, tenantIdFrom(req));
     if (!found || found.cp.customerId !== visit.customerId) {
       res.status(404).json({ message: "Plan enrollment not found for this customer" });
       return;
@@ -1061,9 +1185,11 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
 router.get("/sos/appointments", async (req, res): Promise<void> => {
   const from = typeof req.query.from === "string" ? new Date(req.query.from) : null;
   const to = typeof req.query.to === "string" ? new Date(req.query.to) : null;
+  const tenantId = tenantIdFrom(req);
   const conditions = [];
   if (from && !isNaN(from.getTime())) conditions.push(gte(sosAppointmentsTable.startsAt, from));
   if (to && !isNaN(to.getTime())) conditions.push(lte(sosAppointmentsTable.startsAt, to));
+  conditions.push(tenantMatch(sosAppointmentsTable.tenantId, tenantId));
 
   const rows = await db
     .select({
@@ -1092,7 +1218,7 @@ router.post("/sos/appointments", async (req, res): Promise<void> => {
   const [customer] = await db
     .select()
     .from(sosCustomersTable)
-    .where(eq(sosCustomersTable.id, body.customerId));
+    .where(and(eq(sosCustomersTable.id, body.customerId), tenantMatch(sosCustomersTable.tenantId, tenantIdFrom(req))));
   if (!customer) {
     res.status(404).json({ message: "Customer not found" });
     return;
@@ -1101,6 +1227,7 @@ router.post("/sos/appointments", async (req, res): Promise<void> => {
     .insert(sosAppointmentsTable)
     .values({
       customerId: body.customerId,
+      tenantId: customer.tenantId ?? tenantIdFrom(req),
       serviceType: body.serviceType,
       startsAt: new Date(body.startsAt),
       endsAt: new Date(body.endsAt),
@@ -1118,7 +1245,7 @@ router.post("/sos/appointments", async (req, res): Promise<void> => {
 
 router.post("/sos/appointments/:id/cancel", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const found = await getAppointmentWithName(id);
+  const found = await getAppointmentWithName(id, tenantIdFrom(req));
   if (!found) {
     res.status(404).json({ message: "Appointment not found" });
     return;
@@ -1138,7 +1265,10 @@ router.post("/sos/appointments/:id/cancel", async (req, res): Promise<void> => {
   // inside it → capture the late-cancellation fee.
   const hold = await settleHoldOnCancellation(cancelled.id, cancelled.startsAt);
 
-  const settings = await getSettings();
+  // Auto-fill is governed by the settings of the tenant that owns the
+  // cancelled appointment (legacy NULL-tenant appointments use the legacy
+  // global settings record).
+  const settings = await resolveSettings(cancelled.tenantId);
   let waitlistNotified = 0;
   let messagesSent = 0;
   if (settings.waitlistAutoFillEnabled) {
@@ -1146,6 +1276,7 @@ router.post("/sos/appointments/:id/cancel", async (req, res): Promise<void> => {
       cancelled.startsAt,
       cancelled.endsAt,
       cancelled.serviceType,
+      cancelled.tenantId,
     );
     waitlistNotified = result.waitlistNotified;
     messagesSent = result.messagesSent;
@@ -1164,7 +1295,7 @@ router.post("/sos/appointments/:id/cancel", async (req, res): Promise<void> => {
 // any) as the agreed penalty fee.
 router.post("/sos/appointments/:id/no-show", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const found = await getAppointmentWithName(id);
+  const found = await getAppointmentWithName(id, tenantIdFrom(req));
   if (!found) {
     res.status(404).json({ message: "Appointment not found" });
     return;
@@ -1190,11 +1321,12 @@ router.post("/sos/appointments/:id/no-show", async (req, res): Promise<void> => 
 
 // ── waitlist ─────────────────────────────────────────────────────────────────
 
-async function serializeWaitlist() {
+async function serializeWaitlist(tenantId: number | null) {
   const rows = await db
     .select({ entry: sosWaitlistTable, customer: sosCustomersTable })
     .from(sosWaitlistTable)
     .innerJoin(sosCustomersTable, eq(sosWaitlistTable.customerId, sosCustomersTable.id))
+    .where(tenantMatch(sosWaitlistTable.tenantId, tenantId))
     .orderBy(desc(sosWaitlistTable.createdAt));
   return rows.map(({ entry, customer }) => ({
     id: entry.id,
@@ -1210,8 +1342,8 @@ async function serializeWaitlist() {
   }));
 }
 
-router.get("/sos/waitlist", async (_req, res): Promise<void> => {
-  res.json(ListSosWaitlistResponse.parse(await serializeWaitlist()));
+router.get("/sos/waitlist", async (req, res): Promise<void> => {
+  res.json(ListSosWaitlistResponse.parse(await serializeWaitlist(tenantIdFrom(req))));
 });
 
 router.post("/sos/waitlist", async (req, res): Promise<void> => {
@@ -1219,12 +1351,15 @@ router.post("/sos/waitlist", async (req, res): Promise<void> => {
   const [customer] = await db
     .select()
     .from(sosCustomersTable)
-    .where(eq(sosCustomersTable.id, body.customerId));
+    .where(and(eq(sosCustomersTable.id, body.customerId), tenantMatch(sosCustomersTable.tenantId, tenantIdFrom(req))));
   if (!customer) {
     res.status(404).json({ message: "Customer not found" });
     return;
   }
-  const [row] = await db.insert(sosWaitlistTable).values(body).returning();
+  const [row] = await db
+    .insert(sosWaitlistTable)
+    .values({ ...body, tenantId: customer.tenantId ?? tenantIdFrom(req) })
+    .returning();
   res.status(201).json(
     CreateSosWaitlistEntryResponse.parse({
       id: row.id,
@@ -1243,7 +1378,7 @@ router.post("/sos/waitlist", async (req, res): Promise<void> => {
 
 router.post("/sos/waitlist/:id/claim", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
-  const result = await claimWaitlistSlot(id);
+  const result = await claimWaitlistSlot(id, { tenantId: tenantIdFrom(req) });
   switch (result.outcome) {
     case "not_found":
       res.status(404).json({ message: "Waitlist entry not found" });
@@ -1289,12 +1424,22 @@ function serializeSosMessage(msg: MessageRow, customerName: string | null) {
 router.get("/sos/messages", async (req, res): Promise<void> => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
   // Operational (SOS) messages only: concierge automation sends are
-  // tenant-scoped and surfaced by the automation report instead.
+  // tenant-scoped and surfaced by the automation report instead. Operational
+  // rows keep messages.tenant_id NULL, so tenant scope comes from the
+  // customer the message belongs to (strict NULL-vs-tenant semantics).
+  const tenantId = tenantIdFrom(req);
   const rows = await db
     .select({ msg: messagesTable, customerName: sosCustomersTable.name })
     .from(messagesTable)
     .leftJoin(sosCustomersTable, eq(messagesTable.customerId, sosCustomersTable.id))
-    .where(isNull(messagesTable.tenantId))
+    .where(
+      and(
+        isNull(messagesTable.tenantId),
+        tenantId == null
+          ? sql`${sosCustomersTable.tenantId} is null`
+          : eq(sosCustomersTable.tenantId, tenantId),
+      ),
+    )
     .orderBy(desc(messagesTable.createdAt))
     .limit(limit);
   res.json(
@@ -1309,7 +1454,7 @@ router.post("/sos/messages", async (req, res): Promise<void> => {
   const [customer] = await db
     .select()
     .from(sosCustomersTable)
-    .where(eq(sosCustomersTable.id, body.customerId));
+    .where(and(eq(sosCustomersTable.id, body.customerId), tenantMatch(sosCustomersTable.tenantId, tenantIdFrom(req))));
   if (!customer) {
     res.status(404).json({ message: "Customer not found" });
     return;
@@ -1328,13 +1473,23 @@ router.post("/sos/messages", async (req, res): Promise<void> => {
 // ── Twilio inbound SMS webhook ───────────────────────────────────────────────
 
 /** Find a customer whose phone matches the (normalized) inbound From number. */
+/**
+ * Resolve the inbound sender to an SOS customer. The webhook has no tenant
+ * context (per-tenant Twilio numbers are a separate effort), so a phone number
+ * that matches customers in more than one tenant scope is ambiguous: we fail
+ * safe and return null (log-only, no opt-in change or claim) rather than
+ * mutate the wrong tenant's customer.
+ */
 async function findCustomerByPhone(from: string | null) {
   if (!from) return null;
   const candidates = await db
     .select()
     .from(sosCustomersTable)
     .where(sql`${sosCustomersTable.phone} is not null`);
-  return candidates.find((c) => normalizeToE164(c.phone) === from) ?? null;
+  const matches = candidates.filter((c) => normalizeToE164(c.phone) === from);
+  if (matches.length === 0) return null;
+  const scopes = new Set(matches.map((c) => c.tenantId ?? "legacy"));
+  return scopes.size === 1 ? matches[0] : null;
 }
 
 /** Ids of concierge client profiles whose phone matches the inbound number. */
@@ -1455,7 +1610,9 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
       .limit(1);
 
     if (notified) {
-      const result = await claimWaitlistSlot(notified.id);
+      // The webhook has no tenant header; the entry was already matched to
+      // this customer, so claim within the entry's own tenant scope.
+      const result = await claimWaitlistSlot(notified.id, { tenantId: notified.tenantId });
       if (result.outcome === "claimed") {
         const when = result.appointment.startsAt.toLocaleString("en-US", {
           weekday: "short",
@@ -1569,12 +1726,23 @@ function serializeCall(
   };
 }
 
-/** Map of normalized phone → customer id, for matching call logs to customers. */
-async function customerIdByNormalizedPhone(): Promise<Map<string, number>> {
+/**
+ * Map of normalized phone → customer id, for matching call logs to customers.
+ * Scoped strictly to the tenant context (NULL matches only legacy customers)
+ * so a shared phone number never links a call to another tenant's customer.
+ */
+async function customerIdByNormalizedPhone(
+  tenantId: number | null,
+): Promise<Map<string, number>> {
   const rows = await db
     .select({ id: sosCustomersTable.id, phone: sosCustomersTable.phone })
     .from(sosCustomersTable)
-    .where(sql`${sosCustomersTable.phone} is not null`);
+    .where(
+      and(
+        sql`${sosCustomersTable.phone} is not null`,
+        tenantMatch(sosCustomersTable.tenantId, tenantId),
+      ),
+    );
   const map = new Map<string, number>();
   for (const r of rows) {
     const normalized = normalizeToE164(r.phone);
@@ -1583,10 +1751,16 @@ async function customerIdByNormalizedPhone(): Promise<Map<string, number>> {
   return map;
 }
 
-router.get("/sos/calls", async (_req, res): Promise<void> => {
+router.get("/sos/calls", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
   const [rows, phoneMap] = await Promise.all([
-    db.select().from(sosCallsTable).orderBy(desc(sosCallsTable.createdAt)).limit(100),
-    customerIdByNormalizedPhone(),
+    db
+      .select()
+      .from(sosCallsTable)
+      .where(tenantMatch(sosCallsTable.tenantId, tenantId))
+      .orderBy(desc(sosCallsTable.createdAt))
+      .limit(100),
+    customerIdByNormalizedPhone(tenantId),
   ]);
   res.json(
     ListSosCallsResponse.parse(
@@ -1600,7 +1774,10 @@ router.get("/sos/calls", async (_req, res): Promise<void> => {
 
 router.post("/sos/calls", async (req, res): Promise<void> => {
   const body = SimulateSosCallBody.parse(req.body);
-  const settings = await getSettings();
+  // The receptionist toggle and service vocabulary come from the calling
+  // tenant's settings (legacy global record when no tenant context).
+  const tenantId = tenantIdFrom(req);
+  const settings = await resolveSettings(tenantId);
   if (!settings.aiReceptionistEnabled) {
     res.status(409).json({ message: "AI receptionist is disabled in settings" });
     return;
@@ -1613,15 +1790,20 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
     parseServiceNames(settings.serviceNames),
   );
 
-  // Find or create the customer by phone number.
+  // Find or create the customer by phone number, within the tenant scope.
   let [customer] = await db
     .select()
     .from(sosCustomersTable)
-    .where(eq(sosCustomersTable.phone, body.fromNumber));
+    .where(
+      and(
+        eq(sosCustomersTable.phone, body.fromNumber),
+        tenantMatch(sosCustomersTable.tenantId, tenantId),
+      ),
+    );
   if (!customer) {
     [customer] = await db
       .insert(sosCustomersTable)
-      .values({ name: body.callerName ?? "New Caller", phone: body.fromNumber })
+      .values({ name: body.callerName ?? "New Caller", phone: body.fromNumber, tenantId })
       .returning();
   }
 
@@ -1636,6 +1818,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
         .insert(sosAppointmentsTable)
         .values({
           customerId: customer.id,
+          tenantId,
           serviceType: parsed.serviceType ?? "General service",
           startsAt,
           endsAt,
@@ -1676,6 +1859,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
     .insert(sosCallsTable)
     .values({
       fromNumber: body.fromNumber,
+      tenantId,
       callerName: body.callerName ?? null,
       intent: parsed.intent,
       transcriptSummary: parsed.summary,

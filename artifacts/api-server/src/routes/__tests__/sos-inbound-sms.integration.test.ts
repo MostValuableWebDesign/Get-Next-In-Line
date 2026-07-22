@@ -7,6 +7,7 @@ import {
   sosWaitlistTable,
   messagesTable,
   sosAppointmentsTable,
+  tenantsTable,
 } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { claimWaitlistSlot } from "../../lib/waitlistClaim";
@@ -38,9 +39,12 @@ const uniq = String(Date.now()).slice(-7);
 const PHONE_A = `+1555${uniq}`;
 const PHONE_B = `+1556${uniq}`;
 const PHONE_UNKNOWN = `+1557${uniq}`;
+const PHONE_SHARED = `+1558${uniq}`; // same number in legacy + a tenant scope
 
 let custA: { id: number };
 let custB: { id: number };
+let tenantId: number;
+let legacyShared: { id: number };
 
 function signedPost(params: Record<string, string>) {
   const signature = twilio.getExpectedTwilioSignature(AUTH_TOKEN, URL, params);
@@ -87,13 +91,31 @@ beforeAll(async () => {
   custA = a;
   custB = b;
   customerIds.push(a.id, b.id);
+
+  // A phone number shared between a legacy customer and a tenant's customer
+  // (tenant rows cascade on tenant delete).
+  const [tenant] = await db
+    .insert(tenantsTable)
+    .values({ brandName: `Inbound ${RUN}`, subdomain: RUN, status: "active" })
+    .returning({ id: tenantsTable.id });
+  tenantId = tenant.id;
+  const [shared] = await db
+    .insert(sosCustomersTable)
+    .values([{ name: `Shared Legacy ${RUN}`, phone: PHONE_SHARED, smsOptIn: true }])
+    .returning({ id: sosCustomersTable.id });
+  legacyShared = shared;
+  customerIds.push(shared.id);
+  await db
+    .insert(sosCustomersTable)
+    .values([{ name: `Shared Tenant ${RUN}`, phone: PHONE_SHARED, smsOptIn: true, tenantId }]);
 });
 
 afterAll(async () => {
   await db.delete(messagesTable).where(inArray(messagesTable.customerId, customerIds));
   await db
     .delete(messagesTable)
-    .where(inArray(messagesTable.toNumber, [PHONE_A, PHONE_B, PHONE_UNKNOWN]));
+    .where(inArray(messagesTable.toNumber, [PHONE_A, PHONE_B, PHONE_UNKNOWN, PHONE_SHARED]));
+  await db.delete(tenantsTable).where(eq(tenantsTable.id, tenantId));
   await db.delete(sosAppointmentsTable).where(inArray(sosAppointmentsTable.customerId, customerIds));
   await db.delete(sosWaitlistTable).where(inArray(sosWaitlistTable.customerId, customerIds));
   await db.delete(sosCustomersTable).where(inArray(sosCustomersTable.id, customerIds));
@@ -129,21 +151,47 @@ describe("POST /api/sos/twilio/inbound — signature validation", () => {
 
 describe("inbound logging and customer matching", () => {
   it("logs unknown senders with no customer and sends no auto-response", async () => {
-    const before = await db
-      .select()
-      .from(messagesTable)
-      .where(eq(messagesTable.direction, "outbound"));
+    // Count only outbound messages to this sender: other suites run in
+    // parallel and send unrelated outbound messages.
+    const outboundToUnknown = () =>
+      db
+        .select()
+        .from(messagesTable)
+        .where(
+          and(
+            eq(messagesTable.direction, "outbound"),
+            eq(messagesTable.toNumber, PHONE_UNKNOWN),
+          ),
+        );
+    const before = await outboundToUnknown();
     const res = await signedPost({ From: PHONE_UNKNOWN, Body: "YES", MessageSid: "SMunknown1" });
     expect(res.status).toBe(200);
     const row = await latestInbound(PHONE_UNKNOWN);
     expect(row).toBeDefined();
     expect(row.customerId).toBeNull();
     expect(row.status).toBe("received");
-    const after = await db
-      .select()
-      .from(messagesTable)
-      .where(eq(messagesTable.direction, "outbound"));
+    const after = await outboundToUnknown();
     expect(after.length).toBe(before.length);
+  });
+
+  it("treats a phone shared across tenant scopes as ambiguous: logged, no mutation", async () => {
+    const res = await signedPost({
+      From: PHONE_SHARED,
+      Body: " Stop ",
+      MessageSid: `SMshared${uniq}`,
+    });
+    expect(res.status).toBe(200);
+    // Logged, but attached to no customer (could belong to either scope).
+    const row = await latestInbound(PHONE_SHARED);
+    expect(row).toBeDefined();
+    expect(row.customerId).toBeNull();
+    // Neither scope's opt-in flag was flipped.
+    const both = await db
+      .select({ smsOptIn: sosCustomersTable.smsOptIn })
+      .from(sosCustomersTable)
+      .where(eq(sosCustomersTable.phone, PHONE_SHARED));
+    expect(both).toHaveLength(2);
+    expect(both.every((c) => c.smsOptIn)).toBe(true);
   });
 
   it("matches a customer whose stored phone is formatted differently", async () => {

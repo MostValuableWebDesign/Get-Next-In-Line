@@ -4,7 +4,7 @@ import {
   sosCustomersTable,
   sosAppointmentsTable,
 } from "@workspace/db";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { placeDepositHoldIfActive } from "./noShowShield";
 
 type AppointmentRow = typeof sosAppointmentsTable.$inferSelect;
@@ -28,12 +28,26 @@ export type ClaimResult =
  * both book the slot. Shared by the UI claim endpoint and the Twilio
  * inbound-SMS webhook.
  */
-export async function claimWaitlistSlot(entryId: number): Promise<ClaimResult> {
+export async function claimWaitlistSlot(
+  entryId: number,
+  scope?: { tenantId: number | null },
+): Promise<ClaimResult> {
   const [found] = await db
     .select({ entry: sosWaitlistTable, customer: sosCustomersTable })
     .from(sosWaitlistTable)
     .innerJoin(sosCustomersTable, eq(sosWaitlistTable.customerId, sosCustomersTable.id))
-    .where(eq(sosWaitlistTable.id, entryId));
+    .where(
+      and(
+        eq(sosWaitlistTable.id, entryId),
+        // Strict tenant scoping when a scope is given: tenant context claims
+        // only that tenant's entries; no context claims only legacy entries.
+        scope === undefined
+          ? undefined
+          : scope.tenantId == null
+            ? isNull(sosWaitlistTable.tenantId)
+            : eq(sosWaitlistTable.tenantId, scope.tenantId),
+      ),
+    );
   if (!found) return { outcome: "not_found" };
 
   const { entry, customer } = found;
@@ -59,6 +73,8 @@ export async function claimWaitlistSlot(entryId: number): Promise<ClaimResult> {
     .insert(sosAppointmentsTable)
     .values({
       customerId: entry.customerId,
+      // The booking inherits the waitlist entry's tenant scope.
+      tenantId: entry.tenantId,
       serviceType: entry.desiredService,
       startsAt: slotStart,
       endsAt: slotEnd,
@@ -69,7 +85,9 @@ export async function claimWaitlistSlot(entryId: number): Promise<ClaimResult> {
   // No-Show Shield applies to waitlist-filled bookings too.
   const depositHold = await placeDepositHoldIfActive(appointment.id);
 
-  // Everyone else who was notified for this same slot goes back to waiting.
+  // Everyone else who was notified for this same slot goes back to waiting —
+  // within the same tenant scope only, so a claim can never reset another
+  // tenant's notified entries that happen to share a slot timestamp.
   await db
     .update(sosWaitlistTable)
     .set({
@@ -82,6 +100,9 @@ export async function claimWaitlistSlot(entryId: number): Promise<ClaimResult> {
       and(
         eq(sosWaitlistTable.status, "notified"),
         eq(sosWaitlistTable.openSlotStartsAt, slotStart),
+        entry.tenantId == null
+          ? isNull(sosWaitlistTable.tenantId)
+          : eq(sosWaitlistTable.tenantId, entry.tenantId),
         ne(sosWaitlistTable.id, entryId),
       ),
     );

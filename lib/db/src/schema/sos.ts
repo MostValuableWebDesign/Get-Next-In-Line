@@ -7,6 +7,7 @@ import {
   numeric,
   timestamp,
   jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 import { clientProfilesTable } from "./concierge";
 import { tenantsTable } from "./agency";
@@ -49,18 +50,32 @@ export const sosSettingsTable = pgTable("sos_settings", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const sosResourcesTable = pgTable("sos_resources", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  resourceType: text("resource_type").notNull(),
-  // available | occupied | cleaning | offline
-  status: text("status").notNull().default("available"),
-  currentVisitId: integer("current_visit_id"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const sosResourcesTable = pgTable(
+  "sos_resources",
+  {
+    id: serial("id").primaryKey(),
+    // Tenant scope. NULL identifies legacy single-tenant rows.
+    tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    resourceType: text("resource_type").notNull(),
+    // available | occupied | cleaning | offline
+    status: text("status").notNull().default("available"),
+    currentVisitId: integer("current_visit_id"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("sos_resources_tenant_id_idx").on(t.tenantId)],
+);
 
-export const sosCustomersTable = pgTable("sos_customers", {
+export const sosCustomersTable = pgTable(
+  "sos_customers",
+  {
   id: serial("id").primaryKey(),
+  // Tenant scope. NULL identifies legacy single-tenant rows.
+  tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+    onDelete: "cascade",
+  }),
   name: text("name").notNull(),
   phone: text("phone"),
   email: text("email"),
@@ -74,10 +89,18 @@ export const sosCustomersTable = pgTable("sos_customers", {
   visitCount: integer("visit_count").notNull().default(0),
   lastVisitAt: timestamp("last_visit_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  },
+  (t) => [index("sos_customers_tenant_id_idx").on(t.tenantId)],
+);
 
-export const sosVisitsTable = pgTable("sos_visits", {
+export const sosVisitsTable = pgTable(
+  "sos_visits",
+  {
   id: serial("id").primaryKey(),
+  // Tenant scope. NULL identifies legacy single-tenant rows.
+  tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+    onDelete: "cascade",
+  }),
   customerId: integer("customer_id")
     .notNull()
     .references(() => sosCustomersTable.id),
@@ -91,10 +114,18 @@ export const sosVisitsTable = pgTable("sos_visits", {
   checkedInAt: timestamp("checked_in_at").notNull().defaultNow(),
   serviceStartedAt: timestamp("service_started_at"),
   checkedOutAt: timestamp("checked_out_at"),
-});
+  },
+  (t) => [index("sos_visits_tenant_id_idx").on(t.tenantId)],
+);
 
-export const sosAppointmentsTable = pgTable("sos_appointments", {
+export const sosAppointmentsTable = pgTable(
+  "sos_appointments",
+  {
   id: serial("id").primaryKey(),
+  // Tenant scope. NULL identifies legacy single-tenant rows.
+  tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+    onDelete: "cascade",
+  }),
   customerId: integer("customer_id")
     .notNull()
     .references(() => sosCustomersTable.id),
@@ -108,10 +139,18 @@ export const sosAppointmentsTable = pgTable("sos_appointments", {
   resourceId: integer("resource_id").references(() => sosResourcesTable.id),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  },
+  (t) => [index("sos_appointments_tenant_id_idx").on(t.tenantId)],
+);
 
-export const sosWaitlistTable = pgTable("sos_waitlist_entries", {
+export const sosWaitlistTable = pgTable(
+  "sos_waitlist_entries",
+  {
   id: serial("id").primaryKey(),
+  // Tenant scope. NULL identifies legacy single-tenant rows.
+  tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+    onDelete: "cascade",
+  }),
   customerId: integer("customer_id")
     .notNull()
     .references(() => sosCustomersTable.id),
@@ -122,7 +161,9 @@ export const sosWaitlistTable = pgTable("sos_waitlist_entries", {
   openSlotStartsAt: timestamp("open_slot_starts_at"),
   openSlotEndsAt: timestamp("open_slot_ends_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  },
+  (t) => [index("sos_waitlist_entries_tenant_id_idx").on(t.tenantId)],
+);
 
 // Internal simulated card-on-file deposit holds (No-Show Shield module).
 // One hold per appointment; policy terms are snapshotted at booking time so
@@ -204,8 +245,14 @@ export const sosPlanTransactionsTable = pgTable("sos_plan_transactions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const sosCallsTable = pgTable("sos_calls", {
+export const sosCallsTable = pgTable(
+  "sos_calls",
+  {
   id: serial("id").primaryKey(),
+  // Tenant scope. NULL identifies legacy single-tenant rows.
+  tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+    onDelete: "cascade",
+  }),
   fromNumber: text("from_number").notNull(),
   callerName: text("caller_name"),
   intent: text("intent").notNull(),
@@ -214,4 +261,6 @@ export const sosCallsTable = pgTable("sos_calls", {
   outcome: text("outcome").notNull().default("no_action"),
   appointmentId: integer("appointment_id").references(() => sosAppointmentsTable.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  },
+  (t) => [index("sos_calls_tenant_id_idx").on(t.tenantId)],
+);
