@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarProvider,
 } from '@/components/ui/sidebar';
-import { Activity, LayoutDashboard, Users, Zap, Briefcase, Radio, CreditCard } from 'lucide-react';
+import { Activity, LayoutDashboard, Users, Zap, Briefcase, Radio, CreditCard, Cable } from 'lucide-react';
 
 const NAV_ITEMS = [
   { name: 'Command Center', path: '/', icon: LayoutDashboard },
@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { name: 'Partners (0%)', path: '/partners', icon: Briefcase },
   { name: 'Media Resale', path: '/media', icon: Radio },
   { name: 'Billing', path: '/billing', icon: CreditCard },
+  { name: 'Connector Registry', path: '/connectors', icon: Cable },
 ];
 
 import { useHealthCheck } from '@workspace/api-client-react';

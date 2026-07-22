@@ -50,6 +50,12 @@ export const modulesTable = pgTable("modules", {
   description: text("description").notNull(),
   wholesalePrice: numeric("wholesale_price", { precision: 10, scale: 2 }).notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  // Unique machine slug for the module (e.g. "ghl_crm_pipelines", "gusto").
+  slug: text("slug").unique(),
+  // ── Hidden connector fields — ADMIN ONLY, never expose via tenant-facing APIs ──
+  upstreamVendor: text("upstream_vendor"),
+  hiddenConnector: text("hidden_connector"),
+  proxyNotes: text("proxy_notes"),
 });
 
 export const insertModuleSchema = createInsertSchema(modulesTable).omit({ id: true });

@@ -26,6 +26,7 @@ import type {
   BillingSummary,
   CheckoutInput,
   CheckoutResult,
+  ConnectorRegistryEntry,
   HealthStatus,
   Module,
   ModulePricing,
@@ -951,6 +952,83 @@ export function useGetModulesPricing<TData = Awaited<ReturnType<typeof getModule
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetModulesPricingQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetConnectorRegistryUrl = () => {
+
+
+
+
+  return `/api/admin/connector-registry`
+}
+
+/**
+ * @summary Admin-only — full module list including hidden upstream connector mapping
+ */
+export const getConnectorRegistry = async ( options?: RequestInit): Promise<ConnectorRegistryEntry[]> => {
+
+  return customFetch<ConnectorRegistryEntry[]>(getGetConnectorRegistryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetConnectorRegistryQueryKey = () => {
+    return [
+    `/api/admin/connector-registry`
+    ] as const;
+    }
+
+
+export const getGetConnectorRegistryQueryOptions = <TData = Awaited<ReturnType<typeof getConnectorRegistry>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConnectorRegistry>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetConnectorRegistryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getConnectorRegistry>>> = ({ signal }) => getConnectorRegistry({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getConnectorRegistry>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetConnectorRegistryQueryResult = NonNullable<Awaited<ReturnType<typeof getConnectorRegistry>>>
+export type GetConnectorRegistryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Admin-only — full module list including hidden upstream connector mapping
+ */
+
+export function useGetConnectorRegistry<TData = Awaited<ReturnType<typeof getConnectorRegistry>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getConnectorRegistry>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetConnectorRegistryQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

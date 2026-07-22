@@ -211,6 +211,23 @@ export const GetModulesPricingResponse = zod.array(GetModulesPricingResponseItem
 
 
 /**
+ * @summary Admin-only — full module list including hidden upstream connector mapping
+ */
+export const GetConnectorRegistryResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "slug": zod.string().nullable(),
+  "category": zod.string(),
+  "categorySlug": zod.string(),
+  "isActive": zod.boolean(),
+  "upstreamVendor": zod.string().nullable(),
+  "hiddenConnector": zod.string().nullable(),
+  "proxyNotes": zod.string().nullable()
+})
+export const GetConnectorRegistryResponse = zod.array(GetConnectorRegistryResponseItem)
+
+
+/**
  * @summary Get billing summary — total MRR breakdown by category
  */
 export const GetBillingSummaryResponse = zod.object({

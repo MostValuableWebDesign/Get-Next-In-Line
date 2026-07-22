@@ -13,6 +13,7 @@ export * from './billingSummary';
 export * from './categoryRevenue';
 export * from './checkoutInput';
 export * from './checkoutResult';
+export * from './connectorRegistryEntry';
 export * from './healthStatus';
 export * from './module';
 export * from './modulePricing';

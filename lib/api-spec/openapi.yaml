@@ -18,6 +18,8 @@ tags:
     description: Service modules and pricing
   - name: billing
     description: Billing and checkout simulation
+  - name: admin
+    description: Admin-only operations (never exposed to tenants)
 
 paths:
   /healthz:
@@ -214,6 +216,21 @@ paths:
                 items:
                   $ref: "#/components/schemas/ModulePricing"
 
+  /admin/connector-registry:
+    get:
+      operationId: getConnectorRegistry
+      tags: [admin]
+      summary: Admin-only — full module list including hidden upstream connector mapping
+      responses:
+        "200":
+          description: Modules with hidden connector details
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConnectorRegistryEntry"
+
   /billing/summary:
     get:
       operationId: getBillingSummary
@@ -402,6 +419,29 @@ components:
           type: number
         isActive:
           type: boolean
+
+    ConnectorRegistryEntry:
+      type: object
+      required: [id, name, slug, category, categorySlug, isActive, upstreamVendor, hiddenConnector, proxyNotes]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: ["string", "null"]
+        category:
+          type: string
+        categorySlug:
+          type: string
+        isActive:
+          type: boolean
+        upstreamVendor:
+          type: ["string", "null"]
+        hiddenConnector:
+          type: ["string", "null"]
+        proxyNotes:
+          type: ["string", "null"]
 
     ModulePricing:
       type: object

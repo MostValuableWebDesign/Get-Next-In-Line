@@ -6,6 +6,7 @@ import agencyRouter from "./agency";
 import tenantsRouter from "./tenants";
 import modulesRouter from "./modules";
 import billingRouter from "./billing";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -21,5 +22,6 @@ router.use(agencyRouter);
 router.use(tenantsRouter);
 router.use(modulesRouter);
 router.use(billingRouter);
+router.use(adminRouter);
 
 export default router;

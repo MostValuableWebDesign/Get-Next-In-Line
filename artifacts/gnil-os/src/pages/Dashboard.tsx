@@ -162,7 +162,7 @@ function GlobalMarkupSlider({ initialMarkup }: { initialMarkup: number }) {
   const { toast } = useToast();
   
   // Debounce the slider change to avoid spamming the API
-  const timerRef = useRef<NodeJS.Timeout>();
+  const timerRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const handleSliderChange = (val: number[]) => {
     const newVal = val[0];

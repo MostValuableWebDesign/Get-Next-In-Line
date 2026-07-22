@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { seedConnectorMapping } from "./lib/connectorSeed";
 
 const rawPort = process.env["PORT"];
 
@@ -14,6 +15,12 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+// Idempotent: upsert the hidden connector mapping so the admin Connector
+// Registry is always complete, in every environment.
+seedConnectorMapping().catch((err) => {
+  logger.error({ err }, "Connector mapping seed failed");
+});
 
 app.listen(port, (err) => {
   if (err) {

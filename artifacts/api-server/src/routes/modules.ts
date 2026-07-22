@@ -13,8 +13,15 @@ router.get("/modules", async (_req, res): Promise<void> => {
 
   res.json(
     ListModulesResponse.parse(
+      // Explicitly pick tenant-safe fields — hidden connector fields
+      // (slug, upstreamVendor, hiddenConnector, proxyNotes) must never leak here.
       modules.map((m) => ({
-        ...m,
+        id: m.id,
+        name: m.name,
+        category: m.category,
+        categorySlug: m.categorySlug,
+        description: m.description,
+        isActive: m.isActive,
         wholesalePrice: parseFloat(m.wholesalePrice),
       }))
     )

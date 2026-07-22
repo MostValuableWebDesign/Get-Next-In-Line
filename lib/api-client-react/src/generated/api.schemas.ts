@@ -117,6 +117,22 @@ export interface Module {
   isActive: boolean;
 }
 
+export interface ConnectorRegistryEntry {
+  id: number;
+  name: string;
+  /** @nullable */
+  slug: string | null;
+  category: string;
+  categorySlug: string;
+  isActive: boolean;
+  /** @nullable */
+  upstreamVendor: string | null;
+  /** @nullable */
+  hiddenConnector: string | null;
+  /** @nullable */
+  proxyNotes: string | null;
+}
+
 export interface ModulePricing {
   id: number;
   name: string;
