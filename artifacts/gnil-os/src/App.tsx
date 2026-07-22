@@ -12,6 +12,7 @@ import Operations from "@/pages/Operations";
 import Partners from "@/pages/Partners";
 import Media from "@/pages/Media";
 import Billing from "@/pages/Billing";
+import ModuleConsole from "@/pages/ModuleConsole";
 import ConnectorRegistry from "@/pages/ConnectorRegistry";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
@@ -58,6 +59,7 @@ function ProtectedApp() {
         <Route path="/operations" component={Operations} />
         <Route path="/partners" component={Partners} />
         <Route path="/media" component={Media} />
+        <Route path="/modules/:id" component={ModuleConsole} />
         <Route path="/billing" component={Billing} />
         <Route path="/connectors" component={ConnectorRegistry} />
         <Route component={NotFound} />

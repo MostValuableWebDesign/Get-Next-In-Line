@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
-import { Server, ShieldCheck, Zap } from 'lucide-react';
+import { Server, ShieldCheck } from 'lucide-react';
+import { Link } from 'wouter';
 
 export function ModuleGrid({ categorySlug, title, description }: { categorySlug: string, title: string, description: string }) {
   const { data: modules, isLoading: isLoadingModules } = useListModules();
@@ -45,7 +46,13 @@ export function ModuleGrid({ categorySlug, title, description }: { categorySlug:
             const isPartner = categorySlug === 'partners';
 
             return (
-              <Card key={module.id} className="border-none shadow-md flex flex-col relative overflow-hidden group">
+              <Link
+                key={module.id}
+                href={`/modules/${module.id}`}
+                className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                data-testid={`link-module-console-${module.id}`}
+              >
+              <Card className="h-full border-none shadow-md flex flex-col relative overflow-hidden group cursor-pointer transition-shadow hover:shadow-lg">
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                   {isPartner ? <ShieldCheck className="w-24 h-24" /> : <Server className="w-24 h-24" />}
                 </div>
@@ -86,6 +93,7 @@ export function ModuleGrid({ categorySlug, title, description }: { categorySlug:
                   )}
                 </CardFooter>
               </Card>
+              </Link>
             );
           })}
         </div>

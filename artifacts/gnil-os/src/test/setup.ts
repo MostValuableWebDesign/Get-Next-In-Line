@@ -20,6 +20,12 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 });
 
+// jsdom lacks scrollIntoView and pointer-capture APIs (used by Radix Select).
+Element.prototype.scrollIntoView = Element.prototype.scrollIntoView ?? (() => {});
+Element.prototype.hasPointerCapture = Element.prototype.hasPointerCapture ?? (() => false);
+Element.prototype.setPointerCapture = Element.prototype.setPointerCapture ?? (() => {});
+Element.prototype.releasePointerCapture = Element.prototype.releasePointerCapture ?? (() => {});
+
 // jsdom lacks ResizeObserver (used by some Radix primitives).
 class ResizeObserverStub {
   observe() {}
