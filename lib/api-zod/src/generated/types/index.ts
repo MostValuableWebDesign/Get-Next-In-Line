@@ -24,6 +24,7 @@ export * from './moduleTenantSubscriber';
 export * from './moduleTenantSubscriberStatus';
 export * from './tenant';
 export * from './tenantActivity';
+export * from './tenantActivityPage';
 export * from './tenantBillingSummary';
 export * from './tenantInput';
 export * from './tenantInputStatus';

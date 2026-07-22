@@ -107,6 +107,11 @@ export interface TenantActivity {
   timestamp: string;
 }
 
+export interface TenantActivityPage {
+  items: TenantActivity[];
+  hasMore: boolean;
+}
+
 export interface TenantSubscribedModule {
   moduleId: number;
   name: string;
@@ -215,8 +220,19 @@ export interface CheckoutResult {
 
 export type GetTenantActivityParams = {
 /**
- * Filter activity to a single tenant and return its full history
+ * Filter activity to a single tenant
  */
 tenantId?: number;
+/**
+ * Maximum number of items per page (default 20, max 100)
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * Number of items to skip (default 0)
+ * @minimum 0
+ */
+offset?: number;
 };
 

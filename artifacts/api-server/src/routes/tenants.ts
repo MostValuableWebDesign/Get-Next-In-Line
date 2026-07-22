@@ -80,6 +80,8 @@ router.get("/tenants/activity", async (req, res): Promise<void> => {
     return;
   }
   const { tenantId } = query.data;
+  const limit = query.data.limit ?? 20;
+  const offset = query.data.offset ?? 0;
 
   if (tenantId !== undefined) {
     const [tenant] = await db
@@ -103,21 +105,29 @@ router.get("/tenants/activity", async (req, res): Promise<void> => {
     })
     .from(tenantActivitiesTable)
     .leftJoin(tenantsTable, eq(tenantActivitiesTable.tenantId, tenantsTable.id))
-    .orderBy(desc(tenantActivitiesTable.timestamp));
+    .orderBy(desc(tenantActivitiesTable.timestamp), desc(tenantActivitiesTable.id));
 
-  const activities =
+  // Fetch one extra row to determine whether more pages exist
+  const rows =
     tenantId !== undefined
-      ? await baseQuery.where(eq(tenantActivitiesTable.tenantId, tenantId))
-      : await baseQuery.limit(20);
+      ? await baseQuery
+          .where(eq(tenantActivitiesTable.tenantId, tenantId))
+          .limit(limit + 1)
+          .offset(offset)
+      : await baseQuery.limit(limit + 1).offset(offset);
+
+  const hasMore = rows.length > limit;
+  const activities = rows.slice(0, limit);
 
   res.json(
-    GetTenantActivityResponse.parse(
-      activities.map((a) => ({
+    GetTenantActivityResponse.parse({
+      items: activities.map((a) => ({
         ...a,
         tenantName: a.tenantName ?? "Unknown",
         timestamp: a.timestamp.toISOString(),
-      }))
-    )
+      })),
+      hasMore,
+    })
   );
 });
 

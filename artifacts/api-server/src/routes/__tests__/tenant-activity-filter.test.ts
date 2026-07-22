@@ -4,12 +4,12 @@ import request from "supertest";
 // ---------------------------------------------------------------------------
 // Mock @workspace/db so tests run without a real database.
 // 25 fake activity rows across two tenants let us verify:
-//   - no query param  → global feed capped at 20 (limit applied)
-//   - ?tenantId=N     → only tenant N's rows, with NO limit (full history)
+//   - no query param  → global feed capped at the default page size (20)
+//   - ?tenantId=N     → only tenant N's rows, paginated with limit/offset
 //   - ?tenantId=abc   → 400 (zod coercion fails)
-// The mock replays the query chain the route builds and records whether
-// .where()/.limit() were applied, so a silent regression in the branch
-// (e.g. dropping the where clause) fails these tests.
+// The mock replays the query chain the route builds
+// (.where() → .limit() → .offset()), so a silent regression in the branch
+// (e.g. dropping the where clause or the bounds) fails these tests.
 // ---------------------------------------------------------------------------
 
 const TENANT_NAMES: Record<number, string> = { 1: "Acme", 2: "Globex" };
@@ -47,20 +47,26 @@ vi.mock("@workspace/db", () => {
   const modulesTable = { categorySlug: "categorySlug", name: "name" };
   const agencySettingsTable = {};
 
-  // Query chain that mimics drizzle's builder for the activity route.
+  // Query chain that mimics drizzle's builder for the activity route:
+  // .where(cond)? → .limit(n) → .offset(m) resolving to the rows.
   function makeActivityQuery() {
     const sorted = [...fakeActivities].sort(
-      (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
+      (a, b) => b.timestamp.getTime() - a.timestamp.getTime() || b.id - a.id,
     );
+    const paginate = (rows: typeof sorted) => ({
+      limit: (n: number) => ({
+        offset: (m: number) => Promise.resolve(rows.slice(m, m + n)),
+      }),
+    });
     return {
-      // route: .where(eq(tenantActivitiesTable.tenantId, tenantId))
+      // route: .where(eq(tenantActivitiesTable.tenantId, tenantId)).limit(...).offset(...)
       where: (cond: { rhs?: unknown } | unknown) => {
         // our eq() mock returns { rhs }
         const tenantId = (cond as { rhs: number }).rhs;
-        return Promise.resolve(sorted.filter((r) => r.tenantId === tenantId));
+        return paginate(sorted.filter((r) => r.tenantId === tenantId));
       },
-      // route: .limit(20)
-      limit: (n: number) => Promise.resolve(sorted.slice(0, n)),
+      // route: .limit(...).offset(...)
+      ...paginate(sorted),
     };
   }
 
@@ -118,32 +124,47 @@ describe("GET /api/tenants/activity", () => {
     const agent = await loggedInAgent();
     const res = await agent.get("/api/tenants/activity");
     expect(res.status).toBe(200);
-    expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body).toHaveLength(20);
+    expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body.items).toHaveLength(20);
+    expect(res.body.hasMore).toBe(true); // 25 total rows > 20
     // Global feed: newest first, so Globex (Feb) rows lead, then Acme (Jan)
-    expect(res.body[0].tenantName).toBe("Globex");
-    const tenantIds = new Set(res.body.map((r: { tenantId: number }) => r.tenantId));
+    expect(res.body.items[0].tenantName).toBe("Globex");
+    const tenantIds = new Set(res.body.items.map((r: { tenantId: number }) => r.tenantId));
     expect(tenantIds).toEqual(new Set([1, 2]));
   });
 
-  it("with ?tenantId returns ONLY that tenant's events, with no 20-row cap", async () => {
+  it("with ?tenantId returns ONLY that tenant's events, paginated with hasMore", async () => {
     const agent = await loggedInAgent();
     const res = await agent.get("/api/tenants/activity?tenantId=1");
     expect(res.status).toBe(200);
-    // Tenant 1 has 22 rows — more than the global cap — all must be returned
-    expect(res.body).toHaveLength(22);
-    for (const item of res.body) {
+    // Tenant 1 has 22 rows — first page is bounded at the default 20
+    expect(res.body.items).toHaveLength(20);
+    expect(res.body.hasMore).toBe(true);
+    for (const item of res.body.items) {
       expect(item.tenantId).toBe(1);
       expect(item.tenantName).toBe(TENANT_NAMES[1]);
     }
+    // The next page returns the remaining 2 rows and hasMore=false
+    const page2 = await agent.get("/api/tenants/activity?tenantId=1&limit=20&offset=20");
+    expect(page2.status).toBe(200);
+    expect(page2.body.items).toHaveLength(2);
+    expect(page2.body.hasMore).toBe(false);
+    for (const item of page2.body.items) {
+      expect(item.tenantId).toBe(1);
+    }
+    // No overlap between pages
+    const ids1 = res.body.items.map((r: { id: number }) => r.id);
+    const ids2 = page2.body.items.map((r: { id: number }) => r.id);
+    expect(ids1.filter((id: number) => ids2.includes(id))).toHaveLength(0);
   });
 
   it("with ?tenantId for another tenant returns only that tenant's events", async () => {
     const agent = await loggedInAgent();
     const res = await agent.get("/api/tenants/activity?tenantId=2");
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(3);
-    for (const item of res.body) {
+    expect(res.body.items).toHaveLength(3);
+    expect(res.body.hasMore).toBe(false);
+    for (const item of res.body.items) {
       expect(item.tenantId).toBe(2);
       expect(item.tenantName).toBe(TENANT_NAMES[2]);
     }
@@ -154,6 +175,18 @@ describe("GET /api/tenants/activity", () => {
     const res = await agent.get("/api/tenants/activity?tenantId=999");
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: "Tenant not found" });
+  });
+
+  it("respects a custom limit and rejects limits above the 100 cap", async () => {
+    const agent = await loggedInAgent();
+    const res = await agent.get("/api/tenants/activity?tenantId=1&limit=5");
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(5);
+    expect(res.body.hasMore).toBe(true);
+
+    const tooBig = await agent.get("/api/tenants/activity?limit=500");
+    expect(tooBig.status).toBe(400);
+    expect(tooBig.body).toHaveProperty("error");
   });
 
   it("with a non-numeric tenantId returns 400", async () => {

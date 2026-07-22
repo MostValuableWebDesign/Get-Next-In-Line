@@ -100,7 +100,8 @@ export default function Dashboard() {
 }
 
 function ActivityFeed() {
-  const { data: activities, isLoading } = useGetTenantActivity();
+  const { data: activityPage, isLoading } = useGetTenantActivity();
+  const activities = activityPage?.items;
 
   return (
     <Card className="border-none shadow-md col-span-1 lg:col-span-3">

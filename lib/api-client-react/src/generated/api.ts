@@ -35,7 +35,7 @@ import type {
   ModuleTenantCount,
   ModuleTenantSubscriber,
   Tenant,
-  TenantActivity,
+  TenantActivityPage,
   TenantInput,
   TenantSubscribedModule,
   TenantUpdate
@@ -536,9 +536,9 @@ export const getGetTenantActivityUrl = (params?: GetTenantActivityParams,) => {
 /**
  * @summary Recent tenant provisioning and status change activity feed
  */
-export const getTenantActivity = async (params?: GetTenantActivityParams, options?: RequestInit): Promise<TenantActivity[]> => {
+export const getTenantActivity = async (params?: GetTenantActivityParams, options?: RequestInit): Promise<TenantActivityPage> => {
 
-  return customFetch<TenantActivity[]>(getGetTenantActivityUrl(params),
+  return customFetch<TenantActivityPage>(getGetTenantActivityUrl(params),
   {
     ...options,
     method: 'GET'

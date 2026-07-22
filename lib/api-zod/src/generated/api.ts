@@ -111,19 +111,29 @@ export const CreateTenantResponse = zod.object({
 /**
  * @summary Recent tenant provisioning and status change activity feed
  */
+export const getTenantActivityQueryLimitMax = 100;
+
+export const getTenantActivityQueryOffsetMin = 0;
+
+
+
 export const GetTenantActivityQueryParams = zod.object({
-  "tenantId": zod.coerce.number().optional().describe('Filter activity to a single tenant and return its full history')
+  "tenantId": zod.coerce.number().optional().describe('Filter activity to a single tenant'),
+  "limit": zod.coerce.number().min(1).max(getTenantActivityQueryLimitMax).optional().describe('Maximum number of items per page (default 20, max 100)'),
+  "offset": zod.coerce.number().min(getTenantActivityQueryOffsetMin).optional().describe('Number of items to skip (default 0)')
 })
 
-export const GetTenantActivityResponseItem = zod.object({
+export const GetTenantActivityResponse = zod.object({
+  "items": zod.array(zod.object({
   "id": zod.number(),
   "tenantId": zod.number(),
   "tenantName": zod.string(),
   "action": zod.string(),
   "details": zod.string().nullish(),
   "timestamp": zod.string()
+})),
+  "hasMore": zod.boolean()
 })
-export const GetTenantActivityResponse = zod.array(GetTenantActivityResponseItem)
 
 
 /**

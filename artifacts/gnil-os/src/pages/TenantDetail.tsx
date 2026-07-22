@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+import { getTenantActivity, type TenantActivity } from '@workspace/api-client-react';
 import { Link, useParams } from 'wouter';
 import {
   useGetTenant,
@@ -16,6 +18,8 @@ import {
   Activity, ArrowLeft, Building2, CalendarClock, DollarSign, Mail, Package, User,
 } from 'lucide-react';
 
+const ACTIVITY_PAGE_SIZE = 20;
+
 const STATUS_STYLES: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-emerald-200',
   suspended: 'bg-destructive/10 text-destructive hover:bg-destructive/10 border-destructive/20',
@@ -33,10 +37,58 @@ export default function TenantDetail() {
   const { data: modules, isLoading: isLoadingModules } = useGetTenantModules(tenantId, {
     query: { queryKey: getGetTenantModulesQueryKey(tenantId), enabled: validId },
   });
-  const { data: tenantActivity, isLoading: isLoadingActivity } = useGetTenantActivity(
-    { tenantId },
-    { query: { queryKey: getGetTenantActivityQueryKey({ tenantId }), enabled: validId } }
+  const { data: activityPage, isLoading: isLoadingActivity } = useGetTenantActivity(
+    { tenantId, limit: ACTIVITY_PAGE_SIZE, offset: 0 },
+    {
+      query: {
+        queryKey: getGetTenantActivityQueryKey({ tenantId, limit: ACTIVITY_PAGE_SIZE, offset: 0 }),
+        enabled: validId,
+      },
+    }
   );
+  const [extraActivity, setExtraActivity] = useState<TenantActivity[]>([]);
+  const [extraHasMore, setExtraHasMore] = useState<boolean | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
+
+  // Tracks the tenant the pagination state belongs to, so late "Load more"
+  // responses from a previous tenant are discarded instead of appended.
+  const activityTenantRef = useRef(tenantId);
+
+  // Reset pagination state when switching tenants so pages never mix.
+  useEffect(() => {
+    activityTenantRef.current = tenantId;
+    setExtraActivity([]);
+    setExtraHasMore(null);
+    setLoadMoreError(false);
+    setIsLoadingMore(false);
+  }, [tenantId]);
+
+  const firstPageItems = activityPage?.items ?? [];
+  const tenantActivity = [...firstPageItems, ...extraActivity];
+  const hasMoreActivity = extraHasMore ?? activityPage?.hasMore ?? false;
+
+  const loadMoreActivity = async () => {
+    const requestTenantId = tenantId;
+    setIsLoadingMore(true);
+    setLoadMoreError(false);
+    try {
+      const page = await getTenantActivity({
+        tenantId: requestTenantId,
+        limit: ACTIVITY_PAGE_SIZE,
+        offset: firstPageItems.length + extraActivity.length,
+      });
+      // Ignore stale responses that resolve after switching tenants.
+      if (activityTenantRef.current !== requestTenantId) return;
+      setExtraActivity((prev) => [...prev, ...page.items]);
+      setExtraHasMore(page.hasMore);
+      setIsLoadingMore(false);
+    } catch {
+      if (activityTenantRef.current !== requestTenantId) return;
+      setLoadMoreError(true);
+      setIsLoadingMore(false);
+    }
+  };
 
   if (isLoadingTenant) {
     return (
@@ -193,24 +245,44 @@ export default function TenantDetail() {
                 <Skeleton className="h-12 w-full rounded-lg" />
                 <Skeleton className="h-12 w-full rounded-lg" />
               </div>
-            ) : !tenantActivity || tenantActivity.length === 0 ? (
+            ) : tenantActivity.length === 0 ? (
               <p className="text-sm text-muted-foreground" data-testid="text-no-activity">
                 No recent activity for this tenant.
               </p>
             ) : (
-              <div className="divide-y" data-testid="list-tenant-activity">
-                {tenantActivity.map((a) => (
-                  <div key={a.id} className="py-3">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="text-sm font-medium">{a.action}</div>
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {new Date(a.timestamp).toLocaleString()}
-                      </span>
+              <>
+                <div className="divide-y" data-testid="list-tenant-activity">
+                  {tenantActivity.map((a) => (
+                    <div key={a.id} className="py-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="text-sm font-medium">{a.action}</div>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {new Date(a.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      {a.details && <div className="text-xs text-muted-foreground mt-0.5">{a.details}</div>}
                     </div>
-                    {a.details && <div className="text-xs text-muted-foreground mt-0.5">{a.details}</div>}
+                  ))}
+                </div>
+                {loadMoreError && (
+                  <p className="pt-3 text-xs text-destructive text-center" data-testid="text-load-more-error">
+                    Couldn't load more activity. Please try again.
+                  </p>
+                )}
+                {hasMoreActivity && (
+                  <div className="pt-3 flex justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isLoadingMore}
+                      onClick={loadMoreActivity}
+                      data-testid="button-load-more-activity"
+                    >
+                      {isLoadingMore ? 'Loading…' : loadMoreError ? 'Retry' : 'Load more'}
+                    </Button>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
