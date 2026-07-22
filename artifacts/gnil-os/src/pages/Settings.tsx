@@ -107,14 +107,14 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
 
   // Scroll to the section referenced by the URL hash (e.g. /settings#sms)
   // once data has loaded and the sections exist in the DOM. The global AI
-  // Receptionist section moved to the unified AI Receptionist view, so old
-  // /settings#ai-receptionist deep links redirect there instead.
+  // Receptionist section moved to the AI Receptionist tab in Business
+  // Bookings, so old /settings#ai-receptionist deep links redirect there.
   useEffect(() => {
     if (isLoading) return;
     const hash = window.location.hash.replace('#', '');
     if (!hash) return;
     if (hash === 'ai-receptionist' && !isTenantScoped) {
-      navigate('/sos/ai-receptionist', { replace: true });
+      navigate('/sos/bookings?tab=ai-receptionist', { replace: true });
       return;
     }
     const el = document.getElementById(hash);
@@ -267,51 +267,34 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
 
       {/* ── AI Receptionist module ───────────────────────────────────────
           AI Receptionist settings are edited only in the AI Receptionist
-          view (global at /sos/ai-receptionist, per-tenant at
-          /tenants/:id/ai-receptionist); here we show a read-only status
-          card with a manage link so the two can't drift. */}
-        <Card id="ai-receptionist" className="scroll-mt-6" data-testid="section-ai-receptionist-status">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-primary" /> AI Receptionist
-              </CardTitle>
-              <Badge
-                variant={settings?.aiReceptionistEnabled ? 'default' : 'secondary'}
-                data-testid="badge-ai-receptionist"
-              >
-                {settings?.aiReceptionistEnabled ? 'Enabled' : 'Disabled'}
-              </Badge>
-            </div>
-            <CardDescription>
-              Autonomous call handling for your business. Configured in the AI Receptionist
-              console — this is a read-only summary.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 border rounded-lg space-y-1">
-              <Label className="text-base">Service Names</Label>
-              <p className="text-sm text-muted-foreground" data-testid="text-service-names-status">
-                {settings?.serviceNames
-                  ? settings.serviceNames
-                  : 'No services configured yet.'}
+          console (global: Business Bookings → AI Receptionist tab;
+          per-tenant: Tenant Detail → AI Receptionist tab). No duplicated
+          status here — just a compact jump link so the two can't drift. */}
+      <Card id="ai-receptionist" className="scroll-mt-6" data-testid="section-ai-receptionist-link">
+        <CardContent className="p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Bot className="w-5 h-5 text-primary shrink-0" />
+            <div className="min-w-0">
+              <div className="font-semibold">AI Receptionist</div>
+              <p className="text-sm text-muted-foreground">
+                Call handling, service names, call logs, and SMS broadcasts are managed in the AI
+                Receptionist console.
               </p>
             </div>
-            <div className="flex justify-end">
-              <Button asChild variant="outline" data-testid="link-manage-ai-receptionist">
-                <Link
-                  href={
-                    isTenantScoped
-                      ? `/tenants/${tenantId}?tab=ai-receptionist`
-                      : '/sos/ai-receptionist'
-                  }
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" /> Manage in AI Receptionist
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <Button asChild variant="outline" className="shrink-0" data-testid="link-manage-ai-receptionist">
+            <Link
+              href={
+                isTenantScoped
+                  ? `/tenants/${tenantId}?tab=ai-receptionist`
+                  : '/sos/bookings?tab=ai-receptionist'
+              }
+            >
+              <ExternalLink className="w-4 h-4 mr-2" /> Open Console
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* ── SOS Operations module ────────────────────────────────────── */}
       <Card id="sos-operations" className="scroll-mt-6" data-testid="section-sos-operations">
@@ -546,7 +529,7 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
               className="text-muted-foreground -ml-2"
               data-testid="link-sms-history"
             >
-              <Link href="/sos/ai-receptionist">
+              <Link href="/sos/bookings?tab=ai-receptionist">
                 <ExternalLink className="w-4 h-4 mr-2" /> View SMS broadcast history
               </Link>
             </Button>

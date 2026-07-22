@@ -19,6 +19,7 @@ import { OpenTicketsPanel } from '@/components/sos/open-tickets-panel';
 import { ReportsContent } from '@/pages/sos/reports';
 import { CustomersContent } from '@/components/sos/customers-content';
 import { MembershipPlansContent } from '@/pages/sos/memberships';
+import { AiReceptionistPage } from '@/pages/sos/ai-receptionist';
 import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
   Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
@@ -30,7 +31,7 @@ import {
  * List and Calendar views of appointments (the old standalone Calendar page
  * redirects here), plus the one place open tickets are checked out.
  */
-const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'plans'] as const;
+const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'plans', 'ai-receptionist'] as const;
 
 export function BookingsPage() {
   // Tab state lives in the URL (?tab=) so /sos/bookings?tab=reports deep
@@ -148,6 +149,9 @@ export function BookingsPage() {
           <TabsTrigger value="plans" data-testid="tab-membership-plans">
             <Crown className="h-4 w-4 mr-1.5" /> Plans
           </TabsTrigger>
+          <TabsTrigger value="ai-receptionist" data-testid="tab-ai-receptionist">
+            <Bot className="h-4 w-4 mr-1.5" /> AI Receptionist
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="mt-0">
@@ -223,6 +227,13 @@ export function BookingsPage() {
 
         <TabsContent value="plans" className="mt-0">
           <MembershipPlansContent />
+        </TabsContent>
+
+        <TabsContent value="ai-receptionist" className="mt-0">
+          {/* Former standalone /sos/ai-receptionist page — config, call logs,
+              inbound simulator, and SMS broadcast history, now a tab here.
+              The old URL redirects to this tab. */}
+          <AiReceptionistPage embedded />
         </TabsContent>
       </Tabs>
     </div>

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
   Activity, LayoutDashboard, Users, CreditCard, WifiOff, X,
-  Bot, Settings, BookOpenCheck,
+  Settings, BookOpenCheck,
 } from 'lucide-react';
 
 type NavItem = {
@@ -50,15 +50,14 @@ const NAV_ITEMS: NavItem[] = [
 const SOS_NAV_ITEMS: NavItem[] = [
   // Consolidated hub: appointments + checkout, plus Reports, Customers, and
   // Plans tabs (the old standalone pages redirect here)
+  // Single SOS entry: appointments + checkout, plus Reports, Customers,
+  // Plans, and AI Receptionist tabs (the old standalone pages redirect here)
   {
     name: 'Business Bookings',
     path: '/sos/bookings',
     icon: BookOpenCheck,
-    aliases: ['/sos', '/sos/calendar', '/sos/pos'],
+    aliases: ['/sos', '/sos/calendar', '/sos/pos', '/sos/ai-receptionist', '/sos/marketing'],
   },
-  // Unified AI Receptionist view: settings, simulator, call logs, and SMS
-  // broadcast history in one place (replaces the old Marketing & Comms page).
-  { name: 'AI Receptionist', path: '/sos/ai-receptionist', icon: Bot, aliases: ['/sos/marketing'] },
 ];
 
 import { useOnlineStatus } from '@/hooks/use-online';

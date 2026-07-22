@@ -114,9 +114,10 @@ describe('Sidebar — service modules never become navigation tabs', () => {
       expect(screen.queryByText(name)).not.toBeInTheDocument();
     }
 
-    // Daily-workflow section stays limited to the known entries
+    // Daily-workflow section stays limited to the known entries — the AI
+    // Receptionist is now a tab inside Business Bookings, not a sidebar item
     expect(screen.getByText('Business Bookings')).toBeInTheDocument();
-    expect(screen.getByText('AI Receptionist')).toBeInTheDocument();
+    expect(screen.queryByText('AI Receptionist')).not.toBeInTheDocument();
     expect(screen.getByText('Operations')).toBeInTheDocument();
   });
 });

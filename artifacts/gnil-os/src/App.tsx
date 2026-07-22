@@ -15,7 +15,6 @@ import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
-import { AiReceptionistPage } from "@/pages/sos/ai-receptionist";
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
 import Settings from "@/pages/Settings";
 
@@ -137,14 +136,16 @@ function ProtectedApp() {
         <Route path="/sos/memberships">
           <Redirect to="/sos/bookings?tab=plans" replace />
         </Route>
+        {/* The AI Receptionist console is now a tab inside Business Bookings.
+            The tenant-scoped embed (/tenants/:id?tab=ai-receptionist) is
+            unaffected. */}
         <Route path="/sos/ai-receptionist">
-          <AiReceptionistPage />
+          <Redirect to="/sos/bookings?tab=ai-receptionist" replace />
         </Route>
         {/* Old Marketing & Comms page — its receptionist and SMS tabs are now
-            part of the unified AI Receptionist view, so any ?tab= deep link
-            lands there too. */}
+            part of the AI Receptionist tab in Business Bookings. */}
         <Route path="/sos/marketing">
-          <Redirect to="/sos/ai-receptionist" replace />
+          <Redirect to="/sos/bookings?tab=ai-receptionist" replace />
         </Route>
         {/* Old standalone SOS settings page — folded into the unified Configuration screen */}
         <Route path="/sos/settings">
