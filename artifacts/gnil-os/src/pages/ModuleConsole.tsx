@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { downloadModuleLedgerCsv } from '@/lib/moduleLedgerExport';
 import { Link, useLocation, useParams } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -71,6 +72,31 @@ export default function ModuleConsole() {
     query: { queryKey: getGetAdminModuleDetailQueryKey(moduleId), enabled: Number.isInteger(moduleId) },
   });
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleForceSync = async () => {
+    setIsSyncing(true);
+    try {
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: getGetModuleTenantsQueryKey(moduleId) }),
+        queryClient.refetchQueries({ queryKey: getGetAdminModuleDetailQueryKey(moduleId) }),
+        queryClient.invalidateQueries(),
+      ]);
+      toast({
+        title: 'Sync Complete',
+        description: `Refreshed module and tenant data for ${module?.name ?? 'this module'}.`,
+      });
+    } catch {
+      toast({
+        title: 'Sync Failed',
+        description: 'Could not refresh module data. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   if (isLoadingModules || isLoadingPricing || isLoadingSettings) {
     return (
@@ -220,15 +246,47 @@ export default function ModuleConsole() {
                 variant="secondary"
                 className="gap-2"
                 data-testid="button-force-sync"
-                onClick={() => toast({ title: 'Sync Complete', description: `Successfully synchronized data stream for ${module.name}` })}
+                disabled={isSyncing}
+                onClick={handleForceSync}
               >
-                <RefreshCw className="w-4 h-4" /> Force Sync Gateway
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} /> {isSyncing ? 'Syncing…' : 'Force Sync Gateway'}
               </Button>
               <Button
                 variant="secondary"
                 className="gap-2"
                 data-testid="button-export-ledger"
-                onClick={() => toast({ title: 'Export Generated', description: `Generated compliance export report for ${module.name}` })}
+                onClick={() => {
+                  // Prefer the admin module-detail data (includes MRR
+                  // contribution); fall back to the public subscriber list.
+                  const rows = adminDetail
+                    ? adminDetail.tenants.map((t) => ({
+                        tenantId: t.tenantId,
+                        brandName: t.brandName,
+                        subdomain: t.subdomain,
+                        status: t.status,
+                        provisionedAt: t.provisionedAt,
+                        cadence: t.cadence,
+                        mrrContribution: t.mrrContribution,
+                      }))
+                    : (subscribers ?? []).map((s) => ({
+                        tenantId: s.tenantId,
+                        brandName: s.brandName,
+                        subdomain: s.subdomain,
+                        status: s.status,
+                        provisionedAt: s.provisionedAt,
+                        cadence: s.billingCadence === 'biweekly' ? 'biweekly' : 'monthly',
+                        mrrContribution: null,
+                      }));
+                  if (rows.length === 0) {
+                    toast({
+                      title: 'Nothing to Export',
+                      description: `No tenants are subscribed to ${module.name} yet.`,
+                    });
+                    return;
+                  }
+                  const filename = downloadModuleLedgerCsv(module.name, rows);
+                  toast({ title: 'Export Downloaded', description: `Saved ${rows.length} ledger row${rows.length === 1 ? '' : 's'} to ${filename}` });
+                }}
               >
                 <FileText className="w-4 h-4" /> Export Ledger Data
               </Button>

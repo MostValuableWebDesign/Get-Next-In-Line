@@ -15,6 +15,11 @@ import { Router, Route } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
 import ModuleConsole from '@/pages/ModuleConsole';
 import { Toaster } from '@/components/ui/toaster';
+import { downloadModuleLedgerCsv } from '@/lib/moduleLedgerExport';
+
+vi.mock('@/lib/moduleLedgerExport', () => ({
+  downloadModuleLedgerCsv: vi.fn(() => 'smart-booking-system-ledger-2026-07-22.csv'),
+}));
 
 const modules = [
   {
@@ -107,6 +112,7 @@ function renderConsole(path: string) {
 describe('ModuleConsole', () => {
   beforeEach(() => {
     mutateMock.mockReset();
+    vi.mocked(downloadModuleLedgerCsv).mockClear();
     adminDetailData = undefined;
   });
 
@@ -231,6 +237,44 @@ describe('ModuleConsole', () => {
       expect(screen.getByText('Checkout Simulation Successful')).toBeInTheDocument();
     });
     expect(screen.getByText(/txn_abc123/)).toBeInTheDocument();
+  });
+
+  it('force sync refetches data and shows a completion toast', async () => {
+    renderConsole('/modules/1');
+
+    fireEvent.click(screen.getByTestId('button-force-sync'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Sync Complete')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Refreshed module and tenant data for Smart Booking System/)).toBeInTheDocument();
+  });
+
+  it('exports a CSV ledger of subscribed tenants', async () => {
+    renderConsole('/modules/1');
+
+    fireEvent.click(screen.getByTestId('button-export-ledger'));
+
+    expect(downloadModuleLedgerCsv).toHaveBeenCalledTimes(1);
+    const [name, rows] = vi.mocked(downloadModuleLedgerCsv).mock.calls[0];
+    expect(name).toBe('Smart Booking System');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ tenantId: 10, brandName: 'Apex Salon', cadence: 'monthly' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Export Downloaded')).toBeInTheDocument();
+    });
+  });
+
+  it('shows a nothing-to-export toast when the module has no subscribers', async () => {
+    renderConsole('/modules/2');
+
+    fireEvent.click(screen.getByTestId('button-export-ledger'));
+
+    expect(downloadModuleLedgerCsv).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.getByText('Nothing to Export')).toBeInTheDocument();
+    });
   });
 
   it('shows an error toast when provisioning fails', async () => {
