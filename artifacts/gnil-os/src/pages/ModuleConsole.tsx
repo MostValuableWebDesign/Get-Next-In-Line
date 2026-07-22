@@ -124,6 +124,12 @@ export default function ModuleConsole() {
                   {formatCurrency(priceInfo?.resalePrice ?? module.wholesalePrice)}
                   <span className="text-xs text-muted-foreground font-normal font-sans">/mo</span>
                 </div>
+                {priceInfo?.resalePriceBiweekly != null && (
+                  <div className="text-xs font-mono text-muted-foreground mt-0.5" data-testid="text-resale-price-biweekly">
+                    or {formatCurrency(priceInfo.resalePriceBiweekly)}
+                    <span className="font-sans">/2wk</span>
+                  </div>
+                )}
               </div>
             )}
             {!isPartner && <ProvisionModuleDialog moduleId={module.id} moduleName={module.name} />}

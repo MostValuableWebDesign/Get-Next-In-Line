@@ -1,0 +1,1 @@
+ALTER TABLE "modules" ADD COLUMN "wholesale_price_biweekly" numeric(10, 2);

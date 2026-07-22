@@ -236,7 +236,10 @@ export const GetModulesPricingResponseItem = zod.object({
   "wholesalePrice": zod.number(),
   "resalePrice": zod.number(),
   "markupPercent": zod.number(),
-  "margin": zod.number()
+  "margin": zod.number(),
+  "wholesalePriceBiweekly": zod.number().optional(),
+  "resalePriceBiweekly": zod.number().optional(),
+  "marginBiweekly": zod.number().optional()
 })
 export const GetModulesPricingResponse = zod.array(GetModulesPricingResponseItem)
 

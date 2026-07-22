@@ -16,6 +16,8 @@ interface ConnectorMappingEntry {
   categorySlug: string;
   description: string;
   wholesalePrice: string;
+  /** Optional distinct bi-weekly wholesale rate (not monthly/2). */
+  wholesalePriceBiweekly?: string;
   upstreamVendor: string;
   hiddenConnector: string;
   proxyNotes: string | null;
@@ -144,7 +146,9 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     category: "White-Label Resale Engines",
     categorySlug: "media",
     description: "Programmatic connected-TV and OTT advertising.",
-    wholesalePrice: "99.00",
+    // Monthly wholesale; distinct bi-weekly cadence rate (not monthly/2).
+    wholesalePrice: "1500.00",
+    wholesalePriceBiweekly: "700.00",
     upstreamVendor: "Vibe.co",
     hiddenConnector: "Vibe.co Programmatic CTV Ad Placement & Budget Routing API",
     proxyNotes: null,
@@ -233,6 +237,7 @@ export async function seedConnectorMapping(): Promise<void> {
           upstreamVendor: entry.upstreamVendor,
           hiddenConnector: entry.hiddenConnector,
           proxyNotes: entry.proxyNotes,
+          wholesalePriceBiweekly: entry.wholesalePriceBiweekly ?? null,
         })
         .where(eq(modulesTable.id, match.id));
       updated++;
@@ -243,6 +248,7 @@ export async function seedConnectorMapping(): Promise<void> {
         categorySlug: entry.categorySlug,
         description: entry.description,
         wholesalePrice: entry.wholesalePrice,
+        wholesalePriceBiweekly: entry.wholesalePriceBiweekly ?? null,
         isActive: true,
         slug: entry.slug,
         upstreamVendor: entry.upstreamVendor,

@@ -26,3 +26,5 @@ INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
 VALUES ('<sha256-of-sql-file>', <journal-when-timestamp>)
 ON CONFLICT DO NOTHING;
 ```
+
+**Keeping push and migrate consistent:** schema changes applied via `drizzle-kit push` must also be captured with `pnpm run generate` and the new migration stamped into `drizzle.__drizzle_migrations` (hash = sha256 of the .sql file, created_at = journal `when`), otherwise a later `migrate` run fails on already-applied DDL.

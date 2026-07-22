@@ -106,7 +106,7 @@ router.get("/modules/pricing", async (_req, res): Promise<void> => {
       modules.map((m) => {
         const wholesale = parseFloat(m.wholesalePrice);
         const resale = Math.round(wholesale * (1 + markup / 100) * 100) / 100;
-        return {
+        const base = {
           id: m.id,
           name: m.name,
           category: m.category,
@@ -115,6 +115,18 @@ router.get("/modules/pricing", async (_req, res): Promise<void> => {
           markupPercent: markup,
           margin: Math.round((resale - wholesale) * 100) / 100,
         };
+        // Bi-weekly cadence breakdown (only for modules that offer it)
+        if (m.wholesalePriceBiweekly != null) {
+          const wholesaleBw = parseFloat(m.wholesalePriceBiweekly);
+          const resaleBw = Math.round(wholesaleBw * (1 + markup / 100) * 100) / 100;
+          return {
+            ...base,
+            wholesalePriceBiweekly: wholesaleBw,
+            resalePriceBiweekly: resaleBw,
+            marginBiweekly: Math.round((resaleBw - wholesaleBw) * 100) / 100,
+          };
+        }
+        return base;
       })
     )
   );

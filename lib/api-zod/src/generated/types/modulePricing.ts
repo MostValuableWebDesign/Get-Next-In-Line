@@ -14,4 +14,7 @@ export interface ModulePricing {
   resalePrice: number;
   markupPercent: number;
   margin: number;
+  wholesalePriceBiweekly?: number;
+  resalePriceBiweekly?: number;
+  marginBiweekly?: number;
 }

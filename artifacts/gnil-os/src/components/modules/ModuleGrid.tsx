@@ -91,6 +91,19 @@ export function ModuleGrid({ categorySlug, title, description }: { categorySlug:
                       </span>
                     </div>
                   )}
+
+                  {priceInfo?.resalePriceBiweekly != null && (
+                    <div className="w-full mt-2 pt-2 border-t border-dashed border-border/50 space-y-1" data-testid={`biweekly-pricing-${module.id}`}>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Bi-Weekly Option</div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-mono font-bold">{formatCurrency(priceInfo.resalePriceBiweekly)}<span className="font-sans font-normal text-muted-foreground">/2wk resale</span></span>
+                        <span className="font-mono text-muted-foreground">{formatCurrency(priceInfo.wholesalePriceBiweekly ?? 0)} cost</span>
+                        {priceInfo.marginBiweekly != null && (
+                          <span className="font-mono font-bold text-emerald-600">+{formatCurrency(priceInfo.marginBiweekly)}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </CardFooter>
               </Card>
               </Link>

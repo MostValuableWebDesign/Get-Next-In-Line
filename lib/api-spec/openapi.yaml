@@ -616,6 +616,14 @@ components:
           type: number
         margin:
           type: number
+        # Optional bi-weekly cadence breakdown — present only for modules
+        # that also offer bi-weekly billing (distinct rate, not monthly/2).
+        wholesalePriceBiweekly:
+          type: number
+        resalePriceBiweekly:
+          type: number
+        marginBiweekly:
+          type: number
 
     BillingSummary:
       type: object

@@ -58,6 +58,9 @@ export const modulesTable = pgTable("modules", {
   categorySlug: text("category_slug").notNull(),
   description: text("description").notNull(),
   wholesalePrice: numeric("wholesale_price", { precision: 10, scale: 2 }).notNull(),
+  // Optional bi-weekly wholesale rate — modules billed on a bi-weekly cadence
+  // (not necessarily monthly/2). Null for monthly-only modules.
+  wholesalePriceBiweekly: numeric("wholesale_price_biweekly", { precision: 10, scale: 2 }),
   isActive: boolean("is_active").notNull().default(true),
   // Unique machine slug for the module (e.g. "ghl_crm_pipelines", "gusto").
   slug: text("slug").unique(),
