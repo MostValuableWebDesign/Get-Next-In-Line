@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import {
   Sidebar,
@@ -11,7 +11,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Activity, LayoutDashboard, Users, Zap, Briefcase, Radio, CreditCard, Cable } from 'lucide-react';
+import { Activity, LayoutDashboard, Users, Zap, Briefcase, Radio, CreditCard, Cable, WifiOff, X } from 'lucide-react';
 
 const NAV_ITEMS = [
   { name: 'Command Center', path: '/', icon: LayoutDashboard },
@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { name: 'Connector Registry', path: '/connectors', icon: Cable },
 ];
 
-import { useHealthCheck } from '@workspace/api-client-react';
+import { useHealthCheck, getHealthCheckQueryKey } from '@workspace/api-client-react';
 
 /** Nav list — closes the mobile drawer after each click */
 function NavMenu({ location }: { location: string }) {
@@ -57,11 +57,56 @@ function NavMenu({ location }: { location: string }) {
   );
 }
 
+/**
+ * Slim, dismissible banner shown when the API connection drops.
+ * Appears on the online → offline transition; clears automatically on recovery.
+ */
+function ConnectionBanner({ isOnline, settled }: { isOnline: boolean; settled: boolean }) {
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    // Reset the dismissal once the connection recovers, so a future
+    // outage surfaces the banner again.
+    if (isOnline) setDismissed(false);
+  }, [isOnline]);
+
+  // Only show once the health check has settled (avoids a flash during
+  // initial startup), whether the app started offline or dropped later.
+  if (!settled || isOnline || dismissed) return null;
+
+  return (
+    <div
+      role="alert"
+      className="flex items-center gap-2 bg-amber-500/15 border-b border-amber-500/40 text-amber-700 dark:text-amber-400 px-4 py-2 text-sm shrink-0"
+    >
+      <WifiOff className="size-4 shrink-0" />
+      <span className="flex-1 min-w-0">
+        Connection lost — trying to reconnect. Changes may not save until the connection is restored.
+      </span>
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss connection notice"
+        className="p-1 rounded hover:bg-amber-500/20 shrink-0"
+      >
+        <X className="size-4" />
+      </button>
+    </div>
+  );
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
-  const { data: health } = useHealthCheck();
+  const { data: health, isError, isFetched } = useHealthCheck({
+    query: {
+      queryKey: getHealthCheckQueryKey(),
+      // Poll so connection drops are detected while the app is idle
+      refetchInterval: 15000,
+      refetchIntervalInBackground: true,
+    },
+  });
 
-  const isOnline = health?.status === 'ok';
+  const isOnline = !isError && health?.status === 'ok';
   const currentLabel = NAV_ITEMS.find((n) => n.path === location)?.name || 'Agency OS';
 
   return (
@@ -104,6 +149,7 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             </div>
           </header>
+          <ConnectionBanner isOnline={isOnline} settled={isFetched || isError} />
           <div className="flex-1 overflow-auto p-8 bg-background">
             <div className="max-w-7xl mx-auto">
               {children}
