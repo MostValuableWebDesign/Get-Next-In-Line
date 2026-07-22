@@ -21,7 +21,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ShieldAlert, Cable, Pencil } from 'lucide-react';
+import { useIsOffline } from '@/hooks/use-online';
+import { ShieldAlert, Cable, Pencil, WifiOff } from 'lucide-react';
 
 const CATEGORY_ORDER = ['marketing', 'operations', 'partners', 'media'];
 
@@ -38,6 +39,7 @@ function EditConnectorDialog({
   const [proxyNotes, setProxyNotes] = useState(entry.proxyNotes ?? '');
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isOffline = useIsOffline();
 
   const mutation = useUpdateConnectorRegistryEntry({
     mutation: {
@@ -115,6 +117,17 @@ function EditConnectorDialog({
             />
           </div>
         </div>
+        {isOffline && (
+          <div
+            role="alert"
+            className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400"
+            data-testid="alert-offline-connector"
+          >
+            <WifiOff className="size-4 shrink-0" />
+            You're offline — saving is disabled until the connection is restored. Keep this dialog
+            open to avoid losing your edits.
+          </div>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose} data-testid="button-cancel-edit">
             Cancel
@@ -131,10 +144,10 @@ function EditConnectorDialog({
                 },
               })
             }
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || isOffline}
             data-testid="button-save-connector"
           >
-            {mutation.isPending ? 'Saving…' : 'Save Changes'}
+            {mutation.isPending ? 'Saving…' : isOffline ? 'Offline — can’t save' : 'Save Changes'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatCurrency, formatPercent } from '@/lib/format';
-import { CreditCard, ShoppingCart, ArrowRight } from 'lucide-react';
+import { CreditCard, ShoppingCart, ArrowRight, WifiOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useIsOffline } from '@/hooks/use-online';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Billing() {
@@ -140,6 +141,7 @@ function CheckoutSimulationModal() {
   const { data: pricing } = useGetModulesPricing();
   const simulateCheckout = useSimulateCheckout();
   const { toast } = useToast();
+  const isOffline = useIsOffline();
 
   const [selectedTenant, setSelectedTenant] = useState<string>('');
   const [selectedModules, setSelectedModules] = useState<number[]>([]);
@@ -160,6 +162,13 @@ function CheckoutSimulationModal() {
         toast({
           title: "Checkout Simulation Successful",
           description: `Transaction ID: ${res.transactionId} | Total: ${formatCurrency(res.totalResale)}`,
+        });
+      },
+      onError: () => {
+        toast({
+          title: 'Checkout simulation failed',
+          description: 'The request could not be completed. Your selections are still here — please try again.',
+          variant: 'destructive',
         });
       }
     });
@@ -268,14 +277,26 @@ function CheckoutSimulationModal() {
           </div>
         </div>
 
+        {isOffline && (
+          <div
+            role="alert"
+            className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400"
+            data-testid="alert-offline-checkout"
+          >
+            <WifiOff className="size-4 shrink-0" />
+            You're offline — transactions are disabled until the connection is restored. Your
+            selections will be kept while this dialog stays open.
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           <Button 
-            disabled={!selectedTenant || selectedModules.length === 0 || simulateCheckout.isPending}
+            disabled={!selectedTenant || selectedModules.length === 0 || simulateCheckout.isPending || isOffline}
             onClick={handleSimulate}
             className="gap-2"
+            data-testid="button-run-transaction"
           >
-            {simulateCheckout.isPending ? 'Processing...' : (
+            {simulateCheckout.isPending ? 'Processing...' : isOffline ? 'Offline — can’t run' : (
               <>Run Transaction <ArrowRight className="w-4 h-4" /></>
             )}
           </Button>

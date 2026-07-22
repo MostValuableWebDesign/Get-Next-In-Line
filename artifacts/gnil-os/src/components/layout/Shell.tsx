@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { name: 'Connector Registry', path: '/connectors', icon: Cable },
 ];
 
-import { useHealthCheck, getHealthCheckQueryKey } from '@workspace/api-client-react';
+import { useOnlineStatus } from '@/hooks/use-online';
 
 /** Nav list — closes the mobile drawer after each click */
 function NavMenu({ location }: { location: string }) {
@@ -97,16 +97,7 @@ function ConnectionBanner({ isOnline, settled }: { isOnline: boolean; settled: b
 
 export function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
-  const { data: health, isError, isFetched } = useHealthCheck({
-    query: {
-      queryKey: getHealthCheckQueryKey(),
-      // Poll so connection drops are detected while the app is idle
-      refetchInterval: 15000,
-      refetchIntervalInBackground: true,
-    },
-  });
-
-  const isOnline = !isError && health?.status === 'ok';
+  const { isOnline, settled } = useOnlineStatus();
   const currentLabel = NAV_ITEMS.find((n) => n.path === location)?.name || 'Agency OS';
 
   return (
@@ -149,7 +140,7 @@ export function Shell({ children }: { children: ReactNode }) {
               </span>
             </div>
           </header>
-          <ConnectionBanner isOnline={isOnline} settled={isFetched || isError} />
+          <ConnectionBanner isOnline={isOnline} settled={settled} />
           <div className="flex-1 overflow-auto p-8 bg-background">
             <div className="max-w-7xl mx-auto">
               {children}
