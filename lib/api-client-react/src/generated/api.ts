@@ -1838,6 +1838,155 @@ export const useUpdateSosSettings = <TError = ErrorType<unknown>,
       return useMutation(getUpdateSosSettingsMutationOptions(options));
     }
 
+export const getGetTenantSettingsUrl = (tenantId: number,) => {
+
+
+
+
+  return `/api/tenants/${tenantId}/settings`
+}
+
+/**
+ * @summary Get a tenant's business settings (auto-created on first access)
+ */
+export const getTenantSettings = async (tenantId: number, options?: RequestInit): Promise<SosSettings> => {
+
+  return customFetch<SosSettings>(getGetTenantSettingsUrl(tenantId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTenantSettingsQueryKey = (tenantId: number,) => {
+    return [
+    `/api/tenants/${tenantId}/settings`
+    ] as const;
+    }
+
+
+export const getGetTenantSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getTenantSettings>>, TError = ErrorType<void>>(tenantId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTenantSettingsQueryKey(tenantId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTenantSettings>>> = ({ signal }) => getTenantSettings(tenantId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: tenantId !== null && tenantId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTenantSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTenantSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getTenantSettings>>>
+export type GetTenantSettingsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a tenant's business settings (auto-created on first access)
+ */
+
+export function useGetTenantSettings<TData = Awaited<ReturnType<typeof getTenantSettings>>, TError = ErrorType<void>>(
+ tenantId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTenantSettingsQueryOptions(tenantId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateTenantSettingsUrl = (tenantId: number,) => {
+
+
+
+
+  return `/api/tenants/${tenantId}/settings`
+}
+
+/**
+ * @summary Update a tenant's business settings
+ */
+export const updateTenantSettings = async (tenantId: number,
+    sosSettingsUpdate: SosSettingsUpdate, options?: RequestInit): Promise<SosSettings> => {
+
+  return customFetch<SosSettings>(getUpdateTenantSettingsUrl(tenantId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosSettingsUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateTenantSettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantSettings>>, TError,{tenantId: number;data: BodyType<SosSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTenantSettings>>, TError,{tenantId: number;data: BodyType<SosSettingsUpdate>}, TContext> => {
+
+const mutationKey = ['updateTenantSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTenantSettings>>, {tenantId: number;data: BodyType<SosSettingsUpdate>}> = (props) => {
+          const {tenantId,data} = props ?? {};
+
+          return  updateTenantSettings(tenantId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTenantSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateTenantSettings>>>
+    export type UpdateTenantSettingsMutationBody = BodyType<SosSettingsUpdate>
+    export type UpdateTenantSettingsMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a tenant's business settings
+ */
+export const useUpdateTenantSettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantSettings>>, TError,{tenantId: number;data: BodyType<SosSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTenantSettings>>,
+        TError,
+        {tenantId: number;data: BodyType<SosSettingsUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateTenantSettingsMutationOptions(options));
+    }
+
 export const getListSosResourcesUrl = () => {
 
 

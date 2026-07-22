@@ -10,6 +10,7 @@ import {
   messagesTable,
   sosCallsTable,
   clientProfilesTable,
+  tenantsTable,
   type ClientProfile,
 } from "@workspace/db";
 import {
@@ -17,6 +18,9 @@ import {
   GetSosSettingsResponse,
   UpdateSosSettingsBody,
   UpdateSosSettingsResponse,
+  GetTenantSettingsResponse,
+  UpdateTenantSettingsBody,
+  UpdateTenantSettingsResponse,
   ListSosResourcesResponse,
   CreateSosResourceBody,
   CreateSosResourceResponse,
@@ -152,11 +156,47 @@ async function getAppointmentWithName(id: number) {
   return row ?? null;
 }
 
-async function getSettings() {
-  const [existing] = await db.select().from(sosSettingsTable).limit(1);
+/**
+ * Fetch the settings row for a tenant (or the legacy global row when
+ * tenantId is null), creating it with defaults on first access.
+ */
+async function getSettings(tenantId: number | null = null) {
+  const [existing] = await db
+    .select()
+    .from(sosSettingsTable)
+    .where(
+      tenantId == null
+        ? isNull(sosSettingsTable.tenantId)
+        : eq(sosSettingsTable.tenantId, tenantId),
+    )
+    .limit(1);
   if (existing) return existing;
-  const [created] = await db.insert(sosSettingsTable).values({}).returning();
+  const [created] = await db
+    .insert(sosSettingsTable)
+    .values({ tenantId })
+    .returning();
   return created;
+}
+
+type SettingsRow = typeof sosSettingsTable.$inferSelect;
+
+async function serializeSettings(s: SettingsRow) {
+  const sms = await getSmsStatus(s.tenantId);
+  return {
+    id: s.id,
+    tenantId: s.tenantId,
+    businessName: s.businessName,
+    industryType: s.industryType,
+    resourceLabel: s.resourceLabel,
+    aiReceptionistEnabled: s.aiReceptionistEnabled,
+    waitlistAutoFillEnabled: s.waitlistAutoFillEnabled,
+    smsFromNumber: s.smsFromNumber,
+    smsMode: sms.smsMode,
+    smsActiveFromNumber: sms.activeFromNumber,
+    smsInboundWebhookUrl: getInboundWebhookUrl(),
+    smsInboundReady: (await getTwilioAuthToken()) != null,
+    updatedAt: s.updatedAt.toISOString(),
+  };
 }
 
 // ── waitlist fill engine ─────────────────────────────────────────────────────
@@ -274,52 +314,57 @@ router.get("/sos/dashboard", async (_req, res): Promise<void> => {
 
 // ── settings ─────────────────────────────────────────────────────────────────
 
+// Legacy global settings (single-tenant SOS operations, tenant_id IS NULL).
 router.get("/sos/settings", async (_req, res): Promise<void> => {
-  const s = await getSettings();
-  const sms = await getSmsStatus();
-  res.json(
-    GetSosSettingsResponse.parse({
-      id: s.id,
-      businessName: s.businessName,
-      industryType: s.industryType,
-      resourceLabel: s.resourceLabel,
-      aiReceptionistEnabled: s.aiReceptionistEnabled,
-      waitlistAutoFillEnabled: s.waitlistAutoFillEnabled,
-      smsFromNumber: s.smsFromNumber,
-      smsMode: sms.smsMode,
-      smsActiveFromNumber: sms.activeFromNumber,
-      smsInboundWebhookUrl: getInboundWebhookUrl(),
-      smsInboundReady: (await getTwilioAuthToken()) != null,
-      updatedAt: s.updatedAt.toISOString(),
-    }),
-  );
+  const s = await getSettings(null);
+  res.json(GetSosSettingsResponse.parse(await serializeSettings(s)));
 });
 
 router.patch("/sos/settings", async (req, res): Promise<void> => {
   const body = UpdateSosSettingsBody.parse(req.body);
-  const s = await getSettings();
+  const s = await getSettings(null);
   const [updated] = await db
     .update(sosSettingsTable)
     .set({ ...body, updatedAt: new Date() })
     .where(eq(sosSettingsTable.id, s.id))
     .returning();
-  const sms = await getSmsStatus();
-  res.json(
-    UpdateSosSettingsResponse.parse({
-      id: updated.id,
-      businessName: updated.businessName,
-      industryType: updated.industryType,
-      resourceLabel: updated.resourceLabel,
-      aiReceptionistEnabled: updated.aiReceptionistEnabled,
-      waitlistAutoFillEnabled: updated.waitlistAutoFillEnabled,
-      smsFromNumber: updated.smsFromNumber,
-      smsMode: sms.smsMode,
-      smsActiveFromNumber: sms.activeFromNumber,
-      smsInboundWebhookUrl: getInboundWebhookUrl(),
-      smsInboundReady: (await getTwilioAuthToken()) != null,
-      updatedAt: updated.updatedAt.toISOString(),
-    }),
-  );
+  res.json(UpdateSosSettingsResponse.parse(await serializeSettings(updated)));
+});
+
+// Per-tenant settings. Each tenant gets its own row, created on first access.
+async function tenantExists(tenantId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: tenantsTable.id })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, tenantId))
+    .limit(1);
+  return row != null;
+}
+
+router.get("/tenants/:tenantId/settings", async (req, res): Promise<void> => {
+  const tenantId = Number(req.params.tenantId);
+  if (!Number.isInteger(tenantId) || !(await tenantExists(tenantId))) {
+    res.status(404).json({ message: "Tenant not found" });
+    return;
+  }
+  const s = await getSettings(tenantId);
+  res.json(GetTenantSettingsResponse.parse(await serializeSettings(s)));
+});
+
+router.patch("/tenants/:tenantId/settings", async (req, res): Promise<void> => {
+  const tenantId = Number(req.params.tenantId);
+  if (!Number.isInteger(tenantId) || !(await tenantExists(tenantId))) {
+    res.status(404).json({ message: "Tenant not found" });
+    return;
+  }
+  const body = UpdateTenantSettingsBody.parse(req.body);
+  const s = await getSettings(tenantId);
+  const [updated] = await db
+    .update(sosSettingsTable)
+    .set({ ...body, updatedAt: new Date() })
+    .where(eq(sosSettingsTable.id, s.id))
+    .returning();
+  res.json(UpdateTenantSettingsResponse.parse(await serializeSettings(updated)));
 });
 
 // ── resources ────────────────────────────────────────────────────────────────

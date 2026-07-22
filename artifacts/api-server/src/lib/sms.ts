@@ -1,6 +1,24 @@
 import { db, sosSettingsTable } from "@workspace/db";
+import { eq, isNull } from "drizzle-orm";
 import twilio from "twilio";
 import { logger } from "./logger";
+
+/**
+ * Look up the settings row scoped to a tenant (or the legacy global row when
+ * tenantId is null/omitted). Missing rows just mean "no override configured".
+ */
+async function getScopedSettings(tenantId: number | null | undefined) {
+  const [settings] = await db
+    .select()
+    .from(sosSettingsTable)
+    .where(
+      tenantId == null
+        ? isNull(sosSettingsTable.tenantId)
+        : eq(sosSettingsTable.tenantId, tenantId),
+    )
+    .limit(1);
+  return settings ?? null;
+}
 
 /**
  * Low-level SMS transport. Uses Twilio when credentials are available (via
@@ -110,12 +128,12 @@ export async function getTwilioAuthToken(): Promise<string | null> {
   return creds?.authToken ?? process.env.TWILIO_AUTH_TOKEN ?? null;
 }
 
-/** Live vs. simulated SMS status, for the Settings page. */
-export async function getSmsStatus(): Promise<{
+/** Live vs. simulated SMS status, for the Settings page (per tenant). */
+export async function getSmsStatus(tenantId: number | null = null): Promise<{
   smsMode: "live" | "simulated";
   activeFromNumber: string | null;
 }> {
-  const [settings] = await db.select().from(sosSettingsTable).limit(1);
+  const settings = await getScopedSettings(tenantId);
   const creds = await getTwilioCreds();
   const fromNumber = normalizeToE164(settings?.smsFromNumber ?? creds?.fromNumber);
   return {
@@ -141,10 +159,12 @@ export interface DeliverSmsResult {
 export async function deliverSms(
   toRaw: string | null | undefined,
   body: string,
+  tenantId: number | null = null,
 ): Promise<DeliverSmsResult> {
-  const [settings] = await db.select().from(sosSettingsTable).limit(1);
+  const settings = await getScopedSettings(tenantId);
   const creds = await getTwilioCreds();
-  // Settings override wins over the connector/env From number.
+  // The tenant's (or legacy global) settings override wins over the
+  // connector/env From number.
   const fromNumber = normalizeToE164(settings?.smsFromNumber ?? creds?.fromNumber);
   const toNumber = normalizeToE164(toRaw);
 

@@ -163,7 +163,7 @@ export async function sendMessage(opts: SendMessageOptions): Promise<Message> {
     errorMessage = guard.errorMessage;
   } else {
     try {
-      const result = await deliverSms(opts.toNumber, opts.body);
+      const result = await deliverSms(opts.toNumber, opts.body, opts.tenantId ?? null);
       status = result.status;
       providerSid = result.providerSid;
       errorCode = result.errorCode;

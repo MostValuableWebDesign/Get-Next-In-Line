@@ -73,6 +73,7 @@ function ProtectedApp() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/tenants" component={Tenants} />
+        <Route path="/tenants/:id/settings" component={Settings} />
         <Route path="/tenants/:id" component={TenantDetail} />
         <Route path="/marketing" component={Marketing} />
         <Route path="/operations" component={Operations} />

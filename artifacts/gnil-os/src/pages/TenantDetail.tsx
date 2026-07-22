@@ -155,7 +155,7 @@ export default function TenantDetail() {
           </div>
           <div className="flex items-center gap-4 self-stretch md:self-auto justify-end">
           <Button asChild variant="outline" className="gap-2" data-testid="link-tenant-settings">
-            <Link href="/settings">
+            <Link href={`/tenants/${tenantId}/settings`}>
               <Settings className="w-4 h-4" /> Configuration
             </Link>
           </Button>

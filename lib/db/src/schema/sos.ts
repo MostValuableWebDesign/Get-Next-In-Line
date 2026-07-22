@@ -8,11 +8,18 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 import { clientProfilesTable } from "./concierge";
+import { tenantsTable } from "./agency";
 
 // SOS operations platform tables (separate product from GNIL OS agency tables)
 
 export const sosSettingsTable = pgTable("sos_settings", {
   id: serial("id").primaryKey(),
+  // Tenant scope for the settings row. NULL identifies the legacy global
+  // (single-tenant) record that /sos/settings reads and writes; each tenant
+  // gets its own row, auto-created on first access.
+  tenantId: integer("tenant_id")
+    .unique()
+    .references(() => tenantsTable.id, { onDelete: "cascade" }),
   businessName: text("business_name").notNull().default("SOS Operations"),
   industryType: text("industry_type").notNull().default("salon"),
   resourceLabel: text("resource_label").notNull().default("Chair"),

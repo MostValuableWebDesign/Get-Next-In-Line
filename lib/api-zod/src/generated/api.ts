@@ -425,6 +425,7 @@ export const GetSosDashboardResponse = zod.object({
  */
 export const GetSosSettingsResponse = zod.object({
   "id": zod.number(),
+  "tenantId": zod.number().nullish(),
   "businessName": zod.string(),
   "industryType": zod.string(),
   "resourceLabel": zod.string(),
@@ -453,6 +454,64 @@ export const UpdateSosSettingsBody = zod.object({
 
 export const UpdateSosSettingsResponse = zod.object({
   "id": zod.number(),
+  "tenantId": zod.number().nullish(),
+  "businessName": zod.string(),
+  "industryType": zod.string(),
+  "resourceLabel": zod.string(),
+  "aiReceptionistEnabled": zod.boolean(),
+  "waitlistAutoFillEnabled": zod.boolean(),
+  "smsFromNumber": zod.string().nullish(),
+  "smsMode": zod.enum(['live', 'simulated']).optional(),
+  "smsActiveFromNumber": zod.string().nullish(),
+  "smsInboundWebhookUrl": zod.string().nullish(),
+  "smsInboundReady": zod.boolean().optional(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Get a tenant's business settings (auto-created on first access)
+ */
+export const GetTenantSettingsParams = zod.object({
+  "tenantId": zod.coerce.number()
+})
+
+export const GetTenantSettingsResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullish(),
+  "businessName": zod.string(),
+  "industryType": zod.string(),
+  "resourceLabel": zod.string(),
+  "aiReceptionistEnabled": zod.boolean(),
+  "waitlistAutoFillEnabled": zod.boolean(),
+  "smsFromNumber": zod.string().nullish(),
+  "smsMode": zod.enum(['live', 'simulated']).optional(),
+  "smsActiveFromNumber": zod.string().nullish(),
+  "smsInboundWebhookUrl": zod.string().nullish(),
+  "smsInboundReady": zod.boolean().optional(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update a tenant's business settings
+ */
+export const UpdateTenantSettingsParams = zod.object({
+  "tenantId": zod.coerce.number()
+})
+
+export const UpdateTenantSettingsBody = zod.object({
+  "businessName": zod.string().optional(),
+  "industryType": zod.string().optional(),
+  "resourceLabel": zod.string().optional(),
+  "aiReceptionistEnabled": zod.boolean().optional(),
+  "waitlistAutoFillEnabled": zod.boolean().optional(),
+  "smsFromNumber": zod.string().optional()
+})
+
+export const UpdateTenantSettingsResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullish(),
   "businessName": zod.string(),
   "industryType": zod.string(),
   "resourceLabel": zod.string(),

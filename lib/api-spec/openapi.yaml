@@ -446,6 +446,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/SosSettings"
 
+  /tenants/{tenantId}/settings:
+    get:
+      operationId: getTenantSettings
+      tags: [tenants]
+      summary: Get a tenant's business settings (auto-created on first access)
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosSettings"
+        "404":
+          description: Tenant not found
+    patch:
+      operationId: updateTenantSettings
+      tags: [tenants]
+      summary: Update a tenant's business settings
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosSettings"
+        "404":
+          description: Tenant not found
+
   /sos/resources:
     get:
       operationId: listSosResources
@@ -1027,6 +1073,8 @@ components:
       properties:
         id:
           type: integer
+        tenantId:
+          type: ["integer", "null"]
         businessName:
           type: string
         industryType:

@@ -83,6 +83,8 @@ export const SosSettingsSmsMode = {
 
 export interface SosSettings {
   id: number;
+  /** @nullable */
+  tenantId?: number | null;
   businessName: string;
   industryType: string;
   resourceLabel: string;

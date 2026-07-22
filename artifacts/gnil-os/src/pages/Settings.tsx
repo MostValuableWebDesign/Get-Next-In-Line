@@ -1,8 +1,12 @@
 import React, { useEffect, useRef } from 'react';
+import { useParams } from 'wouter';
 import {
   useGetSosSettings,
   useUpdateSosSettings,
   getGetSosSettingsQueryKey,
+  useGetTenantSettings,
+  useUpdateTenantSettings,
+  getGetTenantSettingsQueryKey,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,10 +26,29 @@ import { Activity, Bot, Building2, MessageSquare } from 'lucide-react';
  * operations, AI receptionist, SMS delivery) into one place. Each section
  * saves independently via a partial PATCH to the existing settings API, so
  * saving one section never clobbers unsaved edits in another.
+ *
+ * Mounted at both /settings (legacy global record) and /tenants/:id/settings
+ * (that tenant's own settings record).
  */
 export default function Settings() {
-  const { data: settings, isLoading } = useGetSosSettings();
-  const updateSettings = useUpdateSosSettings();
+  const params = useParams<{ id?: string }>();
+  const tenantId = params.id != null && params.id !== '' ? Number(params.id) : null;
+
+  const globalQuery = useGetSosSettings({
+    query: { queryKey: getGetSosSettingsQueryKey(), enabled: tenantId == null },
+  });
+  const tenantQuery = useGetTenantSettings(tenantId ?? 0, {
+    query: {
+      queryKey: getGetTenantSettingsQueryKey(tenantId ?? 0),
+      enabled: tenantId != null,
+    },
+  });
+  const settings = tenantId == null ? globalQuery.data : tenantQuery.data;
+  const isLoading = tenantId == null ? globalQuery.isLoading : tenantQuery.isLoading;
+
+  const updateGlobalSettings = useUpdateSosSettings();
+  const updateTenantSettings = useUpdateTenantSettings();
+  const updateSettings = tenantId == null ? updateGlobalSettings : updateTenantSettings;
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -75,22 +98,29 @@ export default function Settings() {
       smsFromNumber: string;
     }>,
   ) => {
-    updateSettings.mutate(
-      { data },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetSosSettingsQueryKey() });
-          toast({ title: `${sectionLabel} saved` });
-        },
-        onError: () => {
-          toast({
-            title: `Couldn't save ${sectionLabel.toLowerCase()}`,
-            description: 'Please try again.',
-            variant: 'destructive',
-          });
-        },
+    const callbacks = {
+      onSuccess: () => {
+        queryClient.invalidateQueries({
+          queryKey:
+            tenantId == null
+              ? getGetSosSettingsQueryKey()
+              : getGetTenantSettingsQueryKey(tenantId),
+        });
+        toast({ title: `${sectionLabel} saved` });
       },
-    );
+      onError: () => {
+        toast({
+          title: `Couldn't save ${sectionLabel.toLowerCase()}`,
+          description: 'Please try again.',
+          variant: 'destructive',
+        });
+      },
+    };
+    if (tenantId == null) {
+      updateGlobalSettings.mutate({ data }, callbacks);
+    } else {
+      updateTenantSettings.mutate({ tenantId, data }, callbacks);
+    }
   };
 
   if (isLoading) {

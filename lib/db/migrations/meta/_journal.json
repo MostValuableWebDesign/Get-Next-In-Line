@@ -71,6 +71,13 @@
       "when": 1784712480972,
       "tag": "0009_chunky_mockingbird",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784727153804,
+      "tag": "0010_pink_sleepwalker",
+      "breakpoints": true
     }
   ]
 }

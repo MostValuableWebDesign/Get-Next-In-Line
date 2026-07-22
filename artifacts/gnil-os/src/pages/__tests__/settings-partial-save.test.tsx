@@ -24,6 +24,9 @@ vi.mock('@workspace/api-client-react', () => ({
   useGetSosSettings: () => ({ data: settings, isLoading: false }),
   useUpdateSosSettings: () => ({ mutate, isPending: false }),
   getGetSosSettingsQueryKey: () => ['/api/sos/settings'],
+  useGetTenantSettings: () => ({ data: undefined, isLoading: false }),
+  useUpdateTenantSettings: () => ({ mutate: vi.fn(), isPending: false }),
+  getGetTenantSettingsQueryKey: (tenantId: number) => [`/api/tenants/${tenantId}/settings`],
 }));
 
 import Settings from '../Settings';
