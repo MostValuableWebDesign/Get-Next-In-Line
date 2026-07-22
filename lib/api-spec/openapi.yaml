@@ -20,6 +20,8 @@ tags:
     description: Billing and checkout simulation
   - name: admin
     description: Admin-only operations (never exposed to tenants)
+  - name: sos
+    description: SOS operations platform — resources, visits, waitlist, appointments, AI receptionist
 
 paths:
   /healthz:
@@ -380,8 +382,879 @@ paths:
         "409":
           description: All selected modules are already provisioned for this tenant
 
+  /sos/dashboard:
+    get:
+      operationId: getSosDashboard
+      tags: [sos]
+      summary: SOS operations dashboard — live counts, wait times, resource utilization
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosDashboard"
+
+  /sos/settings:
+    get:
+      operationId: getSosSettings
+      tags: [sos]
+      summary: Get SOS business settings (business name, resource label, industry type)
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosSettings"
+    patch:
+      operationId: updateSosSettings
+      tags: [sos]
+      summary: Update SOS business settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosSettings"
+
+  /sos/resources:
+    get:
+      operationId: listSosResources
+      tags: [sos]
+      summary: List all configurable resources (chairs, rooms, tables, bays, etc.)
+      responses:
+        "200":
+          description: Resources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosResource"
+    post:
+      operationId: createSosResource
+      tags: [sos]
+      summary: Add a resource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosResourceInput"
+      responses:
+        "201":
+          description: Created resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosResource"
+
+  /sos/resources/{id}:
+    patch:
+      operationId: updateSosResource
+      tags: [sos]
+      summary: Update a resource (name, type, status)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosResourceUpdate"
+      responses:
+        "200":
+          description: Updated resource
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosResource"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSosResource
+      tags: [sos]
+      summary: Remove a resource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /sos/customers:
+    get:
+      operationId: listSosCustomers
+      tags: [sos]
+      summary: List customers
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosCustomer"
+    post:
+      operationId: createSosCustomer
+      tags: [sos]
+      summary: Add a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosCustomerInput"
+      responses:
+        "201":
+          description: Created customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosCustomer"
+
+  /sos/customers/{id}:
+    patch:
+      operationId: updateSosCustomer
+      tags: [sos]
+      summary: Update a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosCustomerUpdate"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosCustomer"
+        "404":
+          description: Not found
+
+  /sos/visits:
+    get:
+      operationId: listSosVisits
+      tags: [sos]
+      summary: List visits (live queue + in service), newest first
+      parameters:
+        - name: active
+          in: query
+          required: false
+          description: When true, only visits not yet checked out
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Visits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosVisit"
+    post:
+      operationId: checkInSosVisit
+      tags: [sos]
+      summary: Check a customer in — starts the journey state machine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosVisitInput"
+      responses:
+        "201":
+          description: Created visit in checked_in state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosVisit"
+
+  /sos/visits/{id}/advance:
+    post:
+      operationId: advanceSosVisit
+      tags: [sos]
+      summary: Advance a visit through the journey state machine (optionally assigning a resource)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosVisitAdvance"
+      responses:
+        "200":
+          description: Updated visit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosVisit"
+        "404":
+          description: Not found
+        "409":
+          description: Illegal state transition
+
+  /sos/appointments:
+    get:
+      operationId: listSosAppointments
+      tags: [sos]
+      summary: List appointments for the calendar
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Appointments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosAppointment"
+    post:
+      operationId: createSosAppointment
+      tags: [sos]
+      summary: Book an appointment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosAppointmentInput"
+      responses:
+        "201":
+          description: Created appointment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosAppointment"
+
+  /sos/appointments/{id}/cancel:
+    post:
+      operationId: cancelSosAppointment
+      tags: [sos]
+      summary: Cancel an appointment — triggers the smart waitlist fill engine (SMS broadcast to waitlisted clients)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cancellation result including how many waitlisted clients were notified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosCancellationResult"
+        "404":
+          description: Not found
+
+  /sos/waitlist:
+    get:
+      operationId: listSosWaitlist
+      tags: [sos]
+      summary: List waitlist entries
+      responses:
+        "200":
+          description: Waitlist entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosWaitlistEntry"
+    post:
+      operationId: createSosWaitlistEntry
+      tags: [sos]
+      summary: Add a customer to the waitlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosWaitlistEntryInput"
+      responses:
+        "201":
+          description: Created waitlist entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosWaitlistEntry"
+
+  /sos/waitlist/{id}/claim:
+    post:
+      operationId: claimSosWaitlistSlot
+      tags: [sos]
+      summary: Waitlisted client claims an open slot (self-booking) — books the appointment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booked appointment from the claimed slot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosAppointment"
+        "404":
+          description: Not found
+        "409":
+          description: Slot no longer available
+
+  /sos/messages:
+    get:
+      operationId: listSosMessages
+      tags: [sos]
+      summary: SMS message log (broadcasts, you're-next alerts, AI follow-ups)
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Messages, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosMessage"
+    post:
+      operationId: sendSosMessage
+      tags: [sos]
+      summary: Send an SMS to a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosMessageInput"
+      responses:
+        "201":
+          description: Sent message record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosMessage"
+
+  /sos/calls:
+    get:
+      operationId: listSosCalls
+      tags: [sos]
+      summary: AI receptionist call log
+      responses:
+        "200":
+          description: Calls, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosCall"
+    post:
+      operationId: simulateSosCall
+      tags: [sos]
+      summary: Simulate an inbound call handled by the AI receptionist (books/follows up automatically)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosCallInput"
+      responses:
+        "201":
+          description: Handled call with outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosCall"
+
+  /sos/reports/summary:
+    get:
+      operationId: getSosReportsSummary
+      tags: [sos]
+      summary: Reports — visits by day, avg wait time, fill-engine performance, call outcomes
+      responses:
+        "200":
+          description: Report summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosReportsSummary"
+
 components:
   schemas:
+    SosSettings:
+      type: object
+      required: [id, businessName, industryType, resourceLabel, aiReceptionistEnabled, waitlistAutoFillEnabled, updatedAt]
+      properties:
+        id:
+          type: integer
+        businessName:
+          type: string
+        industryType:
+          type: string
+        resourceLabel:
+          type: string
+        aiReceptionistEnabled:
+          type: boolean
+        waitlistAutoFillEnabled:
+          type: boolean
+        smsFromNumber:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+
+    SosSettingsUpdate:
+      type: object
+      properties:
+        businessName:
+          type: string
+        industryType:
+          type: string
+        resourceLabel:
+          type: string
+        aiReceptionistEnabled:
+          type: boolean
+        waitlistAutoFillEnabled:
+          type: boolean
+        smsFromNumber:
+          type: string
+
+    SosResource:
+      type: object
+      required: [id, name, resourceType, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        resourceType:
+          type: string
+        status:
+          type: string
+          enum: [available, occupied, cleaning, offline]
+        currentVisitId:
+          type: ["integer", "null"]
+        currentCustomerName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    SosResourceInput:
+      type: object
+      required: [name, resourceType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        resourceType:
+          type: string
+          minLength: 1
+
+    SosResourceUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        resourceType:
+          type: string
+        status:
+          type: string
+          enum: [available, occupied, cleaning, offline]
+
+    SosCustomer:
+      type: object
+      required: [id, name, smsOptIn, visitCount, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        smsOptIn:
+          type: boolean
+        visitCount:
+          type: integer
+        lastVisitAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    SosCustomerInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+        email:
+          type: string
+        smsOptIn:
+          type: boolean
+
+    SosCustomerUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        smsOptIn:
+          type: boolean
+
+    SosVisit:
+      type: object
+      required: [id, customerId, customerName, status, serviceType, partySize, checkedInAt]
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: string
+        status:
+          type: string
+          enum: [checked_in, queued, assigned, notified, in_service, payment, checked_out]
+        serviceType:
+          type: string
+        partySize:
+          type: integer
+        resourceId:
+          type: ["integer", "null"]
+        resourceName:
+          type: ["string", "null"]
+        estimatedWaitMinutes:
+          type: ["integer", "null"]
+        paymentAmount:
+          type: ["number", "null"]
+        checkedInAt:
+          type: string
+        serviceStartedAt:
+          type: ["string", "null"]
+        checkedOutAt:
+          type: ["string", "null"]
+
+    SosVisitInput:
+      type: object
+      required: [customerId, serviceType]
+      properties:
+        customerId:
+          type: integer
+        serviceType:
+          type: string
+          minLength: 1
+        partySize:
+          type: integer
+        estimatedWaitMinutes:
+          type: integer
+
+    SosVisitAdvance:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [queue, assign, notify, start_service, request_payment, check_out]
+        resourceId:
+          type: integer
+        paymentAmount:
+          type: number
+
+    SosAppointment:
+      type: object
+      required: [id, customerId, customerName, serviceType, startsAt, endsAt, status, source, createdAt]
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: string
+        serviceType:
+          type: string
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+        status:
+          type: string
+          enum: [booked, cancelled, completed, filled]
+        source:
+          type: string
+          enum: [staff, ai_receptionist, waitlist_fill, self_book]
+        resourceId:
+          type: ["integer", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    SosAppointmentInput:
+      type: object
+      required: [customerId, serviceType, startsAt, endsAt]
+      properties:
+        customerId:
+          type: integer
+        serviceType:
+          type: string
+          minLength: 1
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+        resourceId:
+          type: integer
+        notes:
+          type: string
+        source:
+          type: string
+          enum: [staff, ai_receptionist, waitlist_fill, self_book]
+
+    SosCancellationResult:
+      type: object
+      required: [appointment, waitlistNotified, messagesSent]
+      properties:
+        appointment:
+          $ref: "#/components/schemas/SosAppointment"
+        waitlistNotified:
+          type: integer
+        messagesSent:
+          type: integer
+
+    SosWaitlistEntry:
+      type: object
+      required: [id, customerId, customerName, desiredService, status, createdAt]
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: string
+        customerPhone:
+          type: ["string", "null"]
+        desiredService:
+          type: string
+        status:
+          type: string
+          enum: [waiting, notified, booked, expired]
+        notifiedAt:
+          type: ["string", "null"]
+        openSlotStartsAt:
+          type: ["string", "null"]
+        openSlotEndsAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    SosWaitlistEntryInput:
+      type: object
+      required: [customerId, desiredService]
+      properties:
+        customerId:
+          type: integer
+        desiredService:
+          type: string
+          minLength: 1
+
+    SosMessage:
+      type: object
+      required: [id, direction, body, kind, deliveryStatus, createdAt]
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: ["integer", "null"]
+        customerName:
+          type: ["string", "null"]
+        toNumber:
+          type: ["string", "null"]
+        direction:
+          type: string
+          enum: [outbound, inbound]
+        body:
+          type: string
+        kind:
+          type: string
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound]
+        deliveryStatus:
+          type: string
+          enum: [sent, delivered, failed, simulated]
+        createdAt:
+          type: string
+
+    SosMessageInput:
+      type: object
+      required: [customerId, body]
+      properties:
+        customerId:
+          type: integer
+        body:
+          type: string
+          minLength: 1
+        kind:
+          type: string
+          enum: [you_are_next, slot_open, ai_followup, manual]
+
+    SosCall:
+      type: object
+      required: [id, fromNumber, intent, outcome, createdAt]
+      properties:
+        id:
+          type: integer
+        fromNumber:
+          type: string
+        callerName:
+          type: ["string", "null"]
+        intent:
+          type: string
+        transcriptSummary:
+          type: ["string", "null"]
+        outcome:
+          type: string
+          enum: [booked, followup_sms, message_taken, no_action]
+        appointmentId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+
+    SosCallInput:
+      type: object
+      required: [fromNumber, inquiry]
+      properties:
+        fromNumber:
+          type: string
+          minLength: 1
+        callerName:
+          type: string
+        inquiry:
+          type: string
+          minLength: 1
+
+    SosDashboard:
+      type: object
+      required: [inQueue, inService, availableResources, totalResources, avgWaitMinutes, appointmentsToday, waitlistWaiting, messagesSentToday, callsHandledToday, revenueToday]
+      properties:
+        inQueue:
+          type: integer
+        inService:
+          type: integer
+        availableResources:
+          type: integer
+        totalResources:
+          type: integer
+        avgWaitMinutes:
+          type: number
+        appointmentsToday:
+          type: integer
+        waitlistWaiting:
+          type: integer
+        messagesSentToday:
+          type: integer
+        callsHandledToday:
+          type: integer
+        revenueToday:
+          type: number
+
+    SosReportsSummary:
+      type: object
+      required: [visitsByDay, avgWaitMinutes, slotsFilled, fillRate, callOutcomes, totalRevenue]
+      properties:
+        visitsByDay:
+          type: array
+          items:
+            $ref: "#/components/schemas/SosDayCount"
+        avgWaitMinutes:
+          type: number
+        slotsFilled:
+          type: integer
+        fillRate:
+          type: number
+        callOutcomes:
+          type: array
+          items:
+            $ref: "#/components/schemas/SosOutcomeCount"
+        totalRevenue:
+          type: number
+
+    SosDayCount:
+      type: object
+      required: [day, count]
+      properties:
+        day:
+          type: string
+        count:
+          type: integer
+
+    SosOutcomeCount:
+      type: object
+      required: [outcome, count]
+      properties:
+        outcome:
+          type: string
+        count:
+          type: integer
+
     HealthStatus:
       type: object
       required: [status]

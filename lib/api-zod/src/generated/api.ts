@@ -353,3 +353,539 @@ export const SimulateCheckoutResponse = zod.object({
 })
 
 
+/**
+ * @summary SOS operations dashboard — live counts, wait times, resource utilization
+ */
+export const GetSosDashboardResponse = zod.object({
+  "inQueue": zod.number(),
+  "inService": zod.number(),
+  "availableResources": zod.number(),
+  "totalResources": zod.number(),
+  "avgWaitMinutes": zod.number(),
+  "appointmentsToday": zod.number(),
+  "waitlistWaiting": zod.number(),
+  "messagesSentToday": zod.number(),
+  "callsHandledToday": zod.number(),
+  "revenueToday": zod.number()
+})
+
+
+/**
+ * @summary Get SOS business settings (business name, resource label, industry type)
+ */
+export const GetSosSettingsResponse = zod.object({
+  "id": zod.number(),
+  "businessName": zod.string(),
+  "industryType": zod.string(),
+  "resourceLabel": zod.string(),
+  "aiReceptionistEnabled": zod.boolean(),
+  "waitlistAutoFillEnabled": zod.boolean(),
+  "smsFromNumber": zod.string().nullish(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update SOS business settings
+ */
+export const UpdateSosSettingsBody = zod.object({
+  "businessName": zod.string().optional(),
+  "industryType": zod.string().optional(),
+  "resourceLabel": zod.string().optional(),
+  "aiReceptionistEnabled": zod.boolean().optional(),
+  "waitlistAutoFillEnabled": zod.boolean().optional(),
+  "smsFromNumber": zod.string().optional()
+})
+
+export const UpdateSosSettingsResponse = zod.object({
+  "id": zod.number(),
+  "businessName": zod.string(),
+  "industryType": zod.string(),
+  "resourceLabel": zod.string(),
+  "aiReceptionistEnabled": zod.boolean(),
+  "waitlistAutoFillEnabled": zod.boolean(),
+  "smsFromNumber": zod.string().nullish(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary List all configurable resources (chairs, rooms, tables, bays, etc.)
+ */
+export const ListSosResourcesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "resourceType": zod.string(),
+  "status": zod.enum(['available', 'occupied', 'cleaning', 'offline']),
+  "currentVisitId": zod.number().nullish(),
+  "currentCustomerName": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListSosResourcesResponse = zod.array(ListSosResourcesResponseItem)
+
+
+/**
+ * @summary Add a resource
+ */
+
+
+
+
+export const CreateSosResourceBody = zod.object({
+  "name": zod.string().min(1),
+  "resourceType": zod.string().min(1)
+})
+
+export const CreateSosResourceResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "resourceType": zod.string(),
+  "status": zod.enum(['available', 'occupied', 'cleaning', 'offline']),
+  "currentVisitId": zod.number().nullish(),
+  "currentCustomerName": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a resource (name, type, status)
+ */
+export const UpdateSosResourceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateSosResourceBody = zod.object({
+  "name": zod.string().optional(),
+  "resourceType": zod.string().optional(),
+  "status": zod.enum(['available', 'occupied', 'cleaning', 'offline']).optional()
+})
+
+export const UpdateSosResourceResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "resourceType": zod.string(),
+  "status": zod.enum(['available', 'occupied', 'cleaning', 'offline']),
+  "currentVisitId": zod.number().nullish(),
+  "currentCustomerName": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Remove a resource
+ */
+export const DeleteSosResourceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteSosResourceResponse = zod.void()
+
+
+/**
+ * @summary List customers
+ */
+export const ListSosCustomersQueryParams = zod.object({
+  "search": zod.coerce.string().optional()
+})
+
+export const ListSosCustomersResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "smsOptIn": zod.boolean(),
+  "visitCount": zod.number(),
+  "lastVisitAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListSosCustomersResponse = zod.array(ListSosCustomersResponseItem)
+
+
+/**
+ * @summary Add a customer
+ */
+
+
+
+export const CreateSosCustomerBody = zod.object({
+  "name": zod.string().min(1),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "smsOptIn": zod.boolean().optional()
+})
+
+export const CreateSosCustomerResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "smsOptIn": zod.boolean(),
+  "visitCount": zod.number(),
+  "lastVisitAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a customer
+ */
+export const UpdateSosCustomerParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateSosCustomerBody = zod.object({
+  "name": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "smsOptIn": zod.boolean().optional()
+})
+
+export const UpdateSosCustomerResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "smsOptIn": zod.boolean(),
+  "visitCount": zod.number(),
+  "lastVisitAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary List visits (live queue + in service), newest first
+ */
+export const ListSosVisitsQueryParams = zod.object({
+  "active": zod.coerce.boolean().optional().describe('When true, only visits not yet checked out')
+})
+
+export const ListSosVisitsResponseItem = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "customerName": zod.string(),
+  "status": zod.enum(['checked_in', 'queued', 'assigned', 'notified', 'in_service', 'payment', 'checked_out']),
+  "serviceType": zod.string(),
+  "partySize": zod.number(),
+  "resourceId": zod.number().nullish(),
+  "resourceName": zod.string().nullish(),
+  "estimatedWaitMinutes": zod.number().nullish(),
+  "paymentAmount": zod.number().nullish(),
+  "checkedInAt": zod.string(),
+  "serviceStartedAt": zod.string().nullish(),
+  "checkedOutAt": zod.string().nullish()
+})
+export const ListSosVisitsResponse = zod.array(ListSosVisitsResponseItem)
+
+
+/**
+ * @summary Check a customer in — starts the journey state machine
+ */
+
+
+
+export const CheckInSosVisitBody = zod.object({
+  "customerId": zod.number(),
+  "serviceType": zod.string().min(1),
+  "partySize": zod.number().optional(),
+  "estimatedWaitMinutes": zod.number().optional()
+})
+
+export const CheckInSosVisitResponse = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "customerName": zod.string(),
+  "status": zod.enum(['checked_in', 'queued', 'assigned', 'notified', 'in_service', 'payment', 'checked_out']),
+  "serviceType": zod.string(),
+  "partySize": zod.number(),
+  "resourceId": zod.number().nullish(),
+  "resourceName": zod.string().nullish(),
+  "estimatedWaitMinutes": zod.number().nullish(),
+  "paymentAmount": zod.number().nullish(),
+  "checkedInAt": zod.string(),
+  "serviceStartedAt": zod.string().nullish(),
+  "checkedOutAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Advance a visit through the journey state machine (optionally assigning a resource)
+ */
+export const AdvanceSosVisitParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AdvanceSosVisitBody = zod.object({
+  "action": zod.enum(['queue', 'assign', 'notify', 'start_service', 'request_payment', 'check_out']),
+  "resourceId": zod.number().optional(),
+  "paymentAmount": zod.number().optional()
+})
+
+export const AdvanceSosVisitResponse = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "customerName": zod.string(),
+  "status": zod.enum(['checked_in', 'queued', 'assigned', 'notified', 'in_service', 'payment', 'checked_out']),
+  "serviceType": zod.string(),
+  "partySize": zod.number(),
+  "resourceId": zod.number().nullish(),
+  "resourceName": zod.string().nullish(),
+  "estimatedWaitMinutes": zod.number().nullish(),
+  "paymentAmount": zod.number().nullish(),
+  "checkedInAt": zod.string(),
+  "serviceStartedAt": zod.string().nullish(),
+  "checkedOutAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary List appointments for the calendar
+ */
+export const ListSosAppointmentsQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const ListSosAppointmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "customerName": zod.string(),
+  "serviceType": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled']),
+  "source": zod.enum(['staff', 'ai_receptionist', 'waitlist_fill', 'self_book']),
+  "resourceId": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListSosAppointmentsResponse = zod.array(ListSosAppointmentsResponseItem)
+
+
+/**
+ * @summary Book an appointment
+ */
+
+
+
+export const CreateSosAppointmentBody = zod.object({
+  "customerId": zod.number(),
+  "serviceType": zod.string().min(1),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "resourceId": zod.number().optional(),
+  "notes": zod.string().optional(),
+  "source": zod.enum(['staff', 'ai_receptionist', 'waitlist_fill', 'self_book']).optional()
+})
+
+export const CreateSosAppointmentResponse = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "customerName": zod.string(),
+  "serviceType": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled']),
+  "source": zod.enum(['staff', 'ai_receptionist', 'waitlist_fill', 'self_book']),
+  "resourceId": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Cancel an appointment — triggers the smart waitlist fill engine (SMS broadcast to waitlisted clients)
+ */
+export const CancelSosAppointmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CancelSosAppointmentResponse = zod.object({
+  "appointment": zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "customerName": zod.string(),
+  "serviceType": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled']),
+  "source": zod.enum(['staff', 'ai_receptionist', 'waitlist_fill', 'self_book']),
+  "resourceId": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string()
+}),
+  "waitlistNotified": zod.number(),
+  "messagesSent": zod.number()
+})
+
+
+/**
+ * @summary List waitlist entries
+ */
+export const ListSosWaitlistResponseItem = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "desiredService": zod.string(),
+  "status": zod.enum(['waiting', 'notified', 'booked', 'expired']),
+  "notifiedAt": zod.string().nullish(),
+  "openSlotStartsAt": zod.string().nullish(),
+  "openSlotEndsAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListSosWaitlistResponse = zod.array(ListSosWaitlistResponseItem)
+
+
+/**
+ * @summary Add a customer to the waitlist
+ */
+
+
+
+export const CreateSosWaitlistEntryBody = zod.object({
+  "customerId": zod.number(),
+  "desiredService": zod.string().min(1)
+})
+
+export const CreateSosWaitlistEntryResponse = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "desiredService": zod.string(),
+  "status": zod.enum(['waiting', 'notified', 'booked', 'expired']),
+  "notifiedAt": zod.string().nullish(),
+  "openSlotStartsAt": zod.string().nullish(),
+  "openSlotEndsAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Waitlisted client claims an open slot (self-booking) — books the appointment
+ */
+export const ClaimSosWaitlistSlotParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ClaimSosWaitlistSlotResponse = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "customerName": zod.string(),
+  "serviceType": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled']),
+  "source": zod.enum(['staff', 'ai_receptionist', 'waitlist_fill', 'self_book']),
+  "resourceId": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary SMS message log (broadcasts, you're-next alerts, AI follow-ups)
+ */
+export const ListSosMessagesQueryParams = zod.object({
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListSosMessagesResponseItem = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string().nullish(),
+  "toNumber": zod.string().nullish(),
+  "direction": zod.enum(['outbound', 'inbound']),
+  "body": zod.string(),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound']),
+  "deliveryStatus": zod.enum(['sent', 'delivered', 'failed', 'simulated']),
+  "createdAt": zod.string()
+})
+export const ListSosMessagesResponse = zod.array(ListSosMessagesResponseItem)
+
+
+/**
+ * @summary Send an SMS to a customer
+ */
+
+
+
+export const SendSosMessageBody = zod.object({
+  "customerId": zod.number(),
+  "body": zod.string().min(1),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual']).optional()
+})
+
+export const SendSosMessageResponse = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string().nullish(),
+  "toNumber": zod.string().nullish(),
+  "direction": zod.enum(['outbound', 'inbound']),
+  "body": zod.string(),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound']),
+  "deliveryStatus": zod.enum(['sent', 'delivered', 'failed', 'simulated']),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary AI receptionist call log
+ */
+export const ListSosCallsResponseItem = zod.object({
+  "id": zod.number(),
+  "fromNumber": zod.string(),
+  "callerName": zod.string().nullish(),
+  "intent": zod.string(),
+  "transcriptSummary": zod.string().nullish(),
+  "outcome": zod.enum(['booked', 'followup_sms', 'message_taken', 'no_action']),
+  "appointmentId": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+export const ListSosCallsResponse = zod.array(ListSosCallsResponseItem)
+
+
+/**
+ * @summary Simulate an inbound call handled by the AI receptionist (books/follows up automatically)
+ */
+
+
+
+
+export const SimulateSosCallBody = zod.object({
+  "fromNumber": zod.string().min(1),
+  "callerName": zod.string().optional(),
+  "inquiry": zod.string().min(1)
+})
+
+export const SimulateSosCallResponse = zod.object({
+  "id": zod.number(),
+  "fromNumber": zod.string(),
+  "callerName": zod.string().nullish(),
+  "intent": zod.string(),
+  "transcriptSummary": zod.string().nullish(),
+  "outcome": zod.enum(['booked', 'followup_sms', 'message_taken', 'no_action']),
+  "appointmentId": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Reports — visits by day, avg wait time, fill-engine performance, call outcomes
+ */
+export const GetSosReportsSummaryResponse = zod.object({
+  "visitsByDay": zod.array(zod.object({
+  "day": zod.string(),
+  "count": zod.number()
+})),
+  "avgWaitMinutes": zod.number(),
+  "slotsFilled": zod.number(),
+  "fillRate": zod.number(),
+  "callOutcomes": zod.array(zod.object({
+  "outcome": zod.string(),
+  "count": zod.number()
+})),
+  "totalRevenue": zod.number()
+})
+
+

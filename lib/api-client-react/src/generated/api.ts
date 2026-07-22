@@ -30,10 +30,36 @@ import type {
   ConnectorRegistryEntryUpdate,
   GetTenantActivityParams,
   HealthStatus,
+  ListSosAppointmentsParams,
+  ListSosCustomersParams,
+  ListSosMessagesParams,
+  ListSosVisitsParams,
   Module,
   ModulePricing,
   ModuleTenantCount,
   ModuleTenantSubscriber,
+  SosAppointment,
+  SosAppointmentInput,
+  SosCall,
+  SosCallInput,
+  SosCancellationResult,
+  SosCustomer,
+  SosCustomerInput,
+  SosCustomerUpdate,
+  SosDashboard,
+  SosMessage,
+  SosMessageInput,
+  SosReportsSummary,
+  SosResource,
+  SosResourceInput,
+  SosResourceUpdate,
+  SosSettings,
+  SosSettingsUpdate,
+  SosVisit,
+  SosVisitAdvance,
+  SosVisitInput,
+  SosWaitlistEntry,
+  SosWaitlistEntryInput,
   Tenant,
   TenantActivityPage,
   TenantInput,
@@ -1503,4 +1529,1799 @@ export const useSimulateCheckout = <TError = ErrorType<void>,
       > => {
       return useMutation(getSimulateCheckoutMutationOptions(options));
     }
+
+export const getGetSosDashboardUrl = () => {
+
+
+
+
+  return `/api/sos/dashboard`
+}
+
+/**
+ * @summary SOS operations dashboard — live counts, wait times, resource utilization
+ */
+export const getSosDashboard = async ( options?: RequestInit): Promise<SosDashboard> => {
+
+  return customFetch<SosDashboard>(getGetSosDashboardUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSosDashboardQueryKey = () => {
+    return [
+    `/api/sos/dashboard`
+    ] as const;
+    }
+
+
+export const getGetSosDashboardQueryOptions = <TData = Awaited<ReturnType<typeof getSosDashboard>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSosDashboardQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSosDashboard>>> = ({ signal }) => getSosDashboard({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSosDashboard>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSosDashboardQueryResult = NonNullable<Awaited<ReturnType<typeof getSosDashboard>>>
+export type GetSosDashboardQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary SOS operations dashboard — live counts, wait times, resource utilization
+ */
+
+export function useGetSosDashboard<TData = Awaited<ReturnType<typeof getSosDashboard>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosDashboard>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSosDashboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSosSettingsUrl = () => {
+
+
+
+
+  return `/api/sos/settings`
+}
+
+/**
+ * @summary Get SOS business settings (business name, resource label, industry type)
+ */
+export const getSosSettings = async ( options?: RequestInit): Promise<SosSettings> => {
+
+  return customFetch<SosSettings>(getGetSosSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSosSettingsQueryKey = () => {
+    return [
+    `/api/sos/settings`
+    ] as const;
+    }
+
+
+export const getGetSosSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getSosSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSosSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSosSettings>>> = ({ signal }) => getSosSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSosSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSosSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getSosSettings>>>
+export type GetSosSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get SOS business settings (business name, resource label, industry type)
+ */
+
+export function useGetSosSettings<TData = Awaited<ReturnType<typeof getSosSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSosSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateSosSettingsUrl = () => {
+
+
+
+
+  return `/api/sos/settings`
+}
+
+/**
+ * @summary Update SOS business settings
+ */
+export const updateSosSettings = async (sosSettingsUpdate: SosSettingsUpdate, options?: RequestInit): Promise<SosSettings> => {
+
+  return customFetch<SosSettings>(getUpdateSosSettingsUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosSettingsUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSosSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosSettings>>, TError,{data: BodyType<SosSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSosSettings>>, TError,{data: BodyType<SosSettingsUpdate>}, TContext> => {
+
+const mutationKey = ['updateSosSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSosSettings>>, {data: BodyType<SosSettingsUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateSosSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSosSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateSosSettings>>>
+    export type UpdateSosSettingsMutationBody = BodyType<SosSettingsUpdate>
+    export type UpdateSosSettingsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update SOS business settings
+ */
+export const useUpdateSosSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosSettings>>, TError,{data: BodyType<SosSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSosSettings>>,
+        TError,
+        {data: BodyType<SosSettingsUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSosSettingsMutationOptions(options));
+    }
+
+export const getListSosResourcesUrl = () => {
+
+
+
+
+  return `/api/sos/resources`
+}
+
+/**
+ * @summary List all configurable resources (chairs, rooms, tables, bays, etc.)
+ */
+export const listSosResources = async ( options?: RequestInit): Promise<SosResource[]> => {
+
+  return customFetch<SosResource[]>(getListSosResourcesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSosResourcesQueryKey = () => {
+    return [
+    `/api/sos/resources`
+    ] as const;
+    }
+
+
+export const getListSosResourcesQueryOptions = <TData = Awaited<ReturnType<typeof listSosResources>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosResources>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSosResourcesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSosResources>>> = ({ signal }) => listSosResources({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSosResources>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSosResourcesQueryResult = NonNullable<Awaited<ReturnType<typeof listSosResources>>>
+export type ListSosResourcesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all configurable resources (chairs, rooms, tables, bays, etc.)
+ */
+
+export function useListSosResources<TData = Awaited<ReturnType<typeof listSosResources>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosResources>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSosResourcesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSosResourceUrl = () => {
+
+
+
+
+  return `/api/sos/resources`
+}
+
+/**
+ * @summary Add a resource
+ */
+export const createSosResource = async (sosResourceInput: SosResourceInput, options?: RequestInit): Promise<SosResource> => {
+
+  return customFetch<SosResource>(getCreateSosResourceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosResourceInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSosResourceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosResource>>, TError,{data: BodyType<SosResourceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSosResource>>, TError,{data: BodyType<SosResourceInput>}, TContext> => {
+
+const mutationKey = ['createSosResource'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSosResource>>, {data: BodyType<SosResourceInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSosResource(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSosResourceMutationResult = NonNullable<Awaited<ReturnType<typeof createSosResource>>>
+    export type CreateSosResourceMutationBody = BodyType<SosResourceInput>
+    export type CreateSosResourceMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a resource
+ */
+export const useCreateSosResource = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosResource>>, TError,{data: BodyType<SosResourceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSosResource>>,
+        TError,
+        {data: BodyType<SosResourceInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSosResourceMutationOptions(options));
+    }
+
+export const getUpdateSosResourceUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/resources/${id}`
+}
+
+/**
+ * @summary Update a resource (name, type, status)
+ */
+export const updateSosResource = async (id: number,
+    sosResourceUpdate: SosResourceUpdate, options?: RequestInit): Promise<SosResource> => {
+
+  return customFetch<SosResource>(getUpdateSosResourceUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosResourceUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSosResourceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosResource>>, TError,{id: number;data: BodyType<SosResourceUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSosResource>>, TError,{id: number;data: BodyType<SosResourceUpdate>}, TContext> => {
+
+const mutationKey = ['updateSosResource'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSosResource>>, {id: number;data: BodyType<SosResourceUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSosResource(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSosResourceMutationResult = NonNullable<Awaited<ReturnType<typeof updateSosResource>>>
+    export type UpdateSosResourceMutationBody = BodyType<SosResourceUpdate>
+    export type UpdateSosResourceMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a resource (name, type, status)
+ */
+export const useUpdateSosResource = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosResource>>, TError,{id: number;data: BodyType<SosResourceUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSosResource>>,
+        TError,
+        {id: number;data: BodyType<SosResourceUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSosResourceMutationOptions(options));
+    }
+
+export const getDeleteSosResourceUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/resources/${id}`
+}
+
+/**
+ * @summary Remove a resource
+ */
+export const deleteSosResource = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteSosResourceUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteSosResourceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSosResource>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSosResource>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteSosResource'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSosResource>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteSosResource(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSosResourceMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSosResource>>>
+
+    export type DeleteSosResourceMutationError = ErrorType<void>
+
+    /**
+ * @summary Remove a resource
+ */
+export const useDeleteSosResource = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSosResource>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSosResource>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteSosResourceMutationOptions(options));
+    }
+
+export const getListSosCustomersUrl = (params?: ListSosCustomersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/sos/customers?${stringifiedParams}` : `/api/sos/customers`
+}
+
+/**
+ * @summary List customers
+ */
+export const listSosCustomers = async (params?: ListSosCustomersParams, options?: RequestInit): Promise<SosCustomer[]> => {
+
+  return customFetch<SosCustomer[]>(getListSosCustomersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSosCustomersQueryKey = (params?: ListSosCustomersParams,) => {
+    return [
+    `/api/sos/customers`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListSosCustomersQueryOptions = <TData = Awaited<ReturnType<typeof listSosCustomers>>, TError = ErrorType<unknown>>(params?: ListSosCustomersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosCustomers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSosCustomersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSosCustomers>>> = ({ signal }) => listSosCustomers(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSosCustomers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSosCustomersQueryResult = NonNullable<Awaited<ReturnType<typeof listSosCustomers>>>
+export type ListSosCustomersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List customers
+ */
+
+export function useListSosCustomers<TData = Awaited<ReturnType<typeof listSosCustomers>>, TError = ErrorType<unknown>>(
+ params?: ListSosCustomersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosCustomers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSosCustomersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSosCustomerUrl = () => {
+
+
+
+
+  return `/api/sos/customers`
+}
+
+/**
+ * @summary Add a customer
+ */
+export const createSosCustomer = async (sosCustomerInput: SosCustomerInput, options?: RequestInit): Promise<SosCustomer> => {
+
+  return customFetch<SosCustomer>(getCreateSosCustomerUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosCustomerInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSosCustomerMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosCustomer>>, TError,{data: BodyType<SosCustomerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSosCustomer>>, TError,{data: BodyType<SosCustomerInput>}, TContext> => {
+
+const mutationKey = ['createSosCustomer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSosCustomer>>, {data: BodyType<SosCustomerInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSosCustomer(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSosCustomerMutationResult = NonNullable<Awaited<ReturnType<typeof createSosCustomer>>>
+    export type CreateSosCustomerMutationBody = BodyType<SosCustomerInput>
+    export type CreateSosCustomerMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a customer
+ */
+export const useCreateSosCustomer = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosCustomer>>, TError,{data: BodyType<SosCustomerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSosCustomer>>,
+        TError,
+        {data: BodyType<SosCustomerInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSosCustomerMutationOptions(options));
+    }
+
+export const getUpdateSosCustomerUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/customers/${id}`
+}
+
+/**
+ * @summary Update a customer
+ */
+export const updateSosCustomer = async (id: number,
+    sosCustomerUpdate: SosCustomerUpdate, options?: RequestInit): Promise<SosCustomer> => {
+
+  return customFetch<SosCustomer>(getUpdateSosCustomerUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosCustomerUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSosCustomerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosCustomer>>, TError,{id: number;data: BodyType<SosCustomerUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSosCustomer>>, TError,{id: number;data: BodyType<SosCustomerUpdate>}, TContext> => {
+
+const mutationKey = ['updateSosCustomer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSosCustomer>>, {id: number;data: BodyType<SosCustomerUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSosCustomer(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSosCustomerMutationResult = NonNullable<Awaited<ReturnType<typeof updateSosCustomer>>>
+    export type UpdateSosCustomerMutationBody = BodyType<SosCustomerUpdate>
+    export type UpdateSosCustomerMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a customer
+ */
+export const useUpdateSosCustomer = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosCustomer>>, TError,{id: number;data: BodyType<SosCustomerUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSosCustomer>>,
+        TError,
+        {id: number;data: BodyType<SosCustomerUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSosCustomerMutationOptions(options));
+    }
+
+export const getListSosVisitsUrl = (params?: ListSosVisitsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/sos/visits?${stringifiedParams}` : `/api/sos/visits`
+}
+
+/**
+ * @summary List visits (live queue + in service), newest first
+ */
+export const listSosVisits = async (params?: ListSosVisitsParams, options?: RequestInit): Promise<SosVisit[]> => {
+
+  return customFetch<SosVisit[]>(getListSosVisitsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSosVisitsQueryKey = (params?: ListSosVisitsParams,) => {
+    return [
+    `/api/sos/visits`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListSosVisitsQueryOptions = <TData = Awaited<ReturnType<typeof listSosVisits>>, TError = ErrorType<unknown>>(params?: ListSosVisitsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosVisits>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSosVisitsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSosVisits>>> = ({ signal }) => listSosVisits(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSosVisits>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSosVisitsQueryResult = NonNullable<Awaited<ReturnType<typeof listSosVisits>>>
+export type ListSosVisitsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List visits (live queue + in service), newest first
+ */
+
+export function useListSosVisits<TData = Awaited<ReturnType<typeof listSosVisits>>, TError = ErrorType<unknown>>(
+ params?: ListSosVisitsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosVisits>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSosVisitsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCheckInSosVisitUrl = () => {
+
+
+
+
+  return `/api/sos/visits`
+}
+
+/**
+ * @summary Check a customer in — starts the journey state machine
+ */
+export const checkInSosVisit = async (sosVisitInput: SosVisitInput, options?: RequestInit): Promise<SosVisit> => {
+
+  return customFetch<SosVisit>(getCheckInSosVisitUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosVisitInput)
+  }
+);}
+
+
+
+
+
+export const getCheckInSosVisitMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkInSosVisit>>, TError,{data: BodyType<SosVisitInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof checkInSosVisit>>, TError,{data: BodyType<SosVisitInput>}, TContext> => {
+
+const mutationKey = ['checkInSosVisit'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkInSosVisit>>, {data: BodyType<SosVisitInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  checkInSosVisit(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckInSosVisitMutationResult = NonNullable<Awaited<ReturnType<typeof checkInSosVisit>>>
+    export type CheckInSosVisitMutationBody = BodyType<SosVisitInput>
+    export type CheckInSosVisitMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Check a customer in — starts the journey state machine
+ */
+export const useCheckInSosVisit = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkInSosVisit>>, TError,{data: BodyType<SosVisitInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof checkInSosVisit>>,
+        TError,
+        {data: BodyType<SosVisitInput>},
+        TContext
+      > => {
+      return useMutation(getCheckInSosVisitMutationOptions(options));
+    }
+
+export const getAdvanceSosVisitUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/visits/${id}/advance`
+}
+
+/**
+ * @summary Advance a visit through the journey state machine (optionally assigning a resource)
+ */
+export const advanceSosVisit = async (id: number,
+    sosVisitAdvance: SosVisitAdvance, options?: RequestInit): Promise<SosVisit> => {
+
+  return customFetch<SosVisit>(getAdvanceSosVisitUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosVisitAdvance)
+  }
+);}
+
+
+
+
+
+export const getAdvanceSosVisitMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceSosVisit>>, TError,{id: number;data: BodyType<SosVisitAdvance>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof advanceSosVisit>>, TError,{id: number;data: BodyType<SosVisitAdvance>}, TContext> => {
+
+const mutationKey = ['advanceSosVisit'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof advanceSosVisit>>, {id: number;data: BodyType<SosVisitAdvance>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  advanceSosVisit(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdvanceSosVisitMutationResult = NonNullable<Awaited<ReturnType<typeof advanceSosVisit>>>
+    export type AdvanceSosVisitMutationBody = BodyType<SosVisitAdvance>
+    export type AdvanceSosVisitMutationError = ErrorType<void>
+
+    /**
+ * @summary Advance a visit through the journey state machine (optionally assigning a resource)
+ */
+export const useAdvanceSosVisit = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceSosVisit>>, TError,{id: number;data: BodyType<SosVisitAdvance>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof advanceSosVisit>>,
+        TError,
+        {id: number;data: BodyType<SosVisitAdvance>},
+        TContext
+      > => {
+      return useMutation(getAdvanceSosVisitMutationOptions(options));
+    }
+
+export const getListSosAppointmentsUrl = (params?: ListSosAppointmentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/sos/appointments?${stringifiedParams}` : `/api/sos/appointments`
+}
+
+/**
+ * @summary List appointments for the calendar
+ */
+export const listSosAppointments = async (params?: ListSosAppointmentsParams, options?: RequestInit): Promise<SosAppointment[]> => {
+
+  return customFetch<SosAppointment[]>(getListSosAppointmentsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSosAppointmentsQueryKey = (params?: ListSosAppointmentsParams,) => {
+    return [
+    `/api/sos/appointments`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListSosAppointmentsQueryOptions = <TData = Awaited<ReturnType<typeof listSosAppointments>>, TError = ErrorType<unknown>>(params?: ListSosAppointmentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosAppointments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSosAppointmentsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSosAppointments>>> = ({ signal }) => listSosAppointments(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSosAppointments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSosAppointmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listSosAppointments>>>
+export type ListSosAppointmentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List appointments for the calendar
+ */
+
+export function useListSosAppointments<TData = Awaited<ReturnType<typeof listSosAppointments>>, TError = ErrorType<unknown>>(
+ params?: ListSosAppointmentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosAppointments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSosAppointmentsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSosAppointmentUrl = () => {
+
+
+
+
+  return `/api/sos/appointments`
+}
+
+/**
+ * @summary Book an appointment
+ */
+export const createSosAppointment = async (sosAppointmentInput: SosAppointmentInput, options?: RequestInit): Promise<SosAppointment> => {
+
+  return customFetch<SosAppointment>(getCreateSosAppointmentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosAppointmentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSosAppointmentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosAppointment>>, TError,{data: BodyType<SosAppointmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSosAppointment>>, TError,{data: BodyType<SosAppointmentInput>}, TContext> => {
+
+const mutationKey = ['createSosAppointment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSosAppointment>>, {data: BodyType<SosAppointmentInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSosAppointment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSosAppointmentMutationResult = NonNullable<Awaited<ReturnType<typeof createSosAppointment>>>
+    export type CreateSosAppointmentMutationBody = BodyType<SosAppointmentInput>
+    export type CreateSosAppointmentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Book an appointment
+ */
+export const useCreateSosAppointment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosAppointment>>, TError,{data: BodyType<SosAppointmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSosAppointment>>,
+        TError,
+        {data: BodyType<SosAppointmentInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSosAppointmentMutationOptions(options));
+    }
+
+export const getCancelSosAppointmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/appointments/${id}/cancel`
+}
+
+/**
+ * @summary Cancel an appointment — triggers the smart waitlist fill engine (SMS broadcast to waitlisted clients)
+ */
+export const cancelSosAppointment = async (id: number, options?: RequestInit): Promise<SosCancellationResult> => {
+
+  return customFetch<SosCancellationResult>(getCancelSosAppointmentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCancelSosAppointmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSosAppointment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelSosAppointment>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['cancelSosAppointment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelSosAppointment>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  cancelSosAppointment(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelSosAppointmentMutationResult = NonNullable<Awaited<ReturnType<typeof cancelSosAppointment>>>
+
+    export type CancelSosAppointmentMutationError = ErrorType<void>
+
+    /**
+ * @summary Cancel an appointment — triggers the smart waitlist fill engine (SMS broadcast to waitlisted clients)
+ */
+export const useCancelSosAppointment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSosAppointment>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelSosAppointment>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getCancelSosAppointmentMutationOptions(options));
+    }
+
+export const getListSosWaitlistUrl = () => {
+
+
+
+
+  return `/api/sos/waitlist`
+}
+
+/**
+ * @summary List waitlist entries
+ */
+export const listSosWaitlist = async ( options?: RequestInit): Promise<SosWaitlistEntry[]> => {
+
+  return customFetch<SosWaitlistEntry[]>(getListSosWaitlistUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSosWaitlistQueryKey = () => {
+    return [
+    `/api/sos/waitlist`
+    ] as const;
+    }
+
+
+export const getListSosWaitlistQueryOptions = <TData = Awaited<ReturnType<typeof listSosWaitlist>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosWaitlist>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSosWaitlistQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSosWaitlist>>> = ({ signal }) => listSosWaitlist({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSosWaitlist>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSosWaitlistQueryResult = NonNullable<Awaited<ReturnType<typeof listSosWaitlist>>>
+export type ListSosWaitlistQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List waitlist entries
+ */
+
+export function useListSosWaitlist<TData = Awaited<ReturnType<typeof listSosWaitlist>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosWaitlist>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSosWaitlistQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSosWaitlistEntryUrl = () => {
+
+
+
+
+  return `/api/sos/waitlist`
+}
+
+/**
+ * @summary Add a customer to the waitlist
+ */
+export const createSosWaitlistEntry = async (sosWaitlistEntryInput: SosWaitlistEntryInput, options?: RequestInit): Promise<SosWaitlistEntry> => {
+
+  return customFetch<SosWaitlistEntry>(getCreateSosWaitlistEntryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosWaitlistEntryInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSosWaitlistEntryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosWaitlistEntry>>, TError,{data: BodyType<SosWaitlistEntryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSosWaitlistEntry>>, TError,{data: BodyType<SosWaitlistEntryInput>}, TContext> => {
+
+const mutationKey = ['createSosWaitlistEntry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSosWaitlistEntry>>, {data: BodyType<SosWaitlistEntryInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSosWaitlistEntry(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSosWaitlistEntryMutationResult = NonNullable<Awaited<ReturnType<typeof createSosWaitlistEntry>>>
+    export type CreateSosWaitlistEntryMutationBody = BodyType<SosWaitlistEntryInput>
+    export type CreateSosWaitlistEntryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a customer to the waitlist
+ */
+export const useCreateSosWaitlistEntry = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosWaitlistEntry>>, TError,{data: BodyType<SosWaitlistEntryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSosWaitlistEntry>>,
+        TError,
+        {data: BodyType<SosWaitlistEntryInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSosWaitlistEntryMutationOptions(options));
+    }
+
+export const getClaimSosWaitlistSlotUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/waitlist/${id}/claim`
+}
+
+/**
+ * @summary Waitlisted client claims an open slot (self-booking) — books the appointment
+ */
+export const claimSosWaitlistSlot = async (id: number, options?: RequestInit): Promise<SosAppointment> => {
+
+  return customFetch<SosAppointment>(getClaimSosWaitlistSlotUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getClaimSosWaitlistSlotMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimSosWaitlistSlot>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimSosWaitlistSlot>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['claimSosWaitlistSlot'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimSosWaitlistSlot>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  claimSosWaitlistSlot(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimSosWaitlistSlotMutationResult = NonNullable<Awaited<ReturnType<typeof claimSosWaitlistSlot>>>
+
+    export type ClaimSosWaitlistSlotMutationError = ErrorType<void>
+
+    /**
+ * @summary Waitlisted client claims an open slot (self-booking) — books the appointment
+ */
+export const useClaimSosWaitlistSlot = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimSosWaitlistSlot>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimSosWaitlistSlot>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getClaimSosWaitlistSlotMutationOptions(options));
+    }
+
+export const getListSosMessagesUrl = (params?: ListSosMessagesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/sos/messages?${stringifiedParams}` : `/api/sos/messages`
+}
+
+/**
+ * @summary SMS message log (broadcasts, you're-next alerts, AI follow-ups)
+ */
+export const listSosMessages = async (params?: ListSosMessagesParams, options?: RequestInit): Promise<SosMessage[]> => {
+
+  return customFetch<SosMessage[]>(getListSosMessagesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSosMessagesQueryKey = (params?: ListSosMessagesParams,) => {
+    return [
+    `/api/sos/messages`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListSosMessagesQueryOptions = <TData = Awaited<ReturnType<typeof listSosMessages>>, TError = ErrorType<unknown>>(params?: ListSosMessagesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSosMessagesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSosMessages>>> = ({ signal }) => listSosMessages(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSosMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSosMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof listSosMessages>>>
+export type ListSosMessagesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary SMS message log (broadcasts, you're-next alerts, AI follow-ups)
+ */
+
+export function useListSosMessages<TData = Awaited<ReturnType<typeof listSosMessages>>, TError = ErrorType<unknown>>(
+ params?: ListSosMessagesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSosMessagesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendSosMessageUrl = () => {
+
+
+
+
+  return `/api/sos/messages`
+}
+
+/**
+ * @summary Send an SMS to a customer
+ */
+export const sendSosMessage = async (sosMessageInput: SosMessageInput, options?: RequestInit): Promise<SosMessage> => {
+
+  return customFetch<SosMessage>(getSendSosMessageUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosMessageInput)
+  }
+);}
+
+
+
+
+
+export const getSendSosMessageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendSosMessage>>, TError,{data: BodyType<SosMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendSosMessage>>, TError,{data: BodyType<SosMessageInput>}, TContext> => {
+
+const mutationKey = ['sendSosMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendSosMessage>>, {data: BodyType<SosMessageInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sendSosMessage(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendSosMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendSosMessage>>>
+    export type SendSosMessageMutationBody = BodyType<SosMessageInput>
+    export type SendSosMessageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Send an SMS to a customer
+ */
+export const useSendSosMessage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendSosMessage>>, TError,{data: BodyType<SosMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendSosMessage>>,
+        TError,
+        {data: BodyType<SosMessageInput>},
+        TContext
+      > => {
+      return useMutation(getSendSosMessageMutationOptions(options));
+    }
+
+export const getListSosCallsUrl = () => {
+
+
+
+
+  return `/api/sos/calls`
+}
+
+/**
+ * @summary AI receptionist call log
+ */
+export const listSosCalls = async ( options?: RequestInit): Promise<SosCall[]> => {
+
+  return customFetch<SosCall[]>(getListSosCallsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSosCallsQueryKey = () => {
+    return [
+    `/api/sos/calls`
+    ] as const;
+    }
+
+
+export const getListSosCallsQueryOptions = <TData = Awaited<ReturnType<typeof listSosCalls>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosCalls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSosCallsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSosCalls>>> = ({ signal }) => listSosCalls({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSosCalls>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSosCallsQueryResult = NonNullable<Awaited<ReturnType<typeof listSosCalls>>>
+export type ListSosCallsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary AI receptionist call log
+ */
+
+export function useListSosCalls<TData = Awaited<ReturnType<typeof listSosCalls>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosCalls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSosCallsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSimulateSosCallUrl = () => {
+
+
+
+
+  return `/api/sos/calls`
+}
+
+/**
+ * @summary Simulate an inbound call handled by the AI receptionist (books/follows up automatically)
+ */
+export const simulateSosCall = async (sosCallInput: SosCallInput, options?: RequestInit): Promise<SosCall> => {
+
+  return customFetch<SosCall>(getSimulateSosCallUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosCallInput)
+  }
+);}
+
+
+
+
+
+export const getSimulateSosCallMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof simulateSosCall>>, TError,{data: BodyType<SosCallInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof simulateSosCall>>, TError,{data: BodyType<SosCallInput>}, TContext> => {
+
+const mutationKey = ['simulateSosCall'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof simulateSosCall>>, {data: BodyType<SosCallInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  simulateSosCall(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SimulateSosCallMutationResult = NonNullable<Awaited<ReturnType<typeof simulateSosCall>>>
+    export type SimulateSosCallMutationBody = BodyType<SosCallInput>
+    export type SimulateSosCallMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Simulate an inbound call handled by the AI receptionist (books/follows up automatically)
+ */
+export const useSimulateSosCall = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof simulateSosCall>>, TError,{data: BodyType<SosCallInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof simulateSosCall>>,
+        TError,
+        {data: BodyType<SosCallInput>},
+        TContext
+      > => {
+      return useMutation(getSimulateSosCallMutationOptions(options));
+    }
+
+export const getGetSosReportsSummaryUrl = () => {
+
+
+
+
+  return `/api/sos/reports/summary`
+}
+
+/**
+ * @summary Reports — visits by day, avg wait time, fill-engine performance, call outcomes
+ */
+export const getSosReportsSummary = async ( options?: RequestInit): Promise<SosReportsSummary> => {
+
+  return customFetch<SosReportsSummary>(getGetSosReportsSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSosReportsSummaryQueryKey = () => {
+    return [
+    `/api/sos/reports/summary`
+    ] as const;
+    }
+
+
+export const getGetSosReportsSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getSosReportsSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosReportsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSosReportsSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSosReportsSummary>>> = ({ signal }) => getSosReportsSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSosReportsSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSosReportsSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getSosReportsSummary>>>
+export type GetSosReportsSummaryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Reports — visits by day, avg wait time, fill-engine performance, call outcomes
+ */
+
+export function useGetSosReportsSummary<TData = Awaited<ReturnType<typeof getSosReportsSummary>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosReportsSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSosReportsSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

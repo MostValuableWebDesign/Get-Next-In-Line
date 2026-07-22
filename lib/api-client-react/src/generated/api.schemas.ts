@@ -5,6 +5,383 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+export interface SosSettings {
+  id: number;
+  businessName: string;
+  industryType: string;
+  resourceLabel: string;
+  aiReceptionistEnabled: boolean;
+  waitlistAutoFillEnabled: boolean;
+  /** @nullable */
+  smsFromNumber?: string | null;
+  updatedAt: string;
+}
+
+export interface SosSettingsUpdate {
+  businessName?: string;
+  industryType?: string;
+  resourceLabel?: string;
+  aiReceptionistEnabled?: boolean;
+  waitlistAutoFillEnabled?: boolean;
+  smsFromNumber?: string;
+}
+
+export type SosResourceStatus = typeof SosResourceStatus[keyof typeof SosResourceStatus];
+
+
+export const SosResourceStatus = {
+  available: 'available',
+  occupied: 'occupied',
+  cleaning: 'cleaning',
+  offline: 'offline',
+} as const;
+
+export interface SosResource {
+  id: number;
+  name: string;
+  resourceType: string;
+  status: SosResourceStatus;
+  /** @nullable */
+  currentVisitId?: number | null;
+  /** @nullable */
+  currentCustomerName?: string | null;
+  createdAt: string;
+}
+
+export interface SosResourceInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  resourceType: string;
+}
+
+export type SosResourceUpdateStatus = typeof SosResourceUpdateStatus[keyof typeof SosResourceUpdateStatus];
+
+
+export const SosResourceUpdateStatus = {
+  available: 'available',
+  occupied: 'occupied',
+  cleaning: 'cleaning',
+  offline: 'offline',
+} as const;
+
+export interface SosResourceUpdate {
+  name?: string;
+  resourceType?: string;
+  status?: SosResourceUpdateStatus;
+}
+
+export interface SosCustomer {
+  id: number;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  smsOptIn: boolean;
+  visitCount: number;
+  /** @nullable */
+  lastVisitAt?: string | null;
+  createdAt: string;
+}
+
+export interface SosCustomerInput {
+  /** @minLength 1 */
+  name: string;
+  phone?: string;
+  email?: string;
+  smsOptIn?: boolean;
+}
+
+export interface SosCustomerUpdate {
+  name?: string;
+  phone?: string;
+  email?: string;
+  smsOptIn?: boolean;
+}
+
+export type SosVisitStatus = typeof SosVisitStatus[keyof typeof SosVisitStatus];
+
+
+export const SosVisitStatus = {
+  checked_in: 'checked_in',
+  queued: 'queued',
+  assigned: 'assigned',
+  notified: 'notified',
+  in_service: 'in_service',
+  payment: 'payment',
+  checked_out: 'checked_out',
+} as const;
+
+export interface SosVisit {
+  id: number;
+  customerId: number;
+  customerName: string;
+  status: SosVisitStatus;
+  serviceType: string;
+  partySize: number;
+  /** @nullable */
+  resourceId?: number | null;
+  /** @nullable */
+  resourceName?: string | null;
+  /** @nullable */
+  estimatedWaitMinutes?: number | null;
+  /** @nullable */
+  paymentAmount?: number | null;
+  checkedInAt: string;
+  /** @nullable */
+  serviceStartedAt?: string | null;
+  /** @nullable */
+  checkedOutAt?: string | null;
+}
+
+export interface SosVisitInput {
+  customerId: number;
+  /** @minLength 1 */
+  serviceType: string;
+  partySize?: number;
+  estimatedWaitMinutes?: number;
+}
+
+export type SosVisitAdvanceAction = typeof SosVisitAdvanceAction[keyof typeof SosVisitAdvanceAction];
+
+
+export const SosVisitAdvanceAction = {
+  queue: 'queue',
+  assign: 'assign',
+  notify: 'notify',
+  start_service: 'start_service',
+  request_payment: 'request_payment',
+  check_out: 'check_out',
+} as const;
+
+export interface SosVisitAdvance {
+  action: SosVisitAdvanceAction;
+  resourceId?: number;
+  paymentAmount?: number;
+}
+
+export type SosAppointmentStatus = typeof SosAppointmentStatus[keyof typeof SosAppointmentStatus];
+
+
+export const SosAppointmentStatus = {
+  booked: 'booked',
+  cancelled: 'cancelled',
+  completed: 'completed',
+  filled: 'filled',
+} as const;
+
+export type SosAppointmentSource = typeof SosAppointmentSource[keyof typeof SosAppointmentSource];
+
+
+export const SosAppointmentSource = {
+  staff: 'staff',
+  ai_receptionist: 'ai_receptionist',
+  waitlist_fill: 'waitlist_fill',
+  self_book: 'self_book',
+} as const;
+
+export interface SosAppointment {
+  id: number;
+  customerId: number;
+  customerName: string;
+  serviceType: string;
+  startsAt: string;
+  endsAt: string;
+  status: SosAppointmentStatus;
+  source: SosAppointmentSource;
+  /** @nullable */
+  resourceId?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export type SosAppointmentInputSource = typeof SosAppointmentInputSource[keyof typeof SosAppointmentInputSource];
+
+
+export const SosAppointmentInputSource = {
+  staff: 'staff',
+  ai_receptionist: 'ai_receptionist',
+  waitlist_fill: 'waitlist_fill',
+  self_book: 'self_book',
+} as const;
+
+export interface SosAppointmentInput {
+  customerId: number;
+  /** @minLength 1 */
+  serviceType: string;
+  startsAt: string;
+  endsAt: string;
+  resourceId?: number;
+  notes?: string;
+  source?: SosAppointmentInputSource;
+}
+
+export interface SosCancellationResult {
+  appointment: SosAppointment;
+  waitlistNotified: number;
+  messagesSent: number;
+}
+
+export type SosWaitlistEntryStatus = typeof SosWaitlistEntryStatus[keyof typeof SosWaitlistEntryStatus];
+
+
+export const SosWaitlistEntryStatus = {
+  waiting: 'waiting',
+  notified: 'notified',
+  booked: 'booked',
+  expired: 'expired',
+} as const;
+
+export interface SosWaitlistEntry {
+  id: number;
+  customerId: number;
+  customerName: string;
+  /** @nullable */
+  customerPhone?: string | null;
+  desiredService: string;
+  status: SosWaitlistEntryStatus;
+  /** @nullable */
+  notifiedAt?: string | null;
+  /** @nullable */
+  openSlotStartsAt?: string | null;
+  /** @nullable */
+  openSlotEndsAt?: string | null;
+  createdAt: string;
+}
+
+export interface SosWaitlistEntryInput {
+  customerId: number;
+  /** @minLength 1 */
+  desiredService: string;
+}
+
+export type SosMessageDirection = typeof SosMessageDirection[keyof typeof SosMessageDirection];
+
+
+export const SosMessageDirection = {
+  outbound: 'outbound',
+  inbound: 'inbound',
+} as const;
+
+export type SosMessageKind = typeof SosMessageKind[keyof typeof SosMessageKind];
+
+
+export const SosMessageKind = {
+  you_are_next: 'you_are_next',
+  slot_open: 'slot_open',
+  ai_followup: 'ai_followup',
+  manual: 'manual',
+  inbound: 'inbound',
+} as const;
+
+export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];
+
+
+export const SosMessageDeliveryStatus = {
+  sent: 'sent',
+  delivered: 'delivered',
+  failed: 'failed',
+  simulated: 'simulated',
+} as const;
+
+export interface SosMessage {
+  id: number;
+  /** @nullable */
+  customerId?: number | null;
+  /** @nullable */
+  customerName?: string | null;
+  /** @nullable */
+  toNumber?: string | null;
+  direction: SosMessageDirection;
+  body: string;
+  kind: SosMessageKind;
+  deliveryStatus: SosMessageDeliveryStatus;
+  createdAt: string;
+}
+
+export type SosMessageInputKind = typeof SosMessageInputKind[keyof typeof SosMessageInputKind];
+
+
+export const SosMessageInputKind = {
+  you_are_next: 'you_are_next',
+  slot_open: 'slot_open',
+  ai_followup: 'ai_followup',
+  manual: 'manual',
+} as const;
+
+export interface SosMessageInput {
+  customerId: number;
+  /** @minLength 1 */
+  body: string;
+  kind?: SosMessageInputKind;
+}
+
+export type SosCallOutcome = typeof SosCallOutcome[keyof typeof SosCallOutcome];
+
+
+export const SosCallOutcome = {
+  booked: 'booked',
+  followup_sms: 'followup_sms',
+  message_taken: 'message_taken',
+  no_action: 'no_action',
+} as const;
+
+export interface SosCall {
+  id: number;
+  fromNumber: string;
+  /** @nullable */
+  callerName?: string | null;
+  intent: string;
+  /** @nullable */
+  transcriptSummary?: string | null;
+  outcome: SosCallOutcome;
+  /** @nullable */
+  appointmentId?: number | null;
+  createdAt: string;
+}
+
+export interface SosCallInput {
+  /** @minLength 1 */
+  fromNumber: string;
+  callerName?: string;
+  /** @minLength 1 */
+  inquiry: string;
+}
+
+export interface SosDashboard {
+  inQueue: number;
+  inService: number;
+  availableResources: number;
+  totalResources: number;
+  avgWaitMinutes: number;
+  appointmentsToday: number;
+  waitlistWaiting: number;
+  messagesSentToday: number;
+  callsHandledToday: number;
+  revenueToday: number;
+}
+
+export interface SosDayCount {
+  day: string;
+  count: number;
+}
+
+export interface SosOutcomeCount {
+  outcome: string;
+  count: number;
+}
+
+export interface SosReportsSummary {
+  visitsByDay: SosDayCount[];
+  avgWaitMinutes: number;
+  slotsFilled: number;
+  fillRate: number;
+  callOutcomes: SosOutcomeCount[];
+  totalRevenue: number;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -241,5 +618,25 @@ before_timestamp?: string;
  * @minimum 1
  */
 before_id?: number;
+};
+
+export type ListSosCustomersParams = {
+search?: string;
+};
+
+export type ListSosVisitsParams = {
+/**
+ * When true, only visits not yet checked out
+ */
+active?: boolean;
+};
+
+export type ListSosAppointmentsParams = {
+from?: string;
+to?: string;
+};
+
+export type ListSosMessagesParams = {
+limit?: number;
 };
 
