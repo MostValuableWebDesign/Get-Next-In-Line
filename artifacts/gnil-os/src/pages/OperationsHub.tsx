@@ -1,5 +1,7 @@
-import { useLocation } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Settings } from 'lucide-react';
 import { ModuleGrid } from '@/components/modules/ModuleGrid';
 import { OperationsPage as LiveOperations } from '@/pages/sos/operations';
 import {
@@ -17,7 +19,8 @@ import {
  * marketplace (/partners), and the SOS partner placeholder pages —
  * Employees (/sos/employees), Payroll (/sos/payroll), Business Protection
  * (/sos/business-protection), and Employee Benefits (/sos/employee-benefits)
- * — into one tabbed page. All old URLs still work as deep links, each
+ * — plus the former GNIL Bridge marketing marketplace (/marketing) —
+ * into one tabbed page. All old URLs still work as deep links, each
  * selecting the matching tab, so refresh/back and bookmarks stay correct.
  * Backends and page content are untouched.
  */
@@ -25,6 +28,7 @@ import {
 const TAB_ROUTES: Record<string, string> = {
   live: '/sos/operations',
   modules: '/operations',
+  marketing: '/marketing',
   partners: '/partners',
   employees: '/sos/employees',
   payroll: '/sos/payroll',
@@ -55,6 +59,7 @@ export default function OperationsHub() {
         <TabsList data-testid="operations-tabs" className="flex-wrap h-auto">
           <TabsTrigger value="live" data-testid="tab-live-operations">Live Operations</TabsTrigger>
           <TabsTrigger value="modules" data-testid="tab-modules">Modules</TabsTrigger>
+          <TabsTrigger value="marketing" data-testid="tab-marketing">Marketing</TabsTrigger>
           <TabsTrigger value="partners" data-testid="tab-partner-integrations">
             Partner Integrations
           </TabsTrigger>
@@ -75,6 +80,26 @@ export default function OperationsHub() {
             categorySlug="operations"
             title="Core Operations"
             description="Service modules for payroll, booking, tracking, and backend operations."
+          />
+        </TabsContent>
+        <TabsContent value="marketing" className="mt-4 space-y-4">
+          <div className="flex justify-end">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              data-testid="link-module-configuration"
+            >
+              <Link href="/settings">
+                <Settings className="w-4 h-4" /> Module setup in Configuration
+              </Link>
+            </Button>
+          </div>
+          <ModuleGrid
+            categorySlug="marketing"
+            title="Marketing OS & Bridge"
+            description="GNIL integration modules and core marketing pipelines."
           />
         </TabsContent>
         <TabsContent value="partners" className="mt-4">

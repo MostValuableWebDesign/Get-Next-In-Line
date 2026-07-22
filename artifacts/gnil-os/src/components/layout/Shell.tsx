@@ -12,7 +12,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import {
-  Activity, LayoutDashboard, Users, Zap, Radio, CreditCard, Cable, WifiOff, X,
+  Activity, LayoutDashboard, Users, Radio, CreditCard, Cable, WifiOff, X,
   Bot, Settings, BookOpenCheck,
 } from 'lucide-react';
 
@@ -27,8 +27,8 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { name: 'Command Center', path: '/', icon: LayoutDashboard },
   { name: 'Tenant Dashboards', path: '/tenants', icon: Users },
-  { name: 'GNIL Bridge', path: '/marketing', icon: Zap },
   // Unified hub: Modules (/operations), Live Operations (/sos/operations),
+  // Marketing marketplace (/marketing, the old GNIL Bridge page),
   // Partner Integrations (/partners), and the SOS partner tabs
   {
     name: 'Operations',
@@ -36,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: Activity,
     aliases: [
       '/sos/operations',
+      '/marketing',
       '/partners',
       '/sos/employees',
       '/sos/payroll',

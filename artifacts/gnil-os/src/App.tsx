@@ -9,7 +9,6 @@ import Dashboard from "@/pages/Dashboard";
 import Tenants from "@/pages/Tenants";
 import TenantDetail from "@/pages/TenantDetail";
 import Concierge from "@/pages/Concierge";
-import Marketing from "@/pages/Marketing";
 import OperationsHub from "@/pages/OperationsHub";
 import Media from "@/pages/Media";
 import Billing from "@/pages/Billing";
@@ -71,7 +70,8 @@ function ProtectedApp() {
         <Route path="/tenants/:id" component={TenantDetail} />
         <Route path="/tenants/:id/settings" component={Settings} />
         <Route path="/tenants/:id/concierge" component={Concierge} />
-        <Route path="/marketing" component={Marketing} />
+        {/* Unified Operations hub — Marketing tab (old GNIL Bridge URL) */}
+        <Route path="/marketing" component={OperationsHub} />
         {/* Unified Operations hub — Modules tab */}
         <Route path="/operations" component={OperationsHub} />
         {/* Unified Operations hub — Partner Integrations tab */}
