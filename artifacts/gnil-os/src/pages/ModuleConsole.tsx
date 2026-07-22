@@ -221,6 +221,9 @@ export default function ModuleConsole() {
                       <div className="text-xs text-muted-foreground font-mono truncate">{s.subdomain}</div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
+                      <Badge variant="outline" className="text-[9px] uppercase" data-testid={`badge-cadence-${s.tenantId}`}>
+                        {s.billingCadence === 'biweekly' ? 'Bi-Weekly' : 'Monthly'}
+                      </Badge>
                       <span className="text-xs text-muted-foreground">
                         Provisioned {new Date(s.provisionedAt).toLocaleDateString()}
                       </span>

@@ -84,6 +84,8 @@ export const tenantModulesTable = pgTable(
     moduleId: integer("module_id")
       .notNull()
       .references(() => modulesTable.id, { onDelete: "cascade" }),
+    // monthly | biweekly — cadence chosen at checkout time.
+    billingCadence: text("billing_cadence").notNull().default("monthly"),
     provisionedAt: timestamp("provisioned_at").notNull().defaultNow(),
   },
   (t) => [unique("tenant_modules_tenant_module_unique").on(t.tenantId, t.moduleId)]

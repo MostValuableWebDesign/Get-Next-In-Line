@@ -5,11 +5,13 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { TenantSubscribedModuleBillingCadence } from './tenantSubscribedModuleBillingCadence';
 
 export interface TenantSubscribedModule {
   moduleId: number;
   name: string;
   category: string;
   categorySlug: string;
+  billingCadence: TenantSubscribedModuleBillingCadence;
   provisionedAt: string;
 }

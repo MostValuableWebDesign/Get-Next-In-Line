@@ -229,9 +229,18 @@ export default function TenantDetail() {
                       <div className="text-sm font-medium truncate">{m.name}</div>
                       <div className="text-xs text-muted-foreground truncate">{m.category}</div>
                     </div>
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      Provisioned {new Date(m.provisionedAt).toLocaleDateString()}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] uppercase"
+                        data-testid={`badge-cadence-${m.moduleId}`}
+                      >
+                        {m.billingCadence === 'biweekly' ? 'Bi-Weekly' : 'Monthly'}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        Provisioned {new Date(m.provisionedAt).toLocaleDateString()}
+                      </span>
+                    </div>
                   </Link>
                 ))}
               </div>

@@ -5,9 +5,11 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { ModuleCadenceSelection } from './moduleCadenceSelection';
 
 export interface CheckoutInput {
   tenantId: number;
   moduleIds: number[];
   applyMarkup?: boolean;
+  moduleCadences?: ModuleCadenceSelection[];
 }

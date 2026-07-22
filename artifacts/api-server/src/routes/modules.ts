@@ -75,6 +75,7 @@ router.get("/modules/:id/tenants", async (req, res): Promise<void> => {
       brandName: tenantsTable.brandName,
       subdomain: tenantsTable.subdomain,
       status: tenantsTable.status,
+      billingCadence: tenantModulesTable.billingCadence,
       provisionedAt: tenantModulesTable.provisionedAt,
     })
     .from(tenantModulesTable)
@@ -89,6 +90,7 @@ router.get("/modules/:id/tenants", async (req, res): Promise<void> => {
         brandName: r.brandName,
         subdomain: r.subdomain,
         status: r.status,
+        billingCadence: r.billingCadence,
         provisionedAt: r.provisionedAt.toISOString(),
       }))
     )

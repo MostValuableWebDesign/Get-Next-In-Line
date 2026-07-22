@@ -1605,7 +1605,7 @@ components:
 
     TenantSubscribedModule:
       type: object
-      required: [moduleId, name, category, categorySlug, provisionedAt]
+      required: [moduleId, name, category, categorySlug, billingCadence, provisionedAt]
       properties:
         moduleId:
           type: integer
@@ -1615,6 +1615,9 @@ components:
           type: string
         categorySlug:
           type: string
+        billingCadence:
+          type: string
+          enum: [monthly, biweekly]
         provisionedAt:
           type: string
 
@@ -1784,7 +1787,7 @@ components:
 
     ModuleTenantSubscriber:
       type: object
-      required: [tenantId, brandName, subdomain, status, provisionedAt]
+      required: [tenantId, brandName, subdomain, status, billingCadence, provisionedAt]
       properties:
         tenantId:
           type: integer
@@ -1795,6 +1798,9 @@ components:
         status:
           type: string
           enum: [active, suspended, pending]
+        billingCadence:
+          type: string
+          enum: [monthly, biweekly]
         provisionedAt:
           type: string
 
@@ -1810,6 +1816,22 @@ components:
             type: integer
         applyMarkup:
           type: boolean
+        # Optional per-module billing cadence overrides. Modules not listed
+        # default to monthly. Only valid for modules that offer a bi-weekly rate.
+        moduleCadences:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModuleCadenceSelection"
+
+    ModuleCadenceSelection:
+      type: object
+      required: [moduleId, cadence]
+      properties:
+        moduleId:
+          type: integer
+        cadence:
+          type: string
+          enum: [monthly, biweekly]
 
     CheckoutResult:
       type: object

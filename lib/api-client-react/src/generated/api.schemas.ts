@@ -602,11 +602,20 @@ export interface TenantActivityPage {
   hasMore: boolean;
 }
 
+export type TenantSubscribedModuleBillingCadence = typeof TenantSubscribedModuleBillingCadence[keyof typeof TenantSubscribedModuleBillingCadence];
+
+
+export const TenantSubscribedModuleBillingCadence = {
+  monthly: 'monthly',
+  biweekly: 'biweekly',
+} as const;
+
 export interface TenantSubscribedModule {
   moduleId: number;
   name: string;
   category: string;
   categorySlug: string;
+  billingCadence: TenantSubscribedModuleBillingCadence;
   provisionedAt: string;
 }
 
@@ -724,18 +733,41 @@ export const ModuleTenantSubscriberStatus = {
   pending: 'pending',
 } as const;
 
+export type ModuleTenantSubscriberBillingCadence = typeof ModuleTenantSubscriberBillingCadence[keyof typeof ModuleTenantSubscriberBillingCadence];
+
+
+export const ModuleTenantSubscriberBillingCadence = {
+  monthly: 'monthly',
+  biweekly: 'biweekly',
+} as const;
+
 export interface ModuleTenantSubscriber {
   tenantId: number;
   brandName: string;
   subdomain: string;
   status: ModuleTenantSubscriberStatus;
+  billingCadence: ModuleTenantSubscriberBillingCadence;
   provisionedAt: string;
+}
+
+export type ModuleCadenceSelectionCadence = typeof ModuleCadenceSelectionCadence[keyof typeof ModuleCadenceSelectionCadence];
+
+
+export const ModuleCadenceSelectionCadence = {
+  monthly: 'monthly',
+  biweekly: 'biweekly',
+} as const;
+
+export interface ModuleCadenceSelection {
+  moduleId: number;
+  cadence: ModuleCadenceSelectionCadence;
 }
 
 export interface CheckoutInput {
   tenantId: number;
   moduleIds: number[];
   applyMarkup?: boolean;
+  moduleCadences?: ModuleCadenceSelection[];
 }
 
 export interface CheckoutResult {

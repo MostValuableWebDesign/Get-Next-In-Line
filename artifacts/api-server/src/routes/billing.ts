@@ -60,7 +60,10 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
     return;
   }
 
-  const { tenantId, moduleIds, applyMarkup } = parsed.data;
+  const { tenantId, moduleIds, applyMarkup, moduleCadences } = parsed.data;
+  const cadenceById = new Map<number, "monthly" | "biweekly">(
+    (moduleCadences ?? []).map((c) => [c.moduleId, c.cadence])
+  );
 
   const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId));
   if (!tenant) {
@@ -92,27 +95,56 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
     return;
   }
 
+  // Validate cadence selections: bi-weekly is only allowed for modules that
+  // actually offer a bi-weekly rate (and that are part of this checkout).
+  for (const [moduleId, cadence] of cadenceById) {
+    if (cadence !== "biweekly") continue;
+    const mod = selectedModules.find((m) => m.id === moduleId);
+    if (!mod) {
+      res.status(400).json({ error: `Cadence specified for module ${moduleId}, which is not in this checkout` });
+      return;
+    }
+    if (mod.wholesalePriceBiweekly == null) {
+      res.status(400).json({ error: `${mod.name} does not offer bi-weekly billing` });
+      return;
+    }
+  }
+
+  // Bi-weekly charges recur 26 times/year — convert to a monthly-equivalent
+  // amount (×26/12) when rolling into tenant MRR.
+  const BIWEEKLY_TO_MONTHLY = 26 / 12;
+
   let totalWholesale = 0;
   let totalResale = 0;
+  let mrrDelta = 0;
   for (const mod of modulesToProvision) {
-    const wholesale = parseFloat(mod.wholesalePrice);
+    const cadence = cadenceById.get(mod.id) ?? "monthly";
+    const wholesale =
+      cadence === "biweekly" ? parseFloat(mod.wholesalePriceBiweekly!) : parseFloat(mod.wholesalePrice);
     const resale = applyMarkup !== false ? wholesale * (1 + markup / 100) : wholesale;
     totalWholesale += wholesale;
     totalResale += resale;
+    mrrDelta += cadence === "biweekly" ? resale * BIWEEKLY_TO_MONTHLY : resale;
   }
 
   totalWholesale = Math.round(totalWholesale * 100) / 100;
   totalResale = Math.round(totalResale * 100) / 100;
   const margin = Math.round((totalResale - totalWholesale) * 100) / 100;
 
-  // Update tenant MRR and modules count
-  const newMrr = parseFloat(tenant.mrr ?? "0") + totalResale;
+  // Update tenant MRR (monthly-equivalent) and modules count
+  const newMrr = parseFloat(tenant.mrr ?? "0") + mrrDelta;
 
-  // Record per-tenant module assignments
+  // Record per-tenant module assignments with their billing cadence
   if (modulesToProvision.length > 0) {
     await db
       .insert(tenantModulesTable)
-      .values(modulesToProvision.map((m) => ({ tenantId, moduleId: m.id })))
+      .values(
+        modulesToProvision.map((m) => ({
+          tenantId,
+          moduleId: m.id,
+          billingCadence: cadenceById.get(m.id) ?? "monthly",
+        }))
+      )
       .onConflictDoNothing();
   }
 
@@ -137,7 +169,7 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
   await db.insert(tenantActivitiesTable).values({
     tenantId,
     action: `Modules provisioned`,
-    details: `${modulesToProvision.length} module(s) activated — ${modulesToProvision.map((m) => m.name).join(", ")}${skippedModules.length > 0 ? ` (skipped already-active: ${skippedModules.map((m) => m.name).join(", ")})` : ""}`,
+    details: `${modulesToProvision.length} module(s) activated — ${modulesToProvision.map((m) => `${m.name} (${(cadenceById.get(m.id) ?? "monthly") === "biweekly" ? "bi-weekly" : "monthly"})`).join(", ")}${skippedModules.length > 0 ? ` (skipped already-active: ${skippedModules.map((m) => m.name).join(", ")})` : ""}`,
   });
 
   const skippedNote =

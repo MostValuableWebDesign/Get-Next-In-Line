@@ -146,15 +146,21 @@ function CheckoutSimulationModal() {
   const [selectedTenant, setSelectedTenant] = useState<string>('');
   const [selectedModules, setSelectedModules] = useState<number[]>([]);
   const [applyMarkup, setApplyMarkup] = useState(true);
+  const [cadences, setCadences] = useState<Record<number, 'monthly' | 'biweekly'>>({});
 
   const handleSimulate = () => {
     if (!selectedTenant || selectedModules.length === 0) return;
     
+    const moduleCadences = selectedModules
+      .filter(id => cadences[id] === 'biweekly')
+      .map(id => ({ moduleId: id, cadence: 'biweekly' as const }));
+
     simulateCheckout.mutate({
       data: {
         tenantId: parseInt(selectedTenant),
         moduleIds: selectedModules,
-        applyMarkup
+        applyMarkup,
+        ...(moduleCadences.length > 0 ? { moduleCadences } : {})
       }
     }, {
       onSuccess: (res) => {
@@ -181,9 +187,19 @@ function CheckoutSimulationModal() {
   };
 
   const selectedPricing = pricing?.filter(p => selectedModules.includes(p.id)) || [];
-  const totalWholesale = selectedPricing.reduce((sum, p) => sum + p.wholesalePrice, 0);
-  const totalResale = selectedPricing.reduce((sum, p) => sum + (applyMarkup ? p.resalePrice : p.wholesalePrice), 0);
-  const totalMargin = applyMarkup ? selectedPricing.reduce((sum, p) => sum + p.margin, 0) : 0;
+  const cadenceOf = (p: NonNullable<typeof pricing>[number]) =>
+    cadences[p.id] === 'biweekly' && p.resalePriceBiweekly != null ? 'biweekly' : 'monthly';
+  const wholesaleFor = (p: NonNullable<typeof pricing>[number]) =>
+    cadenceOf(p) === 'biweekly' ? (p.wholesalePriceBiweekly ?? p.wholesalePrice) : p.wholesalePrice;
+  const resaleFor = (p: NonNullable<typeof pricing>[number]) =>
+    cadenceOf(p) === 'biweekly' ? (p.resalePriceBiweekly ?? p.resalePrice) : p.resalePrice;
+  const marginFor = (p: NonNullable<typeof pricing>[number]) =>
+    cadenceOf(p) === 'biweekly' ? (p.marginBiweekly ?? p.margin) : p.margin;
+  const chargeFor = (p: NonNullable<typeof pricing>[number]) =>
+    applyMarkup ? resaleFor(p) : wholesaleFor(p);
+  const totalWholesale = selectedPricing.reduce((sum, p) => sum + wholesaleFor(p), 0);
+  const totalResale = selectedPricing.reduce((sum, p) => sum + chargeFor(p), 0);
+  const totalMargin = applyMarkup ? selectedPricing.reduce((sum, p) => sum + marginFor(p), 0) : 0;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -225,17 +241,39 @@ function CheckoutSimulationModal() {
                 </div>
               </label>
               <div className="border rounded-md h-[240px] overflow-y-auto p-2 space-y-1">
-                {pricing?.map(p => (
-                  <div key={p.id} className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-sm cursor-pointer" onClick={() => toggleModule(p.id)}>
-                    <Checkbox checked={selectedModules.includes(p.id)} onCheckedChange={() => toggleModule(p.id)} />
-                    <div className="flex-1 flex justify-between items-center text-sm">
-                      <span>{p.name}</span>
-                      <span className="font-mono text-muted-foreground">
-                        {formatCurrency(applyMarkup ? p.resalePrice : p.wholesalePrice)}
-                      </span>
+                {pricing?.map(p => {
+                  const isSelected = selectedModules.includes(p.id);
+                  const hasBiweekly = p.resalePriceBiweekly != null;
+                  const cadence = cadenceOf(p);
+                  return (
+                    <div key={p.id} className="p-2 hover:bg-muted/50 rounded-sm">
+                      <div className="flex items-center space-x-3 cursor-pointer" onClick={() => toggleModule(p.id)}>
+                        <Checkbox checked={isSelected} onCheckedChange={() => toggleModule(p.id)} />
+                        <div className="flex-1 flex justify-between items-center text-sm">
+                          <span>{p.name}</span>
+                          <span className="font-mono text-muted-foreground">
+                            {formatCurrency(chargeFor(p))}{hasBiweekly && cadence === 'biweekly' ? '/2wk' : ''}
+                          </span>
+                        </div>
+                      </div>
+                      {isSelected && hasBiweekly && (
+                        <div className="flex gap-1 mt-2 ml-7" data-testid={`cadence-toggle-${p.id}`}>
+                          {(['monthly', 'biweekly'] as const).map(c => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setCadences(prev => ({ ...prev, [p.id]: c })); }}
+                              className={`px-2 py-0.5 rounded-full text-[11px] border transition-colors ${cadence === c ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground hover:bg-muted'}`}
+                              data-testid={`button-cadence-${c}-${p.id}`}
+                            >
+                              {c === 'monthly' ? 'Monthly' : 'Bi-Weekly'}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -250,8 +288,16 @@ function CheckoutSimulationModal() {
               <div className="space-y-3 text-sm">
                 {selectedPricing.map(p => (
                   <div key={p.id} className="flex justify-between items-center">
-                    <span className="text-muted-foreground truncate pr-4">{p.name}</span>
-                    <span className="font-mono shrink-0">{formatCurrency(applyMarkup ? p.resalePrice : p.wholesalePrice)}</span>
+                    <span className="text-muted-foreground truncate pr-4">
+                      {p.name}
+                      {cadenceOf(p) === 'biweekly' && (
+                        <Badge variant="outline" className="ml-2 text-[9px] uppercase align-middle">Bi-Weekly</Badge>
+                      )}
+                    </span>
+                    <span className="font-mono shrink-0">
+                      {formatCurrency(chargeFor(p))}
+                      <span className="text-muted-foreground text-xs">{cadenceOf(p) === 'biweekly' ? '/2wk' : '/mo'}</span>
+                    </span>
                   </div>
                 ))}
                 {selectedPricing.length === 0 && (

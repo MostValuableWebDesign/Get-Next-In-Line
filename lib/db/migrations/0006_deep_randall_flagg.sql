@@ -1,0 +1,1 @@
+ALTER TABLE "tenant_modules" ADD COLUMN "billing_cadence" text DEFAULT 'monthly' NOT NULL;

@@ -206,6 +206,7 @@ export const GetTenantModulesResponseItem = zod.object({
   "name": zod.string(),
   "category": zod.string(),
   "categorySlug": zod.string(),
+  "billingCadence": zod.enum(['monthly', 'biweekly']),
   "provisionedAt": zod.string()
 })
 export const GetTenantModulesResponse = zod.array(GetTenantModulesResponseItem)
@@ -266,6 +267,7 @@ export const GetModuleTenantsResponseItem = zod.object({
   "brandName": zod.string(),
   "subdomain": zod.string(),
   "status": zod.enum(['active', 'suspended', 'pending']),
+  "billingCadence": zod.enum(['monthly', 'biweekly']),
   "provisionedAt": zod.string()
 })
 export const GetModuleTenantsResponse = zod.array(GetModuleTenantsResponseItem)
@@ -382,7 +384,11 @@ export const GetBillingSummaryResponse = zod.object({
 export const SimulateCheckoutBody = zod.object({
   "tenantId": zod.number(),
   "moduleIds": zod.array(zod.number()),
-  "applyMarkup": zod.boolean().optional()
+  "applyMarkup": zod.boolean().optional(),
+  "moduleCadences": zod.array(zod.object({
+  "moduleId": zod.number(),
+  "cadence": zod.enum(['monthly', 'biweekly'])
+})).optional()
 })
 
 export const SimulateCheckoutResponse = zod.object({
