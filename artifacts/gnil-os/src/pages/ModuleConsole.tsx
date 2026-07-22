@@ -159,7 +159,7 @@ export default function ModuleConsole() {
               <div className="flex justify-between items-center pb-4 border-b">
                 <span className="text-sm font-medium">API Gateway Status</span>
                 <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> GHL + GNIL Bridge Connected
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> GNIL Bridge Connected
                 </span>
               </div>
               <div className="flex justify-between items-center">
