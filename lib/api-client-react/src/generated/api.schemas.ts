@@ -70,7 +70,136 @@ export interface ConciergeMessageLog {
   errorCode?: string | null;
   /** @nullable */
   errorMessage?: string | null;
+  /** @nullable */
+  clientName?: string | null;
+  /** @nullable */
+  body?: string | null;
   createdAt: string;
+}
+
+export type EngagementRuleRuleType = typeof EngagementRuleRuleType[keyof typeof EngagementRuleRuleType];
+
+
+export const EngagementRuleRuleType = {
+  reminder: 'reminder',
+  rebooking_nudge: 'rebooking_nudge',
+  upsell: 'upsell',
+} as const;
+
+export type EngagementRuleConfig = { [key: string]: unknown };
+
+export interface EngagementRule {
+  id: number;
+  tenantId: number;
+  ruleType: EngagementRuleRuleType;
+  config: EngagementRuleConfig;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type EngagementRuleInputRuleType = typeof EngagementRuleInputRuleType[keyof typeof EngagementRuleInputRuleType];
+
+
+export const EngagementRuleInputRuleType = {
+  reminder: 'reminder',
+  rebooking_nudge: 'rebooking_nudge',
+  upsell: 'upsell',
+} as const;
+
+export type EngagementRuleInputConfig = { [key: string]: unknown };
+
+export interface EngagementRuleInput {
+  ruleType: EngagementRuleInputRuleType;
+  config?: EngagementRuleInputConfig;
+  isActive?: boolean;
+}
+
+export type EngagementRuleUpdateConfig = { [key: string]: unknown };
+
+export interface EngagementRuleUpdate {
+  config?: EngagementRuleUpdateConfig;
+  isActive?: boolean;
+}
+
+export type ConciergeClientProfilePreferredChannel = typeof ConciergeClientProfilePreferredChannel[keyof typeof ConciergeClientProfilePreferredChannel];
+
+
+export const ConciergeClientProfilePreferredChannel = {
+  sms: 'sms',
+  email: 'email',
+  voice: 'voice',
+} as const;
+
+export interface ConciergeClientProfile {
+  id: number;
+  tenantId: number;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  preferredChannel: ConciergeClientProfilePreferredChannel;
+  smsOptIn: boolean;
+  /** @nullable */
+  lastVisitAt?: string | null;
+  /** @nullable */
+  nextVisitAt?: string | null;
+  /** @nullable */
+  averageCycleDays?: number | null;
+  createdAt: string;
+}
+
+export type ConciergeClientProfileInputPreferredChannel = typeof ConciergeClientProfileInputPreferredChannel[keyof typeof ConciergeClientProfileInputPreferredChannel];
+
+
+export const ConciergeClientProfileInputPreferredChannel = {
+  sms: 'sms',
+  email: 'email',
+  voice: 'voice',
+} as const;
+
+export interface ConciergeClientProfileInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  preferredChannel?: ConciergeClientProfileInputPreferredChannel;
+  smsOptIn?: boolean;
+  /** @nullable */
+  lastVisitAt?: string | null;
+  /** @nullable */
+  nextVisitAt?: string | null;
+  /** @nullable */
+  averageCycleDays?: number | null;
+}
+
+export type ConciergeClientProfileUpdatePreferredChannel = typeof ConciergeClientProfileUpdatePreferredChannel[keyof typeof ConciergeClientProfileUpdatePreferredChannel];
+
+
+export const ConciergeClientProfileUpdatePreferredChannel = {
+  sms: 'sms',
+  email: 'email',
+  voice: 'voice',
+} as const;
+
+export interface ConciergeClientProfileUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  preferredChannel?: ConciergeClientProfileUpdatePreferredChannel;
+  smsOptIn?: boolean;
+  /** @nullable */
+  lastVisitAt?: string | null;
+  /** @nullable */
+  nextVisitAt?: string | null;
+  /** @nullable */
+  averageCycleDays?: number | null;
 }
 
 export type SosSettingsSmsMode = typeof SosSettingsSmsMode[keyof typeof SosSettingsSmsMode];
@@ -89,7 +218,7 @@ export interface SosSettings {
   industryType: string;
   resourceLabel: string;
   /** Comma-separated list of the business's own service names. */
-  serviceNames?: string;
+  serviceNames: string;
   aiReceptionistEnabled: boolean;
   waitlistAutoFillEnabled: boolean;
   /** @nullable */

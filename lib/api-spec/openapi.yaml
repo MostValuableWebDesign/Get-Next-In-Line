@@ -446,52 +446,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/SosSettings"
 
-  /tenants/{tenantId}/settings:
-    get:
-      operationId: getTenantSettings
-      tags: [tenants]
-      summary: Get a tenant's business settings (auto-created on first access)
-      parameters:
-        - name: tenantId
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Settings
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SosSettings"
-        "404":
-          description: Tenant not found
-    patch:
-      operationId: updateTenantSettings
-      tags: [tenants]
-      summary: Update a tenant's business settings
-      parameters:
-        - name: tenantId
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SosSettingsUpdate"
-      responses:
-        "200":
-          description: Updated settings
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SosSettings"
-        "404":
-          description: Tenant not found
-
   /sos/resources:
     get:
       operationId: listSosResources
@@ -943,6 +897,279 @@ paths:
               schema:
                 $ref: "#/components/schemas/SosReportsSummary"
 
+  /tenants/{id}/settings:
+    get:
+      operationId: getTenantSettings
+      tags: [tenants]
+      summary: Get a tenant's business settings (profile, receptionist, SMS, service names)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Tenant settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosSettings"
+        "404":
+          description: Tenant not found
+    patch:
+      operationId: updateTenantSettings
+      tags: [tenants]
+      summary: Update a tenant's business settings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosSettingsUpdate"
+      responses:
+        "200":
+          description: Updated tenant settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosSettings"
+        "404":
+          description: Tenant not found
+
+  /tenants/{id}/engagement-rules:
+    get:
+      operationId: listEngagementRules
+      tags: [concierge]
+      summary: List a tenant's concierge engagement rules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Engagement rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EngagementRule"
+        "404":
+          description: Tenant not found
+    post:
+      operationId: createEngagementRule
+      tags: [concierge]
+      summary: Create an engagement rule for a tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EngagementRuleInput"
+      responses:
+        "201":
+          description: Created rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngagementRule"
+        "400":
+          description: Invalid rule configuration
+        "404":
+          description: Tenant not found
+
+  /tenants/{id}/engagement-rules/{ruleId}:
+    patch:
+      operationId: updateEngagementRule
+      tags: [concierge]
+      summary: Update an engagement rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EngagementRuleUpdate"
+      responses:
+        "200":
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngagementRule"
+        "400":
+          description: Invalid rule configuration
+        "404":
+          description: Rule not found for this tenant
+    delete:
+      operationId: deleteEngagementRule
+      tags: [concierge]
+      summary: Delete an engagement rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Rule not found for this tenant
+
+  /tenants/{id}/client-profiles:
+    get:
+      operationId: listClientProfiles
+      tags: [concierge]
+      summary: List a tenant's concierge client profiles
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Client profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConciergeClientProfile"
+        "404":
+          description: Tenant not found
+    post:
+      operationId: createClientProfile
+      tags: [concierge]
+      summary: Create a client profile for a tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeClientProfileInput"
+      responses:
+        "201":
+          description: Created profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeClientProfile"
+        "404":
+          description: Tenant not found
+
+  /tenants/{id}/client-profiles/{profileId}:
+    patch:
+      operationId: updateClientProfile
+      tags: [concierge]
+      summary: Update a client profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeClientProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeClientProfile"
+        "404":
+          description: Profile not found for this tenant
+    delete:
+      operationId: deleteClientProfile
+      tags: [concierge]
+      summary: Delete a client profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Profile not found for this tenant
+
+  /tenants/{id}/message-logs:
+    get:
+      operationId: listConciergeMessageLogs
+      tags: [concierge]
+      summary: List a tenant's concierge message dispatch log, newest first
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Message dispatch log
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConciergeMessageLog"
+        "404":
+          description: Tenant not found
+
   /concierge/suggest-upsells:
     post:
       operationId: suggestConciergeUpsells
@@ -1065,11 +1292,132 @@ components:
           type: ["string", "null"]
         errorMessage:
           type: ["string", "null"]
+        clientName:
+          type: ["string", "null"]
+        body:
+          type: ["string", "null"]
         createdAt:
           type: string
+
+    EngagementRule:
+      type: object
+      required: [id, tenantId, ruleType, config, isActive, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        ruleType:
+          type: string
+          enum: [reminder, rebooking_nudge, upsell]
+        config:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    EngagementRuleInput:
+      type: object
+      required: [ruleType]
+      properties:
+        ruleType:
+          type: string
+          enum: [reminder, rebooking_nudge, upsell]
+        config:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+
+    EngagementRuleUpdate:
+      type: object
+      properties:
+        config:
+          type: object
+          additionalProperties: true
+        isActive:
+          type: boolean
+
+    ConciergeClientProfile:
+      type: object
+      required: [id, tenantId, name, preferredChannel, smsOptIn, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        preferredChannel:
+          type: string
+          enum: [sms, email, voice]
+        smsOptIn:
+          type: boolean
+        lastVisitAt:
+          type: ["string", "null"]
+        nextVisitAt:
+          type: ["string", "null"]
+        averageCycleDays:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+
+    ConciergeClientProfileInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        preferredChannel:
+          type: string
+          enum: [sms, email, voice]
+        smsOptIn:
+          type: boolean
+        lastVisitAt:
+          type: ["string", "null"]
+        nextVisitAt:
+          type: ["string", "null"]
+        averageCycleDays:
+          type: ["integer", "null"]
+
+    ConciergeClientProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        preferredChannel:
+          type: string
+          enum: [sms, email, voice]
+        smsOptIn:
+          type: boolean
+        lastVisitAt:
+          type: ["string", "null"]
+        nextVisitAt:
+          type: ["string", "null"]
+        averageCycleDays:
+          type: ["integer", "null"]
+
     SosSettings:
       type: object
-      required: [id, businessName, industryType, resourceLabel, aiReceptionistEnabled, waitlistAutoFillEnabled, updatedAt]
+      required: [id, businessName, industryType, resourceLabel, aiReceptionistEnabled, waitlistAutoFillEnabled, serviceNames, updatedAt]
       properties:
         id:
           type: integer

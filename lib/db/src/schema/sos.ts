@@ -6,6 +6,7 @@ import {
   boolean,
   numeric,
   timestamp,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { clientProfilesTable } from "./concierge";
 import { tenantsTable } from "./agency";
@@ -28,6 +29,8 @@ export const sosSettingsTable = pgTable("sos_settings", {
   aiReceptionistEnabled: boolean("ai_receptionist_enabled").notNull().default(true),
   waitlistAutoFillEnabled: boolean("waitlist_auto_fill_enabled").notNull().default(true),
   smsFromNumber: text("sms_from_number"),
+  // Business-specific service names the AI receptionist should recognize,
+  // in addition to the generic industry-neutral terms.
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

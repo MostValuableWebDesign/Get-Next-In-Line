@@ -27,12 +27,18 @@ import type {
   BillingSummary,
   CheckoutInput,
   CheckoutResult,
+  ConciergeClientProfile,
+  ConciergeClientProfileInput,
+  ConciergeClientProfileUpdate,
   ConciergeDispatchMessageInput,
   ConciergeMessageLog,
   ConciergeSuggestUpsellsInput,
   ConciergeSuggestUpsellsResult,
   ConnectorRegistryEntry,
   ConnectorRegistryEntryUpdate,
+  EngagementRule,
+  EngagementRuleInput,
+  EngagementRuleUpdate,
   GetTenantActivityParams,
   HealthStatus,
   ListSosAppointmentsParams,
@@ -1838,155 +1844,6 @@ export const useUpdateSosSettings = <TError = ErrorType<unknown>,
       return useMutation(getUpdateSosSettingsMutationOptions(options));
     }
 
-export const getGetTenantSettingsUrl = (tenantId: number,) => {
-
-
-
-
-  return `/api/tenants/${tenantId}/settings`
-}
-
-/**
- * @summary Get a tenant's business settings (auto-created on first access)
- */
-export const getTenantSettings = async (tenantId: number, options?: RequestInit): Promise<SosSettings> => {
-
-  return customFetch<SosSettings>(getGetTenantSettingsUrl(tenantId),
-  {
-    ...options,
-    method: 'GET'
-
-
-  }
-);}
-
-
-
-
-
-export const getGetTenantSettingsQueryKey = (tenantId: number,) => {
-    return [
-    `/api/tenants/${tenantId}/settings`
-    ] as const;
-    }
-
-
-export const getGetTenantSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getTenantSettings>>, TError = ErrorType<void>>(tenantId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetTenantSettingsQueryKey(tenantId);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTenantSettings>>> = ({ signal }) => getTenantSettings(tenantId, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: tenantId !== null && tenantId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTenantSettings>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetTenantSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getTenantSettings>>>
-export type GetTenantSettingsQueryError = ErrorType<void>
-
-
-/**
- * @summary Get a tenant's business settings (auto-created on first access)
- */
-
-export function useGetTenantSettings<TData = Awaited<ReturnType<typeof getTenantSettings>>, TError = ErrorType<void>>(
- tenantId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getGetTenantSettingsQueryOptions(tenantId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return withQueryKey(query, queryOptions.queryKey);
-}
-
-
-
-
-
-
-
-export const getUpdateTenantSettingsUrl = (tenantId: number,) => {
-
-
-
-
-  return `/api/tenants/${tenantId}/settings`
-}
-
-/**
- * @summary Update a tenant's business settings
- */
-export const updateTenantSettings = async (tenantId: number,
-    sosSettingsUpdate: SosSettingsUpdate, options?: RequestInit): Promise<SosSettings> => {
-
-  return customFetch<SosSettings>(getUpdateTenantSettingsUrl(tenantId),
-  {
-    ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(sosSettingsUpdate)
-  }
-);}
-
-
-
-
-
-export const getUpdateTenantSettingsMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantSettings>>, TError,{tenantId: number;data: BodyType<SosSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateTenantSettings>>, TError,{tenantId: number;data: BodyType<SosSettingsUpdate>}, TContext> => {
-
-const mutationKey = ['updateTenantSettings'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTenantSettings>>, {tenantId: number;data: BodyType<SosSettingsUpdate>}> = (props) => {
-          const {tenantId,data} = props ?? {};
-
-          return  updateTenantSettings(tenantId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateTenantSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateTenantSettings>>>
-    export type UpdateTenantSettingsMutationBody = BodyType<SosSettingsUpdate>
-    export type UpdateTenantSettingsMutationError = ErrorType<void>
-
-    /**
- * @summary Update a tenant's business settings
- */
-export const useUpdateTenantSettings = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantSettings>>, TError,{tenantId: number;data: BodyType<SosSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof updateTenantSettings>>,
-        TError,
-        {tenantId: number;data: BodyType<SosSettingsUpdate>},
-        TContext
-      > => {
-      return useMutation(getUpdateTenantSettingsMutationOptions(options));
-    }
-
 export const getListSosResourcesUrl = () => {
 
 
@@ -3699,6 +3556,824 @@ export function useGetSosReportsSummary<TData = Awaited<ReturnType<typeof getSos
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetSosReportsSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTenantSettingsUrl = (id: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/settings`
+}
+
+/**
+ * @summary Get a tenant's business settings (profile, receptionist, SMS, service names)
+ */
+export const getTenantSettings = async (id: number, options?: RequestInit): Promise<SosSettings> => {
+
+  return customFetch<SosSettings>(getGetTenantSettingsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTenantSettingsQueryKey = (id: number,) => {
+    return [
+    `/api/tenants/${id}/settings`
+    ] as const;
+    }
+
+
+export const getGetTenantSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getTenantSettings>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTenantSettingsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTenantSettings>>> = ({ signal }) => getTenantSettings(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTenantSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTenantSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getTenantSettings>>>
+export type GetTenantSettingsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a tenant's business settings (profile, receptionist, SMS, service names)
+ */
+
+export function useGetTenantSettings<TData = Awaited<ReturnType<typeof getTenantSettings>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTenantSettingsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateTenantSettingsUrl = (id: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/settings`
+}
+
+/**
+ * @summary Update a tenant's business settings
+ */
+export const updateTenantSettings = async (id: number,
+    sosSettingsUpdate: SosSettingsUpdate, options?: RequestInit): Promise<SosSettings> => {
+
+  return customFetch<SosSettings>(getUpdateTenantSettingsUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosSettingsUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateTenantSettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantSettings>>, TError,{id: number;data: BodyType<SosSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTenantSettings>>, TError,{id: number;data: BodyType<SosSettingsUpdate>}, TContext> => {
+
+const mutationKey = ['updateTenantSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTenantSettings>>, {id: number;data: BodyType<SosSettingsUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateTenantSettings(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTenantSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateTenantSettings>>>
+    export type UpdateTenantSettingsMutationBody = BodyType<SosSettingsUpdate>
+    export type UpdateTenantSettingsMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a tenant's business settings
+ */
+export const useUpdateTenantSettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantSettings>>, TError,{id: number;data: BodyType<SosSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTenantSettings>>,
+        TError,
+        {id: number;data: BodyType<SosSettingsUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateTenantSettingsMutationOptions(options));
+    }
+
+export const getListEngagementRulesUrl = (id: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/engagement-rules`
+}
+
+/**
+ * @summary List a tenant's concierge engagement rules
+ */
+export const listEngagementRules = async (id: number, options?: RequestInit): Promise<EngagementRule[]> => {
+
+  return customFetch<EngagementRule[]>(getListEngagementRulesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEngagementRulesQueryKey = (id: number,) => {
+    return [
+    `/api/tenants/${id}/engagement-rules`
+    ] as const;
+    }
+
+
+export const getListEngagementRulesQueryOptions = <TData = Awaited<ReturnType<typeof listEngagementRules>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngagementRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEngagementRulesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEngagementRules>>> = ({ signal }) => listEngagementRules(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEngagementRules>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEngagementRulesQueryResult = NonNullable<Awaited<ReturnType<typeof listEngagementRules>>>
+export type ListEngagementRulesQueryError = ErrorType<void>
+
+
+/**
+ * @summary List a tenant's concierge engagement rules
+ */
+
+export function useListEngagementRules<TData = Awaited<ReturnType<typeof listEngagementRules>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngagementRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEngagementRulesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateEngagementRuleUrl = (id: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/engagement-rules`
+}
+
+/**
+ * @summary Create an engagement rule for a tenant
+ */
+export const createEngagementRule = async (id: number,
+    engagementRuleInput: EngagementRuleInput, options?: RequestInit): Promise<EngagementRule> => {
+
+  return customFetch<EngagementRule>(getCreateEngagementRuleUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(engagementRuleInput)
+  }
+);}
+
+
+
+
+
+export const getCreateEngagementRuleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEngagementRule>>, TError,{id: number;data: BodyType<EngagementRuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEngagementRule>>, TError,{id: number;data: BodyType<EngagementRuleInput>}, TContext> => {
+
+const mutationKey = ['createEngagementRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEngagementRule>>, {id: number;data: BodyType<EngagementRuleInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createEngagementRule(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateEngagementRuleMutationResult = NonNullable<Awaited<ReturnType<typeof createEngagementRule>>>
+    export type CreateEngagementRuleMutationBody = BodyType<EngagementRuleInput>
+    export type CreateEngagementRuleMutationError = ErrorType<void>
+
+    /**
+ * @summary Create an engagement rule for a tenant
+ */
+export const useCreateEngagementRule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEngagementRule>>, TError,{id: number;data: BodyType<EngagementRuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createEngagementRule>>,
+        TError,
+        {id: number;data: BodyType<EngagementRuleInput>},
+        TContext
+      > => {
+      return useMutation(getCreateEngagementRuleMutationOptions(options));
+    }
+
+export const getUpdateEngagementRuleUrl = (id: number,
+    ruleId: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/engagement-rules/${ruleId}`
+}
+
+/**
+ * @summary Update an engagement rule
+ */
+export const updateEngagementRule = async (id: number,
+    ruleId: number,
+    engagementRuleUpdate: EngagementRuleUpdate, options?: RequestInit): Promise<EngagementRule> => {
+
+  return customFetch<EngagementRule>(getUpdateEngagementRuleUrl(id,ruleId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(engagementRuleUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateEngagementRuleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEngagementRule>>, TError,{id: number;ruleId: number;data: BodyType<EngagementRuleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEngagementRule>>, TError,{id: number;ruleId: number;data: BodyType<EngagementRuleUpdate>}, TContext> => {
+
+const mutationKey = ['updateEngagementRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEngagementRule>>, {id: number;ruleId: number;data: BodyType<EngagementRuleUpdate>}> = (props) => {
+          const {id,ruleId,data} = props ?? {};
+
+          return  updateEngagementRule(id,ruleId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateEngagementRuleMutationResult = NonNullable<Awaited<ReturnType<typeof updateEngagementRule>>>
+    export type UpdateEngagementRuleMutationBody = BodyType<EngagementRuleUpdate>
+    export type UpdateEngagementRuleMutationError = ErrorType<void>
+
+    /**
+ * @summary Update an engagement rule
+ */
+export const useUpdateEngagementRule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEngagementRule>>, TError,{id: number;ruleId: number;data: BodyType<EngagementRuleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateEngagementRule>>,
+        TError,
+        {id: number;ruleId: number;data: BodyType<EngagementRuleUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateEngagementRuleMutationOptions(options));
+    }
+
+export const getDeleteEngagementRuleUrl = (id: number,
+    ruleId: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/engagement-rules/${ruleId}`
+}
+
+/**
+ * @summary Delete an engagement rule
+ */
+export const deleteEngagementRule = async (id: number,
+    ruleId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteEngagementRuleUrl(id,ruleId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteEngagementRuleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEngagementRule>>, TError,{id: number;ruleId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteEngagementRule>>, TError,{id: number;ruleId: number}, TContext> => {
+
+const mutationKey = ['deleteEngagementRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEngagementRule>>, {id: number;ruleId: number}> = (props) => {
+          const {id,ruleId} = props ?? {};
+
+          return  deleteEngagementRule(id,ruleId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteEngagementRuleMutationResult = NonNullable<Awaited<ReturnType<typeof deleteEngagementRule>>>
+
+    export type DeleteEngagementRuleMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete an engagement rule
+ */
+export const useDeleteEngagementRule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEngagementRule>>, TError,{id: number;ruleId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteEngagementRule>>,
+        TError,
+        {id: number;ruleId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteEngagementRuleMutationOptions(options));
+    }
+
+export const getListClientProfilesUrl = (id: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/client-profiles`
+}
+
+/**
+ * @summary List a tenant's concierge client profiles
+ */
+export const listClientProfiles = async (id: number, options?: RequestInit): Promise<ConciergeClientProfile[]> => {
+
+  return customFetch<ConciergeClientProfile[]>(getListClientProfilesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListClientProfilesQueryKey = (id: number,) => {
+    return [
+    `/api/tenants/${id}/client-profiles`
+    ] as const;
+    }
+
+
+export const getListClientProfilesQueryOptions = <TData = Awaited<ReturnType<typeof listClientProfiles>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientProfiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListClientProfilesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientProfiles>>> = ({ signal }) => listClientProfiles(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listClientProfiles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListClientProfilesQueryResult = NonNullable<Awaited<ReturnType<typeof listClientProfiles>>>
+export type ListClientProfilesQueryError = ErrorType<void>
+
+
+/**
+ * @summary List a tenant's concierge client profiles
+ */
+
+export function useListClientProfiles<TData = Awaited<ReturnType<typeof listClientProfiles>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientProfiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListClientProfilesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateClientProfileUrl = (id: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/client-profiles`
+}
+
+/**
+ * @summary Create a client profile for a tenant
+ */
+export const createClientProfile = async (id: number,
+    conciergeClientProfileInput: ConciergeClientProfileInput, options?: RequestInit): Promise<ConciergeClientProfile> => {
+
+  return customFetch<ConciergeClientProfile>(getCreateClientProfileUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(conciergeClientProfileInput)
+  }
+);}
+
+
+
+
+
+export const getCreateClientProfileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientProfile>>, TError,{id: number;data: BodyType<ConciergeClientProfileInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createClientProfile>>, TError,{id: number;data: BodyType<ConciergeClientProfileInput>}, TContext> => {
+
+const mutationKey = ['createClientProfile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createClientProfile>>, {id: number;data: BodyType<ConciergeClientProfileInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createClientProfile(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateClientProfileMutationResult = NonNullable<Awaited<ReturnType<typeof createClientProfile>>>
+    export type CreateClientProfileMutationBody = BodyType<ConciergeClientProfileInput>
+    export type CreateClientProfileMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a client profile for a tenant
+ */
+export const useCreateClientProfile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createClientProfile>>, TError,{id: number;data: BodyType<ConciergeClientProfileInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createClientProfile>>,
+        TError,
+        {id: number;data: BodyType<ConciergeClientProfileInput>},
+        TContext
+      > => {
+      return useMutation(getCreateClientProfileMutationOptions(options));
+    }
+
+export const getUpdateClientProfileUrl = (id: number,
+    profileId: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/client-profiles/${profileId}`
+}
+
+/**
+ * @summary Update a client profile
+ */
+export const updateClientProfile = async (id: number,
+    profileId: number,
+    conciergeClientProfileUpdate: ConciergeClientProfileUpdate, options?: RequestInit): Promise<ConciergeClientProfile> => {
+
+  return customFetch<ConciergeClientProfile>(getUpdateClientProfileUrl(id,profileId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(conciergeClientProfileUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateClientProfileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientProfile>>, TError,{id: number;profileId: number;data: BodyType<ConciergeClientProfileUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateClientProfile>>, TError,{id: number;profileId: number;data: BodyType<ConciergeClientProfileUpdate>}, TContext> => {
+
+const mutationKey = ['updateClientProfile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateClientProfile>>, {id: number;profileId: number;data: BodyType<ConciergeClientProfileUpdate>}> = (props) => {
+          const {id,profileId,data} = props ?? {};
+
+          return  updateClientProfile(id,profileId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateClientProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateClientProfile>>>
+    export type UpdateClientProfileMutationBody = BodyType<ConciergeClientProfileUpdate>
+    export type UpdateClientProfileMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a client profile
+ */
+export const useUpdateClientProfile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateClientProfile>>, TError,{id: number;profileId: number;data: BodyType<ConciergeClientProfileUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateClientProfile>>,
+        TError,
+        {id: number;profileId: number;data: BodyType<ConciergeClientProfileUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateClientProfileMutationOptions(options));
+    }
+
+export const getDeleteClientProfileUrl = (id: number,
+    profileId: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/client-profiles/${profileId}`
+}
+
+/**
+ * @summary Delete a client profile
+ */
+export const deleteClientProfile = async (id: number,
+    profileId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteClientProfileUrl(id,profileId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteClientProfileMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteClientProfile>>, TError,{id: number;profileId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteClientProfile>>, TError,{id: number;profileId: number}, TContext> => {
+
+const mutationKey = ['deleteClientProfile'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteClientProfile>>, {id: number;profileId: number}> = (props) => {
+          const {id,profileId} = props ?? {};
+
+          return  deleteClientProfile(id,profileId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteClientProfileMutationResult = NonNullable<Awaited<ReturnType<typeof deleteClientProfile>>>
+
+    export type DeleteClientProfileMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a client profile
+ */
+export const useDeleteClientProfile = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteClientProfile>>, TError,{id: number;profileId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteClientProfile>>,
+        TError,
+        {id: number;profileId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteClientProfileMutationOptions(options));
+    }
+
+export const getListConciergeMessageLogsUrl = (id: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/message-logs`
+}
+
+/**
+ * @summary List a tenant's concierge message dispatch log, newest first
+ */
+export const listConciergeMessageLogs = async (id: number, options?: RequestInit): Promise<ConciergeMessageLog[]> => {
+
+  return customFetch<ConciergeMessageLog[]>(getListConciergeMessageLogsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListConciergeMessageLogsQueryKey = (id: number,) => {
+    return [
+    `/api/tenants/${id}/message-logs`
+    ] as const;
+    }
+
+
+export const getListConciergeMessageLogsQueryOptions = <TData = Awaited<ReturnType<typeof listConciergeMessageLogs>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listConciergeMessageLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListConciergeMessageLogsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listConciergeMessageLogs>>> = ({ signal }) => listConciergeMessageLogs(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listConciergeMessageLogs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListConciergeMessageLogsQueryResult = NonNullable<Awaited<ReturnType<typeof listConciergeMessageLogs>>>
+export type ListConciergeMessageLogsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List a tenant's concierge message dispatch log, newest first
+ */
+
+export function useListConciergeMessageLogs<TData = Awaited<ReturnType<typeof listConciergeMessageLogs>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listConciergeMessageLogs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListConciergeMessageLogsQueryOptions(id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

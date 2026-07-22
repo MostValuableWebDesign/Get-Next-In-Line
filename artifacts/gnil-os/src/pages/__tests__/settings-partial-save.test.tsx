@@ -24,9 +24,13 @@ vi.mock('@workspace/api-client-react', () => ({
   useGetSosSettings: () => ({ data: settings, isLoading: false }),
   useUpdateSosSettings: () => ({ mutate, isPending: false }),
   getGetSosSettingsQueryKey: () => ['/api/sos/settings'],
+  // Tenant-scoped variants (unused on the legacy /settings route, but the
+  // component calls the hooks unconditionally with `enabled: false`).
+  useGetTenant: () => ({ data: undefined, isLoading: false }),
+  getGetTenantQueryKey: (id: number) => ['/api/tenants', id],
   useGetTenantSettings: () => ({ data: undefined, isLoading: false }),
+  getGetTenantSettingsQueryKey: (id: number) => ['/api/tenants', id, 'settings'],
   useUpdateTenantSettings: () => ({ mutate: vi.fn(), isPending: false }),
-  getGetTenantSettingsQueryKey: (tenantId: number) => [`/api/tenants/${tenantId}/settings`],
 }));
 
 import Settings from '../Settings';

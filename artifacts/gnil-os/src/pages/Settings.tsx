@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from 'react';
-import { useParams } from 'wouter';
 import {
   useGetSosSettings,
   useUpdateSosSettings,
@@ -7,8 +6,13 @@ import {
   useGetTenantSettings,
   useUpdateTenantSettings,
   getGetTenantSettingsQueryKey,
+  useGetTenant,
+  getGetTenantQueryKey,
+  type SosSettings,
+  type SosSettingsUpdate,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Link, useParams } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,38 +21,48 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Bot, Building2, MessageSquare } from 'lucide-react';
+import { Activity, ArrowLeft, Bot, Building2, MessageSquare } from 'lucide-react';
 
 /**
- * Unified tenant configuration screen.
+ * Unified configuration screen.
  *
  * Consolidates the business profile and every module's options (SOS
  * operations, AI receptionist, SMS delivery) into one place. Each section
- * saves independently via a partial PATCH to the existing settings API, so
- * saving one section never clobbers unsaved edits in another.
+ * saves independently via a partial PATCH, so saving one section never
+ * clobbers unsaved edits in another.
  *
- * Mounted at both /settings (legacy global record) and /tenants/:id/settings
- * (that tenant's own settings record).
+ * Rendered in two contexts:
+ *  - `/settings` — the legacy/global configuration record
+ *  - `/tenants/:id/settings` — that tenant's own settings record
  */
 export default function Settings() {
   const params = useParams<{ id?: string }>();
-  const tenantId = params.id != null && params.id !== '' ? Number(params.id) : null;
+  const tenantId = params.id != null ? Number(params.id) : null;
+  const isTenantScoped = tenantId != null && Number.isInteger(tenantId);
 
   const globalQuery = useGetSosSettings({
-    query: { queryKey: getGetSosSettingsQueryKey(), enabled: tenantId == null },
+    query: { queryKey: getGetSosSettingsQueryKey(), enabled: !isTenantScoped },
   });
   const tenantQuery = useGetTenantSettings(tenantId ?? 0, {
     query: {
       queryKey: getGetTenantSettingsQueryKey(tenantId ?? 0),
-      enabled: tenantId != null,
+      enabled: isTenantScoped,
     },
   });
-  const settings = tenantId == null ? globalQuery.data : tenantQuery.data;
-  const isLoading = tenantId == null ? globalQuery.isLoading : tenantQuery.isLoading;
+  const { data: tenant } = useGetTenant(tenantId ?? 0, {
+    query: { queryKey: getGetTenantQueryKey(tenantId ?? 0), enabled: isTenantScoped },
+  });
 
-  const updateGlobalSettings = useUpdateSosSettings();
-  const updateTenantSettings = useUpdateTenantSettings();
-  const updateSettings = tenantId == null ? updateGlobalSettings : updateTenantSettings;
+  const settings: SosSettings | undefined = isTenantScoped
+    ? tenantQuery.data
+    : globalQuery.data;
+  const isLoading = isTenantScoped ? tenantQuery.isLoading : globalQuery.isLoading;
+  const loadError = isTenantScoped ? tenantQuery.error : globalQuery.error;
+
+  const updateGlobal = useUpdateSosSettings();
+  const updateTenant = useUpdateTenantSettings();
+  const isPending = updateGlobal.isPending || updateTenant.isPending;
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -63,6 +77,11 @@ export default function Settings() {
   const [smsFromNumber, setSmsFromNumber] = React.useState('');
 
   const initialized = useRef(false);
+
+  // Re-initialize local form state when switching between settings records.
+  useEffect(() => {
+    initialized.current = false;
+  }, [tenantId]);
 
   useEffect(() => {
     if (settings && !initialized.current) {
@@ -101,30 +120,34 @@ export default function Settings() {
       smsFromNumber: string;
     }>,
   ) => {
-    const callbacks = {
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey:
-            tenantId == null
-              ? getGetSosSettingsQueryKey()
-              : getGetTenantSettingsQueryKey(tenantId),
-        });
-        toast({ title: `${sectionLabel} saved` });
-      },
-      onError: () => {
-        toast({
-          title: `Couldn't save ${sectionLabel.toLowerCase()}`,
-          description: 'Please try again.',
-          variant: 'destructive',
-        });
-      },
+    const onSuccess = () => {
+      queryClient.invalidateQueries({
+        queryKey:
+          tenantId == null
+            ? getGetSosSettingsQueryKey()
+            : getGetTenantSettingsQueryKey(tenantId),
+      });
+      toast({ title: `${sectionLabel} saved` });
     };
-    if (tenantId == null) {
-      updateGlobalSettings.mutate({ data }, callbacks);
+    const onError = () => {
+      toast({
+        title: `Couldn't save ${sectionLabel.toLowerCase()}`,
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
+    };
+    if (isTenantScoped) {
+      updateTenant.mutate({ id: tenantId!, data }, { onSuccess, onError });
     } else {
-      updateTenantSettings.mutate({ tenantId, data }, callbacks);
+      updateGlobal.mutate({ data }, { onSuccess, onError });
     }
   };
+
+  const parseServiceNames = (text: string): string[] =>
+    text
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
 
   if (isLoading) {
     return (
@@ -136,12 +159,49 @@ export default function Settings() {
     );
   }
 
+  if (isTenantScoped && (loadError || !settings)) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold tracking-tight">Tenant not found</h1>
+        <p className="text-muted-foreground">
+          This tenant does not exist or is no longer available.
+        </p>
+        <Button asChild variant="outline">
+          <Link href="/tenants">Back to Tenant Operations</Link>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6" data-testid="page-settings">
+      {isTenantScoped && (
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="gap-2 -ml-2 text-muted-foreground"
+          data-testid="link-back-tenant"
+        >
+          <Link href={`/tenants/${tenantId}`}>
+            <ArrowLeft className="w-4 h-4" /> Back to {tenant?.brandName ?? 'Tenant'}
+          </Link>
+        </Button>
+      )}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Configuration</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          One place to configure your business profile, modules, and integrations.
+          {isTenantScoped ? (
+            <>
+              Settings for{' '}
+              <span className="font-medium" data-testid="text-settings-tenant">
+                {tenant?.brandName ?? `tenant #${tenantId}`}
+              </span>{' '}
+              only — changes here never affect other businesses.
+            </>
+          ) : (
+            'One place to configure your business profile, modules, and integrations.'
+          )}
         </p>
       </div>
 
@@ -185,7 +245,7 @@ export default function Settings() {
           <div className="flex justify-end pt-2">
             <Button
               onClick={() => saveSection('Business profile', profile)}
-              disabled={updateSettings.isPending}
+              disabled={isPending}
               data-testid="button-save-profile"
             >
               Save Profile
@@ -240,7 +300,7 @@ export default function Settings() {
           <div className="flex justify-end">
             <Button
               onClick={() => saveSection('AI Receptionist', { aiReceptionistEnabled, serviceNames })}
-              disabled={updateSettings.isPending}
+              disabled={isPending}
               data-testid="button-save-ai-receptionist"
             >
               Save AI Receptionist
@@ -282,7 +342,7 @@ export default function Settings() {
           <div className="flex justify-end">
             <Button
               onClick={() => saveSection('SOS Operations', { waitlistAutoFillEnabled })}
-              disabled={updateSettings.isPending}
+              disabled={isPending}
               data-testid="button-save-sos-operations"
             >
               Save SOS Operations
@@ -375,7 +435,7 @@ export default function Settings() {
           <div className="flex justify-end">
             <Button
               onClick={() => saveSection('SMS settings', { smsFromNumber })}
-              disabled={updateSettings.isPending}
+              disabled={isPending}
               data-testid="button-save-sms"
             >
               Save SMS Settings

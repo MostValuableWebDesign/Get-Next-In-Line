@@ -4,23 +4,6 @@ import twilio from "twilio";
 import { logger } from "./logger";
 
 /**
- * Look up the settings row scoped to a tenant (or the legacy global row when
- * tenantId is null/omitted). Missing rows just mean "no override configured".
- */
-async function getScopedSettings(tenantId: number | null | undefined) {
-  const [settings] = await db
-    .select()
-    .from(sosSettingsTable)
-    .where(
-      tenantId == null
-        ? isNull(sosSettingsTable.tenantId)
-        : eq(sosSettingsTable.tenantId, tenantId),
-    )
-    .limit(1);
-  return settings ?? null;
-}
-
-/**
  * Low-level SMS transport. Uses Twilio when credentials are available (via
  * the Replit Twilio connector or TWILIO_* env vars); otherwise reports
  * "simulated" so the product flow keeps working end-to-end and is explicit
@@ -128,12 +111,27 @@ export async function getTwilioAuthToken(): Promise<string | null> {
   return creds?.authToken ?? process.env.TWILIO_AUTH_TOKEN ?? null;
 }
 
-/** Live vs. simulated SMS status, for the Settings page (per tenant). */
-export async function getSmsStatus(tenantId: number | null = null): Promise<{
+/** The settings row that governs SMS for a given tenant context. */
+async function getSmsSettings(tenantId?: number | null) {
+  const [settings] = await db
+    .select()
+    .from(sosSettingsTable)
+    .where(
+      tenantId != null
+        ? eq(sosSettingsTable.tenantId, tenantId)
+        : isNull(sosSettingsTable.tenantId),
+    )
+    .orderBy(sosSettingsTable.id)
+    .limit(1);
+  return settings;
+}
+
+/** Live vs. simulated SMS status, for the Settings page. */
+export async function getSmsStatus(tenantId?: number | null): Promise<{
   smsMode: "live" | "simulated";
   activeFromNumber: string | null;
 }> {
-  const settings = await getScopedSettings(tenantId);
+  const settings = await getSmsSettings(tenantId);
   const creds = await getTwilioCreds();
   const fromNumber = normalizeToE164(settings?.smsFromNumber ?? creds?.fromNumber);
   return {
@@ -159,9 +157,9 @@ export interface DeliverSmsResult {
 export async function deliverSms(
   toRaw: string | null | undefined,
   body: string,
-  tenantId: number | null = null,
+  tenantId?: number | null,
 ): Promise<DeliverSmsResult> {
-  const settings = await getScopedSettings(tenantId);
+  const settings = await getSmsSettings(tenantId);
   const creds = await getTwilioCreds();
   // The tenant's (or legacy global) settings override wins over the
   // connector/env From number.

@@ -16,9 +16,46 @@ import {
   UpdateTenantBody,
   UpdateTenantResponse,
   DeleteTenantParams,
+  GetTenantSettingsResponse,
+  UpdateTenantSettingsBody,
+  UpdateTenantSettingsResponse,
 } from "@workspace/api-zod";
+import { sosSettingsTable } from "@workspace/db";
+import { getSettingsForTenant, serializeSettings } from "../lib/settings";
 
 const router: IRouter = Router();
+
+// ── per-tenant settings ──────────────────────────────────────────────────────
+
+router.get("/tenants/:id/settings", async (req, res): Promise<void> => {
+  const tenantId = Number(req.params.id);
+  const settings = Number.isInteger(tenantId)
+    ? await getSettingsForTenant(tenantId)
+    : null;
+  if (!settings) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
+  res.json(GetTenantSettingsResponse.parse(await serializeSettings(settings)));
+});
+
+router.patch("/tenants/:id/settings", async (req, res): Promise<void> => {
+  const tenantId = Number(req.params.id);
+  const body = UpdateTenantSettingsBody.parse(req.body);
+  const settings = Number.isInteger(tenantId)
+    ? await getSettingsForTenant(tenantId)
+    : null;
+  if (!settings) {
+    res.status(404).json({ error: "Tenant not found" });
+    return;
+  }
+  const [updated] = await db
+    .update(sosSettingsTable)
+    .set({ ...body, updatedAt: new Date() })
+    .where(eq(sosSettingsTable.id, settings.id))
+    .returning();
+  res.json(UpdateTenantSettingsResponse.parse(await serializeSettings(updated)));
+});
 
 router.get("/tenants", async (_req, res): Promise<void> => {
   const tenants = await db

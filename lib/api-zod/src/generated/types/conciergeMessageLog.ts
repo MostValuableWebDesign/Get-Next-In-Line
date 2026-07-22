@@ -23,5 +23,9 @@ export interface ConciergeMessageLog {
   errorCode?: string | null;
   /** @nullable */
   errorMessage?: string | null;
+  /** @nullable */
+  clientName?: string | null;
+  /** @nullable */
+  body?: string | null;
   createdAt: string;
 }

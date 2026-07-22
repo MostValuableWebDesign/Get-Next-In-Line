@@ -429,7 +429,7 @@ export const GetSosSettingsResponse = zod.object({
   "businessName": zod.string(),
   "industryType": zod.string(),
   "resourceLabel": zod.string(),
-  "serviceNames": zod.string().optional().describe('Comma-separated list of the business\'s own service names.'),
+  "serviceNames": zod.string().describe('Comma-separated list of the business\'s own service names.'),
   "aiReceptionistEnabled": zod.boolean(),
   "waitlistAutoFillEnabled": zod.boolean(),
   "smsFromNumber": zod.string().nullish(),
@@ -460,67 +460,7 @@ export const UpdateSosSettingsResponse = zod.object({
   "businessName": zod.string(),
   "industryType": zod.string(),
   "resourceLabel": zod.string(),
-  "serviceNames": zod.string().optional().describe('Comma-separated list of the business\'s own service names.'),
-  "aiReceptionistEnabled": zod.boolean(),
-  "waitlistAutoFillEnabled": zod.boolean(),
-  "smsFromNumber": zod.string().nullish(),
-  "smsMode": zod.enum(['live', 'simulated']).optional(),
-  "smsActiveFromNumber": zod.string().nullish(),
-  "smsInboundWebhookUrl": zod.string().nullish(),
-  "smsInboundReady": zod.boolean().optional(),
-  "updatedAt": zod.string()
-})
-
-
-/**
- * @summary Get a tenant's business settings (auto-created on first access)
- */
-export const GetTenantSettingsParams = zod.object({
-  "tenantId": zod.coerce.number()
-})
-
-export const GetTenantSettingsResponse = zod.object({
-  "id": zod.number(),
-  "tenantId": zod.number().nullish(),
-  "businessName": zod.string(),
-  "industryType": zod.string(),
-  "resourceLabel": zod.string(),
-  "serviceNames": zod.string().optional().describe('Comma-separated list of the business\'s own service names.'),
-  "aiReceptionistEnabled": zod.boolean(),
-  "waitlistAutoFillEnabled": zod.boolean(),
-  "smsFromNumber": zod.string().nullish(),
-  "smsMode": zod.enum(['live', 'simulated']).optional(),
-  "smsActiveFromNumber": zod.string().nullish(),
-  "smsInboundWebhookUrl": zod.string().nullish(),
-  "smsInboundReady": zod.boolean().optional(),
-  "updatedAt": zod.string()
-})
-
-
-/**
- * @summary Update a tenant's business settings
- */
-export const UpdateTenantSettingsParams = zod.object({
-  "tenantId": zod.coerce.number()
-})
-
-export const UpdateTenantSettingsBody = zod.object({
-  "businessName": zod.string().optional(),
-  "industryType": zod.string().optional(),
-  "resourceLabel": zod.string().optional(),
-  "serviceNames": zod.string().optional(),
-  "aiReceptionistEnabled": zod.boolean().optional(),
-  "waitlistAutoFillEnabled": zod.boolean().optional(),
-  "smsFromNumber": zod.string().optional()
-})
-
-export const UpdateTenantSettingsResponse = zod.object({
-  "id": zod.number(),
-  "tenantId": zod.number().nullish(),
-  "businessName": zod.string(),
-  "industryType": zod.string(),
-  "resourceLabel": zod.string(),
-  "serviceNames": zod.string().optional().describe('Comma-separated list of the business\'s own service names.'),
+  "serviceNames": zod.string().describe('Comma-separated list of the business\'s own service names.'),
   "aiReceptionistEnabled": zod.boolean(),
   "waitlistAutoFillEnabled": zod.boolean(),
   "smsFromNumber": zod.string().nullish(),
@@ -1118,6 +1058,276 @@ export const GetSosReportsSummaryResponse = zod.object({
 
 
 /**
+ * @summary Get a tenant's business settings (profile, receptionist, SMS, service names)
+ */
+export const GetTenantSettingsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetTenantSettingsResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullish(),
+  "businessName": zod.string(),
+  "industryType": zod.string(),
+  "resourceLabel": zod.string(),
+  "serviceNames": zod.string().describe('Comma-separated list of the business\'s own service names.'),
+  "aiReceptionistEnabled": zod.boolean(),
+  "waitlistAutoFillEnabled": zod.boolean(),
+  "smsFromNumber": zod.string().nullish(),
+  "smsMode": zod.enum(['live', 'simulated']).optional(),
+  "smsActiveFromNumber": zod.string().nullish(),
+  "smsInboundWebhookUrl": zod.string().nullish(),
+  "smsInboundReady": zod.boolean().optional(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update a tenant's business settings
+ */
+export const UpdateTenantSettingsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateTenantSettingsBody = zod.object({
+  "businessName": zod.string().optional(),
+  "industryType": zod.string().optional(),
+  "resourceLabel": zod.string().optional(),
+  "serviceNames": zod.string().optional(),
+  "aiReceptionistEnabled": zod.boolean().optional(),
+  "waitlistAutoFillEnabled": zod.boolean().optional(),
+  "smsFromNumber": zod.string().optional()
+})
+
+export const UpdateTenantSettingsResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullish(),
+  "businessName": zod.string(),
+  "industryType": zod.string(),
+  "resourceLabel": zod.string(),
+  "serviceNames": zod.string().describe('Comma-separated list of the business\'s own service names.'),
+  "aiReceptionistEnabled": zod.boolean(),
+  "waitlistAutoFillEnabled": zod.boolean(),
+  "smsFromNumber": zod.string().nullish(),
+  "smsMode": zod.enum(['live', 'simulated']).optional(),
+  "smsActiveFromNumber": zod.string().nullish(),
+  "smsInboundWebhookUrl": zod.string().nullish(),
+  "smsInboundReady": zod.boolean().optional(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary List a tenant's concierge engagement rules
+ */
+export const ListEngagementRulesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListEngagementRulesResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "ruleType": zod.enum(['reminder', 'rebooking_nudge', 'upsell']),
+  "config": zod.record(zod.string(), zod.unknown()),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListEngagementRulesResponse = zod.array(ListEngagementRulesResponseItem)
+
+
+/**
+ * @summary Create an engagement rule for a tenant
+ */
+export const CreateEngagementRuleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CreateEngagementRuleBody = zod.object({
+  "ruleType": zod.enum(['reminder', 'rebooking_nudge', 'upsell']),
+  "config": zod.record(zod.string(), zod.unknown()).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const CreateEngagementRuleResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "ruleType": zod.enum(['reminder', 'rebooking_nudge', 'upsell']),
+  "config": zod.record(zod.string(), zod.unknown()),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update an engagement rule
+ */
+export const UpdateEngagementRuleParams = zod.object({
+  "id": zod.coerce.number(),
+  "ruleId": zod.coerce.number()
+})
+
+export const UpdateEngagementRuleBody = zod.object({
+  "config": zod.record(zod.string(), zod.unknown()).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateEngagementRuleResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "ruleType": zod.enum(['reminder', 'rebooking_nudge', 'upsell']),
+  "config": zod.record(zod.string(), zod.unknown()),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete an engagement rule
+ */
+export const DeleteEngagementRuleParams = zod.object({
+  "id": zod.coerce.number(),
+  "ruleId": zod.coerce.number()
+})
+
+export const DeleteEngagementRuleResponse = zod.void()
+
+
+/**
+ * @summary List a tenant's concierge client profiles
+ */
+export const ListClientProfilesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListClientProfilesResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "preferredChannel": zod.enum(['sms', 'email', 'voice']),
+  "smsOptIn": zod.boolean(),
+  "lastVisitAt": zod.string().nullish(),
+  "nextVisitAt": zod.string().nullish(),
+  "averageCycleDays": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+export const ListClientProfilesResponse = zod.array(ListClientProfilesResponseItem)
+
+
+/**
+ * @summary Create a client profile for a tenant
+ */
+export const CreateClientProfileParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const CreateClientProfileBody = zod.object({
+  "name": zod.string().min(1),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "preferredChannel": zod.enum(['sms', 'email', 'voice']).optional(),
+  "smsOptIn": zod.boolean().optional(),
+  "lastVisitAt": zod.string().nullish(),
+  "nextVisitAt": zod.string().nullish(),
+  "averageCycleDays": zod.number().nullish()
+})
+
+export const CreateClientProfileResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "preferredChannel": zod.enum(['sms', 'email', 'voice']),
+  "smsOptIn": zod.boolean(),
+  "lastVisitAt": zod.string().nullish(),
+  "nextVisitAt": zod.string().nullish(),
+  "averageCycleDays": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a client profile
+ */
+export const UpdateClientProfileParams = zod.object({
+  "id": zod.coerce.number(),
+  "profileId": zod.coerce.number()
+})
+
+
+
+
+export const UpdateClientProfileBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "preferredChannel": zod.enum(['sms', 'email', 'voice']).optional(),
+  "smsOptIn": zod.boolean().optional(),
+  "lastVisitAt": zod.string().nullish(),
+  "nextVisitAt": zod.string().nullish(),
+  "averageCycleDays": zod.number().nullish()
+})
+
+export const UpdateClientProfileResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "preferredChannel": zod.enum(['sms', 'email', 'voice']),
+  "smsOptIn": zod.boolean(),
+  "lastVisitAt": zod.string().nullish(),
+  "nextVisitAt": zod.string().nullish(),
+  "averageCycleDays": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a client profile
+ */
+export const DeleteClientProfileParams = zod.object({
+  "id": zod.coerce.number(),
+  "profileId": zod.coerce.number()
+})
+
+export const DeleteClientProfileResponse = zod.void()
+
+
+/**
+ * @summary List a tenant's concierge message dispatch log, newest first
+ */
+export const ListConciergeMessageLogsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListConciergeMessageLogsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "clientProfileId": zod.number().nullable(),
+  "ruleId": zod.number().nullish(),
+  "jobType": zod.string(),
+  "channel": zod.string(),
+  "toNumber": zod.string().nullish(),
+  "status": zod.enum(['pending', 'sent', 'simulated', 'failed', 'skipped']),
+  "errorCode": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "clientName": zod.string().nullish(),
+  "body": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListConciergeMessageLogsResponse = zod.array(ListConciergeMessageLogsResponseItem)
+
+
+/**
  * @summary Suggest active add-ons/enhancements compatible with a service selection for a tenant
  */
 
@@ -1164,6 +1374,8 @@ export const DispatchConciergeMessageResponse = zod.object({
   "status": zod.enum(['pending', 'sent', 'simulated', 'failed', 'skipped']),
   "errorCode": zod.string().nullish(),
   "errorMessage": zod.string().nullish(),
+  "clientName": zod.string().nullish(),
+  "body": zod.string().nullish(),
   "createdAt": zod.string()
 })
 

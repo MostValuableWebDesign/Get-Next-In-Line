@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
 import {
-  Activity, ArrowLeft, Building2, CalendarClock, DollarSign, Mail, Package, Settings, User,
+  Activity, ArrowLeft, Bot, Building2, CalendarClock, DollarSign, Mail, Package, Settings, User,
 } from 'lucide-react';
 
 const ACTIVITY_PAGE_SIZE = 20;
@@ -154,6 +154,11 @@ export default function TenantDetail() {
             </div>
           </div>
           <div className="flex items-center gap-4 self-stretch md:self-auto justify-end">
+          <Button asChild variant="outline" className="gap-2" data-testid="link-tenant-concierge">
+            <Link href={`/tenants/${tenantId}/concierge`}>
+              <Bot className="w-4 h-4" /> Concierge
+            </Link>
+          </Button>
           <Button asChild variant="outline" className="gap-2" data-testid="link-tenant-settings">
             <Link href={`/tenants/${tenantId}/settings`}>
               <Settings className="w-4 h-4" /> Configuration
