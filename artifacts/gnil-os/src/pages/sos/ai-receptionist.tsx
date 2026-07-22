@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useParams } from 'wouter';
 import {
   useListSosCalls, useListSosMessages, useSimulateSosCall, useSendSosMessage,
   useGetSosSettings, useUpdateSosSettings, getGetSosSettingsQueryKey,
+  useGetTenantSettings, useUpdateTenantSettings, getGetTenantSettingsQueryKey,
+  useGetTenant, getGetTenantQueryKey,
   getListSosCallsQueryKey, getListSosMessagesQueryKey,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -14,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Bot, MessageSquare, Phone, Play, Send } from 'lucide-react';
+import { ArrowLeft, Bot, MessageSquare, Phone, Play, Send } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
@@ -28,19 +30,53 @@ import { MessageHistoryTable, type MessageHistoryItem } from '@/components/messa
  * and the SMS broadcast history with the manual-send control. Replaces the
  * old split between the Configuration page (setup) and the Marketing &
  * Comms page (live logs).
+ *
+ * Rendered in two contexts:
+ *  - /sos/ai-receptionist — the legacy/global settings record, plus the
+ *    call log, simulator, and SMS history
+ *  - /tenants/:id/ai-receptionist — that tenant's own receptionist
+ *    settings (configuration only; call/SMS logs are business-wide views)
+ *
+ * This page is the single editing home for AI Receptionist settings — the
+ * Configuration page only shows read-only status linking here.
  */
 export function AiReceptionistPage() {
-  const { data: settings } = useGetSosSettings({
-    query: { queryKey: getGetSosSettingsQueryKey() },
-  });
+  const params = useParams<{ id?: string }>();
+  const tenantId = params.id != null ? Number(params.id) : null;
+  const isTenantScoped = tenantId != null && Number.isInteger(tenantId);
 
-  const update = useUpdateSosSettings();
+  const globalQuery = useGetSosSettings({
+    query: { queryKey: getGetSosSettingsQueryKey(), enabled: !isTenantScoped },
+  });
+  const tenantQuery = useGetTenantSettings(tenantId ?? 0, {
+    query: {
+      queryKey: getGetTenantSettingsQueryKey(tenantId ?? 0),
+      enabled: isTenantScoped,
+    },
+  });
+  const { data: tenant } = useGetTenant(tenantId ?? 0, {
+    query: { queryKey: getGetTenantQueryKey(tenantId ?? 0), enabled: isTenantScoped },
+  });
+  const settings = isTenantScoped ? tenantQuery.data : globalQuery.data;
+
+  const updateGlobal = useUpdateSosSettings();
+  const updateTenant = useUpdateTenantSettings();
+  const update = isTenantScoped
+    ? { isPending: updateTenant.isPending }
+    : { isPending: updateGlobal.isPending };
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [aiReceptionistEnabled, setAiReceptionistEnabled] = useState(false);
   const [serviceNames, setServiceNames] = useState('');
   const initialized = useRef(false);
+
+  // Re-initialize local form state when switching between settings records
+  // (global ↔ tenant, or one tenant to another) so stale values from the
+  // previous scope are never saved into the new one.
+  useEffect(() => {
+    initialized.current = false;
+  }, [tenantId]);
 
   useEffect(() => {
     if (settings && !initialized.current) {
@@ -51,22 +87,26 @@ export function AiReceptionistPage() {
   }, [settings]);
 
   const save = (data: { aiReceptionistEnabled: boolean; serviceNames?: string }) => {
-    update.mutate(
-      { data },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetSosSettingsQueryKey() });
-          toast({ title: 'AI Receptionist settings saved' });
-        },
-        onError: () => {
-          toast({
-            title: "Couldn't save AI Receptionist settings",
-            description: 'Please try again.',
-            variant: 'destructive',
-          });
-        },
-      },
-    );
+    const onSuccess = () => {
+      queryClient.invalidateQueries({
+        queryKey: isTenantScoped
+          ? getGetTenantSettingsQueryKey(tenantId!)
+          : getGetSosSettingsQueryKey(),
+      });
+      toast({ title: 'AI Receptionist settings saved' });
+    };
+    const onError = () => {
+      toast({
+        title: "Couldn't save AI Receptionist settings",
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
+    };
+    if (isTenantScoped) {
+      updateTenant.mutate({ id: tenantId!, data }, { onSuccess, onError });
+    } else {
+      updateGlobal.mutate({ data }, { onSuccess, onError });
+    }
   };
 
   // Inline enable from the disabled-state banner — no cross-page hop.
@@ -77,11 +117,33 @@ export function AiReceptionistPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6" data-testid="page-ai-receptionist">
+      {isTenantScoped && (
+        <Button
+          asChild
+          variant="ghost"
+          size="sm"
+          className="gap-2 -ml-2 text-muted-foreground"
+          data-testid="link-back-tenant"
+        >
+          <Link href={`/tenants/${tenantId}`}>
+            <ArrowLeft className="w-4 h-4" /> Back to {tenant?.brandName ?? 'Tenant'}
+          </Link>
+        </Button>
+      )}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">AI Receptionist</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Configure, test, and monitor the AI Receptionist — settings, call logs, and SMS
-          broadcasts, all in one place.
+          {isTenantScoped ? (
+            <>
+              Receptionist settings for{' '}
+              <span className="font-medium" data-testid="text-ai-receptionist-tenant">
+                {tenant?.brandName ?? `tenant #${tenantId}`}
+              </span>{' '}
+              only — changes here never affect other businesses.
+            </>
+          ) : (
+            'Configure, test, and monitor the AI Receptionist — settings, call logs, and SMS broadcasts, all in one place.'
+          )}
         </p>
       </div>
 
@@ -159,6 +221,10 @@ export function AiReceptionistPage() {
         </CardContent>
       </Card>
 
+      {/* Call logs, the simulator, and SMS history are business-wide views —
+          only rendered on the global page, not per-tenant. */}
+      {!isTenantScoped && (
+        <>
       {/* ── Call log ──────────────────────────────────────────────────── */}
       <div className="space-y-4" data-testid="section-call-logs">
         <div className="flex justify-between items-center">
@@ -189,6 +255,8 @@ export function AiReceptionistPage() {
         </div>
         <MessageLogList />
       </div>
+        </>
+      )}
     </div>
   );
 }

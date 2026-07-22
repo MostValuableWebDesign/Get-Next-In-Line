@@ -64,10 +64,10 @@ const PARTNER_PLACEHOLDERS = {
  *
  * Merges the former "Waitlist & Booking" module marketplace (/operations),
  * the SOS "Operations Center" (/sos/operations), the "Partners (0%)" module
- * marketplace (/partners), and the SOS partner placeholder pages —
- * Employees (/sos/employees), Payroll (/sos/payroll), Business Protection
- * (/sos/business-protection), and Employee Benefits (/sos/employee-benefits)
- * — plus the former GNIL Bridge marketing marketplace (/marketing) —
+ * marketplace (/partners), and the combined Partner Services tab
+ * (/sos/partner-services — the four former SOS partner placeholder pages,
+ * whose old URLs redirect there) — plus the former GNIL Bridge marketing
+ * marketplace (/marketing) —
  * into one tabbed page. All old URLs still work as deep links, each
  * selecting the matching tab, so refresh/back and bookmarks stay correct.
  * Backends and page content are untouched.
@@ -78,10 +78,7 @@ const TAB_ROUTES: Record<string, string> = {
   modules: '/operations',
   marketing: '/marketing',
   partners: '/partners',
-  employees: '/sos/employees',
-  payroll: '/sos/payroll',
-  protection: '/sos/business-protection',
-  benefits: '/sos/employee-benefits',
+  'partner-services': '/sos/partner-services',
 };
 
 function tabForLocation(location: string): string {
@@ -111,13 +108,8 @@ export default function OperationsHub() {
           <TabsTrigger value="partners" data-testid="tab-partner-integrations">
             Partner Integrations
           </TabsTrigger>
-          <TabsTrigger value="employees" data-testid="tab-employees">Employees</TabsTrigger>
-          <TabsTrigger value="payroll" data-testid="tab-payroll">Payroll (Gusto)</TabsTrigger>
-          <TabsTrigger value="protection" data-testid="tab-business-protection">
-            Business Protection
-          </TabsTrigger>
-          <TabsTrigger value="benefits" data-testid="tab-employee-benefits">
-            Employee Benefits
+          <TabsTrigger value="partner-services" data-testid="tab-partner-services">
+            Partner Services
           </TabsTrigger>
         </TabsList>
         <TabsContent value="live" className="mt-4">
@@ -157,17 +149,22 @@ export default function OperationsHub() {
             description="High-value integrations passed through to tenants at 0% markup."
           />
         </TabsContent>
-        <TabsContent value="employees" className="mt-4">
-          <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.employees} />
-        </TabsContent>
-        <TabsContent value="payroll" className="mt-4">
-          <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.payroll} />
-        </TabsContent>
-        <TabsContent value="protection" className="mt-4">
-          <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.protection} />
-        </TabsContent>
-        <TabsContent value="benefits" className="mt-4">
-          <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.benefits} />
+        <TabsContent value="partner-services" className="mt-4">
+          {/* Single combined tab for the four former partner placeholder
+              tabs (Employees, Payroll, Business Protection, Employee
+              Benefits). The old tab URLs redirect here. */}
+          <div className="space-y-2" data-testid="partner-services">
+            <div className="text-center pt-4">
+              <h2 className="text-2xl font-bold tracking-tight">Partner Services</h2>
+              <p className="text-muted-foreground text-sm mt-1">
+                HR, payroll, insurance, and benefits offerings from our partners.
+              </p>
+            </div>
+            <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.employees} />
+            <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.payroll} />
+            <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.protection} />
+            <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.benefits} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

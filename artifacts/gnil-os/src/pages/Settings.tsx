@@ -71,8 +71,6 @@ export default function Settings() {
     industryType: '',
     resourceLabel: '',
   });
-  const [aiReceptionistEnabled, setAiReceptionistEnabled] = React.useState(false);
-  const [serviceNames, setServiceNames] = React.useState('');
   const [waitlistAutoFillEnabled, setWaitlistAutoFillEnabled] = React.useState(false);
   const [smsFromNumber, setSmsFromNumber] = React.useState('');
   const [noShowShieldEnabled, setNoShowShieldEnabled] = React.useState(false);
@@ -94,8 +92,6 @@ export default function Settings() {
         industryType: settings.industryType,
         resourceLabel: settings.resourceLabel,
       });
-      setAiReceptionistEnabled(settings.aiReceptionistEnabled);
-      setServiceNames(settings.serviceNames || '');
       setWaitlistAutoFillEnabled(settings.waitlistAutoFillEnabled);
       setSmsFromNumber(settings.smsFromNumber || '');
       setNoShowShieldEnabled(settings.noShowShieldEnabled);
@@ -269,11 +265,10 @@ export default function Settings() {
       </Card>
 
       {/* ── AI Receptionist module ───────────────────────────────────────
-          Global setup is edited only in the unified AI Receptionist view;
-          here we show a read-only status card with a link. The editable
-          card only remains for tenant-scoped settings, which that view
-          doesn't cover. */}
-      {!isTenantScoped && (
+          AI Receptionist settings are edited only in the AI Receptionist
+          view (global at /sos/ai-receptionist, per-tenant at
+          /tenants/:id/ai-receptionist); here we show a read-only status
+          card with a manage link so the two can't drift. */}
         <Card id="ai-receptionist" className="scroll-mt-6" data-testid="section-ai-receptionist-status">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
@@ -303,80 +298,19 @@ export default function Settings() {
             </div>
             <div className="flex justify-end">
               <Button asChild variant="outline" data-testid="link-manage-ai-receptionist">
-                <Link href="/sos/ai-receptionist">
+                <Link
+                  href={
+                    isTenantScoped
+                      ? `/tenants/${tenantId}/ai-receptionist`
+                      : '/sos/ai-receptionist'
+                  }
+                >
                   <ExternalLink className="w-4 h-4 mr-2" /> Manage in AI Receptionist
                 </Link>
               </Button>
             </div>
           </CardContent>
         </Card>
-      )}
-      {isTenantScoped ? (
-      <Card id="ai-receptionist" className="scroll-mt-6" data-testid="section-ai-receptionist">
-        <CardHeader>
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle className="flex items-center gap-2">
-              <Bot className="w-5 h-5 text-primary" /> AI Receptionist
-            </CardTitle>
-            <Badge
-              variant={settings?.aiReceptionistEnabled ? 'default' : 'secondary'}
-              data-testid="badge-ai-receptionist"
-            >
-              {settings?.aiReceptionistEnabled ? 'Enabled' : 'Disabled'}
-            </Badge>
-          </div>
-          <CardDescription>Autonomous call handling for your business.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div className="space-y-0.5">
-              <Label className="text-base">AI Receptionist</Label>
-              <p className="text-sm text-muted-foreground">
-                Automatically answer calls, take messages, and book appointments.
-              </p>
-            </div>
-            <Switch
-              checked={aiReceptionistEnabled}
-              onCheckedChange={setAiReceptionistEnabled}
-              data-testid="switch-ai-receptionist"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Service Names</Label>
-            <Input
-              value={serviceNames}
-              onChange={(e) => setServiceNames(e.target.value)}
-              placeholder="e.g. haircut, color, blowout"
-              data-testid="input-service-names"
-            />
-            <p className="text-sm text-muted-foreground">
-              Comma-separated list of your services. The receptionist uses these to
-              recognize what callers are asking for.
-            </p>
-          </div>
-          <div className="flex justify-between items-center gap-3">
-            <Button
-              asChild
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground -ml-2"
-              data-testid="link-ai-call-logs"
-            >
-              <Link href="/sos/ai-receptionist">
-                <ExternalLink className="w-4 h-4 mr-2" /> View AI call logs
-              </Link>
-            </Button>
-            <Button
-              onClick={() => saveSection('AI Receptionist', { aiReceptionistEnabled, serviceNames })}
-              disabled={isPending}
-              data-testid="button-save-ai-receptionist"
-            >
-              Save AI Receptionist
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-      ) : null}
 
       {/* ── SOS Operations module ────────────────────────────────────── */}
       <Card id="sos-operations" className="scroll-mt-6" data-testid="section-sos-operations">

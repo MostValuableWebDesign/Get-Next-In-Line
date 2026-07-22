@@ -65,6 +65,9 @@ function ProtectedApp() {
         <Route path="/" component={Dashboard} />
         <Route path="/tenants" component={Tenants} />
         <Route path="/tenants/:id/settings" component={Settings} />
+        {/* Tenant-scoped AI Receptionist configuration — the single editing
+            home for that tenant's receptionist settings. */}
+        <Route path="/tenants/:id/ai-receptionist" component={AiReceptionistPage} />
         <Route path="/tenants/:id" component={TenantDetail} />
         <Route path="/tenants/:id/concierge" component={Concierge} />
         {/* Unified Operations hub — Marketing tab (old GNIL Bridge URL) */}
@@ -77,9 +80,11 @@ function ProtectedApp() {
         <Route path="/modules/:id" component={ModuleConsole} />
         <Route path="/billing" component={Billing} />
         <Route path="/connectors" component={ConnectorRegistry} />
-        {/* Same merged module detail page as /modules/:id — the admin route is
-            kept so Connector Registry links and old bookmarks keep working. */}
-        <Route path="/admin/modules/:id" component={ModuleConsole} />
+        {/* /modules/:id is the canonical Module Console route — the old admin
+            path redirects so bookmarks and stale links keep working. */}
+        <Route path="/admin/modules/:id">
+          {(params) => <Redirect to={`/modules/${params.id}`} replace />}
+        </Route>
         <Route path="/settings" component={Settings} />
         {/* SOS Operations section — the old standalone SOS Dashboard is folded
             into Business Bookings (its KPI stats now render there) */}
@@ -108,11 +113,21 @@ function ProtectedApp() {
         <Route path="/sos/settings">
           <Redirect to="/settings" replace />
         </Route>
-        {/* Unified Operations hub — old SOS partner page URLs deep-link to tabs */}
-        <Route path="/sos/employees" component={OperationsHub} />
-        <Route path="/sos/payroll" component={OperationsHub} />
-        <Route path="/sos/business-protection" component={OperationsHub} />
-        <Route path="/sos/employee-benefits" component={OperationsHub} />
+        {/* Unified Operations hub — combined Partner Services tab. The four
+            former per-partner placeholder URLs redirect to it. */}
+        <Route path="/sos/partner-services" component={OperationsHub} />
+        <Route path="/sos/employees">
+          <Redirect to="/sos/partner-services" replace />
+        </Route>
+        <Route path="/sos/payroll">
+          <Redirect to="/sos/partner-services" replace />
+        </Route>
+        <Route path="/sos/business-protection">
+          <Redirect to="/sos/partner-services" replace />
+        </Route>
+        <Route path="/sos/employee-benefits">
+          <Redirect to="/sos/partner-services" replace />
+        </Route>
         <Route component={NotFound} />
       </Switch>
     </Shell>

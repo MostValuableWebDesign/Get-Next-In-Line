@@ -31,6 +31,12 @@ vi.mock('@workspace/api-client-react', () => ({
   getListSosMessagesQueryKey: () => ['/api/sos/messages'],
   useSimulateSosCall: () => ({ mutate: vi.fn(), isPending: false }),
   useSendSosMessage: () => ({ mutate: vi.fn(), isPending: false }),
+  // Tenant-scoped variants — unused when rendering the global page
+  useGetTenantSettings: () => ({ data: undefined, isLoading: false }),
+  getGetTenantSettingsQueryKey: (id: number) => ['/api/tenants', id, 'settings'],
+  useUpdateTenantSettings: () => ({ mutate: vi.fn(), isPending: false }),
+  useGetTenant: () => ({ data: undefined }),
+  getGetTenantQueryKey: (id: number) => ['/api/tenants', id],
 }));
 
 import { AiReceptionistPage } from '../sos/ai-receptionist';

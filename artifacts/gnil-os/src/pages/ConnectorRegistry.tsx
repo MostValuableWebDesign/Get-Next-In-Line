@@ -111,7 +111,7 @@ export default function ConnectorRegistry() {
                         aria-label={`Open ${m.name} module console`}
                         data-testid={`link-module-console-${m.id}`}
                       >
-                        <Link href={`/admin/modules/${m.id}`}>
+                        <Link href={`/modules/${m.id}`}>
                           <PanelsTopLeft className="size-4" />
                         </Link>
                       </Button>

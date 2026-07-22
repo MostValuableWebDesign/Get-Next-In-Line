@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'Tenant Dashboards', path: '/tenants', icon: Users },
   // Unified hub: Modules (/operations), Live Operations (/sos/operations),
   // Marketing marketplace (/marketing, the old GNIL Bridge page),
-  // Partner Integrations (/partners), and the SOS partner tabs
+  // Partner Integrations (/partners), and the Partner Services tab
   {
     name: 'Operations',
     path: '/operations',
@@ -38,10 +38,7 @@ const NAV_ITEMS: NavItem[] = [
       '/sos/operations',
       '/marketing',
       '/partners',
-      '/sos/employees',
-      '/sos/payroll',
-      '/sos/business-protection',
-      '/sos/employee-benefits',
+      '/sos/partner-services',
     ],
   },
   { name: 'Media & Assets', path: '/media', icon: Radio },

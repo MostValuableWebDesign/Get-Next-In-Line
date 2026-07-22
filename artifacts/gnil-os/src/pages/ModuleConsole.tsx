@@ -48,7 +48,7 @@ const CATEGORY_ROUTES: Record<string, { path: string; label: string }> = {
 
 /**
  * Unified module detail page. Serves both /modules/:id (console view) and
- * /admin/modules/:id (formerly the separate Admin Module Detail page).
+ * /modules/:id (the old /admin/modules/:id path redirects here).
  * The connector-mapping section renders only when the admin module-detail
  * endpoint is accessible to the current session.
  */
