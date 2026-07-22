@@ -825,7 +825,7 @@ paths:
     get:
       operationId: getSosReportsSummary
       tags: [sos]
-      summary: Reports — visits by day, avg wait time, fill-engine performance, call outcomes
+      summary: Reports — visits by day, avg wait time, fill-engine performance, call outcomes, automation stats
       responses:
         "200":
           description: Report summary
@@ -1355,7 +1355,7 @@ components:
 
     SosReportsSummary:
       type: object
-      required: [visitsByDay, avgWaitMinutes, slotsFilled, fillRate, callOutcomes, totalRevenue]
+      required: [visitsByDay, avgWaitMinutes, slotsFilled, fillRate, callOutcomes, totalRevenue, automation]
       properties:
         visitsByDay:
           type: array
@@ -1373,6 +1373,49 @@ components:
             $ref: "#/components/schemas/SosOutcomeCount"
         totalRevenue:
           type: number
+        automation:
+          $ref: "#/components/schemas/SosAutomationSummary"
+
+    SosAutomationSummary:
+      type: object
+      description: Concierge automation metrics aggregated from message_logs over the report window
+      required: [remindersSent, nudgesSent, deliveredCount, failedCount, skippedCount, byJobType, messagesByDay]
+      properties:
+        remindersSent:
+          type: integer
+        nudgesSent:
+          type: integer
+        deliveredCount:
+          type: integer
+        failedCount:
+          type: integer
+        skippedCount:
+          type: integer
+        byJobType:
+          type: array
+          items:
+            $ref: "#/components/schemas/SosAutomationJobTypeStats"
+        messagesByDay:
+          type: array
+          items:
+            $ref: "#/components/schemas/SosDayCount"
+
+    SosAutomationJobTypeStats:
+      type: object
+      required: [jobType, delivered, failed, skipped, pending, total]
+      properties:
+        jobType:
+          type: string
+        delivered:
+          type: integer
+        failed:
+          type: integer
+        skipped:
+          type: integer
+        pending:
+          type: integer
+        total:
+          type: integer
 
     SosDayCount:
       type: object

@@ -9,6 +9,7 @@ import {
   sosWaitlistTable,
   sosMessagesTable,
   sosCallsTable,
+  messageLogsTable,
 } from "@workspace/db";
 import {
   GetSosDashboardResponse,
@@ -1057,8 +1058,16 @@ router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
   since.setDate(since.getDate() - 13);
   since.setHours(0, 0, 0, 0);
 
-  const [visitsByDay, waitRows, filled, cancelledCount, callOutcomes, revenue] =
-    await Promise.all([
+  const [
+    visitsByDay,
+    waitRows,
+    filled,
+    cancelledCount,
+    callOutcomes,
+    revenue,
+    automationByJobStatus,
+    automationByDay,
+  ] = await Promise.all([
       db
         .select({
           day: sql<string>`to_char(${sosVisitsTable.checkedInAt}, 'YYYY-MM-DD')`,
@@ -1094,7 +1103,55 @@ router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
           total: sql<string>`coalesce(sum(${sosVisitsTable.paymentAmount}), 0)`,
         })
         .from(sosVisitsTable),
+      db
+        .select({
+          jobType: messageLogsTable.jobType,
+          status: messageLogsTable.status,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(messageLogsTable)
+        .where(gte(messageLogsTable.createdAt, since))
+        .groupBy(messageLogsTable.jobType, messageLogsTable.status),
+      db
+        .select({
+          day: sql<string>`to_char(${messageLogsTable.createdAt}, 'YYYY-MM-DD')`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(messageLogsTable)
+        .where(gte(messageLogsTable.createdAt, since))
+        .groupBy(sql`1`)
+        .orderBy(sql`1`),
     ]);
+
+  // Fold job-type/status counts into per-job-type stats. "sent" and
+  // "simulated" both count as delivered.
+  const DELIVERED = new Set(["sent", "simulated"]);
+  const jobStats = new Map<
+    string,
+    { jobType: string; delivered: number; failed: number; skipped: number; pending: number; total: number }
+  >();
+  for (const row of automationByJobStatus) {
+    let s = jobStats.get(row.jobType);
+    if (!s) {
+      s = { jobType: row.jobType, delivered: 0, failed: 0, skipped: 0, pending: 0, total: 0 };
+      jobStats.set(row.jobType, s);
+    }
+    s.total += row.count;
+    if (DELIVERED.has(row.status)) s.delivered += row.count;
+    else if (row.status === "failed") s.failed += row.count;
+    else if (row.status === "skipped") s.skipped += row.count;
+    else s.pending += row.count;
+  }
+  const byJobType = [...jobStats.values()].sort((a, b) => b.total - a.total);
+  const automation = {
+    remindersSent: jobStats.get("send_reminder")?.delivered ?? 0,
+    nudgesSent: jobStats.get("rebooking_nudge")?.delivered ?? 0,
+    deliveredCount: byJobType.reduce((n, s) => n + s.delivered, 0),
+    failedCount: byJobType.reduce((n, s) => n + s.failed, 0),
+    skippedCount: byJobType.reduce((n, s) => n + s.skipped, 0),
+    byJobType,
+    messagesByDay: automationByDay,
+  };
 
   const slotsFilled = filled[0].n;
   const cancelled = cancelledCount[0].n;
@@ -1106,6 +1163,7 @@ router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
       fillRate: cancelled > 0 ? Math.round((slotsFilled / cancelled) * 1000) / 10 : 0,
       callOutcomes,
       totalRevenue: parseFloat(revenue[0].total),
+      automation,
     }),
   );
 });

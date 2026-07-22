@@ -463,6 +463,28 @@ export interface SosOutcomeCount {
   count: number;
 }
 
+export interface SosAutomationJobTypeStats {
+  jobType: string;
+  delivered: number;
+  failed: number;
+  skipped: number;
+  pending: number;
+  total: number;
+}
+
+/**
+ * Concierge automation metrics aggregated from message_logs over the report window
+ */
+export interface SosAutomationSummary {
+  remindersSent: number;
+  nudgesSent: number;
+  deliveredCount: number;
+  failedCount: number;
+  skippedCount: number;
+  byJobType: SosAutomationJobTypeStats[];
+  messagesByDay: SosDayCount[];
+}
+
 export interface SosReportsSummary {
   visitsByDay: SosDayCount[];
   avgWaitMinutes: number;
@@ -470,6 +492,7 @@ export interface SosReportsSummary {
   fillRate: number;
   callOutcomes: SosOutcomeCount[];
   totalRevenue: number;
+  automation: SosAutomationSummary;
 }
 
 export interface HealthStatus {

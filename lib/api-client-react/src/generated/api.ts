@@ -3261,7 +3261,7 @@ export const getGetSosReportsSummaryUrl = () => {
 }
 
 /**
- * @summary Reports — visits by day, avg wait time, fill-engine performance, call outcomes
+ * @summary Reports — visits by day, avg wait time, fill-engine performance, call outcomes, automation stats
  */
 export const getSosReportsSummary = async ( options?: RequestInit): Promise<SosReportsSummary> => {
 
@@ -3308,7 +3308,7 @@ export type GetSosReportsSummaryQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Reports — visits by day, avg wait time, fill-engine performance, call outcomes
+ * @summary Reports — visits by day, avg wait time, fill-engine performance, call outcomes, automation stats
  */
 
 export function useGetSosReportsSummary<TData = Awaited<ReturnType<typeof getSosReportsSummary>>, TError = ErrorType<unknown>>(

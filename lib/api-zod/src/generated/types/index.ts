@@ -38,6 +38,8 @@ export * from './sosAppointmentInput';
 export * from './sosAppointmentInputSource';
 export * from './sosAppointmentSource';
 export * from './sosAppointmentStatus';
+export * from './sosAutomationJobTypeStats';
+export * from './sosAutomationSummary';
 export * from './sosCall';
 export * from './sosCallInput';
 export * from './sosCallOutcome';

@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { SosAutomationSummary } from './sosAutomationSummary';
 import type { SosDayCount } from './sosDayCount';
 import type { SosOutcomeCount } from './sosOutcomeCount';
 
@@ -15,4 +16,5 @@ export interface SosReportsSummary {
   fillRate: number;
   callOutcomes: SosOutcomeCount[];
   totalRevenue: number;
+  automation: SosAutomationSummary;
 }

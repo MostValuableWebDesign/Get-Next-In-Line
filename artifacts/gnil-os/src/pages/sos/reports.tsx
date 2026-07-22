@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export function ReportsPage() {
   const { data: summary, isLoading } = useGetSosReportsSummary();
+  const automation = summary?.automation;
 
   const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))'];
 
@@ -78,6 +79,75 @@ export function ReportsPage() {
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">Automation</h2>
+        <p className="text-muted-foreground text-sm mt-1">Concierge reminders, rebooking nudges, and delivery outcomes over the past two weeks.</p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <MetricCard title="Reminders Sent" value={automation?.remindersSent} loading={isLoading} />
+        <MetricCard title="Rebooking Nudges Sent" value={automation?.nudgesSent} loading={isLoading} />
+        <MetricCard title="Failed Messages" value={automation?.failedCount} loading={isLoading} />
+        <MetricCard title="Skipped Messages" value={automation?.skippedCount} loading={isLoading} />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>Messages by Day</CardTitle>
+            <CardDescription>Automated messages over the past two weeks</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            {isLoading ? <Skeleton className="w-full h-full" /> : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={automation?.messagesByDay}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} allowDecimals={false} />
+                  <Tooltip
+                    cursor={{fill: 'hsl(var(--muted))'}}
+                    contentStyle={{borderRadius: '8px', border: '1px solid hsl(var(--border))'}}
+                  />
+                  <Bar dataKey="count" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle>Delivery by Job Type</CardTitle>
+            <CardDescription>Delivered, failed, and skipped counts per automation job</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            {isLoading ? <Skeleton className="w-full h-full" /> : (
+              automation && automation.byJobType.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={automation.byJobType.map((j) => ({ ...j, jobType: j.jobType.replace(/_/g, ' ') }))}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="jobType" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} allowDecimals={false} />
+                    <Tooltip
+                      cursor={{fill: 'hsl(var(--muted))'}}
+                      contentStyle={{borderRadius: '8px', border: '1px solid hsl(var(--border))'}}
+                    />
+                    <Bar dataKey="delivered" name="Delivered" stackId="s" fill="hsl(var(--chart-2))" />
+                    <Bar dataKey="failed" name="Failed" stackId="s" fill="hsl(var(--destructive))" />
+                    <Bar dataKey="skipped" name="Skipped" stackId="s" fill="hsl(var(--chart-4))" />
+                    <Bar dataKey="pending" name="Pending" stackId="s" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  No automated messages in the past two weeks.
+                </div>
+              )
             )}
           </CardContent>
         </Card>

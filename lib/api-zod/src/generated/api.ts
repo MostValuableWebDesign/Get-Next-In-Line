@@ -885,7 +885,7 @@ export const SimulateSosCallResponse = zod.object({
 
 
 /**
- * @summary Reports — visits by day, avg wait time, fill-engine performance, call outcomes
+ * @summary Reports — visits by day, avg wait time, fill-engine performance, call outcomes, automation stats
  */
 export const GetSosReportsSummaryResponse = zod.object({
   "visitsByDay": zod.array(zod.object({
@@ -899,7 +899,26 @@ export const GetSosReportsSummaryResponse = zod.object({
   "outcome": zod.string(),
   "count": zod.number()
 })),
-  "totalRevenue": zod.number()
+  "totalRevenue": zod.number(),
+  "automation": zod.object({
+  "remindersSent": zod.number(),
+  "nudgesSent": zod.number(),
+  "deliveredCount": zod.number(),
+  "failedCount": zod.number(),
+  "skippedCount": zod.number(),
+  "byJobType": zod.array(zod.object({
+  "jobType": zod.string(),
+  "delivered": zod.number(),
+  "failed": zod.number(),
+  "skipped": zod.number(),
+  "pending": zod.number(),
+  "total": zod.number()
+})),
+  "messagesByDay": zod.array(zod.object({
+  "day": zod.string(),
+  "count": zod.number()
+}))
+}).describe('Concierge automation metrics aggregated from message_logs over the report window')
 })
 
 
