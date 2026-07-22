@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Route, Switch, Router as WouterRouter, Redirect } from "wouter";
+import { Route, Switch, Router as WouterRouter, Redirect, useSearch } from "wouter";
 import { Shell } from "@/components/layout/Shell";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -15,7 +15,6 @@ import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
-import { CustomersPage as SosCustomers } from "@/pages/sos/customers";
 import { AiReceptionistPage } from "@/pages/sos/ai-receptionist";
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
 import Settings from "@/pages/Settings";
@@ -32,6 +31,18 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+/**
+ * Redirect the old standalone /sos/customers page into Business Bookings,
+ * preserving the tab (?tab=plans) and customer deep-link (?customer=<id>).
+ */
+function RedirectSosCustomers() {
+  const params = new URLSearchParams(useSearch());
+  const tab = params.get('tab') === 'plans' ? 'plans' : 'customers';
+  const customer = params.get('customer');
+  const to = `/sos/bookings?tab=${tab}${customer ? `&customer=${encodeURIComponent(customer)}` : ''}`;
+  return <Redirect to={to} replace />;
+}
 
 /** Wraps all protected pages — redirects to /login until session is confirmed. */
 function ProtectedApp() {
@@ -108,7 +119,11 @@ function ProtectedApp() {
         <Route path="/sos/calendar">
           <Redirect to="/sos/bookings" replace />
         </Route>
-        <Route path="/sos/customers" component={SosCustomers} />
+        {/* Customers (and its Plans tab) is now folded into Business Bookings —
+            preserve tab + customer-id deep links from old URLs. */}
+        <Route path="/sos/customers">
+          <RedirectSosCustomers />
+        </Route>
         {/* Point of Sale is folded into Business Bookings (tickets + in-service) */}
         <Route path="/sos/pos">
           <Redirect to="/sos/bookings" replace />
@@ -118,9 +133,9 @@ function ProtectedApp() {
           <Redirect to="/sos/bookings?tab=reports" replace />
         </Route>
         <Route path="/sos/bookings" component={SosBookings} />
-        {/* Membership plan management is now a tab inside Customers */}
+        {/* Membership plan management is now a tab inside Business Bookings */}
         <Route path="/sos/memberships">
-          <Redirect to="/sos/customers?tab=plans" replace />
+          <Redirect to="/sos/bookings?tab=plans" replace />
         </Route>
         <Route path="/sos/ai-receptionist">
           <AiReceptionistPage />

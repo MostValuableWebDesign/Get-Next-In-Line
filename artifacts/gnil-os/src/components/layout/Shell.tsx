@@ -48,13 +48,13 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const SOS_NAV_ITEMS: NavItem[] = [
-  // Consolidated hub: appointments + checkout, plus entry points to the
-  // SOS Dashboard (/sos), Customers, and Reports views
+  // Consolidated hub: appointments + checkout, plus Reports, Customers, and
+  // Plans tabs (the old standalone pages redirect here)
   {
     name: 'Business Bookings',
     path: '/sos/bookings',
     icon: BookOpenCheck,
-    aliases: ['/sos', '/sos/calendar', '/sos/pos', '/sos/customers'],
+    aliases: ['/sos', '/sos/calendar', '/sos/pos'],
   },
   // Unified AI Receptionist view: settings, simulator, call logs, and SMS
   // broadcast history in one place (replaces the old Marketing & Comms page).

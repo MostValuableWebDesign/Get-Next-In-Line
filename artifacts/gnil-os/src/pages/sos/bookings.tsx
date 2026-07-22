@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BookAppointmentDialog } from '@/components/sos/book-appointment-dialog';
 import { OpenTicketsPanel } from '@/components/sos/open-tickets-panel';
 import { ReportsContent } from '@/pages/sos/reports';
+import { CustomersContent } from '@/components/sos/customers-content';
+import { MembershipPlansContent } from '@/pages/sos/memberships';
 import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
   Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
@@ -28,15 +30,25 @@ import {
  * List and Calendar views of appointments (the old standalone Calendar page
  * redirects here), plus the one place open tickets are checked out.
  */
-const BOOKINGS_TABS = ['list', 'calendar', 'reports'] as const;
+const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'plans'] as const;
 
 export function BookingsPage() {
   // Tab state lives in the URL (?tab=) so /sos/bookings?tab=reports deep
-  // links — including the redirect from the old /sos/reports page — work.
+  // links — including the redirects from the old /sos/reports,
+  // /sos/customers, and /sos/memberships pages — work.
   const searchString = useSearch();
   const [, setLocation] = useLocation();
   const rawTab = new URLSearchParams(searchString).get('tab');
   const activeTab = (BOOKINGS_TABS as readonly string[]).includes(rawTab ?? '') ? rawTab! : 'list';
+
+  // Deep links from the dashboard / old Customers page:
+  // /sos/bookings?tab=customers&customer=<id> auto-opens the detail dialog.
+  const initialCustomerId = React.useMemo(() => {
+    const raw = new URLSearchParams(searchString).get('customer');
+    const n = raw ? Number(raw) : NaN;
+    return Number.isInteger(n) && n > 0 ? n : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { data: appointments, isLoading: isLoadingAppointments } = useListSosAppointments({});
   const { data: visits, isLoading: isLoadingVisits } = useListSosVisits({ active: true });
@@ -93,24 +105,25 @@ export function BookingsPage() {
         />
       </div>
 
-      {/* Jump links to the other operational views */}
+      {/* Jump links to the other tabs on this page */}
       <div className="grid sm:grid-cols-2 gap-4">
         <JumpLinkCard
-          href="/sos/customers"
+          href="/sos/bookings?tab=customers"
           icon={Users}
           title="Customers"
           description="Manage client records, preferences, and timelines"
         />
         <JumpLinkCard
-          href="/sos/customers?tab=plans"
+          href="/sos/bookings?tab=plans"
           icon={Crown}
           title="Membership Plans"
-          description="Manage plans, packages, and loyalty credit passes (in Customers)"
+          description="Manage plans, packages, and loyalty credit passes"
         />
       </div>
 
-      {/* Appointments — list / calendar views, plus Reports (the old
-          standalone /sos/reports page, now a tab here) */}
+      {/* Appointments — list / calendar views, plus Reports, Customers, and
+          Plans (formerly the standalone /sos/reports, /sos/customers, and
+          /sos/memberships pages, now tabs here) */}
       <Tabs
         value={activeTab}
         onValueChange={(tab) => {
@@ -128,6 +141,12 @@ export function BookingsPage() {
           </TabsTrigger>
           <TabsTrigger value="reports" data-testid="tab-reports">
             <BarChart3 className="h-4 w-4 mr-1.5" /> Reports
+          </TabsTrigger>
+          <TabsTrigger value="customers" data-testid="tab-customers">
+            <Users className="h-4 w-4 mr-1.5" /> Customers
+          </TabsTrigger>
+          <TabsTrigger value="plans" data-testid="tab-membership-plans">
+            <Crown className="h-4 w-4 mr-1.5" /> Plans
           </TabsTrigger>
         </TabsList>
 
@@ -196,6 +215,14 @@ export function BookingsPage() {
 
         <TabsContent value="reports" className="mt-0">
           <ReportsContent />
+        </TabsContent>
+
+        <TabsContent value="customers" className="mt-0">
+          <CustomersContent initialCustomerId={initialCustomerId} />
+        </TabsContent>
+
+        <TabsContent value="plans" className="mt-0">
+          <MembershipPlansContent />
         </TabsContent>
       </Tabs>
     </div>

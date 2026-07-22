@@ -1,76 +1,52 @@
 import React, { useState } from 'react';
-import { 
+import {
   useListSosCustomers, useCreateSosCustomer, useGetSosCustomer, useGetSosCustomerTimeline,
-  getListSosCustomersQueryKey, getGetSosCustomerQueryKey, getGetSosCustomerTimelineQueryKey
+  getListSosCustomersQueryKey, getGetSosCustomerQueryKey, getGetSosCustomerTimelineQueryKey,
+  useGetSosCustomerPlans, getGetSosCustomerPlansQueryKey,
 } from '@workspace/api-client-react';
-import type { SosCustomer, SosTimelineEntry } from '@workspace/api-client-react';
+import type { SosTimelineEntry } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useLocation, useSearch } from 'wouter';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MembershipPlansContent } from '@/pages/sos/memberships';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Phone, Mail, MessageSquare, Sparkles, CalendarClock, PhoneIncoming, Bot } from 'lucide-react';
+import {
+  Search, Plus, Phone, Mail, MessageSquare, Sparkles, CalendarClock, PhoneIncoming, Bot, Crown,
+} from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  useGetSosCustomerPlans, getGetSosCustomerPlansQueryKey,
-} from '@workspace/api-client-react';
 import { PLAN_ICONS, planStatusBadgeClass, CancelPlanButton } from '@/components/sos/plan-benefits';
-import { Crown } from 'lucide-react';
 
-export function CustomersPage() {
+/**
+ * Customer CRM content — rendered as the "Customers" tab on Business
+ * Bookings (the old standalone /sos/customers page redirects there).
+ * `initialCustomerId` supports deep links (?customer=<id>) that auto-open
+ * the customer detail dialog.
+ */
+export function CustomersContent({ initialCustomerId }: { initialCustomerId?: number | null }) {
   const [search, setSearch] = useState('');
-  const searchString = useSearch();
-  const [, setLocation] = useLocation();
-  // Tab state lives in the URL (?tab=plans) so the redirect from the old
-  // standalone /sos/memberships page lands on the Membership Plans tab.
-  const activeTab = new URLSearchParams(searchString).get('tab') === 'plans' ? 'plans' : 'customers';
-  // Support deep links from the dashboard: /sos/customers?customer=<id>
-  const initialCustomer = React.useMemo(() => {
-    const raw = new URLSearchParams(searchString).get('customer');
-    const n = raw ? Number(raw) : NaN;
-    return Number.isInteger(n) && n > 0 ? n : null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const [detailId, setDetailId] = useState<number | null>(initialCustomer);
+  const [detailId, setDetailId] = useState<number | null>(initialCustomerId ?? null);
   const { data: customers } = useListSosCustomers({ search: search || undefined });
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
+    <div className="space-y-4" data-testid="customers-content">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage client records, preferences, and membership plans.</p>
+          <h2 className="text-xl font-semibold tracking-tight">Customers</h2>
+          <p className="text-muted-foreground text-sm mt-1">Manage client records, preferences, and timelines.</p>
         </div>
-        {activeTab === 'customers' && <AddCustomerDialog />}
+        <AddCustomerDialog />
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(tab) => {
-          // Keep the URL in sync so refresh/back and deep links stay correct
-          setLocation(tab === 'plans' ? '/sos/customers?tab=plans' : '/sos/customers', { replace: true });
-        }}
-        className="space-y-4"
-      >
-        <TabsList data-testid="tabs-customers">
-          <TabsTrigger value="customers" data-testid="tab-customers">Customers</TabsTrigger>
-          <TabsTrigger value="plans" data-testid="tab-membership-plans">Membership Plans</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="customers" className="mt-0">
       <Card>
         <CardHeader className="py-4">
           <div className="relative w-72">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search customers..." 
-              className="pl-9" 
+            <Input
+              placeholder="Search customers..."
+              className="pl-9"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -144,12 +120,6 @@ export function CustomersPage() {
           </table>
         </div>
       </Card>
-        </TabsContent>
-
-        <TabsContent value="plans" className="mt-0">
-          <MembershipPlansContent />
-        </TabsContent>
-      </Tabs>
 
       <CustomerDetailDialog customerId={detailId} onClose={() => setDetailId(null)} />
     </div>
@@ -410,7 +380,7 @@ function AddCustomerDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button><Plus className="mr-2 h-4 w-4" /> Add Customer</Button>
+        <Button data-testid="button-add-customer"><Plus className="mr-2 h-4 w-4" /> Add Customer</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -430,10 +400,10 @@ function AddCustomerDialog() {
             <Input value={email} onChange={e => setEmail(e.target.value)} type="email" />
           </div>
           <div className="flex items-center space-x-2 pt-2">
-            <Checkbox 
-              id="sms" 
-              checked={smsOptIn} 
-              onCheckedChange={(c) => setSmsOptIn(c as boolean)} 
+            <Checkbox
+              id="sms"
+              checked={smsOptIn}
+              onCheckedChange={(c) => setSmsOptIn(c as boolean)}
             />
             <Label htmlFor="sms" className="text-sm font-normal">
               Opt-in to SMS waitlist and appointment notifications
