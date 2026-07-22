@@ -12,7 +12,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import {
-  Activity, LayoutDashboard, Users, Radio, CreditCard, WifiOff, X,
+  Activity, LayoutDashboard, Users, CreditCard, WifiOff, X,
   Bot, Settings, BookOpenCheck,
 } from 'lucide-react';
 
@@ -37,11 +37,11 @@ const NAV_ITEMS: NavItem[] = [
     aliases: [
       '/sos/operations',
       '/marketing',
+      '/media',
       '/partners',
       '/sos/partner-services',
     ],
   },
-  { name: 'Media & Assets', path: '/media', icon: Radio },
   { name: 'Billing', path: '/billing', icon: CreditCard },
   // Connector Registry now lives inside Configuration (/settings#connectors)
   { name: 'Configuration', path: '/settings', icon: Settings },
@@ -54,7 +54,7 @@ const SOS_NAV_ITEMS: NavItem[] = [
     name: 'Business Bookings',
     path: '/sos/bookings',
     icon: BookOpenCheck,
-    aliases: ['/sos', '/sos/calendar', '/sos/pos', '/sos/customers', '/sos/reports', '/sos/memberships'],
+    aliases: ['/sos', '/sos/calendar', '/sos/pos', '/sos/customers'],
   },
   // Unified AI Receptionist view: settings, simulator, call logs, and SMS
   // broadcast history in one place (replaces the old Marketing & Comms page).

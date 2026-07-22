@@ -77,6 +77,7 @@ const TAB_ROUTES: Record<string, string> = {
   live: '/sos/operations',
   modules: '/operations',
   marketing: '/marketing',
+  media: '/media',
   partners: '/partners',
   'partner-services': '/sos/partner-services',
 };
@@ -105,6 +106,7 @@ export default function OperationsHub() {
           <TabsTrigger value="live" data-testid="tab-live-operations">Live Operations</TabsTrigger>
           <TabsTrigger value="modules" data-testid="tab-modules">Modules</TabsTrigger>
           <TabsTrigger value="marketing" data-testid="tab-marketing">Marketing</TabsTrigger>
+          <TabsTrigger value="media" data-testid="tab-media">Media</TabsTrigger>
           <TabsTrigger value="partners" data-testid="tab-partner-integrations">
             Partner Integrations
           </TabsTrigger>
@@ -140,6 +142,15 @@ export default function OperationsHub() {
             categorySlug="marketing"
             title="Marketing OS & Bridge"
             description="GNIL integration modules and core marketing pipelines."
+          />
+        </TabsContent>
+        <TabsContent value="media" className="mt-4">
+          {/* Former standalone Media & Assets page — same module marketplace,
+              now a tab. /media deep links select this tab. */}
+          <ModuleGrid
+            categorySlug="media"
+            title="Media & Assets"
+            description="High-margin white-label media buying, ads, and streaming networks."
           />
         </TabsContent>
         <TabsContent value="partners" className="mt-4">

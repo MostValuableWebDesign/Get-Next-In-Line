@@ -37,7 +37,12 @@ function planBenefitSummary(p: {
   return `${p.creditCount ?? 0} prepaid service credits • $${p.price.toFixed(2)} one-time`;
 }
 
-export function MembershipsPage() {
+/**
+ * Membership plan management content — rendered as the "Membership Plans"
+ * tab on the Customers page (the old standalone /sos/memberships page
+ * redirects there).
+ */
+export function MembershipPlansContent() {
   const { data: plans } = useListSosPlans();
   const [editing, setEditing] = useState<SosPlan | null>(null);
 
@@ -47,10 +52,10 @@ export function MembershipsPage() {
   ]);
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
+    <div className="space-y-6" data-testid="membership-plans-content">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Memberships & Passes</h1>
+          <h2 className="text-xl font-semibold tracking-tight">Memberships & Passes</h2>
           <p className="text-muted-foreground text-sm mt-1">
             Plans your business sells — recurring memberships, prepaid packages, and loyalty credit passes.
           </p>

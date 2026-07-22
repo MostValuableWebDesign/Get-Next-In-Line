@@ -9,7 +9,6 @@ import Dashboard from "@/pages/Dashboard";
 import Tenants from "@/pages/Tenants";
 import TenantDetail from "@/pages/TenantDetail";
 import OperationsHub from "@/pages/OperationsHub";
-import Media from "@/pages/Media";
 import Billing from "@/pages/Billing";
 import ModuleConsole from "@/pages/ModuleConsole";
 import Login from "@/pages/Login";
@@ -17,10 +16,8 @@ import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
 import { CustomersPage as SosCustomers } from "@/pages/sos/customers";
-import { ReportsPage as SosReports } from "@/pages/sos/reports";
 import { AiReceptionistPage } from "@/pages/sos/ai-receptionist";
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
-import { MembershipsPage as SosMemberships } from "@/pages/sos/memberships";
 import Settings from "@/pages/Settings";
 
 const queryClient = new QueryClient({
@@ -77,7 +74,8 @@ function ProtectedApp() {
         <Route path="/operations" component={OperationsHub} />
         {/* Unified Operations hub — Partner Integrations tab */}
         <Route path="/partners" component={OperationsHub} />
-        <Route path="/media" component={Media} />
+        {/* Unified Operations hub — Media tab (old Media & Assets page URL) */}
+        <Route path="/media" component={OperationsHub} />
         <Route path="/modules/:id" component={ModuleConsole} />
         <Route path="/billing" component={Billing} />
         {/* Connector Registry is folded into Configuration — old links land
@@ -107,9 +105,15 @@ function ProtectedApp() {
         <Route path="/sos/pos">
           <Redirect to="/sos/bookings" replace />
         </Route>
-        <Route path="/sos/reports" component={SosReports} />
+        {/* Reports is now a tab inside Business Bookings */}
+        <Route path="/sos/reports">
+          <Redirect to="/sos/bookings?tab=reports" replace />
+        </Route>
         <Route path="/sos/bookings" component={SosBookings} />
-        <Route path="/sos/memberships" component={SosMemberships} />
+        {/* Membership plan management is now a tab inside Customers */}
+        <Route path="/sos/memberships">
+          <Redirect to="/sos/customers?tab=plans" replace />
+        </Route>
         <Route path="/sos/ai-receptionist" component={AiReceptionistPage} />
         {/* Old Marketing & Comms page — its receptionist and SMS tabs are now
             part of the unified AI Receptionist view, so any ?tab= deep link

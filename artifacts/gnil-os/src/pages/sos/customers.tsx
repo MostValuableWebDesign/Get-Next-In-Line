@@ -5,7 +5,9 @@ import {
 } from '@workspace/api-client-react';
 import type { SosCustomer, SosTimelineEntry } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSearch } from 'wouter';
+import { useLocation, useSearch } from 'wouter';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MembershipPlansContent } from '@/pages/sos/memberships';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,10 @@ import { Crown } from 'lucide-react';
 export function CustomersPage() {
   const [search, setSearch] = useState('');
   const searchString = useSearch();
+  const [, setLocation] = useLocation();
+  // Tab state lives in the URL (?tab=plans) so the redirect from the old
+  // standalone /sos/memberships page lands on the Membership Plans tab.
+  const activeTab = new URLSearchParams(searchString).get('tab') === 'plans' ? 'plans' : 'customers';
   // Support deep links from the dashboard: /sos/customers?customer=<id>
   const initialCustomer = React.useMemo(() => {
     const raw = new URLSearchParams(searchString).get('customer');
@@ -39,11 +45,25 @@ export function CustomersPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage client records and preferences.</p>
+          <p className="text-muted-foreground text-sm mt-1">Manage client records, preferences, and membership plans.</p>
         </div>
-        <AddCustomerDialog />
+        {activeTab === 'customers' && <AddCustomerDialog />}
       </div>
 
+      <Tabs
+        value={activeTab}
+        onValueChange={(tab) => {
+          // Keep the URL in sync so refresh/back and deep links stay correct
+          setLocation(tab === 'plans' ? '/sos/customers?tab=plans' : '/sos/customers', { replace: true });
+        }}
+        className="space-y-4"
+      >
+        <TabsList data-testid="tabs-customers">
+          <TabsTrigger value="customers" data-testid="tab-customers">Customers</TabsTrigger>
+          <TabsTrigger value="plans" data-testid="tab-membership-plans">Membership Plans</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="customers" className="mt-0">
       <Card>
         <CardHeader className="py-4">
           <div className="relative w-72">
@@ -124,6 +144,12 @@ export function CustomersPage() {
           </table>
         </div>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="plans" className="mt-0">
+          <MembershipPlansContent />
+        </TabsContent>
+      </Tabs>
 
       <CustomerDetailDialog customerId={detailId} onClose={() => setDetailId(null)} />
     </div>

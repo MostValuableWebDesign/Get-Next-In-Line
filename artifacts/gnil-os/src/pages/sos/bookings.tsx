@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
 import {
   useListSosAppointments, getListSosAppointmentsQueryKey,
   useListSosVisits, useMarkSosAppointmentNoShow, useCancelSosAppointment,
@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BookAppointmentDialog } from '@/components/sos/book-appointment-dialog';
 import { OpenTicketsPanel } from '@/components/sos/open-tickets-panel';
+import { ReportsContent } from '@/pages/sos/reports';
 import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
   Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
@@ -27,7 +28,16 @@ import {
  * List and Calendar views of appointments (the old standalone Calendar page
  * redirects here), plus the one place open tickets are checked out.
  */
+const BOOKINGS_TABS = ['list', 'calendar', 'reports'] as const;
+
 export function BookingsPage() {
+  // Tab state lives in the URL (?tab=) so /sos/bookings?tab=reports deep
+  // links — including the redirect from the old /sos/reports page — work.
+  const searchString = useSearch();
+  const [, setLocation] = useLocation();
+  const rawTab = new URLSearchParams(searchString).get('tab');
+  const activeTab = (BOOKINGS_TABS as readonly string[]).includes(rawTab ?? '') ? rawTab! : 'list';
+
   const { data: appointments, isLoading: isLoadingAppointments } = useListSosAppointments({});
   const { data: visits, isLoading: isLoadingVisits } = useListSosVisits({ active: true });
   const { data: dashboard, isLoading: isLoadingDash } = useGetSosDashboard();
@@ -84,7 +94,7 @@ export function BookingsPage() {
       </div>
 
       {/* Jump links to the other operational views */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid sm:grid-cols-2 gap-4">
         <JumpLinkCard
           href="/sos/customers"
           icon={Users}
@@ -92,68 +102,78 @@ export function BookingsPage() {
           description="Manage client records, preferences, and timelines"
         />
         <JumpLinkCard
-          href="/sos/reports"
-          icon={BarChart3}
-          title="Reports"
-          description="Business performance and AI efficiency metrics"
-        />
-        <JumpLinkCard
-          href="/sos/memberships"
+          href="/sos/customers?tab=plans"
           icon={Crown}
-          title="Memberships & Passes"
-          description="Manage plans, packages, and loyalty credit passes"
+          title="Membership Plans"
+          description="Manage plans, packages, and loyalty credit passes (in Customers)"
         />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6 items-start">
-        {/* Appointments — list / calendar views */}
-        <Tabs defaultValue="list" className="space-y-4">
-          <TabsList data-testid="tabs-bookings-view">
-            <TabsTrigger value="list" data-testid="tab-list-view">
-              <ListIcon className="h-4 w-4 mr-1.5" /> List
-            </TabsTrigger>
-            <TabsTrigger value="calendar" data-testid="tab-calendar-view">
-              <CalIcon className="h-4 w-4 mr-1.5" /> Calendar
-            </TabsTrigger>
-          </TabsList>
+      {/* Appointments — list / calendar views, plus Reports (the old
+          standalone /sos/reports page, now a tab here) */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(tab) => {
+          // Keep the URL in sync so refresh/back and deep links stay correct
+          setLocation(tab === 'list' ? '/sos/bookings' : `/sos/bookings?tab=${tab}`, { replace: true });
+        }}
+        className="space-y-4"
+      >
+        <TabsList data-testid="tabs-bookings-view">
+          <TabsTrigger value="list" data-testid="tab-list-view">
+            <ListIcon className="h-4 w-4 mr-1.5" /> List
+          </TabsTrigger>
+          <TabsTrigger value="calendar" data-testid="tab-calendar-view">
+            <CalIcon className="h-4 w-4 mr-1.5" /> Calendar
+          </TabsTrigger>
+          <TabsTrigger value="reports" data-testid="tab-reports">
+            <BarChart3 className="h-4 w-4 mr-1.5" /> Reports
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="list" className="space-y-6 mt-0">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <CalIcon className="h-4 w-4 text-primary" /> Upcoming Appointments
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {isLoadingAppointments ? (
-                  <div className="space-y-2"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
-                ) : upcoming.length === 0 ? (
-                  <div className="text-sm text-muted-foreground text-center py-6">No upcoming appointments.</div>
-                ) : (
-                  upcoming.map(apt => <AppointmentLine key={apt.id} apt={apt} />)
-                )}
-              </CardContent>
-            </Card>
+        <TabsContent value="list" className="mt-0">
+          <div className="grid lg:grid-cols-2 gap-6 items-start">
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <CalIcon className="h-4 w-4 text-primary" /> Upcoming Appointments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {isLoadingAppointments ? (
+                    <div className="space-y-2"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
+                  ) : upcoming.length === 0 ? (
+                    <div className="text-sm text-muted-foreground text-center py-6">No upcoming appointments.</div>
+                  ) : (
+                    upcoming.map(apt => <AppointmentLine key={apt.id} apt={apt} />)
+                  )}
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
-                  <History className="h-4 w-4" /> Past & Cancelled
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {isLoadingAppointments ? (
-                  <Skeleton className="h-14 w-full" />
-                ) : past.length === 0 ? (
-                  <div className="text-sm text-muted-foreground text-center py-6">No past appointments.</div>
-                ) : (
-                  past.slice(0, 8).map(apt => <AppointmentLine key={apt.id} apt={apt} muted />)
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
+                    <History className="h-4 w-4" /> Past & Cancelled
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {isLoadingAppointments ? (
+                    <Skeleton className="h-14 w-full" />
+                  ) : past.length === 0 ? (
+                    <div className="text-sm text-muted-foreground text-center py-6">No past appointments.</div>
+                  ) : (
+                    past.slice(0, 8).map(apt => <AppointmentLine key={apt.id} apt={apt} muted />)
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+            <TicketsColumn isLoadingVisits={isLoadingVisits} openTickets={openTickets} inService={inService} />
+          </div>
+        </TabsContent>
 
-          <TabsContent value="calendar" className="mt-0">
+        <TabsContent value="calendar" className="mt-0">
+          <div className="grid lg:grid-cols-2 gap-6 items-start">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -170,49 +190,64 @@ export function BookingsPage() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
-
-        {/* Transactional (tickets) */}
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
-              <Receipt className="h-4 w-4 text-primary" /> Awaiting Payment
-              {!isLoadingVisits && openTickets.length > 0 && (
-                <Badge variant="secondary" data-testid="badge-awaiting-payment-count">
-                  {openTickets.length} open ticket{openTickets.length === 1 ? '' : 's'}
-                </Badge>
-              )}
-            </h2>
-            {isLoadingVisits ? <Skeleton className="h-32 w-full" /> : <OpenTicketsPanel />}
+            <TicketsColumn isLoadingVisits={isLoadingVisits} openTickets={openTickets} inService={inService} />
           </div>
+        </TabsContent>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
-                <Clock className="h-4 w-4" /> In Service
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isLoadingVisits ? (
-                <Skeleton className="h-14 w-full" />
-              ) : inService.length === 0 ? (
-                <div className="text-sm text-muted-foreground text-center py-6">No active services.</div>
-              ) : (
-                inService.map(v => (
-                  <div key={v.id} className="flex items-center justify-between p-3 border rounded-lg bg-card/50">
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{v.customerName}</div>
-                      <div className="text-xs text-muted-foreground truncate">{v.serviceType}</div>
-                    </div>
-                    <span className="text-xs uppercase font-bold tracking-wide text-muted-foreground">In Service</span>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <TabsContent value="reports" className="mt-0">
+          <ReportsContent />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+/** Transactional (tickets) column shown next to the List and Calendar views. */
+function TicketsColumn({
+  isLoadingVisits, openTickets, inService,
+}: {
+  isLoadingVisits: boolean;
+  openTickets: { id: number }[];
+  inService: { id: number; customerName: string; serviceType: string }[];
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
+          <Receipt className="h-4 w-4 text-primary" /> Awaiting Payment
+          {!isLoadingVisits && openTickets.length > 0 && (
+            <Badge variant="secondary" data-testid="badge-awaiting-payment-count">
+              {openTickets.length} open ticket{openTickets.length === 1 ? '' : 's'}
+            </Badge>
+          )}
+        </h2>
+        {isLoadingVisits ? <Skeleton className="h-32 w-full" /> : <OpenTicketsPanel />}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
+            <Clock className="h-4 w-4" /> In Service
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {isLoadingVisits ? (
+            <Skeleton className="h-14 w-full" />
+          ) : inService.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-6">No active services.</div>
+          ) : (
+            inService.map(v => (
+              <div key={v.id} className="flex items-center justify-between p-3 border rounded-lg bg-card/50">
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{v.customerName}</div>
+                  <div className="text-xs text-muted-foreground truncate">{v.serviceType}</div>
+                </div>
+                <span className="text-xs uppercase font-bold tracking-wide text-muted-foreground">In Service</span>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

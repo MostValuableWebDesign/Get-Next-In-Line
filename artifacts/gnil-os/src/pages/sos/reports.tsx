@@ -8,16 +8,21 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/shared/StatCard';
 
-export function ReportsPage() {
+/**
+ * Reports & Analytics content — rendered as the "Reports" tab on the
+ * Business Bookings page (the old standalone /sos/reports page redirects
+ * there).
+ */
+export function ReportsContent() {
   const { data: summary, isLoading } = useGetSosReportsSummary();
   const automation = summary?.automation;
 
   const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))'];
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
+    <div className="space-y-6" data-testid="reports-content">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Reports & Analytics</h1>
+        <h2 className="text-xl font-semibold tracking-tight">Reports & Analytics</h2>
         <p className="text-muted-foreground text-sm mt-1">Business performance and AI efficiency metrics.</p>
       </div>
 
