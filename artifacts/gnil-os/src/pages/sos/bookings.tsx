@@ -1,29 +1,29 @@
 import React, { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import {
-  useListSosAppointments, useCreateSosAppointment, getListSosAppointmentsQueryKey,
-  useListSosVisits, useMarkSosAppointmentNoShow,
+  useListSosAppointments, getListSosAppointmentsQueryKey,
+  useListSosVisits, useMarkSosAppointmentNoShow, useCancelSosAppointment,
   type SosAppointment,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CustomerPlanBadges } from '@/components/sos/plan-benefits';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BookAppointmentDialog } from '@/components/sos/book-appointment-dialog';
+import { OpenTicketsPanel } from '@/components/sos/open-tickets-panel';
 import {
-  Plus, Calendar as CalIcon, CreditCard, ArrowRight, Receipt, Clock, History,
-  LayoutDashboard, Users, BarChart3, ShieldCheck, UserX, Crown,
+  Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
+  LayoutDashboard, Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
 } from 'lucide-react';
 
 /**
- * Business Bookings — consolidated view of booking/transactional workflows.
- * Composes the existing appointments (Calendar) and visits (POS) data,
- * with quick booking creation and links into the full Calendar and POS pages.
+ * Business Bookings — the single hub for booking/transactional workflows.
+ * List and Calendar views of appointments (the old standalone Calendar page
+ * redirects here), plus the one place open tickets are checked out.
  */
 export function BookingsPage() {
   const { data: appointments, isLoading: isLoadingAppointments } = useListSosAppointments({});
@@ -38,7 +38,6 @@ export function BookingsPage() {
     };
   }, [appointments, now]);
 
-  const openTickets = visits?.filter(v => v.status === 'payment') || [];
   const inService = visits?.filter(v => v.status === 'in_service') || [];
 
   return (
@@ -50,23 +49,11 @@ export function BookingsPage() {
             Appointments and checkout activity in one place.
           </p>
         </div>
-        <QuickBookDialog />
+        <BookAppointmentDialog />
       </div>
 
-      {/* Jump links to the full operational views */}
+      {/* Jump links to the other operational views */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <JumpLinkCard
-          href="/sos/calendar"
-          icon={CalIcon}
-          title="Full Calendar"
-          description="Manage the complete schedule and cancellations"
-        />
-        <JumpLinkCard
-          href="/sos/pos"
-          icon={CreditCard}
-          title="Point of Sale"
-          description="Process payments and close out visits"
-        />
         <JumpLinkCard
           href="/sos"
           icon={LayoutDashboard}
@@ -93,74 +80,82 @@ export function BookingsPage() {
         />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Appointments */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <CalIcon className="h-4 w-4 text-primary" /> Upcoming Appointments
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isLoadingAppointments ? (
-                <div className="space-y-2"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
-              ) : upcoming.length === 0 ? (
-                <div className="text-sm text-muted-foreground text-center py-6">No upcoming appointments.</div>
-              ) : (
-                upcoming.map(apt => <AppointmentLine key={apt.id} apt={apt} />)
-              )}
-            </CardContent>
-          </Card>
+      <div className="grid lg:grid-cols-2 gap-6 items-start">
+        {/* Appointments — list / calendar views */}
+        <Tabs defaultValue="list" className="space-y-4">
+          <TabsList data-testid="tabs-bookings-view">
+            <TabsTrigger value="list" data-testid="tab-list-view">
+              <ListIcon className="h-4 w-4 mr-1.5" /> List
+            </TabsTrigger>
+            <TabsTrigger value="calendar" data-testid="tab-calendar-view">
+              <CalIcon className="h-4 w-4 mr-1.5" /> Calendar
+            </TabsTrigger>
+          </TabsList>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
-                <History className="h-4 w-4" /> Past & Cancelled
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isLoadingAppointments ? (
-                <Skeleton className="h-14 w-full" />
-              ) : past.length === 0 ? (
-                <div className="text-sm text-muted-foreground text-center py-6">No past appointments.</div>
-              ) : (
-                past.slice(0, 8).map(apt => <AppointmentLine key={apt.id} apt={apt} muted />)
-              )}
-            </CardContent>
-          </Card>
-        </div>
+          <TabsContent value="list" className="space-y-6 mt-0">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <CalIcon className="h-4 w-4 text-primary" /> Upcoming Appointments
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {isLoadingAppointments ? (
+                  <div className="space-y-2"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
+                ) : upcoming.length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-6">No upcoming appointments.</div>
+                ) : (
+                  upcoming.map(apt => <AppointmentLine key={apt.id} apt={apt} />)
+                )}
+              </CardContent>
+            </Card>
 
-        {/* Transactional (POS) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
+                  <History className="h-4 w-4" /> Past & Cancelled
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {isLoadingAppointments ? (
+                  <Skeleton className="h-14 w-full" />
+                ) : past.length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-6">No past appointments.</div>
+                ) : (
+                  past.slice(0, 8).map(apt => <AppointmentLine key={apt.id} apt={apt} muted />)
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="calendar" className="mt-0">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <CalIcon className="h-4 w-4 text-primary" /> Schedule
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingAppointments ? (
+                  <div className="space-y-2"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
+                ) : (appointments?.length ?? 0) === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">No upcoming appointments.</div>
+                ) : (
+                  appointments!.map(apt => <CalendarAppointmentRow key={apt.id} apt={apt} />)
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* Transactional (tickets) */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Receipt className="h-4 w-4 text-primary" /> Awaiting Payment
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {isLoadingVisits ? (
-                <Skeleton className="h-14 w-full" />
-              ) : openTickets.length === 0 ? (
-                <div className="text-sm text-muted-foreground text-center py-6">No open tickets waiting for payment.</div>
-              ) : (
-                openTickets.map(v => (
-                  <div key={v.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{v.customerName}</div>
-                      <div className="text-xs text-muted-foreground truncate">{v.serviceType}</div>
-                    </div>
-                    <Link href="/sos/pos">
-                      <Button size="sm" variant="outline">
-                        Check out <ArrowRight className="ml-1 h-3 w-3" />
-                      </Button>
-                    </Link>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
+          <div>
+            <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
+              <Receipt className="h-4 w-4 text-primary" /> Awaiting Payment
+            </h2>
+            {isLoadingVisits ? <Skeleton className="h-32 w-full" /> : <OpenTicketsPanel />}
+          </div>
 
           <Card>
             <CardHeader>
@@ -315,72 +310,83 @@ function AppointmentLine({ apt, muted = false }: { apt: SosAppointment; muted?: 
   );
 }
 
-/** Quick booking creation — same flow as the Calendar page's dialog. */
-function QuickBookDialog() {
+/** Calendar-view row — detailed schedule entry with source badge and cancellation (from the old Calendar page). */
+function CalendarAppointmentRow({ apt }: { apt: SosAppointment }) {
   const [open, setOpen] = useState(false);
-  const [customerId, setCustomerId] = useState('1');
-  const [serviceType, setServiceType] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-
-  const create = useCreateSosAppointment();
+  const cancel = useCancelSosAppointment();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const handleSave = () => {
-    const startsAt = new Date(`${date}T${time}`).toISOString();
-    const dEnd = new Date(`${date}T${time}`);
-    dEnd.setHours(dEnd.getHours() + 1);
-
-    create.mutate(
-      { data: { customerId: parseInt(customerId), serviceType, startsAt, endsAt: dEnd.toISOString(), source: 'staff' } },
+  const handleCancel = () => {
+    cancel.mutate(
+      { id: apt.id },
       {
-        onSuccess: () => {
+        onSuccess: (res: any) => {
           queryClient.invalidateQueries({ queryKey: getListSosAppointmentsQueryKey({}) });
           setOpen(false);
-          toast({ title: 'Appointment Booked' });
+          toast({
+            title: 'Appointment Cancelled',
+            description: `Slot broadcast to ${res.waitlistNotified} waitlisted clients via SMS (${res.messagesSent} messages sent).`,
+            variant: 'default',
+          });
         },
       },
     );
   };
 
+  const sources: Record<string, { icon: any, label: string, color: string }> = {
+    staff: { icon: User, label: 'Staff', color: 'bg-blue-100 text-blue-800' },
+    ai_receptionist: { icon: Bot, label: 'AI Receptionist', color: 'bg-purple-100 text-purple-800' },
+    waitlist_fill: { icon: UserPlus, label: 'Waitlist Fill', color: 'bg-emerald-100 text-emerald-800' },
+    self_book: { icon: CalIcon, label: 'Self Book', color: 'bg-gray-100 text-gray-800' },
+  };
+  const source = sources[apt.source] || sources.staff;
+  const SourceIcon = source.icon;
+
+  const dStart = new Date(apt.startsAt);
+  const dEnd = new Date(apt.endsAt);
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button><Plus className="mr-2 h-4 w-4" /> Quick Book</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Quick Book Appointment</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Customer ID</Label>
-            <Input value={customerId} onChange={e => setCustomerId(e.target.value)} />
-            <CustomerPlanBadges
-              customerId={Number.isInteger(parseInt(customerId, 10)) && parseInt(customerId, 10) > 0 ? parseInt(customerId, 10) : null}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Service Type</Label>
-            <Input value={serviceType} onChange={e => setServiceType(e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Input type="date" value={date} onChange={e => setDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Time</Label>
-              <Input type="time" value={time} onChange={e => setTime(e.target.value)} />
-            </div>
+    <div className="flex items-center justify-between p-4 border rounded-lg hover:border-primary/30 transition-colors">
+      <div className="flex items-center gap-6">
+        <div className="flex flex-col text-center w-20 border-r pr-6">
+          <span className="text-xs uppercase font-bold text-muted-foreground">{dStart.toLocaleDateString([], { weekday: 'short' })}</span>
+          <span className="text-2xl font-bold">{dStart.getDate()}</span>
+          <span className="text-xs text-muted-foreground">{dStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+        <div>
+          <div className="font-semibold text-lg">{apt.customerName}</div>
+          <div className="text-sm text-muted-foreground">{apt.serviceType} • {dStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {dEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+          <div className="mt-2 flex items-center gap-2">
+            <Badge variant="secondary" className={`${source.color} border-transparent text-[10px]`}>
+              <SourceIcon className="w-3 h-3 mr-1" /> {source.label}
+            </Badge>
+            <Badge variant="outline" className="text-[10px]">{apt.status}</Badge>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleSave} disabled={!serviceType || !date || !time}>Book</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+
+      {apt.status === 'booked' && (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
+              <X className="w-4 h-4 mr-2" /> Cancel
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Cancel Appointment?</DialogTitle>
+              <DialogDescription>
+                If there are matching clients on the waitlist, the AI will automatically broadcast this open slot to them via SMS.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>Keep Appointment</Button>
+              <Button variant="destructive" onClick={handleCancel}>Confirm Cancellation</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
   );
 }

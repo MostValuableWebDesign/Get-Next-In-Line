@@ -1,0 +1,99 @@
+import React, { useState } from 'react';
+import { useCreateSosAppointment, getListSosAppointmentsQueryKey } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { CustomerPlanBadges } from '@/components/sos/plan-benefits';
+import { Plus } from 'lucide-react';
+
+/**
+ * Shared "book an appointment" dialog used by every staff entry point
+ * (Business Bookings list and calendar views). One set of fields and
+ * one save flow so behavior can't drift between pages.
+ */
+export function BookAppointmentDialog({ triggerLabel = 'Book Appointment' }: { triggerLabel?: string }) {
+  const [open, setOpen] = useState(false);
+  const [customerId, setCustomerId] = useState('1');
+  const [serviceType, setServiceType] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+
+  const create = useCreateSosAppointment();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const parsedCustomerId = parseInt(customerId, 10);
+
+  const handleSave = () => {
+    const startsAt = new Date(`${date}T${time}`).toISOString();
+    const dEnd = new Date(`${date}T${time}`);
+    dEnd.setHours(dEnd.getHours() + 1);
+
+    create.mutate(
+      { data: { customerId: parsedCustomerId, serviceType, startsAt, endsAt: dEnd.toISOString(), source: 'staff' } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSosAppointmentsQueryKey({}) });
+          setOpen(false);
+          toast({ title: 'Appointment Booked' });
+        },
+        onError: () => {
+          toast({ title: "Couldn't book appointment", description: 'Please try again.', variant: 'destructive' });
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button data-testid="button-book-appointment">
+          <Plus className="mr-2 h-4 w-4" /> {triggerLabel}
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Book Appointment</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Customer ID</Label>
+            <Input value={customerId} onChange={e => setCustomerId(e.target.value)} data-testid="input-customer-id" />
+            <CustomerPlanBadges
+              customerId={Number.isInteger(parsedCustomerId) && parsedCustomerId > 0 ? parsedCustomerId : null}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Service Type</Label>
+            <Input value={serviceType} onChange={e => setServiceType(e.target.value)} data-testid="input-service-type" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input type="date" value={date} onChange={e => setDate(e.target.value)} data-testid="input-date" />
+            </div>
+            <div className="space-y-2">
+              <Label>Time</Label>
+              <Input type="time" value={time} onChange={e => setTime(e.target.value)} data-testid="input-time" />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleSave}
+            disabled={create.isPending || !serviceType || !date || !time || !(Number.isInteger(parsedCustomerId) && parsedCustomerId > 0)}
+            data-testid="button-confirm-book"
+          >
+            Book
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

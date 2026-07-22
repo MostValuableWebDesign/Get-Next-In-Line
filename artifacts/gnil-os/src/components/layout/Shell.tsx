@@ -56,7 +56,7 @@ const SOS_NAV_ITEMS: NavItem[] = [
     name: 'Business Bookings',
     path: '/sos/bookings',
     icon: BookOpenCheck,
-    aliases: ['/sos', '/sos/customers', '/sos/reports', '/sos/memberships'],
+    aliases: ['/sos', '/sos/calendar', '/sos/pos', '/sos/customers', '/sos/reports', '/sos/memberships'],
   },
   // Unified AI Receptionist view: settings, simulator, call logs, and SMS
   // broadcast history in one place (replaces the old Marketing & Comms page).

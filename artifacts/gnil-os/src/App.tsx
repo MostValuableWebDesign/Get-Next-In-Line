@@ -21,7 +21,6 @@ import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
 import { DashboardPage as SosDashboard } from "@/pages/sos/dashboard";
-import { CalendarPage as SosCalendar } from "@/pages/sos/calendar";
 import { CustomersPage as SosCustomers } from "@/pages/sos/customers";
 import { PosPage as SosPos } from "@/pages/sos/pos";
 import { ReportsPage as SosReports } from "@/pages/sos/reports";
@@ -87,7 +86,10 @@ function ProtectedApp() {
         <Route path="/sos" component={SosDashboard} />
         {/* Unified Operations hub — Live Operations tab (old SOS Operations Center URL) */}
         <Route path="/sos/operations" component={OperationsHub} />
-        <Route path="/sos/calendar" component={SosCalendar} />
+        {/* Calendar is now a view inside Business Bookings */}
+        <Route path="/sos/calendar">
+          <Redirect to="/sos/bookings" replace />
+        </Route>
         <Route path="/sos/customers" component={SosCustomers} />
         <Route path="/sos/pos" component={SosPos} />
         <Route path="/sos/reports" component={SosReports} />
