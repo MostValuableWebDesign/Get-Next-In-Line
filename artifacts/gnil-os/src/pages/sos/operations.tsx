@@ -4,8 +4,10 @@ import {
   useAdvanceSosVisit, useCheckInSosVisit, useClaimSosWaitlistSlot,
   useUpdateSosResource, useCreateSosResource, useDeleteSosResource,
   getListSosVisitsQueryKey, getListSosResourcesQueryKey, getListSosWaitlistQueryKey,
+  useGetSosSettings, getGetSosSettingsQueryKey,
   SosVisitStatus
 } from '@workspace/api-client-react';
+import { Link } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,6 +33,10 @@ export function OperationsPage() {
   });
   const { data: waitlist } = useListSosWaitlist({
     query: { queryKey: getListSosWaitlistQueryKey(), refetchInterval: 5000 },
+  });
+  // Read-only: waitlist rules are edited only in Configuration.
+  const { data: settings } = useGetSosSettings({
+    query: { queryKey: getGetSosSettingsQueryKey() },
   });
 
   const advanceVisit = useAdvanceSosVisit();
@@ -145,10 +151,30 @@ export function OperationsPage() {
 
           {/* Zone 3: Smart Waitlist */}
           <div className="flex-1 flex flex-col min-h-0 bg-card border rounded-lg shadow-sm">
-            <div className="p-4 border-b bg-muted/30 shrink-0">
+            <div className="p-4 border-b bg-muted/30 shrink-0 flex justify-between items-center gap-2">
               <h2 className="font-semibold flex items-center gap-2">
                 <Clock className="h-4 w-4 text-primary" /> Smart Waitlist
               </h2>
+              <div className="flex items-center gap-2">
+                {settings && (
+                  <Badge
+                    variant={settings.waitlistAutoFillEnabled ? 'default' : 'secondary'}
+                    className="text-[10px]"
+                    data-testid="badge-waitlist-autofill-status"
+                  >
+                    {settings.waitlistAutoFillEnabled ? 'Auto-fill On' : 'Auto-fill Off'}
+                  </Badge>
+                )}
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-muted-foreground"
+                  data-testid="link-manage-waitlist-settings"
+                >
+                  <Link href="/settings#sos-operations">Manage in Configuration</Link>
+                </Button>
+              </div>
             </div>
             <div className="p-4 overflow-y-auto space-y-3 flex-1">
               {waitlist?.map(entry => (

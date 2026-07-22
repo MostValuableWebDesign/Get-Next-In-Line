@@ -269,9 +269,48 @@ export default function Settings() {
       </Card>
 
       {/* ── AI Receptionist module ───────────────────────────────────────
-          Global setup moved to the unified AI Receptionist view; this card
-          only remains for tenant-scoped settings, which that view doesn't
-          cover. */}
+          Global setup is edited only in the unified AI Receptionist view;
+          here we show a read-only status card with a link. The editable
+          card only remains for tenant-scoped settings, which that view
+          doesn't cover. */}
+      {!isTenantScoped && (
+        <Card id="ai-receptionist" className="scroll-mt-6" data-testid="section-ai-receptionist-status">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-primary" /> AI Receptionist
+              </CardTitle>
+              <Badge
+                variant={settings?.aiReceptionistEnabled ? 'default' : 'secondary'}
+                data-testid="badge-ai-receptionist"
+              >
+                {settings?.aiReceptionistEnabled ? 'Enabled' : 'Disabled'}
+              </Badge>
+            </div>
+            <CardDescription>
+              Autonomous call handling for your business. Configured in the AI Receptionist
+              console — this is a read-only summary.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 border rounded-lg space-y-1">
+              <Label className="text-base">Service Names</Label>
+              <p className="text-sm text-muted-foreground" data-testid="text-service-names-status">
+                {settings?.serviceNames
+                  ? settings.serviceNames
+                  : 'No services configured yet.'}
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <Button asChild variant="outline" data-testid="link-manage-ai-receptionist">
+                <Link href="/sos/ai-receptionist">
+                  <ExternalLink className="w-4 h-4 mr-2" /> Manage in AI Receptionist
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {isTenantScoped ? (
       <Card id="ai-receptionist" className="scroll-mt-6" data-testid="section-ai-receptionist">
         <CardHeader>
