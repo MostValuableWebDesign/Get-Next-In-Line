@@ -1,0 +1,609 @@
+import React, { useState, useEffect } from 'react';
+import {
+  LayoutDashboard,
+  Building2,
+  Users,
+  DollarSign,
+  Calendar,
+  ShieldAlert,
+  PieChart,
+  Briefcase,
+  FileText,
+  TrendingUp,
+  Tv,
+  Globe,
+  Radio,
+  Mic,
+  Video,
+  Share2,
+  Settings,
+  CreditCard,
+  CheckCircle,
+  AlertCircle,
+  Plus,
+  Trash2,
+  Edit3,
+  ExternalLink,
+  Lock,
+  RefreshCw,
+  Search,
+  Filter,
+  ArrowUpRight,
+  Layers,
+  Sliders,
+  Check,
+  X,
+  Target,
+  MessageSquare,
+  Zap
+} from 'lucide-react';
+
+export default function GetNextInLineApp() {
+  // Navigation & Active States
+  const [activeTab, setActiveTab] = useState('agency_super_admin');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [stripeModal, setStripeModal] = useState({ show: false, moduleName: '', basePrice: 0, markupPrice: 0 });
+
+  // Persistence for tenants & settings
+  const [tenants, setTenants] = useState(() => {
+    const saved = localStorage.getItem('gnil_tenants');
+    return saved ? JSON.parse(saved) : [
+      { id: 't_1', name: 'Apex Elite Salon & Spa', subdomain: 'apex', status: 'Active', mrr: 1450, plan: 'Enterprise White-Label' },
+      { id: 't_2', name: 'Metro Health Clinics', subdomain: 'metro', status: 'Active', mrr: 2200, plan: 'Enterprise White-Label' },
+      { id: 't_3', name: 'Velocity Auto Group', subdomain: 'velocity', status: 'Suspended', mrr: 850, plan: 'Standard Reseller' }
+    ];
+  });
+
+  const [globalMarkup, setGlobalMarkup] = useState(() => {
+    const saved = localStorage.getItem('gnil_global_markup');
+    return saved ? JSON.parse(saved) : 35; // 35% default markup
+  });
+
+  const [newTenantName, setNewTenantName] = useState('');
+  const [newTenantSub, setNewTenantSub] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('gnil_tenants', JSON.stringify(tenants));
+  }, [tenants]);
+
+  useEffect(() => {
+    localStorage.setItem('gnil_global_markup', JSON.stringify(globalMarkup));
+  }, [globalMarkup]);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3500);
+  };
+
+  const handleAddTenant = (e) => {
+    e.preventDefault();
+    if (!newTenantName || !newTenantSub) {
+      showToast('Please fill in all tenant fields', 'error');
+      return;
+    }
+    const newT = {
+      id: `t_${Date.now()}`,
+      name: newTenantName,
+      subdomain: newTenantSub.toLowerCase().replace(/[^a-z0-9]/g, ''),
+      status: 'Active',
+      mrr: 1250,
+      plan: 'Omnichannel OS (GHL + GNIL)'
+    };
+    setTenants([...tenants, newT]);
+    setNewTenantName('');
+    setNewTenantSub('');
+    showToast(`Successfully provisioned combined tenant: ${newT.name}`);
+  };
+
+  const toggleTenantStatus = (id) => {
+    setTenants(tenants.map(t => {
+      if (t.id === id) {
+        const nextStatus = t.status === 'Active' ? 'Suspended' : 'Active';
+        showToast(`Tenant ${t.name} status changed to ${nextStatus}`);
+        return { ...t, status: nextStatus };
+      }
+      return t;
+    }));
+  };
+
+  const triggerStripeCheckout = (moduleName, basePrice) => {
+    const markupMultiplier = 1 + (globalMarkup / 100);
+    const finalPrice = Math.round(basePrice * markupMultiplier);
+    setStripeModal({
+      show: true,
+      moduleName,
+      basePrice,
+      markupPrice: finalPrice
+    });
+  };
+
+  const completeStripePayment = () => {
+    showToast(`Successfully processed simulated checkout for ${stripeModal.moduleName}! ($${stripeModal.markupPrice}/mo)`);
+    setStripeModal({ show: false, moduleName: '', basePrice: 0, markupPrice: 0 });
+  };
+
+  // Complete Modules Catalog including Marketing OS (GHL Bridge) & Obfuscated Resale Engines
+  const modulesCatalog = {
+    // Category 0.5: Marketing OS (GHL Bridge) - Fully White-Label Obfuscated
+    ghl_crm_pipelines: { name: 'Lead Pipelines & CRM Core', basePrice: 297, category: 'Marketing OS (GHL Bridge)', icon: Target, desc: 'Advanced multi-stage visual sales pipelines, lead scoring, and automated contact management under your brand.' },
+    ghl_omnichannel_inbox: { name: 'Unified Omnichannel Inbox', basePrice: 197, category: 'Marketing OS (GHL Bridge)', icon: MessageSquare, desc: 'Single-pane conversation hub aggregating SMS, WhatsApp, Instagram DMs, Facebook Messenger, and Email.' },
+    ghl_funnel_builder: { name: 'High-Converting Funnel & Site Builder', basePrice: 247, category: 'Marketing OS (GHL Bridge)', icon: Layers, desc: 'Drag-and-drop landing page engine with embedded checkout triggers and custom domain mapping.' },
+    ghl_ai_automation: { name: 'AI Voice & SMS Nurture Bots', basePrice: 297, category: 'Marketing OS (GHL Bridge)', icon: Zap, desc: 'Automated conversational AI agents that pre-qualify inbound leads and instantly book appointments.' },
+
+    // Category 1: Public Core Service Modules
+    complete_payroll_suite: { name: 'Complete Payroll & Tax Suite', basePrice: 299, category: 'Public Core Services', icon: DollarSign, desc: 'End-to-end multi-state tax filing, automated wage calculations, and direct deposit infrastructure.' },
+    smart_booking: { name: 'Smart Booking System', basePrice: 149, category: 'Public Core Services', icon: Calendar, desc: 'Intelligent customer scheduling engine with automated calendar sync and SMS reminders.' },
+    no_show_shield: { name: 'No-Show Shield & Deposits', basePrice: 99, category: 'Public Core Services', icon: ShieldAlert, desc: 'Secure card-on-file authorization holding automated penalty deposits for missed appointments.' },
+    commission_ledger: { name: 'Commission & Split Tracker', basePrice: 129, category: 'Public Core Services', icon: PieChart, desc: 'Real-time complex staff commission splits, tiered bonuses, and performance ledgering.' },
+    payroll_hub: { name: 'Service Payroll Hub', basePrice: 199, category: 'Public Core Services', icon: Briefcase, desc: 'Specialized hourly & tip reporting command center optimized for service-based businesses.' },
+
+    // Category 2: Partner-Direct Integrations (0% Markup)
+    the_hartford: { name: 'Commercial Liability & Workers Comp', basePrice: 0, category: 'Partner Integrations (0% Markup)', icon: FileText, desc: 'Direct carrier underwriting integration for instant policy generation and certificate compliance.' },
+    vestwell: { name: 'Automated Retirement & 401(k)', basePrice: 0, category: 'Partner Integrations (0% Markup)', icon: TrendingUp, desc: 'Turnkey plug-and-play retirement savings plans fully synchronized with payroll deductions.' },
+    simply_insured: { name: 'Group Health Insurance Hub', basePrice: 0, category: 'Partner Integrations (0% Markup)', icon: Users, desc: 'Comprehensive medical, dental, and vision group benefits administration console.' },
+    gusto: { name: 'Integrated W-2 & Contractor Payroll', basePrice: 0, category: 'Partner Integrations (0% Markup)', icon: DollarSign, desc: 'Embedded compliance engine managing contractor 1099 payouts and full W-2 payroll.' },
+    quickbooks: { name: 'General Ledger & Financial Sync', basePrice: 0, category: 'Partner Integrations (0% Markup)', icon: Layers, desc: 'Two-way accounting ledger reconciliation syncing all revenue, payouts, and tax liabilities.' },
+
+    // Category 3: Hidden White-Label Resale Engines
+    qujam: { name: 'High-Definition Live Stream Studio', basePrice: 349, category: 'White-Label Resale Engines', icon: Video, desc: 'Ultra-low latency branded virtual broadcast rooms, webinars, and interactive streams.' },
+    vibe_co: { name: 'Connected TV & OTT Ad Network', basePrice: 499, category: 'White-Label Resale Engines', icon: Tv, desc: 'Programmatic CTV and streaming television ad placement engine under your agency brand.' },
+    adroll: { name: 'Omnichannel Retargeting & Display', basePrice: 299, category: 'White-Label Resale Engines', icon: Globe, desc: 'Cross-network programmatic banner display and social retargeting engine.' },
+    audiogo: { name: 'Programmatic Digital Audio Ads', basePrice: 399, category: 'White-Label Resale Engines', icon: Radio, desc: 'Targeted podcast and streaming music ad insertion suite with zero vendor disclosure.' },
+    wondercraft_ai: { name: 'AI Voice & Audio Script Synthesis', basePrice: 249, category: 'White-Label Resale Engines', icon: Mic, desc: 'Generative AI text-to-speech studio producing studio-grade commercial audio.' },
+    creatify_ai: { name: 'Automated AI Video Ad Generator', basePrice: 349, category: 'White-Label Resale Engines', icon: Video, desc: 'URL-to-video conversion suite generating high-converting social video advertisements.' },
+    metricool: { name: 'Unified Social Analytics & Scheduler', basePrice: 179, category: 'White-Label Resale Engines', icon: Share2, desc: 'Multi-channel social publishing, automated performance metrics, and client report generation.' }
+  };
+
+  const renderModuleConsole = (key) => {
+    const mod = modulesCatalog[key];
+    if (!mod) return null;
+    const IconComponent = mod.icon;
+    const markupMultiplier = 1 + (globalMarkup / 100);
+    const calculatedResalePrice = Math.round(mod.basePrice * markupMultiplier);
+
+    return (
+      <div className="space-y-6">
+        {/* Module Header */}
+        <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-6 backdrop-blur-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-indigo-600/20 border border-indigo-500/30 rounded-xl text-indigo-400">
+              <IconComponent className="w-8 h-8" />
+            </div>
+            <div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-white">{mod.name}</h2>
+                <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-full uppercase tracking-wider">
+                  {mod.category}
+                </span>
+              </div>
+              <p className="text-slate-400 text-sm mt-1">{mod.desc}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 self-stretch md:self-auto justify-end">
+            {mod.basePrice > 0 ? (
+              <div className="text-right mr-2">
+                <div className="text-xs text-slate-400">Resale Price w/ {globalMarkup}% Markup</div>
+                <div className="text-xl font-extrabold text-emerald-400">${calculatedResalePrice}<span className="text-xs text-slate-400 font-normal">/mo</span></div>
+              </div>
+            ) : (
+              <span className="text-xs px-3 py-1 bg-sky-500/10 border border-sky-500/20 text-sky-400 font-semibold rounded-full">
+                Partner Direct (0% Markup)
+              </span>
+            )}
+            {mod.basePrice > 0 && (
+              <button
+                onClick={() => triggerStripeCheckout(mod.name, mod.basePrice)}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2"
+              >
+                <CreditCard className="w-4 h-4" /> Provision Module
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Console Interactive Workspace */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-indigo-400" /> Operational & Marketing Proxy Console
+              </h3>
+              <span className="text-xs text-slate-400 bg-slate-900/60 px-2.5 py-1 rounded-md border border-slate-700">
+                Unified Ecosystem Active
+              </span>
+            </div>
+
+            <div className="p-6 bg-slate-900/80 rounded-xl border border-slate-700/50 space-y-4">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-800">
+                <span className="text-sm text-slate-300 font-medium">Active Tenants Subscribed</span>
+                <span className="text-sm font-bold text-emerald-400">{tenants.filter(t => t.status === 'Active').length} Active Subdomains</span>
+              </div>
+              <div className="flex justify-between items-center pb-4 border-b border-slate-800">
+                <span className="text-sm text-slate-300 font-medium">API Gateway Status</span>
+                <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> GHL + GNIL Bridge Connected
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-300 font-medium">Current Revenue Share Margin</span>
+                <span className="text-sm font-bold text-indigo-400">+{globalMarkup}% Agency Markup</span>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => showToast(`Successfully synchronized data stream for ${mod.name}`)}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" /> Force Sync Gateway
+              </button>
+              <button
+                onClick={() => showToast(`Generated compliance export report for ${mod.name}`)}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-xl transition-all flex items-center gap-2"
+              >
+                <FileText className="w-4 h-4" /> Export Ledger Data
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Lock className="w-5 h-5 text-emerald-400" /> Unified Ecosystem Guard
+            </h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Front-end lead acquisition data flows directly into back-end operational scheduling, staff commissions, payroll, and high-margin programmatic media under your brand.
+            </p>
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2">
+              <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Status: Fully Integrated</div>
+              <div className="text-xs text-slate-300">Seamless lead-to-payroll pipeline active across all tenants.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0F172A] text-slate-100 flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
+     
+      {/* Sticky Top Header */}
+      <header className="h-16 border-b border-slate-800 bg-[#0F172A]/90 backdrop-blur-md sticky top-0 z-40 px-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-emerald-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 font-black text-white text-xl">
+            G
+          </div>
+          <div>
+            <h1 className="font-bold text-lg tracking-tight text-white flex items-center gap-2">
+              Get Next In Line <span className="text-xs px-2 py-0.5 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-full font-semibold">GHL + GNIL OS</span>
+            </h1>
+            <p className="text-xs text-slate-400">Marketing & Business Operations Command Center</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            <span className="text-xs text-slate-300 font-medium">Ecosystem: <strong className="text-white">Full-Stack Agency Mode</strong></span>
+          </div>
+          <button
+            onClick={() => triggerStripeCheckout('Master Agency Platform License', 699)}
+            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center gap-2"
+          >
+            <CreditCard className="w-4 h-4" /> Master Billing
+          </button>
+        </div>
+      </header>
+
+      <div className="flex flex-1 overflow-hidden">
+       
+        {/* Left-Hand Structured Sidebar */}
+        <aside className="w-72 border-r border-slate-800 bg-slate-900/50 backdrop-blur-md overflow-y-auto p-4 space-y-6 hidden lg:block">
+         
+          {/* Category 0: Command Center */}
+          <div className="space-y-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 mb-2">Agency Command Center</div>
+            <button
+              onClick={() => setActiveTab('agency_super_admin')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${activeTab === 'agency_super_admin' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-semibold' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+            >
+              <LayoutDashboard className="w-4 h-4" /> Super-Admin Dashboard
+            </button>
+          </div>
+
+          {/* Category 0.5: Marketing OS (GHL Bridge) */}
+          <div className="space-y-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 mb-2">Marketing OS (GHL Bridge)</div>
+            {Object.entries(modulesCatalog).filter(([_, m]) => m.category === 'Marketing OS (GHL Bridge)').map(([key, m]) => {
+              const Icon = m.icon;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === key ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+                >
+                  <Icon className="w-4 h-4" /> {m.name}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Category 1: Public Core Service Modules */}
+          <div className="space-y-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 mb-2">Public Core Services</div>
+            {Object.entries(modulesCatalog).filter(([_, m]) => m.category === 'Public Core Services').map(([key, m]) => {
+              const Icon = m.icon;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === key ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+                >
+                  <Icon className="w-4 h-4" /> {m.name}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Category 2: Partner-Direct Integrations */}
+          <div className="space-y-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 mb-2">Partner Integrations (0% Markup)</div>
+            {Object.entries(modulesCatalog).filter(([_, m]) => m.category === 'Partner Integrations (0% Markup)').map(([key, m]) => {
+              const Icon = m.icon;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === key ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+                >
+                  <Icon className="w-4 h-4" /> {m.name}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Category 3: Hidden White-Label Resale Engines */}
+          <div className="space-y-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-3 mb-2">White-Label Resale Engines</div>
+            {Object.entries(modulesCatalog).filter(([_, m]) => m.category === 'White-Label Resale Engines').map(([key, m]) => {
+              const Icon = m.icon;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === key ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'}`}
+                >
+                  <Icon className="w-4 h-4" /> {m.name}
+                </button>
+              );
+            })}
+          </div>
+
+        </aside>
+
+        {/* Dynamic Main Workspace */}
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8 bg-[#0F172A]">
+         
+          {activeTab === 'agency_super_admin' ? (
+            <div className="space-y-8">
+             
+              {/* Top Metrics Row */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 backdrop-blur-md">
+                  <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Active Tenants</div>
+                  <div className="text-3xl font-extrabold text-white mt-2">{tenants.filter(t => t.status === 'Active').length}</div>
+                  <div className="text-xs text-emerald-400 mt-2 flex items-center gap-1 font-medium">
+                    <ArrowUpRight className="w-3.5 h-3.5" /> +15% unified stack adoption
+                  </div>
+                </div>
+
+                <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 backdrop-blur-md">
+                  <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Total Combined MRR</div>
+                  <div className="text-3xl font-extrabold text-emerald-400 mt-2">
+                    ${tenants.reduce((acc, t) => acc + (t.status === 'Active' ? t.mrr : 0), 0).toLocaleString()}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-2">GHL Marketing + GNIL Operations</div>
+                </div>
+
+                <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 backdrop-blur-md">
+                  <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Global Resale Markup</div>
+                  <div className="text-3xl font-extrabold text-indigo-400 mt-2">{globalMarkup}%</div>
+                  <div className="text-xs text-slate-400 mt-2">Configured profit margin multiplier</div>
+                </div>
+
+                <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 backdrop-blur-md">
+                  <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Ecosystem Status</div>
+                  <div className="text-3xl font-extrabold text-sky-400 mt-2">Synced</div>
+                  <div className="text-xs text-emerald-400 mt-2 font-medium">Lead-to-Operations pipeline active</div>
+                </div>
+              </div>
+
+              {/* Global Markup Control & Tenant Provisioning Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+               
+                {/* Markup Adjustment Box */}
+                <div className="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 space-y-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Sliders className="w-5 h-5 text-indigo-400" /> Adjust Global Profit Markup
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Modify the resale percentage markup applied dynamically across marketing pipelines, white-label modules, and programmatic ads.
+                  </p>
+                  <div className="flex items-center gap-4 pt-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={globalMarkup}
+                      onChange={(e) => setGlobalMarkup(Number(e.target.value))}
+                      className="flex-1 accent-indigo-500 cursor-pointer"
+                    />
+                    <span className="text-xl font-black text-indigo-400 w-16 text-right">{globalMarkup}%</span>
+                  </div>
+                  <div className="text-xs text-slate-500 italic">Current formula: Base Wholesale Cost * (1 + {globalMarkup / 100})</div>
+                </div>
+
+                {/* Provision New Tenant Box */}
+                <div className="bg-slate-800/50 border border-slate-700/60 rounded-2xl p-6 space-y-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-emerald-400" /> Provision Unified Tenant Instance
+                  </h3>
+                  <form onSubmit={handleAddTenant} className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        placeholder="Tenant Business Name"
+                        value={newTenantName}
+                        onChange={(e) => setNewTenantName(e.target.value)}
+                        className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="subdomain (e.g. brand)"
+                        value={newTenantSub}
+                        onChange={(e) => setNewTenantSub(e.target.value)}
+                        className="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" /> Provision GHL + GNIL Instance
+                    </button>
+                  </form>
+                </div>
+
+              </div>
+
+              {/* Tenants Management Table */}
+              <div className="bg-slate-800/50 border border-slate-700/60 rounded-2xl overflow-hidden shadow-xl">
+                <div className="p-6 border-b border-slate-700/60 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Multi-Tenant Subdomain Directory</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Manage active client subdomains, licensing plans, and operational status.</p>
+                  </div>
+                  <span className="text-xs bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-semibold px-3 py-1 rounded-full">
+                    {tenants.length} Total Tenants
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-700/60 bg-slate-900/60 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                        <th className="py-4 px-6">Tenant Name</th>
+                        <th className="py-4 px-6">Subdomain Endpoint</th>
+                        <th className="py-4 px-6">Assigned Plan</th>
+                        <th className="py-4 px-6">Monthly MRR</th>
+                        <th className="py-4 px-6">Status</th>
+                        <th className="py-4 px-6 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/40 text-sm">
+                      {tenants.map((t) => (
+                        <tr key={t.id} className="hover:bg-slate-700/20 transition-colors">
+                          <td className="py-4 px-6 font-semibold text-white flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-xs">
+                              {t.name.charAt(0)}
+                            </div>
+                            {t.name}
+                          </td>
+                          <td className="py-4 px-6 text-slate-400 font-mono text-xs">{t.subdomain}.getnextinline.io</td>
+                          <td className="py-4 px-6 text-slate-300">{t.plan}</td>
+                          <td className="py-4 px-6 font-semibold text-emerald-400">${t.mrr}/mo</td>
+                          <td className="py-4 px-6">
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${t.status === 'Active' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+                              {t.status}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6 text-right">
+                            <button
+                              onClick={() => toggleTenantStatus(t.id)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${t.status === 'Active' ? 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}
+                            >
+                              {t.status === 'Active' ? 'Suspend Tenant' : 'Activate Tenant'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          ) : (
+            renderModuleConsole(activeTab)
+          )}
+
+        </main>
+      </div>
+
+      {/* Simulated Stripe Checkout Modal */}
+      {stripeModal.show && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-md w-full p-6 space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-600/20 border border-indigo-500/30 rounded-xl text-indigo-400">
+                  <CreditCard className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Stripe Checkout Simulation</h3>
+                  <p className="text-xs text-slate-400">Secure Unified Gateway</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setStripeModal({ show: false, moduleName: '', basePrice: 0, markupPrice: 0 })}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-800/60 rounded-2xl border border-slate-700/60 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">Selected Module/Service:</span>
+                <span className="font-semibold text-white">{stripeModal.moduleName}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">Base Wholesale Cost:</span>
+                <span className="font-mono text-slate-300">${stripeModal.basePrice}/mo</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">Applied Agency Markup ({globalMarkup}%):</span>
+                <span className="font-mono text-indigo-400">+${Math.round(stripeModal.basePrice * (globalMarkup / 100))}/mo</span>
+              </div>
+              <div className="pt-3 border-t border-slate-700 flex justify-between items-center">
+                <span className="font-bold text-white">Total Resale Price:</span>
+                <span className="text-xl font-black text-emerald-400">${stripeModal.markupPrice}/mo</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3 bg-slate-800 border border-slate-700 rounded-xl flex items-center gap-3 text-xs text-slate-300">
+                <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span>Test Mode Active: Simulating live tokenized bank transfer & subscription setup.</span>
+              </div>
+              <button
+                onClick={completeStripePayment}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2"
+              >
+                <Check className="w-5 h-5" /> Authorize & Provision (${stripeModal.markupPrice}/mo)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Notification Banner */}
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-slate-700 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300">
+          <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+          <span className="text-sm font-medium">{toast.message}</span>
+        </div>
+      )}
+
+    </div>
+  );
+}
