@@ -85,13 +85,23 @@ export function Shell({ children }: { children: ReactNode }) {
         </Sidebar>
         <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden">
           <header className="h-16 border-b bg-card flex items-center px-4 shrink-0 justify-between gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               {/* Always-visible sidebar toggle — prominent on narrow viewports */}
               <SidebarTrigger className="h-9 w-9 shrink-0 text-foreground hover:bg-accent" />
               <h2 className="font-semibold text-lg truncate">{currentLabel}</h2>
             </div>
             <div className="flex items-center gap-4 text-sm font-mono text-muted-foreground shrink-0">
-              <span>SYS.STATUS: <span className={isOnline ? "text-emerald-500 font-bold" : "text-amber-500 font-bold"}>{isOnline ? 'ONLINE' : 'CONNECTING'}</span></span>
+              {/* Full status text at md+ widths */}
+              <span className="hidden md:inline">SYS.STATUS: <span className={isOnline ? "text-emerald-500 font-bold" : "text-amber-500 font-bold"}>{isOnline ? 'ONLINE' : 'CONNECTING'}</span></span>
+              {/* Compact status dot below md — keeps the title readable */}
+              <span
+                className="md:hidden flex items-center"
+                title={isOnline ? 'SYS.STATUS: ONLINE' : 'SYS.STATUS: CONNECTING'}
+                aria-label={isOnline ? 'System status: online' : 'System status: connecting'}
+                role="status"
+              >
+                <span className={`size-2.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+              </span>
             </div>
           </header>
           <div className="flex-1 overflow-auto p-8 bg-background">
