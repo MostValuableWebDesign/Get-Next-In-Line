@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdminModuleDetail,
   AgencyDashboard,
   AgencySettings,
   AgencySettingsUpdate,
@@ -1385,6 +1386,83 @@ export const useUpdateConnectorRegistryEntry = <TError = ErrorType<void>,
       > => {
       return useMutation(getUpdateConnectorRegistryEntryMutationOptions(options));
     }
+
+export const getGetAdminModuleDetailUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/modules/${id}`
+}
+
+/**
+ * @summary Admin-only — module connector mapping, tenant assignments, and provisioning activity
+ */
+export const getAdminModuleDetail = async (id: number, options?: RequestInit): Promise<AdminModuleDetail> => {
+
+  return customFetch<AdminModuleDetail>(getGetAdminModuleDetailUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminModuleDetailQueryKey = (id: number,) => {
+    return [
+    `/api/admin/modules/${id}`
+    ] as const;
+    }
+
+
+export const getGetAdminModuleDetailQueryOptions = <TData = Awaited<ReturnType<typeof getAdminModuleDetail>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminModuleDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminModuleDetailQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminModuleDetail>>> = ({ signal }) => getAdminModuleDetail(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminModuleDetail>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminModuleDetailQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminModuleDetail>>>
+export type GetAdminModuleDetailQueryError = ErrorType<void>
+
+
+/**
+ * @summary Admin-only — module connector mapping, tenant assignments, and provisioning activity
+ */
+
+export function useGetAdminModuleDetail<TData = Awaited<ReturnType<typeof getAdminModuleDetail>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminModuleDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminModuleDetailQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetBillingSummaryUrl = () => {
 

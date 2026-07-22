@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './adminModuleDetail';
+export * from './adminModuleTenantAssignment';
+export * from './adminModuleTenantAssignmentCadence';
+export * from './adminModuleTenantAssignmentStatus';
 export * from './agencyDashboard';
 export * from './agencySettings';
 export * from './agencySettingsUpdate';

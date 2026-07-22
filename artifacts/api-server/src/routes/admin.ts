@@ -1,11 +1,18 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { modulesTable } from "@workspace/db";
+import {
+  modulesTable,
+  agencySettingsTable,
+  tenantsTable,
+  tenantModulesTable,
+  tenantActivitiesTable,
+} from "@workspace/db";
 import {
   GetConnectorRegistryResponse,
   UpdateConnectorRegistryEntryBody,
   UpdateConnectorRegistryEntryResponse,
+  GetAdminModuleDetailResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -84,6 +91,110 @@ router.patch("/admin/connector-registry/:id", async (req, res): Promise<void> =>
       upstreamVendor: m.upstreamVendor,
       hiddenConnector: m.hiddenConnector,
       proxyNotes: m.proxyNotes,
+    })
+  );
+});
+
+/**
+ * Admin-only: connector-aware module detail — combines the module's hidden
+ * connector mapping with its tenant assignments (provisioned dates, cadence,
+ * MRR contribution) and recent provisioning activity for those tenants.
+ * This data must NEVER be served through tenant-facing endpoints.
+ */
+router.get("/admin/modules/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+
+  const [m] = await db.select().from(modulesTable).where(eq(modulesTable.id, id));
+  if (!m) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+
+  const [settings] = await db.select().from(agencySettingsTable).limit(1);
+  const markup = parseFloat(settings?.markupPercent ?? "35");
+  const wholesale = parseFloat(m.wholesalePrice);
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const resale = round2(wholesale * (1 + markup / 100));
+  const resaleBiweekly =
+    m.wholesalePriceBiweekly != null
+      ? round2(parseFloat(m.wholesalePriceBiweekly) * (1 + markup / 100))
+      : undefined;
+
+  const assignments = await db
+    .select({
+      tenantId: tenantsTable.id,
+      brandName: tenantsTable.brandName,
+      subdomain: tenantsTable.subdomain,
+      status: tenantsTable.status,
+      provisionedAt: tenantModulesTable.provisionedAt,
+    })
+    .from(tenantModulesTable)
+    .innerJoin(tenantsTable, eq(tenantModulesTable.tenantId, tenantsTable.id))
+    .where(eq(tenantModulesTable.moduleId, id))
+    .orderBy(tenantsTable.brandName);
+
+  // Provisioning history from the existing tenant activity log, filtered to
+  // entries that mention this module by name.
+  const recentActivities = await db
+    .select({
+      id: tenantActivitiesTable.id,
+      tenantId: tenantActivitiesTable.tenantId,
+      tenantName: tenantsTable.brandName,
+      action: tenantActivitiesTable.action,
+      details: tenantActivitiesTable.details,
+      timestamp: tenantActivitiesTable.timestamp,
+    })
+    .from(tenantActivitiesTable)
+    .innerJoin(tenantsTable, eq(tenantActivitiesTable.tenantId, tenantsTable.id))
+    .orderBy(desc(tenantActivitiesTable.timestamp), desc(tenantActivitiesTable.id))
+    .limit(500);
+  const provisioningActivity = recentActivities
+    .filter((a) => a.details?.includes(m.name) ?? false)
+    .slice(0, 20);
+
+  res.json(
+    GetAdminModuleDetailResponse.parse({
+      mapping: {
+        id: m.id,
+        name: m.name,
+        slug: m.slug,
+        category: m.category,
+        categorySlug: m.categorySlug,
+        isActive: m.isActive,
+        upstreamVendor: m.upstreamVendor,
+        hiddenConnector: m.hiddenConnector,
+        proxyNotes: m.proxyNotes,
+      },
+      description: m.description,
+      wholesalePrice: wholesale,
+      resalePrice: resale,
+      markupPercent: markup,
+      ...(resaleBiweekly != null ? { resalePriceBiweekly: resaleBiweekly } : {}),
+      tenants: assignments.map((a) => ({
+        tenantId: a.tenantId,
+        brandName: a.brandName,
+        subdomain: a.subdomain,
+        status: a.status,
+        provisionedAt: a.provisionedAt.toISOString(),
+        // Cadence is module-level today: modules with a bi-weekly wholesale
+        // rate bill bi-weekly; everything else is monthly.
+        cadence: m.wholesalePriceBiweekly != null ? "biweekly" : "monthly",
+        mrrContribution: m.wholesalePriceBiweekly != null && resaleBiweekly != null
+          ? round2((resaleBiweekly * 26) / 12)
+          : resale,
+      })),
+      activity: provisioningActivity.map((a) => ({
+        id: a.id,
+        tenantId: a.tenantId,
+        tenantName: a.tenantName,
+        action: a.action,
+        details: a.details,
+        timestamp: a.timestamp.toISOString(),
+      })),
     })
   );
 });

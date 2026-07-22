@@ -15,6 +15,7 @@ import Media from "@/pages/Media";
 import Billing from "@/pages/Billing";
 import ModuleConsole from "@/pages/ModuleConsole";
 import ConnectorRegistry from "@/pages/ConnectorRegistry";
+import AdminModuleDetail from "@/pages/AdminModuleDetail";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
@@ -80,6 +81,7 @@ function ProtectedApp() {
         <Route path="/modules/:id" component={ModuleConsole} />
         <Route path="/billing" component={Billing} />
         <Route path="/connectors" component={ConnectorRegistry} />
+        <Route path="/admin/modules/:id" component={AdminModuleDetail} />
         {/* SOS Operations section */}
         <Route path="/sos" component={SosDashboard} />
         <Route path="/sos/operations" component={SosOperations} />

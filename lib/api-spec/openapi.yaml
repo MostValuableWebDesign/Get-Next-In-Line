@@ -348,6 +348,27 @@ paths:
         "404":
           description: Not found
 
+  /admin/modules/{id}:
+    get:
+      operationId: getAdminModuleDetail
+      tags: [admin]
+      summary: Admin-only — module connector mapping, tenant assignments, and provisioning activity
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Connector-aware module detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminModuleDetail"
+        "404":
+          description: Module not found
+
   /billing/summary:
     get:
       operationId: getBillingSummary
@@ -1650,6 +1671,54 @@ components:
           type: ["string", "null"]
         proxyNotes:
           type: ["string", "null"]
+
+    AdminModuleTenantAssignment:
+      type: object
+      required: [tenantId, brandName, subdomain, status, provisionedAt, cadence, mrrContribution]
+      properties:
+        tenantId:
+          type: integer
+        brandName:
+          type: string
+        subdomain:
+          type: string
+        status:
+          type: string
+          enum: [active, suspended, pending]
+        provisionedAt:
+          type: string
+        cadence:
+          type: string
+          enum: [monthly, biweekly]
+        mrrContribution:
+          type: number
+
+    AdminModuleDetail:
+      type: object
+      required: [mapping, description, wholesalePrice, resalePrice, markupPercent, tenants, activity]
+      properties:
+        mapping:
+          $ref: "#/components/schemas/ConnectorRegistryEntry"
+        description:
+          type: string
+        wholesalePrice:
+          type: number
+        resalePrice:
+          type: number
+        markupPercent:
+          type: number
+        # Optional bi-weekly cadence resale rate — present only for modules
+        # that also offer bi-weekly billing.
+        resalePriceBiweekly:
+          type: number
+        tenants:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminModuleTenantAssignment"
+        activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantActivity"
 
     ModulePricing:
       type: object

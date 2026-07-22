@@ -316,6 +316,50 @@ export const UpdateConnectorRegistryEntryResponse = zod.object({
 
 
 /**
+ * @summary Admin-only — module connector mapping, tenant assignments, and provisioning activity
+ */
+export const GetAdminModuleDetailParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAdminModuleDetailResponse = zod.object({
+  "mapping": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "slug": zod.string().nullable(),
+  "category": zod.string(),
+  "categorySlug": zod.string(),
+  "isActive": zod.boolean(),
+  "upstreamVendor": zod.string().nullable(),
+  "hiddenConnector": zod.string().nullable(),
+  "proxyNotes": zod.string().nullable()
+}),
+  "description": zod.string(),
+  "wholesalePrice": zod.number(),
+  "resalePrice": zod.number(),
+  "markupPercent": zod.number(),
+  "resalePriceBiweekly": zod.number().optional(),
+  "tenants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "brandName": zod.string(),
+  "subdomain": zod.string(),
+  "status": zod.enum(['active', 'suspended', 'pending']),
+  "provisionedAt": zod.string(),
+  "cadence": zod.enum(['monthly', 'biweekly']),
+  "mrrContribution": zod.number()
+})),
+  "activity": zod.array(zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "action": zod.string(),
+  "details": zod.string().nullish(),
+  "timestamp": zod.string()
+}))
+})
+
+
+/**
  * @summary Get billing summary — total MRR breakdown by category
  */
 export const GetBillingSummaryResponse = zod.object({

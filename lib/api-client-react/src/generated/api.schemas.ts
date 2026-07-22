@@ -647,6 +647,44 @@ export interface ConnectorRegistryEntryUpdate {
   proxyNotes?: string | null;
 }
 
+export type AdminModuleTenantAssignmentStatus = typeof AdminModuleTenantAssignmentStatus[keyof typeof AdminModuleTenantAssignmentStatus];
+
+
+export const AdminModuleTenantAssignmentStatus = {
+  active: 'active',
+  suspended: 'suspended',
+  pending: 'pending',
+} as const;
+
+export type AdminModuleTenantAssignmentCadence = typeof AdminModuleTenantAssignmentCadence[keyof typeof AdminModuleTenantAssignmentCadence];
+
+
+export const AdminModuleTenantAssignmentCadence = {
+  monthly: 'monthly',
+  biweekly: 'biweekly',
+} as const;
+
+export interface AdminModuleTenantAssignment {
+  tenantId: number;
+  brandName: string;
+  subdomain: string;
+  status: AdminModuleTenantAssignmentStatus;
+  provisionedAt: string;
+  cadence: AdminModuleTenantAssignmentCadence;
+  mrrContribution: number;
+}
+
+export interface AdminModuleDetail {
+  mapping: ConnectorRegistryEntry;
+  description: string;
+  wholesalePrice: number;
+  resalePrice: number;
+  markupPercent: number;
+  resalePriceBiweekly?: number;
+  tenants: AdminModuleTenantAssignment[];
+  activity: TenantActivity[];
+}
+
 export interface ModulePricing {
   id: number;
   name: string;
