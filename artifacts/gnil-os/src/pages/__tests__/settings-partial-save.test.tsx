@@ -73,11 +73,17 @@ describe('Settings per-section partial save', () => {
     });
   });
 
-  it('Save AI Receptionist sends only aiReceptionistEnabled', () => {
+  it('Save AI Receptionist sends only its own fields', () => {
     renderSettings();
     fireEvent.click(screen.getByTestId('switch-ai-receptionist'));
+    fireEvent.change(screen.getByTestId('input-service-names'), {
+      target: { value: 'haircut, color' },
+    });
     fireEvent.click(screen.getByTestId('button-save-ai-receptionist'));
-    expect(lastPayload()).toEqual({ aiReceptionistEnabled: false });
+    expect(lastPayload()).toEqual({
+      aiReceptionistEnabled: false,
+      serviceNames: 'haircut, color',
+    });
   });
 
   it('Save SOS Operations sends only waitlistAutoFillEnabled', () => {

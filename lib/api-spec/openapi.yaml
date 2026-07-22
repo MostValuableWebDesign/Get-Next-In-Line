@@ -1081,6 +1081,9 @@ components:
           type: string
         resourceLabel:
           type: string
+        serviceNames:
+          type: string
+          description: Comma-separated list of the business's own service names.
         aiReceptionistEnabled:
           type: boolean
         waitlistAutoFillEnabled:
@@ -1107,6 +1110,8 @@ components:
         industryType:
           type: string
         resourceLabel:
+          type: string
+        serviceNames:
           type: string
         aiReceptionistEnabled:
           type: boolean

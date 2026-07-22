@@ -58,7 +58,7 @@ import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, sql } f
 import twilio from "twilio";
 import { getSmsStatus, getTwilioAuthToken, normalizeToE164 } from "../lib/sms";
 import { sendMessage, recordInboundMessage } from "../lib/messaging";
-import { parseCallIntent } from "../lib/receptionist";
+import { parseCallIntent, parseServiceNames } from "../lib/receptionist";
 import { parseInboundKeyword, getInboundWebhookUrl } from "../lib/inboundSms";
 import { claimWaitlistSlot } from "../lib/waitlistClaim";
 import {
@@ -188,6 +188,7 @@ async function serializeSettings(s: SettingsRow) {
     businessName: s.businessName,
     industryType: s.industryType,
     resourceLabel: s.resourceLabel,
+    serviceNames: s.serviceNames,
     aiReceptionistEnabled: s.aiReceptionistEnabled,
     waitlistAutoFillEnabled: s.waitlistAutoFillEnabled,
     smsFromNumber: s.smsFromNumber,
@@ -1242,6 +1243,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
     body.inquiry,
     body.callerName ?? null,
     new Date().toISOString(),
+    parseServiceNames(settings.serviceNames),
   );
 
   // Find or create the customer by phone number.

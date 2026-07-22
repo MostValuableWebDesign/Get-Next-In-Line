@@ -30,13 +30,25 @@ const SERVICE_KEYWORDS = [
   "follow-up",
 ];
 
-export function fallbackParse(inquiry: string): ParsedCallIntent {
+/** Parse a comma-separated service-names setting into a clean list. */
+export function parseServiceNames(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+
+export function fallbackParse(inquiry: string, serviceNames: string[] = []): ParsedCallIntent {
   const lower = inquiry.toLowerCase();
   const wantsBooking =
     /\b(book|appointment|schedule|reserve|reservation|come in|slot|opening)\b/.test(lower);
   const wantsReschedule = /\b(reschedule|move|change my)\b/.test(lower);
+  // Business-specific service names take priority over the generic terms.
   const serviceType =
-    SERVICE_KEYWORDS.find((k) => lower.includes(k)) ?? null;
+    serviceNames.find((k) => lower.includes(k.toLowerCase())) ??
+    SERVICE_KEYWORDS.find((k) => lower.includes(k)) ??
+    null;
 
   let requestedTime: string | null = null;
   const now = new Date();
@@ -70,11 +82,12 @@ export async function parseCallIntent(
   inquiry: string,
   callerName: string | null,
   nowIso: string,
+  serviceNames: string[] = [],
 ): Promise<ParsedCallIntent> {
   const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
   const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
   if (!baseUrl || !apiKey) {
-    return fallbackParse(inquiry);
+    return fallbackParse(inquiry, serviceNames);
   }
 
   try {
@@ -91,7 +104,7 @@ export async function parseCallIntent(
         messages: [
           {
             role: "system",
-            content: `You are an AI receptionist for a service business. Current time: ${nowIso}. Parse the caller's inquiry and respond with strict JSON: {"intent":"book_appointment"|"reschedule"|"question"|"other","serviceType":string|null,"requestedTime":ISO-8601 string|null,"summary":string (one concise sentence describing what the caller wants)}.`,
+            content: `You are an AI receptionist for a service business. Current time: ${nowIso}.${serviceNames.length > 0 ? ` The business offers these services: ${serviceNames.join(", ")}. When the caller mentions one of them (or a close paraphrase), use that exact service name as serviceType.` : ""} Parse the caller's inquiry and respond with strict JSON: {"intent":"book_appointment"|"reschedule"|"question"|"other","serviceType":string|null,"requestedTime":ISO-8601 string|null,"summary":string (one concise sentence describing what the caller wants)}.`,
           },
           {
             role: "user",
@@ -121,6 +134,6 @@ export async function parseCallIntent(
     };
   } catch (err) {
     logger.warn({ err }, "AI intent parse failed; using fallback parser");
-    return fallbackParse(inquiry);
+    return fallbackParse(inquiry, serviceNames);
   }
 }

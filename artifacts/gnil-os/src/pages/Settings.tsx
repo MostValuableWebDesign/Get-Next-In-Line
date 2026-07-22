@@ -58,6 +58,7 @@ export default function Settings() {
     resourceLabel: '',
   });
   const [aiReceptionistEnabled, setAiReceptionistEnabled] = React.useState(false);
+  const [serviceNames, setServiceNames] = React.useState('');
   const [waitlistAutoFillEnabled, setWaitlistAutoFillEnabled] = React.useState(false);
   const [smsFromNumber, setSmsFromNumber] = React.useState('');
 
@@ -71,6 +72,7 @@ export default function Settings() {
         resourceLabel: settings.resourceLabel,
       });
       setAiReceptionistEnabled(settings.aiReceptionistEnabled);
+      setServiceNames(settings.serviceNames || '');
       setWaitlistAutoFillEnabled(settings.waitlistAutoFillEnabled);
       setSmsFromNumber(settings.smsFromNumber || '');
       initialized.current = true;
@@ -93,6 +95,7 @@ export default function Settings() {
       businessName: string;
       industryType: string;
       resourceLabel: string;
+      serviceNames: string;
       aiReceptionistEnabled: boolean;
       waitlistAutoFillEnabled: boolean;
       smsFromNumber: string;
@@ -221,9 +224,22 @@ export default function Settings() {
               data-testid="switch-ai-receptionist"
             />
           </div>
+          <div className="grid gap-2">
+            <Label>Service Names</Label>
+            <Input
+              value={serviceNames}
+              onChange={(e) => setServiceNames(e.target.value)}
+              placeholder="e.g. haircut, color, blowout"
+              data-testid="input-service-names"
+            />
+            <p className="text-sm text-muted-foreground">
+              Comma-separated list of your services. The receptionist uses these to
+              recognize what callers are asking for.
+            </p>
+          </div>
           <div className="flex justify-end">
             <Button
-              onClick={() => saveSection('AI Receptionist', { aiReceptionistEnabled })}
+              onClick={() => saveSection('AI Receptionist', { aiReceptionistEnabled, serviceNames })}
               disabled={updateSettings.isPending}
               data-testid="button-save-ai-receptionist"
             >

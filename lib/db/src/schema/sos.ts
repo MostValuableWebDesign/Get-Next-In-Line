@@ -23,6 +23,8 @@ export const sosSettingsTable = pgTable("sos_settings", {
   businessName: text("business_name").notNull().default("SOS Operations"),
   industryType: text("industry_type").notNull().default("salon"),
   resourceLabel: text("resource_label").notNull().default("Chair"),
+  // Comma-separated list of the business's own service names (e.g. "haircut, color").
+  serviceNames: text("service_names").notNull().default(""),
   aiReceptionistEnabled: boolean("ai_receptionist_enabled").notNull().default(true),
   waitlistAutoFillEnabled: boolean("waitlist_auto_fill_enabled").notNull().default(true),
   smsFromNumber: text("sms_from_number"),

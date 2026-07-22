@@ -14,6 +14,8 @@ export interface SosSettings {
   businessName: string;
   industryType: string;
   resourceLabel: string;
+  /** Comma-separated list of the business's own service names. */
+  serviceNames?: string;
   aiReceptionistEnabled: boolean;
   waitlistAutoFillEnabled: boolean;
   /** @nullable */

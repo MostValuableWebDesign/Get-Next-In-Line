@@ -1,0 +1,1 @@
+ALTER TABLE "sos_settings" ADD COLUMN "service_names" text DEFAULT '' NOT NULL;

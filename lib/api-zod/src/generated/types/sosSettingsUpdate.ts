@@ -10,6 +10,7 @@ export interface SosSettingsUpdate {
   businessName?: string;
   industryType?: string;
   resourceLabel?: string;
+  serviceNames?: string;
   aiReceptionistEnabled?: boolean;
   waitlistAutoFillEnabled?: boolean;
   smsFromNumber?: string;

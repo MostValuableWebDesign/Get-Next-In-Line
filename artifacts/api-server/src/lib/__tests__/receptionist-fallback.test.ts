@@ -7,7 +7,7 @@
  *  - summary truncation and usedAi flag.
  */
 import { describe, it, expect } from "vitest";
-import { fallbackParse } from "../receptionist";
+import { fallbackParse, parseServiceNames } from "../receptionist";
 
 describe("fallbackParse — intent detection", () => {
   it("detects booking intent", () => {
@@ -67,6 +67,46 @@ describe("fallbackParse — service keywords are industry-neutral", () => {
 
   it("returns null serviceType when nothing matches", () => {
     expect(fallbackParse("just calling to say hi").serviceType).toBeNull();
+  });
+});
+
+describe("fallbackParse — business-defined service names", () => {
+  it("matches a configured service name case-insensitively", () => {
+    expect(
+      fallbackParse("I want a Haircut tomorrow", ["haircut", "color"]).serviceType,
+    ).toBe("haircut");
+    expect(
+      fallbackParse("need an oil change asap", ["Oil Change", "brake service"])
+        .serviceType,
+    ).toBe("Oil Change");
+  });
+
+  it("prefers business service names over generic keywords", () => {
+    expect(
+      fallbackParse("book a cleaning appointment", ["appointment"]).serviceType,
+    ).toBe("appointment");
+  });
+
+  it("falls back to generic keywords when no business service matches", () => {
+    expect(
+      fallbackParse("I need a repair", ["haircut", "color"]).serviceType,
+    ).toBe("repair");
+  });
+});
+
+describe("parseServiceNames", () => {
+  it("splits a comma-separated string, trimming whitespace and empties", () => {
+    expect(parseServiceNames("haircut, color , , blowout")).toEqual([
+      "haircut",
+      "color",
+      "blowout",
+    ]);
+  });
+
+  it("returns an empty list for null/undefined/empty input", () => {
+    expect(parseServiceNames(null)).toEqual([]);
+    expect(parseServiceNames(undefined)).toEqual([]);
+    expect(parseServiceNames("")).toEqual([]);
   });
 });
 
