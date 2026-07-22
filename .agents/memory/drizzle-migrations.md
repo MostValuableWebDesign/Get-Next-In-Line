@@ -27,4 +27,6 @@ VALUES ('<sha256-of-sql-file>', <journal-when-timestamp>)
 ON CONFLICT DO NOTHING;
 ```
 
+**Silent failures:** `drizzle-kit migrate` can exit 1 (or hang at "applying migrations...") without applying anything and without an error message. After any migrate run, verify expected tables/columns exist. Recovery: apply the pending .sql files manually with psql (in journal order, only the ones whose DDL is actually missing — compare information_schema first), then stamp each pending journal entry's hash into `drizzle.__drizzle_migrations` so migrate stops retrying.
+
 **Keeping push and migrate consistent:** schema changes applied via `drizzle-kit push` must also be captured with `pnpm run generate` and the new migration stamped into `drizzle.__drizzle_migrations` (hash = sha256 of the .sql file, created_at = journal `when`), otherwise a later `migrate` run fails on already-applied DDL.

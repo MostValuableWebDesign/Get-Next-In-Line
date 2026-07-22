@@ -16,11 +16,20 @@ import {
   Calendar, UserCircle, ShieldCheck, Heart, BarChart3, Megaphone, Settings,
 } from 'lucide-react';
 
-const NAV_ITEMS = [
+type NavItem = {
+  name: string;
+  path: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** Extra paths that should highlight this entry (e.g. tab deep links). */
+  aliases?: string[];
+};
+
+const NAV_ITEMS: NavItem[] = [
   { name: 'Command Center', path: '/', icon: LayoutDashboard },
   { name: 'Tenant Dashboards', path: '/tenants', icon: Users },
   { name: 'GNIL Bridge', path: '/marketing', icon: Zap },
-  { name: 'Waitlist & Booking', path: '/operations', icon: Activity },
+  // Unified hub: Modules tab (/operations) + Live Operations tab (/sos/operations)
+  { name: 'Operations', path: '/operations', icon: Activity, aliases: ['/sos/operations'] },
   { name: 'Partners (0%)', path: '/partners', icon: Briefcase },
   { name: 'Media Resale', path: '/media', icon: Radio },
   { name: 'Billing', path: '/billing', icon: CreditCard },
@@ -28,9 +37,8 @@ const NAV_ITEMS = [
   { name: 'Configuration', path: '/settings', icon: Settings },
 ];
 
-const SOS_NAV_ITEMS = [
+const SOS_NAV_ITEMS: NavItem[] = [
   { name: 'SOS Dashboard', path: '/sos', icon: LayoutDashboard },
-  { name: 'Operations Center', path: '/sos/operations', icon: Activity },
   { name: 'Calendar', path: '/sos/calendar', icon: Calendar },
   { name: 'Customers', path: '/sos/customers', icon: Users },
   { name: 'POS', path: '/sos/pos', icon: CreditCard },
@@ -54,7 +62,7 @@ function NavMenu({ location, items }: { location: string; items: typeof NAV_ITEM
         <SidebarMenuItem key={item.path}>
           <SidebarMenuButton
             asChild
-            isActive={location === item.path}
+            isActive={location === item.path || (item.aliases?.includes(location) ?? false)}
             tooltip={item.name}
             className="data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium h-10"
           >
@@ -117,7 +125,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { isOnline, settled } = useOnlineStatus();
   const currentLabel =
-    [...NAV_ITEMS, ...SOS_NAV_ITEMS].find((n) => n.path === location)?.name || 'Agency OS';
+    [...NAV_ITEMS, ...SOS_NAV_ITEMS].find(
+      (n) => n.path === location || n.aliases?.includes(location),
+    )?.name || 'Agency OS';
 
   return (
     <SidebarProvider>
@@ -137,7 +147,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <SidebarContent className="p-2">
             <NavMenu location={location} items={NAV_ITEMS} />
             <div className="px-3 pt-4 pb-1 text-xs font-mono uppercase tracking-widest text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
-              SOS Operations
+              Business (SOS)
             </div>
             <NavMenu location={location} items={SOS_NAV_ITEMS} />
           </SidebarContent>

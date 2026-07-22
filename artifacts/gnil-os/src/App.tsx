@@ -10,7 +10,7 @@ import Tenants from "@/pages/Tenants";
 import TenantDetail from "@/pages/TenantDetail";
 import Concierge from "@/pages/Concierge";
 import Marketing from "@/pages/Marketing";
-import Operations from "@/pages/Operations";
+import OperationsHub from "@/pages/OperationsHub";
 import Partners from "@/pages/Partners";
 import Media from "@/pages/Media";
 import Billing from "@/pages/Billing";
@@ -22,7 +22,6 @@ import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
 import { DashboardPage as SosDashboard } from "@/pages/sos/dashboard";
-import { OperationsPage as SosOperations } from "@/pages/sos/operations";
 import { CalendarPage as SosCalendar } from "@/pages/sos/calendar";
 import { CustomersPage as SosCustomers } from "@/pages/sos/customers";
 import { PosPage as SosPos } from "@/pages/sos/pos";
@@ -79,7 +78,8 @@ function ProtectedApp() {
         <Route path="/tenants/:id/settings" component={Settings} />
         <Route path="/tenants/:id/concierge" component={Concierge} />
         <Route path="/marketing" component={Marketing} />
-        <Route path="/operations" component={Operations} />
+        {/* Unified Operations hub — Modules tab */}
+        <Route path="/operations" component={OperationsHub} />
         <Route path="/partners" component={Partners} />
         <Route path="/media" component={Media} />
         <Route path="/modules/:id" component={ModuleConsole} />
@@ -89,7 +89,8 @@ function ProtectedApp() {
         <Route path="/settings" component={Settings} />
         {/* SOS Operations section */}
         <Route path="/sos" component={SosDashboard} />
-        <Route path="/sos/operations" component={SosOperations} />
+        {/* Unified Operations hub — Live Operations tab (old SOS Operations Center URL) */}
+        <Route path="/sos/operations" component={OperationsHub} />
         <Route path="/sos/calendar" component={SosCalendar} />
         <Route path="/sos/customers" component={SosCustomers} />
         <Route path="/sos/pos" component={SosPos} />

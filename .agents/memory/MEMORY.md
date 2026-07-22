@@ -7,7 +7,7 @@
 - Stale `lib/*/dist` .d.ts (db, api-zod) causes phantom "no exported member" typecheck errors in api-server; fix with `npx tsc -b lib/<pkg>`, not code changes.
 - [SOS platform decisions](sos-platform.md) — SOS routes intentionally public (no auth yet), simulated-SMS fallback, AI parse fallback, conditional-update concurrency guards.
 - [Dev DB drift behind Drizzle schema](dev-db-drift.md) — on missing-column query errors, diff information_schema vs schema and push additive DDL.
-- drizzle-kit migrate can exit 1 silently without applying the new migration; verify tables exist afterward, and if needed apply the SQL manually plus insert its sha256 hash/journal `when` into drizzle.__drizzle_migrations.
+- [Drizzle silent migrate failures](drizzle-migrations.md) — migrate can exit 1 silently; verify tables, apply SQL manually, stamp hash/`when` into drizzle.__drizzle_migrations.
 - api-zod schemas come from a different zod instance than api-server's; `instanceof ZodError` fails across them — duck-type on `err.name === "ZodError"` in error middleware.
 - [Validation gates](validation-gates.md) — api-server-test excludes the known-broken SOS inbound-SMS test file; drop the exclude once those webhook tests are fixed.
 - orval: an operation with both path and query params generates a zod `<Op>Params` and a TS type `<Op>Params` that collide on re-export; avoid query params on parameterized paths or rename.
