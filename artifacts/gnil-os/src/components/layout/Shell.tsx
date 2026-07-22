@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
   Activity, LayoutDashboard, Users, Zap, Radio, CreditCard, Cable, WifiOff, X,
-  Calendar, BarChart3, Megaphone, Settings, BookOpenCheck,
+  BarChart3, Megaphone, Settings, BookOpenCheck,
 } from 'lucide-react';
 
 type NavItem = {
@@ -51,9 +51,7 @@ const NAV_ITEMS: NavItem[] = [
 
 const SOS_NAV_ITEMS: NavItem[] = [
   { name: 'SOS Dashboard', path: '/sos', icon: LayoutDashboard },
-  { name: 'Calendar', path: '/sos/calendar', icon: Calendar },
   { name: 'Customers', path: '/sos/customers', icon: Users },
-  { name: 'POS', path: '/sos/pos', icon: CreditCard },
   { name: 'Reports', path: '/sos/reports', icon: BarChart3 },
   // Consolidated appointment + checkout workflows
   { name: 'Business Bookings', path: '/sos/bookings', icon: BookOpenCheck },
