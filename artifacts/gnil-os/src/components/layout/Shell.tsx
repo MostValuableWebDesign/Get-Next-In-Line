@@ -11,7 +11,10 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Activity, LayoutDashboard, Users, Zap, Briefcase, Radio, CreditCard, Cable, WifiOff, X } from 'lucide-react';
+import {
+  Activity, LayoutDashboard, Users, Zap, Briefcase, Radio, CreditCard, Cable, WifiOff, X,
+  Calendar, UserCircle, ShieldCheck, Heart, BarChart3, Megaphone, Settings,
+} from 'lucide-react';
 
 const NAV_ITEMS = [
   { name: 'Command Center', path: '/', icon: LayoutDashboard },
@@ -24,15 +27,30 @@ const NAV_ITEMS = [
   { name: 'Connector Registry', path: '/connectors', icon: Cable },
 ];
 
+const SOS_NAV_ITEMS = [
+  { name: 'SOS Dashboard', path: '/sos', icon: LayoutDashboard },
+  { name: 'Operations Center', path: '/sos/operations', icon: Activity },
+  { name: 'Calendar', path: '/sos/calendar', icon: Calendar },
+  { name: 'Customers', path: '/sos/customers', icon: Users },
+  { name: 'POS', path: '/sos/pos', icon: CreditCard },
+  { name: 'Reports', path: '/sos/reports', icon: BarChart3 },
+  { name: 'Marketing', path: '/sos/marketing', icon: Megaphone },
+  { name: 'Employees', path: '/sos/employees', icon: UserCircle },
+  { name: 'Payroll (Gusto)', path: '/sos/payroll', icon: Briefcase },
+  { name: 'Business Protection', path: '/sos/business-protection', icon: ShieldCheck },
+  { name: 'Employee Benefits', path: '/sos/employee-benefits', icon: Heart },
+  { name: 'SOS Settings', path: '/sos/settings', icon: Settings },
+];
+
 import { useOnlineStatus } from '@/hooks/use-online';
 
 /** Nav list — closes the mobile drawer after each click */
-function NavMenu({ location }: { location: string }) {
+function NavMenu({ location, items }: { location: string; items: typeof NAV_ITEMS }) {
   const { isMobile, setOpenMobile } = useSidebar();
 
   return (
     <SidebarMenu>
-      {NAV_ITEMS.map((item) => (
+      {items.map((item) => (
         <SidebarMenuItem key={item.path}>
           <SidebarMenuButton
             asChild
@@ -98,7 +116,8 @@ function ConnectionBanner({ isOnline, settled }: { isOnline: boolean; settled: b
 export function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { isOnline, settled } = useOnlineStatus();
-  const currentLabel = NAV_ITEMS.find((n) => n.path === location)?.name || 'Agency OS';
+  const currentLabel =
+    [...NAV_ITEMS, ...SOS_NAV_ITEMS].find((n) => n.path === location)?.name || 'Agency OS';
 
   return (
     <SidebarProvider>
@@ -116,7 +135,11 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
           </SidebarHeader>
           <SidebarContent className="p-2">
-            <NavMenu location={location} />
+            <NavMenu location={location} items={NAV_ITEMS} />
+            <div className="px-3 pt-4 pb-1 text-xs font-mono uppercase tracking-widest text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
+              SOS Operations
+            </div>
+            <NavMenu location={location} items={SOS_NAV_ITEMS} />
           </SidebarContent>
         </Sidebar>
         <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden">

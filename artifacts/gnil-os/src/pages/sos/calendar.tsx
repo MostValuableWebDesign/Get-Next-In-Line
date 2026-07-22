@@ -54,7 +54,7 @@ function AppointmentRow({ apt }: { apt: any }) {
 
   const handleCancel = () => {
     cancel.mutate(
-      { id: apt.id, data: {} },
+      { id: apt.id },
       {
         onSuccess: (res: any) => {
           queryClient.invalidateQueries({ queryKey: getListSosAppointmentsQueryKey({}) });

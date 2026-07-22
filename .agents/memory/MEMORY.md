@@ -7,3 +7,4 @@
 - Stale `lib/*/dist` .d.ts (db, api-zod) causes phantom "no exported member" typecheck errors in api-server; fix with `npx tsc -b lib/<pkg>`, not code changes.
 - [SOS platform decisions](sos-platform.md) — SOS routes intentionally public (no auth yet), simulated-SMS fallback, AI parse fallback, conditional-update concurrency guards.
 - [Dev DB drift behind Drizzle schema](dev-db-drift.md) — on missing-column query errors, diff information_schema vs schema and push additive DDL.
+- [Artifact path shadowing](artifact-path-shadowing.md) — an artifact's registered path prefix shadows same-prefix routes in the root app; re-path retired artifacts to free the prefix.

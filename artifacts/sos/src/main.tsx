@@ -1,7 +1,5 @@
-import { createRoot } from 'react-dom/client';
+// The standalone SOS app is retired — SOS now lives inside GNIL OS.
+// Redirect any visitor of the old /sos/ URL to the merged app's SOS section.
+window.location.replace("/sos");
 
-import App from './App';
-
-import './index.css';
-
-createRoot(document.getElementById('root')!).render(<App />);
+export {};

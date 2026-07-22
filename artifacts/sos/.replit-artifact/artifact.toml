@@ -1,13 +1,13 @@
 kind = "web"
-previewPath = "/sos/"
-title = "SOS Operations Platform"
+previewPath = "/sos-legacy/"
+title = "SOS (retired — merged into GNIL OS)"
 version = "1.0.0"
 id = "artifacts/sos"
 router = "path"
 
 [[services]]
 name = "web"
-paths = [ "/sos/" ]
+paths = [ "/sos-legacy/" ]
 localPort = 22124
 
 [services.development]
@@ -24,4 +24,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "22124"
-BASE_PATH = "/sos/"
+BASE_PATH = "/sos-legacy/"

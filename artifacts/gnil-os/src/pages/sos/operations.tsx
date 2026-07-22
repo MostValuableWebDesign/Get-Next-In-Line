@@ -22,9 +22,16 @@ export function OperationsPage() {
   const { toast } = useToast();
   
   // Live polling
-  const { data: visits } = useListSosVisits({ active: true }, { query: { refetchInterval: 5000 } });
-  const { data: resources } = useListSosResources(undefined, { query: { refetchInterval: 5000 } });
-  const { data: waitlist } = useListSosWaitlist(undefined, { query: { refetchInterval: 5000 } });
+  const { data: visits } = useListSosVisits(
+    { active: true },
+    { query: { queryKey: getListSosVisitsQueryKey({ active: true }), refetchInterval: 5000 } },
+  );
+  const { data: resources } = useListSosResources({
+    query: { queryKey: getListSosResourcesQueryKey(), refetchInterval: 5000 },
+  });
+  const { data: waitlist } = useListSosWaitlist({
+    query: { queryKey: getListSosWaitlistQueryKey(), refetchInterval: 5000 },
+  });
 
   const advanceVisit = useAdvanceSosVisit();
   const updateResource = useUpdateSosResource();
@@ -45,7 +52,7 @@ export function OperationsPage() {
 
   const handleClaim = (id: number) => {
     claimSlot.mutate(
-      { id, data: {} },
+      { id },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListSosWaitlistQueryKey() });

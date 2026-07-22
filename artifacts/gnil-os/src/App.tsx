@@ -18,6 +18,22 @@ import ConnectorRegistry from "@/pages/ConnectorRegistry";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
+// SOS Operations section (merged from the former standalone SOS app)
+import { DashboardPage as SosDashboard } from "@/pages/sos/dashboard";
+import { OperationsPage as SosOperations } from "@/pages/sos/operations";
+import { CalendarPage as SosCalendar } from "@/pages/sos/calendar";
+import { CustomersPage as SosCustomers } from "@/pages/sos/customers";
+import { PosPage as SosPos } from "@/pages/sos/pos";
+import { ReportsPage as SosReports } from "@/pages/sos/reports";
+import { MarketingPage as SosMarketing } from "@/pages/sos/marketing";
+import { SettingsPage as SosSettings } from "@/pages/sos/settings";
+import {
+  EmployeesPage as SosEmployees,
+  PayrollPage as SosPayroll,
+  BusinessProtectionPage as SosBusinessProtection,
+  EmployeeBenefitsPage as SosEmployeeBenefits,
+} from "@/pages/sos/static-pages";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -64,6 +80,19 @@ function ProtectedApp() {
         <Route path="/modules/:id" component={ModuleConsole} />
         <Route path="/billing" component={Billing} />
         <Route path="/connectors" component={ConnectorRegistry} />
+        {/* SOS Operations section */}
+        <Route path="/sos" component={SosDashboard} />
+        <Route path="/sos/operations" component={SosOperations} />
+        <Route path="/sos/calendar" component={SosCalendar} />
+        <Route path="/sos/customers" component={SosCustomers} />
+        <Route path="/sos/pos" component={SosPos} />
+        <Route path="/sos/reports" component={SosReports} />
+        <Route path="/sos/marketing" component={SosMarketing} />
+        <Route path="/sos/settings" component={SosSettings} />
+        <Route path="/sos/employees" component={SosEmployees} />
+        <Route path="/sos/payroll" component={SosPayroll} />
+        <Route path="/sos/business-protection" component={SosBusinessProtection} />
+        <Route path="/sos/employee-benefits" component={SosEmployeeBenefits} />
         <Route component={NotFound} />
       </Switch>
     </Shell>

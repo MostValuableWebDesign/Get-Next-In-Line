@@ -15,11 +15,11 @@ const router: IRouter = Router();
 // These do not require an authenticated session.
 router.use(healthRouter); // GET /healthz
 router.use(authRouter);   // POST /auth/login, POST /auth/logout, GET /auth/me
-router.use(sosRouter);    // SOS operations platform (own product surface; also Twilio webhooks later)
 
 // ── Protected routes ─────────────────────────────────────────────────────────
 // All routes below this middleware require a valid session.
 router.use(requireAuth);
+router.use(sosRouter);    // SOS operations section of GNIL OS (behind the same session auth)
 router.use(agencyRouter);
 router.use(tenantsRouter);
 router.use(modulesRouter);
