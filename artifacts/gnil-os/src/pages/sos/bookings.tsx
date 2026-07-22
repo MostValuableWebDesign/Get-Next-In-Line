@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Plus, Calendar as CalIcon, CreditCard, ArrowRight, Receipt, Clock, History,
+  LayoutDashboard, Users, BarChart3,
 } from 'lucide-react';
 
 /**
@@ -51,31 +52,37 @@ export function BookingsPage() {
       </div>
 
       {/* Jump links to the full operational views */}
-      <div className="grid sm:grid-cols-2 gap-4">
-        <Link href="/sos/calendar" className="group">
-          <Card className="hover:border-primary/40 transition-colors cursor-pointer">
-            <CardContent className="p-4 flex items-center gap-3">
-              <CalIcon className="h-5 w-5 text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold">Full Calendar</div>
-                <div className="text-xs text-muted-foreground">Manage the complete schedule and cancellations</div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/sos/pos" className="group">
-          <Card className="hover:border-primary/40 transition-colors cursor-pointer">
-            <CardContent className="p-4 flex items-center gap-3">
-              <CreditCard className="h-5 w-5 text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold">Point of Sale</div>
-                <div className="text-xs text-muted-foreground">Process payments and close out visits</div>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-            </CardContent>
-          </Card>
-        </Link>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <JumpLinkCard
+          href="/sos/calendar"
+          icon={CalIcon}
+          title="Full Calendar"
+          description="Manage the complete schedule and cancellations"
+        />
+        <JumpLinkCard
+          href="/sos/pos"
+          icon={CreditCard}
+          title="Point of Sale"
+          description="Process payments and close out visits"
+        />
+        <JumpLinkCard
+          href="/sos"
+          icon={LayoutDashboard}
+          title="SOS Dashboard"
+          description="Live KPIs, queue status, and recent AI activity"
+        />
+        <JumpLinkCard
+          href="/sos/customers"
+          icon={Users}
+          title="Customers"
+          description="Manage client records, preferences, and timelines"
+        />
+        <JumpLinkCard
+          href="/sos/reports"
+          icon={BarChart3}
+          title="Reports"
+          description="Business performance and AI efficiency metrics"
+        />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
@@ -174,6 +181,30 @@ export function BookingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function JumpLinkCard({
+  href, icon: Icon, title, description,
+}: {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Link href={href} className="group">
+      <Card className="hover:border-primary/40 transition-colors cursor-pointer h-full">
+        <CardContent className="p-4 flex items-center gap-3">
+          <Icon className="h-5 w-5 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold">{title}</div>
+            <div className="text-xs text-muted-foreground">{description}</div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 

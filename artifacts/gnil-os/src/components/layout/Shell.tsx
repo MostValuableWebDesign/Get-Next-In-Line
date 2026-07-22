@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
   Activity, LayoutDashboard, Users, Zap, Radio, CreditCard, Cable, WifiOff, X,
-  BarChart3, Megaphone, Settings, BookOpenCheck,
+  Megaphone, Settings, BookOpenCheck,
 } from 'lucide-react';
 
 type NavItem = {
@@ -50,11 +50,14 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const SOS_NAV_ITEMS: NavItem[] = [
-  { name: 'SOS Dashboard', path: '/sos', icon: LayoutDashboard },
-  { name: 'Customers', path: '/sos/customers', icon: Users },
-  { name: 'Reports', path: '/sos/reports', icon: BarChart3 },
-  // Consolidated appointment + checkout workflows
-  { name: 'Business Bookings', path: '/sos/bookings', icon: BookOpenCheck },
+  // Consolidated hub: appointments + checkout, plus entry points to the
+  // SOS Dashboard (/sos), Customers, and Reports views
+  {
+    name: 'Business Bookings',
+    path: '/sos/bookings',
+    icon: BookOpenCheck,
+    aliases: ['/sos', '/sos/customers', '/sos/reports'],
+  },
   // Live communications logs (AI calls + SMS); setup lives in Configuration.
   { name: 'Marketing & Comms', path: '/sos/marketing', icon: Megaphone },
 ];
