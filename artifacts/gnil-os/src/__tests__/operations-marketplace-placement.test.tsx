@@ -123,7 +123,7 @@ describe('Sidebar — service modules never become navigation tabs', () => {
 
 describe('Daily-workflow pages — no module marketplace leakage (source scan)', () => {
   const PAGES_DIR = path.resolve(__dirname, '../pages/sos');
-  const DAILY_WORKFLOW_PAGES = ['bookings.tsx', 'pos.tsx', 'ai-receptionist.tsx'];
+  const DAILY_WORKFLOW_PAGES = ['bookings.tsx', 'ai-receptionist.tsx'];
   const FORBIDDEN_TOKENS = [
     ...OPERATIONS_MODULES,
     'ModuleGrid',

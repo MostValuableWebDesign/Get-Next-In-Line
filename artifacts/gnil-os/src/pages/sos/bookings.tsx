@@ -42,6 +42,7 @@ export function BookingsPage() {
   }, [appointments, now]);
 
   const inService = visits?.filter(v => v.status === 'in_service') || [];
+  const openTickets = visits?.filter(v => v.status === 'payment') || [];
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
@@ -177,6 +178,11 @@ export function BookingsPage() {
           <div>
             <h2 className="text-base font-semibold flex items-center gap-2 mb-3">
               <Receipt className="h-4 w-4 text-primary" /> Awaiting Payment
+              {!isLoadingVisits && openTickets.length > 0 && (
+                <Badge variant="secondary" data-testid="badge-awaiting-payment-count">
+                  {openTickets.length} open ticket{openTickets.length === 1 ? '' : 's'}
+                </Badge>
+              )}
             </h2>
             {isLoadingVisits ? <Skeleton className="h-32 w-full" /> : <OpenTicketsPanel />}
           </div>

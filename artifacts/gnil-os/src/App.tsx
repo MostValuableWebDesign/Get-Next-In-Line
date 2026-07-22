@@ -19,7 +19,6 @@ import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
 import { CustomersPage as SosCustomers } from "@/pages/sos/customers";
-import { PosPage as SosPos } from "@/pages/sos/pos";
 import { ReportsPage as SosReports } from "@/pages/sos/reports";
 import { AiReceptionistPage } from "@/pages/sos/ai-receptionist";
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
@@ -98,7 +97,10 @@ function ProtectedApp() {
           <Redirect to="/sos/bookings" replace />
         </Route>
         <Route path="/sos/customers" component={SosCustomers} />
-        <Route path="/sos/pos" component={SosPos} />
+        {/* Point of Sale is folded into Business Bookings (tickets + in-service) */}
+        <Route path="/sos/pos">
+          <Redirect to="/sos/bookings" replace />
+        </Route>
         <Route path="/sos/reports" component={SosReports} />
         <Route path="/sos/bookings" component={SosBookings} />
         <Route path="/sos/memberships" component={SosMemberships} />
