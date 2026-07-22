@@ -7,7 +7,15 @@ import {
   messagesTable,
 } from "@workspace/db";
 import { and, eq, like } from "drizzle-orm";
-import { handleSendReminder, handleRebookingNudge } from "../concierge";
+import {
+  handleSendReminder,
+  handleRebookingNudge,
+  reapStalePendingMessages,
+  runConciergeTick,
+  CONCIERGE_LOCK_KEY,
+  STALE_PENDING_MS,
+} from "../concierge";
+import { pool } from "@workspace/db";
 
 // ---------------------------------------------------------------------------
 // Unit/integration tests for the concierge worker job handlers against the
@@ -171,5 +179,92 @@ describe("REBOOKING_NUDGE handler", () => {
 
     await handleRebookingNudge(NOW);
     expect(await logsFor(overdueId, "rebooking_nudge")).toHaveLength(0);
+
+    await db
+      .update(engagementRulesTable)
+      .set({ isActive: true })
+      .where(eq(engagementRulesTable.id, nudgeRuleId));
+  });
+});
+
+describe("stale pending reaper", () => {
+  async function insertPending(createdAt: Date, direction = "outbound") {
+    const [row] = await db
+      .insert(messagesTable)
+      .values({
+        tenantId,
+        clientProfileId: dueSoonId,
+        direction,
+        kind: "send_reminder",
+        channel: "sms",
+        toNumber: `${PHONE_PREFIX}0001`,
+        body: "stuck",
+        status: "pending",
+        createdAt,
+      })
+      .returning();
+    return row;
+  }
+
+  it("marks pending outbound logs older than the threshold as failed with a clear error", async () => {
+    const stale = await insertPending(new Date(NOW.getTime() - STALE_PENDING_MS - 60_000));
+    const fresh = await insertPending(new Date(NOW.getTime() - 60_000));
+
+    const reaped = await reapStalePendingMessages(NOW);
+    expect(reaped).toBeGreaterThanOrEqual(1);
+
+    const [staleRow] = await db
+      .select()
+      .from(messagesTable)
+      .where(eq(messagesTable.id, stale.id));
+    expect(staleRow.status).toBe("failed");
+    expect(staleRow.errorCode).toBe("stale_pending");
+    expect(staleRow.errorMessage).toMatch(/stuck in pending/i);
+
+    const [freshRow] = await db
+      .select()
+      .from(messagesTable)
+      .where(eq(messagesTable.id, fresh.id));
+    expect(freshRow.status).toBe("pending");
+
+    await db.delete(messagesTable).where(eq(messagesTable.id, fresh.id));
+    await db.delete(messagesTable).where(eq(messagesTable.id, stale.id));
+  });
+
+  it("lets a reminder be re-sent after its stuck pending log is reaped", async () => {
+    // Simulate a crash mid-send: clear prior logs, leave only a stale pending row.
+    await db.delete(messagesTable).where(eq(messagesTable.clientProfileId, dueSoonId));
+    await insertPending(new Date(NOW.getTime() - STALE_PENDING_MS - 60_000));
+
+    // Without reaping, the pending row suppresses the reminder.
+    await handleSendReminder(NOW);
+    let logs = await logsFor(dueSoonId, "send_reminder");
+    expect(logs.filter((l) => l.status === "simulated")).toHaveLength(0);
+
+    await reapStalePendingMessages(NOW);
+    await handleSendReminder(NOW);
+    logs = await logsFor(dueSoonId, "send_reminder");
+    expect(logs.filter((l) => l.status === "simulated")).toHaveLength(1);
+  });
+});
+
+describe("concierge tick advisory lock", () => {
+  it("skips the tick when another connection holds the lock", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("select pg_advisory_lock($1)", [CONCIERGE_LOCK_KEY]);
+      const result = await runConciergeTick(NOW);
+      expect(result).toEqual({ ran: false, reaped: 0, reminders: 0, nudges: 0 });
+    } finally {
+      await client.query("select pg_advisory_unlock($1)", [CONCIERGE_LOCK_KEY]);
+      client.release();
+    }
+  });
+
+  it("runs the tick (reap + handlers) when the lock is free", async () => {
+    const result = await runConciergeTick(NOW);
+    expect(result.ran).toBe(true);
+    expect(result.reminders).toBeGreaterThanOrEqual(0);
+    expect(result.nudges).toBeGreaterThanOrEqual(0);
   });
 });

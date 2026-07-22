@@ -6,7 +6,7 @@ import {
   type ClientProfile,
   type EngagementRule,
 } from "@workspace/db";
-import { and, desc, eq, gte, isNotNull, lte } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
 import {
   dispatchToProfile,
   reminderRuleConfigSchema,
@@ -173,6 +173,85 @@ export async function handleRebookingNudge(now: Date = new Date()): Promise<numb
   return dispatched;
 }
 
+// ── Crash/concurrency hardening ──────────────────────────────────────────────
+
+/** Outbound messages stuck in "pending" longer than this are considered dead. */
+export const STALE_PENDING_MS = 15 * 60 * 1000;
+export const STALE_PENDING_ERROR =
+  "Reaped by concierge worker: message stuck in pending (likely a crash or restart mid-send)";
+
+/** Advisory lock key for the concierge tick (arbitrary but stable). */
+export const CONCIERGE_LOCK_KEY = 0x67_6e_69_6c; // "gnil"
+
+/**
+ * Mark outbound messages stuck in "pending" beyond the threshold as failed.
+ * A crash/restart between the pending insert and the finalizing update leaves
+ * rows in "pending" forever; since `alreadyLogged` treats non-failed rows as
+ * "already sent", such rows would suppress the retry indefinitely. Marking
+ * them failed lets the next tick re-dispatch. Returns the number reaped.
+ */
+export async function reapStalePendingMessages(
+  now: Date = new Date(),
+  thresholdMs: number = STALE_PENDING_MS,
+): Promise<number> {
+  const cutoff = new Date(now.getTime() - thresholdMs);
+  const reaped = await db
+    .update(messagesTable)
+    .set({
+      status: "failed",
+      errorCode: "stale_pending",
+      errorMessage: STALE_PENDING_ERROR,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(messagesTable.direction, "outbound"),
+        eq(messagesTable.status, "pending"),
+        lt(messagesTable.createdAt, cutoff),
+      ),
+    )
+    .returning({ id: messagesTable.id });
+  if (reaped.length > 0) {
+    logger.warn(
+      { count: reaped.length, ids: reaped.map((r) => r.id) },
+      "Reaped stale pending messages",
+    );
+  }
+  return reaped.length;
+}
+
+export interface ConciergeTickResult {
+  /** False when another instance held the advisory lock and this tick was skipped. */
+  ran: boolean;
+  reaped: number;
+  reminders: number;
+  nudges: number;
+}
+
+/**
+ * Run one concierge tick under a Postgres advisory lock so concurrent server
+ * instances never double-scan (and thus never double-dispatch) the same
+ * reminders/nudges. Uses a transaction-scoped lock (pg_try_advisory_xact_lock)
+ * so the lock is guaranteed released even if the process dies mid-tick, and
+ * always sits on the same connection that acquired it.
+ */
+export async function runConciergeTick(now: Date = new Date()): Promise<ConciergeTickResult> {
+  return db.transaction(async (tx) => {
+    const res = await tx.execute(
+      sql`select pg_try_advisory_xact_lock(${CONCIERGE_LOCK_KEY}) as locked`,
+    );
+    const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
+    if (!locked) {
+      logger.info("Concierge tick skipped — another instance holds the lock");
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0 };
+    }
+    const reaped = await reapStalePendingMessages(now);
+    const reminders = await handleSendReminder(now);
+    const nudges = await handleRebookingNudge(now);
+    return { ran: true, reaped, reminders, nudges };
+  });
+}
+
 const JOB_HANDLERS: Record<string, (now?: Date) => Promise<number>> = {
   [JOB_SEND_REMINDER]: handleSendReminder,
   [JOB_REBOOKING_NUDGE]: handleRebookingNudge,
@@ -203,6 +282,8 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
         logger.warn({ jobName: job.name }, "Unknown concierge job");
         return 0;
       }
+      // Crash-mid-send recovery applies on this path too.
+      await reapStalePendingMessages();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;
@@ -229,10 +310,12 @@ function startIntervalWorker(): ConciergeWorkerHandle {
     if (running) return; // don't overlap slow ticks
     running = true;
     try {
-      const reminders = await handleSendReminder();
-      const nudges = await handleRebookingNudge();
-      if (reminders + nudges > 0) {
-        logger.info({ reminders, nudges }, "Concierge interval tick dispatched messages");
+      const { ran, reaped, reminders, nudges } = await runConciergeTick();
+      if (ran && reaped + reminders + nudges > 0) {
+        logger.info(
+          { reaped, reminders, nudges },
+          "Concierge interval tick dispatched messages",
+        );
       }
     } catch (err) {
       logger.error({ err }, "Concierge interval tick failed");
