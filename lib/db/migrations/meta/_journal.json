@@ -22,6 +22,13 @@
       "when": 1784694680691,
       "tag": "0002_curious_iron_lad",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784704286600,
+      "tag": "0003_sos_platform",
+      "breakpoints": true
     }
   ]
 }

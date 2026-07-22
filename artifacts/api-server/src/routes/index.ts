@@ -7,6 +7,7 @@ import tenantsRouter from "./tenants";
 import modulesRouter from "./modules";
 import billingRouter from "./billing";
 import adminRouter from "./admin";
+import sosRouter from "./sos";
 
 const router: IRouter = Router();
 
@@ -14,6 +15,7 @@ const router: IRouter = Router();
 // These do not require an authenticated session.
 router.use(healthRouter); // GET /healthz
 router.use(authRouter);   // POST /auth/login, POST /auth/logout, GET /auth/me
+router.use(sosRouter);    // SOS operations platform (own product surface; also Twilio webhooks later)
 
 // ── Protected routes ─────────────────────────────────────────────────────────
 // All routes below this middleware require a valid session.

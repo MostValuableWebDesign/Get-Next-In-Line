@@ -1,0 +1,125 @@
+import { logger } from "./logger";
+
+/**
+ * AI receptionist intent parsing. Uses the Replit AI integration (OpenAI-
+ * compatible proxy) when AI_INTEGRATIONS_OPENAI_* env vars are set; otherwise
+ * falls back to a deterministic keyword parser so the receptionist flow keeps
+ * working end-to-end.
+ */
+
+export interface ParsedCallIntent {
+  intent: "book_appointment" | "reschedule" | "question" | "other";
+  serviceType: string | null;
+  requestedTime: string | null; // ISO if parseable
+  summary: string;
+  usedAi: boolean;
+}
+
+const SERVICE_KEYWORDS = [
+  "haircut",
+  "color",
+  "cleaning",
+  "checkup",
+  "consultation",
+  "massage",
+  "manicure",
+  "repair",
+  "oil change",
+  "table",
+  "reservation",
+];
+
+function fallbackParse(inquiry: string): ParsedCallIntent {
+  const lower = inquiry.toLowerCase();
+  const wantsBooking =
+    /\b(book|appointment|schedule|reserve|reservation|come in|slot|opening)\b/.test(lower);
+  const wantsReschedule = /\b(reschedule|move|change my)\b/.test(lower);
+  const serviceType =
+    SERVICE_KEYWORDS.find((k) => lower.includes(k)) ?? null;
+
+  let requestedTime: string | null = null;
+  const now = new Date();
+  if (/\btomorrow\b/.test(lower)) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + 1);
+    d.setHours(10, 0, 0, 0);
+    requestedTime = d.toISOString();
+  } else if (/\btoday\b/.test(lower)) {
+    const d = new Date(now);
+    d.setHours(Math.min(now.getHours() + 2, 17), 0, 0, 0);
+    requestedTime = d.toISOString();
+  }
+
+  return {
+    intent: wantsReschedule
+      ? "reschedule"
+      : wantsBooking
+        ? "book_appointment"
+        : /\?|how|when|do you|price|cost|open/.test(lower)
+          ? "question"
+          : "other",
+    serviceType,
+    requestedTime,
+    summary: inquiry.slice(0, 300),
+    usedAi: false,
+  };
+}
+
+export async function parseCallIntent(
+  inquiry: string,
+  callerName: string | null,
+  nowIso: string,
+): Promise<ParsedCallIntent> {
+  const baseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+  if (!baseUrl || !apiKey) {
+    return fallbackParse(inquiry);
+  }
+
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-5.6-luna",
+        max_completion_tokens: 8192,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content: `You are an AI receptionist for a service business. Current time: ${nowIso}. Parse the caller's inquiry and respond with strict JSON: {"intent":"book_appointment"|"reschedule"|"question"|"other","serviceType":string|null,"requestedTime":ISO-8601 string|null,"summary":string (one concise sentence describing what the caller wants)}.`,
+          },
+          {
+            role: "user",
+            content: `Caller${callerName ? ` (${callerName})` : ""}: ${inquiry}`,
+          },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`AI proxy ${res.status}`);
+    const payload = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = payload.choices?.[0]?.message?.content;
+    if (!content) throw new Error("empty AI response");
+    const parsed = JSON.parse(content) as Partial<ParsedCallIntent>;
+    return {
+      intent:
+        parsed.intent === "book_appointment" ||
+        parsed.intent === "reschedule" ||
+        parsed.intent === "question"
+          ? parsed.intent
+          : "other",
+      serviceType: parsed.serviceType ?? null,
+      requestedTime: parsed.requestedTime ?? null,
+      summary: parsed.summary ?? inquiry.slice(0, 300),
+      usedAi: true,
+    };
+  } catch (err) {
+    logger.warn({ err }, "AI intent parse failed; using fallback parser");
+    return fallbackParse(inquiry);
+  }
+}
