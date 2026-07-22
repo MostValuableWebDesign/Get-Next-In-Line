@@ -21,7 +21,10 @@ router.use(authRouter);   // POST /auth/login, POST /auth/logout, GET /auth/me
 // All routes below this middleware require a valid session — except the
 // Twilio inbound webhook, which is called by Twilio (no session) and is
 // authenticated by its own X-Twilio-Signature validation inside the handler.
-const SESSION_EXEMPT_PATHS = new Set(["/sos/twilio/inbound"]);
+const SESSION_EXEMPT_PATHS = new Set([
+  "/sos/twilio/inbound",
+  "/sos/twilio/status",
+]);
 router.use((req, res, next) => {
   if (SESSION_EXEMPT_PATHS.has(req.path)) {
     next();

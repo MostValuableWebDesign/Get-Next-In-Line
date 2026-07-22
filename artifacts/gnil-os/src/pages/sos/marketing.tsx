@@ -233,7 +233,26 @@ function SimulateCallDialog() {
 }
 
 function MessageLogList() {
-  const { data: messages } = useListSosMessages({ limit: 50 });
+  // Poll while any outbound message is still awaiting a final delivery
+  // status (Twilio confirms via status callback), so "sent" flips to
+  // "delivered"/"failed" without a page reload.
+  const { data: messages } = useListSosMessages(
+    { limit: 50 },
+    {
+      query: {
+        queryKey: getListSosMessagesQueryKey({ limit: 50 }),
+        refetchInterval: (query) => {
+          const rows = query.state.data;
+          const hasNonFinal = rows?.some(
+            (m) =>
+              m.direction === 'outbound' &&
+              (m.deliveryStatus === 'pending' || m.deliveryStatus === 'sent'),
+          );
+          return hasNonFinal ? 5000 : false;
+        },
+      },
+    },
+  );
 
   return (
     <div className="flex-1 overflow-y-auto border rounded-lg">

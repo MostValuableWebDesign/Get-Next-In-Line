@@ -5,7 +5,7 @@ import {
   clientProfilesTable,
   type Message,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq, notInArray } from "drizzle-orm";
 import { deliverSms, normalizeToE164 } from "./sms";
 import { logger } from "./logger";
 
@@ -181,6 +181,95 @@ export async function sendMessage(opts: SendMessageOptions): Promise<Message> {
     .where(eq(messagesTable.id, pending.id))
     .returning();
   return finalized;
+}
+
+/**
+ * Like `sendMessage`, but guaranteed not to throw even on unexpected
+ * infrastructure errors (e.g. the messages insert itself failing). Use in
+ * operational flows (queue advance, waitlist broadcast, receptionist) where
+ * a messaging problem must never block the customer-state transition.
+ * Returns null when the send could not even be recorded.
+ */
+export async function sendMessageSafe(
+  opts: SendMessageOptions,
+): Promise<Message | null> {
+  try {
+    return await sendMessage(opts);
+  } catch (err) {
+    logger.error(
+      { err, kind: opts.kind, customerId: opts.customerId ?? null },
+      "sendMessage threw unexpectedly; continuing flow without blocking",
+    );
+    return null;
+  }
+}
+
+// Statuses that are final: a late/out-of-order Twilio callback must never
+// downgrade them back to an interim state.
+const FINAL_STATUSES = ["delivered", "failed"];
+
+export interface DeliveryStatusUpdate {
+  providerSid: string;
+  /** Twilio MessageStatus, e.g. queued|sending|sent|delivered|undelivered|failed|read */
+  messageStatus: string;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+}
+
+/**
+ * Apply a Twilio StatusCallback delivery update to the matching outbound
+ * message in the unified `messages` table. Interim statuses (queued/sending/
+ * accepted) are ignored; "sent" only applies while the row isn't already
+ * final. Returns the updated row, or null when nothing matched/changed.
+ */
+export async function applyDeliveryStatus(
+  update: DeliveryStatusUpdate,
+): Promise<Message | null> {
+  let status: string;
+  switch (update.messageStatus) {
+    case "delivered":
+    case "read":
+      status = "delivered";
+      break;
+    case "failed":
+    case "undelivered":
+      status = "failed";
+      break;
+    case "sent":
+      status = "sent";
+      break;
+    default:
+      // queued / accepted / sending — interim, nothing to record yet.
+      return null;
+  }
+
+  const conditions = [
+    eq(messagesTable.providerSid, update.providerSid),
+    eq(messagesTable.direction, "outbound"),
+  ];
+  if (status === "sent") {
+    // Never downgrade a final status with an out-of-order interim callback.
+    conditions.push(notInArray(messagesTable.status, FINAL_STATUSES));
+  }
+
+  const [row] = await db
+    .update(messagesTable)
+    .set({
+      status,
+      errorCode: status === "failed" ? (update.errorCode ?? null) : null,
+      errorMessage: status === "failed" ? (update.errorMessage ?? null) : null,
+      updatedAt: new Date(),
+    })
+    .where(and(...conditions))
+    .returning();
+  if (!row) {
+    logger.warn(
+      { providerSid: update.providerSid, messageStatus: update.messageStatus },
+      "Status callback matched no outbound message (or was out of order)",
+    );
+    return null;
+  }
+  return row;
 }
 
 export interface RecordInboundOptions {

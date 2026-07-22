@@ -2,6 +2,7 @@ import { db, sosSettingsTable } from "@workspace/db";
 import { eq, isNull } from "drizzle-orm";
 import twilio from "twilio";
 import { logger } from "./logger";
+import { getStatusCallbackUrl } from "./inboundSms";
 
 /**
  * Low-level SMS transport. Uses Twilio when credentials are available (via
@@ -182,10 +183,12 @@ export async function deliverSms(
     } else {
       try {
         const client = twilio(creds.accountSid, creds.authToken);
+        const statusCallback = getStatusCallbackUrl();
         const message = await client.messages.create({
           to: toNumber,
           from: fromNumber,
           body,
+          ...(statusCallback ? { statusCallback } : {}),
         });
         providerSid = message.sid;
         if (message.status === "failed" || message.status === "undelivered") {

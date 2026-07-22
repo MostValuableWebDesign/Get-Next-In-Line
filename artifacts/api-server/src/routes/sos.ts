@@ -54,7 +54,12 @@ import {
 import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import twilio from "twilio";
 import { getSmsStatus, getTwilioAuthToken, normalizeToE164 } from "../lib/sms";
-import { sendMessage, recordInboundMessage } from "../lib/messaging";
+import {
+  sendMessage,
+  sendMessageSafe,
+  recordInboundMessage,
+  applyDeliveryStatus,
+} from "../lib/messaging";
 import { parseCallIntent, parseServiceNames } from "../lib/receptionist";
 import { parseInboundKeyword, getInboundWebhookUrl } from "../lib/inboundSms";
 import { claimWaitlistSlot } from "../lib/waitlistClaim";
@@ -194,7 +199,9 @@ async function broadcastOpenSlot(slotStart: Date, slotEnd: Date, service: string
     waitlistNotified++;
 
     if (customer.smsOptIn && customer.phone) {
-      await sendMessage({
+      // Safe send: an SMS/infra failure must not abort the broadcast loop —
+      // the entry is already marked notified and the outcome is recorded.
+      await sendMessageSafe({
         customerId: customer.id,
         toNumber: customer.phone,
         kind: "slot_open",
@@ -648,7 +655,9 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
   }
 
   if (body.action === "notify" && customer.smsOptIn && customer.phone) {
-    await sendMessage({
+    // Safe send: a Twilio/infra failure is recorded on the message row but
+    // must never block the visit's queue transition below.
+    await sendMessageSafe({
       customerId: customer.id,
       toNumber: customer.phone,
       kind: "you_are_next",
@@ -1105,6 +1114,49 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
   res.type("text/xml").send(twiml);
 });
 
+// ── Twilio delivery-status callback ─────────────────────────────────────────
+
+// Public endpoint Twilio POSTs per-message delivery updates to (the
+// StatusCallback URL passed on every send). Authenticated by Twilio's
+// request signature, not the session.
+router.post("/sos/twilio/status", async (req, res): Promise<void> => {
+  const authToken = await getTwilioAuthToken();
+  if (!authToken) {
+    logger.warn("Status callback hit but no Twilio auth token is configured");
+    res.status(503).json({ message: "SMS status callbacks are not configured" });
+    return;
+  }
+  const signature = req.header("X-Twilio-Signature") ?? "";
+  const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+  const params = (req.body ?? {}) as Record<string, string>;
+  if (!twilio.validateRequest(authToken, signature, url, params)) {
+    logger.warn({ url }, "Rejected status callback: invalid Twilio signature");
+    res.status(403).json({ message: "Invalid Twilio signature" });
+    return;
+  }
+
+  const providerSid = params.MessageSid ?? params.SmsSid;
+  const messageStatus = params.MessageStatus ?? params.SmsStatus;
+  if (!providerSid || !messageStatus) {
+    res.status(400).json({ message: "MessageSid and MessageStatus are required" });
+    return;
+  }
+
+  const updated = await applyDeliveryStatus({
+    providerSid,
+    messageStatus,
+    errorCode: params.ErrorCode ?? null,
+    errorMessage: params.ErrorMessage ?? null,
+  });
+  if (updated) {
+    logger.info(
+      { providerSid, messageStatus, messageId: updated.id, status: updated.status },
+      "Applied Twilio delivery status update",
+    );
+  }
+  res.status(204).send();
+});
+
 // ── AI receptionist calls ────────────────────────────────────────────────────
 
 function serializeCall(
@@ -1200,7 +1252,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
         .returning();
       appointmentId = appt.id;
       outcome = "booked";
-      await sendMessage({
+      await sendMessageSafe({
         customerId: customer.id,
         toNumber: body.fromNumber,
         kind: "ai_followup",
@@ -1208,7 +1260,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
       });
     } else {
       outcome = "followup_sms";
-      await sendMessage({
+      await sendMessageSafe({
         customerId: customer.id,
         toNumber: body.fromNumber,
         kind: "ai_followup",
@@ -1217,7 +1269,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
     }
   } else if (parsed.intent === "question" || parsed.intent === "reschedule") {
     outcome = "followup_sms";
-    await sendMessage({
+    await sendMessageSafe({
       customerId: customer.id,
       toNumber: body.fromNumber,
       kind: "ai_followup",
@@ -1312,9 +1364,10 @@ router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
         .orderBy(sql`1`),
     ]);
 
-  // Fold job-type/status counts into per-job-type stats. "sent" and
-  // "simulated" both count as delivered.
-  const DELIVERED = new Set(["sent", "simulated"]);
+  // Fold job-type/status counts into per-job-type stats. "sent" (accepted by
+  // Twilio), "delivered" (confirmed via status callback), and "simulated"
+  // all count as delivered.
+  const DELIVERED = new Set(["sent", "delivered", "simulated"]);
   const jobStats = new Map<
     string,
     { jobType: string; delivered: number; failed: number; skipped: number; pending: number; total: number }

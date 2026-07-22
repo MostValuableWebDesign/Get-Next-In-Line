@@ -32,9 +32,24 @@ export function parseInboundKeyword(body: string | null | undefined): InboundKey
  * domain. Null when no public domain is available (e.g. bare local dev).
  */
 export function getInboundWebhookUrl(): string | null {
-  const domain =
+  const domain = getPublicDomain();
+  return domain ? `https://${domain}/api/sos/twilio/inbound` : null;
+}
+
+/**
+ * Public URL Twilio should POST delivery-status updates to (the per-message
+ * StatusCallback). Null when no public domain is available — sends then go
+ * out without a callback and stay at their initial "sent" status.
+ */
+export function getStatusCallbackUrl(): string | null {
+  const domain = getPublicDomain();
+  return domain ? `https://${domain}/api/sos/twilio/status` : null;
+}
+
+function getPublicDomain(): string | null {
+  return (
     (process.env.REPLIT_DOMAINS ?? "").split(",").map((d) => d.trim()).filter(Boolean)[0] ??
     process.env.REPLIT_DEV_DOMAIN ??
-    null;
-  return domain ? `https://${domain}/api/sos/twilio/inbound` : null;
+    null
+  );
 }
