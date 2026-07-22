@@ -24,15 +24,21 @@ const fakeActivities = [
     details: null,
     timestamp: new Date(Date.UTC(2026, 0, 1, 0, i)),
   })),
+  // Tenant 2's rows intentionally share ONE timestamp so ordering must fall
+  // back to the id-desc tiebreak (stable ordering across pages).
   ...Array.from({ length: 3 }, (_, i) => ({
     id: 100 + i,
     tenantId: 2,
     tenantName: "Globex",
     action: `Globex action ${i + 1}`,
     details: "detail",
-    timestamp: new Date(Date.UTC(2026, 1, 1, 0, i)),
+    timestamp: new Date(Date.UTC(2026, 1, 1, 0, 0)),
   })),
 ];
+
+// Captures the columns the route passes to .orderBy() so a regression that
+// drops the id tiebreak (or the timestamp sort) fails loudly.
+let capturedOrderBy: unknown[] = [];
 
 vi.mock("@workspace/db", () => {
   const tenantsTable = { id: "tenants.id", brandName: "tenants.brandName" };
@@ -76,7 +82,10 @@ vi.mock("@workspace/db", () => {
     select: () => ({
       from: (table: unknown) => ({
         leftJoin: () => ({
-          orderBy: () => makeActivityQuery(),
+          orderBy: (...cols: unknown[]) => {
+            capturedOrderBy = cols;
+            return makeActivityQuery();
+          },
         }),
         orderBy: () => Promise.resolve([]),
         limit: () => Promise.resolve([]),
@@ -95,9 +104,10 @@ vi.mock("@workspace/db", () => {
 });
 
 // Mock drizzle-orm's eq so the .where() mock above can read the tenantId value.
+// desc() tags the column so we can assert the route sorts descending.
 vi.mock("drizzle-orm", () => ({
   eq: (_lhs: unknown, rhs: unknown) => ({ rhs }),
-  desc: (col: unknown) => col,
+  desc: (col: unknown) => ({ dir: "desc", col }),
 }));
 
 process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "test-admin-password";
@@ -187,6 +197,53 @@ describe("GET /api/tenants/activity", () => {
     const tooBig = await agent.get("/api/tenants/activity?limit=500");
     expect(tooBig.status).toBe(400);
     expect(tooBig.body).toHaveProperty("error");
+  });
+
+  it("supports a custom offset within a page (no off-by-one at page edges)", async () => {
+    const agent = await loggedInAgent();
+    // Tenant 1 has 22 rows, all distinct timestamps: ids 22..1 in desc order.
+    const res = await agent.get("/api/tenants/activity?tenantId=1&limit=5&offset=5");
+    expect(res.status).toBe(200);
+    expect(res.body.items.map((r: { id: number }) => r.id)).toEqual([17, 16, 15, 14, 13]);
+    expect(res.body.hasMore).toBe(true);
+  });
+
+  it("hasMore is false when limit lands exactly on the last row, true one short of it", async () => {
+    const agent = await loggedInAgent();
+    // Tenant 2 has exactly 3 rows: limit=3 → exact boundary, no more pages.
+    const exact = await agent.get("/api/tenants/activity?tenantId=2&limit=3");
+    expect(exact.status).toBe(200);
+    expect(exact.body.items).toHaveLength(3);
+    expect(exact.body.hasMore).toBe(false);
+
+    // limit=2 → one row remains.
+    const short = await agent.get("/api/tenants/activity?tenantId=2&limit=2");
+    expect(short.body.items).toHaveLength(2);
+    expect(short.body.hasMore).toBe(true);
+
+    // offset+limit == total is also an exact boundary.
+    const lastPage = await agent.get("/api/tenants/activity?tenantId=2&limit=2&offset=1");
+    expect(lastPage.body.items).toHaveLength(2);
+    expect(lastPage.body.hasMore).toBe(false);
+
+    // offset past the end → empty page, hasMore false.
+    const beyond = await agent.get("/api/tenants/activity?tenantId=2&limit=2&offset=3");
+    expect(beyond.body.items).toHaveLength(0);
+    expect(beyond.body.hasMore).toBe(false);
+  });
+
+  it("orders by timestamp desc with id desc as tiebreak for same-timestamp events", async () => {
+    const agent = await loggedInAgent();
+    // Tenant 2's three rows share one timestamp — id desc must break the tie.
+    const res = await agent.get("/api/tenants/activity?tenantId=2");
+    expect(res.status).toBe(200);
+    expect(res.body.items.map((r: { id: number }) => r.id)).toEqual([102, 101, 100]);
+
+    // The route must request BOTH sort keys, descending, in this order.
+    expect(capturedOrderBy).toEqual([
+      { dir: "desc", col: "activities.timestamp" },
+      { dir: "desc", col: "activities.id" },
+    ]);
   });
 
   it("with a non-numeric tenantId returns 400", async () => {

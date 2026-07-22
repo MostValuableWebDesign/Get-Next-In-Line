@@ -130,6 +130,52 @@ describe('TenantDetail activity pagination', () => {
     expect(screen.queryByTestId('button-load-more-activity')).not.toBeInTheDocument();
   });
 
+  it('appends the second page in order, with no duplicates or omissions', async () => {
+    renderDetail();
+
+    fireEvent.click(screen.getByTestId('button-load-more-activity'));
+    await waitFor(() => expect(renderedActivityCount()).toBe(PAGE_SIZE * 2));
+
+    // The rendered list must be exactly Events 1..40 in server (desc) order —
+    // proof the new page was appended after the first with no dupes or gaps.
+    const list = screen.getByTestId('list-tenant-activity');
+    const rendered = within(list)
+      .getAllByText(/^Event \d+$/)
+      .map((el) => el.textContent);
+    expect(rendered).toEqual(
+      Array.from({ length: PAGE_SIZE * 2 }, (_, i) => `Event ${i + 1}`),
+    );
+    expect(new Set(rendered).size).toBe(rendered.length);
+  });
+
+  it('keeps deterministic continuity across a page boundary with tied timestamps', async () => {
+    // Make events 15..25 share one timestamp so the boundary between page 1
+    // (items 1-20) and page 2 (items 21-40) falls inside a tie. The server
+    // contract (id desc tiebreak) keeps `allActivities` order authoritative;
+    // the UI must render the pages contiguously with no repeat or skip.
+    const tiedTs = new Date(Date.UTC(2026, 0, 1, 0, 0, 0)).toISOString();
+    const patched = allActivities.map((a) =>
+      a.tenantId === 1 && a.id >= 15 && a.id <= 25 ? { ...a, timestamp: tiedTs } : a,
+    );
+    const originals = allActivities.splice(0, allActivities.length, ...patched);
+
+    try {
+      renderDetail();
+      fireEvent.click(screen.getByTestId('button-load-more-activity'));
+      await waitFor(() => expect(renderedActivityCount()).toBe(PAGE_SIZE * 2));
+
+      const rendered = within(screen.getByTestId('list-tenant-activity'))
+        .getAllByText(/^Event \d+$/)
+        .map((el) => el.textContent);
+      expect(rendered).toEqual(
+        Array.from({ length: PAGE_SIZE * 2 }, (_, i) => `Event ${i + 1}`),
+      );
+      expect(new Set(rendered).size).toBe(rendered.length);
+    } finally {
+      allActivities.splice(0, allActivities.length, ...originals);
+    }
+  });
+
   it('resets loaded pages when navigating to a different tenant (no cross-tenant leakage)', async () => {
     const { navigate } = renderDetail();
 
