@@ -5,7 +5,7 @@ import {
   db,
   sosCustomersTable,
   sosWaitlistTable,
-  sosMessagesTable,
+  messagesTable,
   sosAppointmentsTable,
 } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -55,9 +55,9 @@ function signedPost(params: Record<string, string>) {
 async function latestInbound(from: string) {
   const [row] = await db
     .select()
-    .from(sosMessagesTable)
-    .where(and(eq(sosMessagesTable.direction, "inbound"), eq(sosMessagesTable.toNumber, from)))
-    .orderBy(desc(sosMessagesTable.id))
+    .from(messagesTable)
+    .where(and(eq(messagesTable.direction, "inbound"), eq(messagesTable.toNumber, from)))
+    .orderBy(desc(messagesTable.id))
     .limit(1);
   return row;
 }
@@ -65,11 +65,11 @@ async function latestInbound(from: string) {
 async function latestOutboundFor(customerId: number) {
   const [row] = await db
     .select()
-    .from(sosMessagesTable)
+    .from(messagesTable)
     .where(
-      and(eq(sosMessagesTable.direction, "outbound"), eq(sosMessagesTable.customerId, customerId)),
+      and(eq(messagesTable.direction, "outbound"), eq(messagesTable.customerId, customerId)),
     )
-    .orderBy(desc(sosMessagesTable.id))
+    .orderBy(desc(messagesTable.id))
     .limit(1);
   return row;
 }
@@ -90,10 +90,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.delete(sosMessagesTable).where(inArray(sosMessagesTable.customerId, customerIds));
+  await db.delete(messagesTable).where(inArray(messagesTable.customerId, customerIds));
   await db
-    .delete(sosMessagesTable)
-    .where(inArray(sosMessagesTable.toNumber, [PHONE_A, PHONE_B, PHONE_UNKNOWN]));
+    .delete(messagesTable)
+    .where(inArray(messagesTable.toNumber, [PHONE_A, PHONE_B, PHONE_UNKNOWN]));
   await db.delete(sosAppointmentsTable).where(inArray(sosAppointmentsTable.customerId, customerIds));
   await db.delete(sosWaitlistTable).where(inArray(sosWaitlistTable.customerId, customerIds));
   await db.delete(sosCustomersTable).where(inArray(sosCustomersTable.id, customerIds));
@@ -131,18 +131,18 @@ describe("inbound logging and customer matching", () => {
   it("logs unknown senders with no customer and sends no auto-response", async () => {
     const before = await db
       .select()
-      .from(sosMessagesTable)
-      .where(eq(sosMessagesTable.direction, "outbound"));
+      .from(messagesTable)
+      .where(eq(messagesTable.direction, "outbound"));
     const res = await signedPost({ From: PHONE_UNKNOWN, Body: "YES", MessageSid: "SMunknown1" });
     expect(res.status).toBe(200);
     const row = await latestInbound(PHONE_UNKNOWN);
     expect(row).toBeDefined();
     expect(row.customerId).toBeNull();
-    expect(row.deliveryStatus).toBe("received");
+    expect(row.status).toBe("received");
     const after = await db
       .select()
-      .from(sosMessagesTable)
-      .where(eq(sosMessagesTable.direction, "outbound"));
+      .from(messagesTable)
+      .where(eq(messagesTable.direction, "outbound"));
     expect(after.length).toBe(before.length);
   });
 

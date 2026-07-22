@@ -18,8 +18,17 @@ router.use(healthRouter); // GET /healthz
 router.use(authRouter);   // POST /auth/login, POST /auth/logout, GET /auth/me
 
 // ── Protected routes ─────────────────────────────────────────────────────────
-// All routes below this middleware require a valid session.
-router.use(requireAuth);
+// All routes below this middleware require a valid session — except the
+// Twilio inbound webhook, which is called by Twilio (no session) and is
+// authenticated by its own X-Twilio-Signature validation inside the handler.
+const SESSION_EXEMPT_PATHS = new Set(["/sos/twilio/inbound"]);
+router.use((req, res, next) => {
+  if (SESSION_EXEMPT_PATHS.has(req.path)) {
+    next();
+    return;
+  }
+  requireAuth(req, res, next);
+});
 router.use(sosRouter);    // SOS operations section of GNIL OS (behind the same session auth)
 router.use(agencyRouter);
 router.use(tenantsRouter);

@@ -7,9 +7,8 @@ import {
   sosVisitsTable,
   sosAppointmentsTable,
   sosWaitlistTable,
-  sosMessagesTable,
+  messagesTable,
   sosCallsTable,
-  messageLogsTable,
   clientProfilesTable,
   type ClientProfile,
 } from "@workspace/db";
@@ -51,9 +50,10 @@ import {
   GetSosReportsSummaryResponse,
   GetSosCustomerTimelineResponse,
 } from "@workspace/api-zod";
-import { and, desc, eq, gte, ilike, inArray, lte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import twilio from "twilio";
-import { sendSms, getSmsStatus, getTwilioAuthToken, normalizeToE164 } from "../lib/sms";
+import { getSmsStatus, getTwilioAuthToken, normalizeToE164 } from "../lib/sms";
+import { sendMessage, recordInboundMessage } from "../lib/messaging";
 import { parseCallIntent } from "../lib/receptionist";
 import { parseInboundKeyword, getInboundWebhookUrl } from "../lib/inboundSms";
 import { claimWaitlistSlot } from "../lib/waitlistClaim";
@@ -195,7 +195,7 @@ async function broadcastOpenSlot(slotStart: Date, slotEnd: Date, service: string
     waitlistNotified++;
 
     if (customer.smsOptIn && customer.phone) {
-      await sendSms({
+      await sendMessage({
         customerId: customer.id,
         toNumber: customer.phone,
         kind: "slot_open",
@@ -235,8 +235,8 @@ router.get("/sos/dashboard", async (_req, res): Promise<void> => {
         ),
       db
         .select({ n: sql<number>`count(*)::int` })
-        .from(sosMessagesTable)
-        .where(gte(sosMessagesTable.createdAt, startOfDay)),
+        .from(messagesTable)
+        .where(and(gte(messagesTable.createdAt, startOfDay), isNull(messagesTable.tenantId))),
       db
         .select({ n: sql<number>`count(*)::int` })
         .from(sosCallsTable)
@@ -511,33 +511,22 @@ router.get("/sos/customers/:id/timeline", async (req, res): Promise<void> => {
 
   const phone = normalizeToE164(customer.phone);
 
-  const [calls, messages, logs] = await Promise.all([
+  const [calls, messages] = await Promise.all([
     // Calls only carry a phone number; match by normalized phone.
     phone
       ? db.select().from(sosCallsTable).orderBy(desc(sosCallsTable.createdAt))
       : Promise.resolve([] as (typeof sosCallsTable.$inferSelect)[]),
-    // SOS messages: linked by customer id, or by normalized to-number.
+    // Unified messages table holds both SOS SMS and concierge automation
+    // sends: linked by customer id, linked concierge profile, or to-number.
     db
       .select()
-      .from(sosMessagesTable)
+      .from(messagesTable)
       .where(
-        phone
-          ? sql`${sosMessagesTable.customerId} = ${id} or ${sosMessagesTable.toNumber} is not null`
-          : eq(sosMessagesTable.customerId, id),
+        sql`${messagesTable.customerId} = ${id}
+          or ${customer.clientProfileId != null ? sql`${messagesTable.clientProfileId} = ${customer.clientProfileId}` : sql`false`}
+          or ${phone ? sql`${messagesTable.toNumber} is not null` : sql`false`}`,
       )
-      .orderBy(desc(sosMessagesTable.createdAt)),
-    // Concierge logs: linked concierge profile, or normalized to-number.
-    customer.clientProfileId != null || phone
-      ? db
-          .select()
-          .from(messageLogsTable)
-          .where(
-            customer.clientProfileId != null
-              ? sql`${messageLogsTable.clientProfileId} = ${customer.clientProfileId} or ${messageLogsTable.toNumber} is not null`
-              : sql`${messageLogsTable.toNumber} is not null`,
-          )
-          .orderBy(desc(messageLogsTable.createdAt))
-      : Promise.resolve([] as (typeof messageLogsTable.$inferSelect)[]),
+      .orderBy(desc(messagesTable.createdAt)),
   ]);
 
   const entries: TimelineEntry[] = [];
@@ -557,33 +546,22 @@ router.get("/sos/customers/:id/timeline", async (req, res): Promise<void> => {
 
   for (const m of messages) {
     const matches =
-      m.customerId === id || (phone != null && normalizeToE164(m.toNumber) === phone);
+      m.customerId === id ||
+      (customer.clientProfileId != null &&
+        m.clientProfileId === customer.clientProfileId) ||
+      (phone != null && normalizeToE164(m.toNumber) === phone);
     if (!matches) continue;
+    // Tenant-scoped rows are concierge automation sends; the rest are
+    // operational SOS texts.
+    const isConcierge = m.tenantId != null;
     entries.push({
-      id: `sms-${m.id}`,
-      channel: "sms",
+      id: isConcierge ? `concierge-${m.id}` : `sms-${m.id}`,
+      channel: isConcierge ? "concierge" : "sms",
       kind: m.kind,
       direction: m.direction === "inbound" ? "inbound" : "outbound",
-      status: m.deliveryStatus,
+      status: m.status,
       timestamp: m.createdAt.toISOString(),
-      body: m.body,
-    });
-  }
-
-  for (const l of logs) {
-    const matches =
-      (customer.clientProfileId != null && l.clientProfileId === customer.clientProfileId) ||
-      (phone != null && normalizeToE164(l.toNumber) === phone);
-    if (!matches) continue;
-    const payload = (l.payload ?? {}) as Record<string, unknown>;
-    entries.push({
-      id: `concierge-${l.id}`,
-      channel: "concierge",
-      kind: l.jobType,
-      direction: "outbound",
-      status: l.status,
-      timestamp: l.createdAt.toISOString(),
-      body: typeof payload.body === "string" ? payload.body : null,
+      body: m.body || null,
     });
   }
 
@@ -702,7 +680,7 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
   }
 
   if (body.action === "notify" && customer.smsOptIn && customer.phone) {
-    await sendSms({
+    await sendMessage({
       customerId: customer.id,
       toNumber: customer.phone,
       kind: "you_are_next",
@@ -918,30 +896,40 @@ router.post("/sos/waitlist/:id/claim", async (req, res): Promise<void> => {
 
 // ── messages ─────────────────────────────────────────────────────────────────
 
+type MessageRow = typeof messagesTable.$inferSelect;
+
+/** Serialize a unified messages row in the stable SOS message shape. */
+function serializeSosMessage(msg: MessageRow, customerName: string | null) {
+  return {
+    id: msg.id,
+    customerId: msg.customerId,
+    customerName,
+    toNumber: msg.toNumber,
+    direction: msg.direction,
+    body: msg.body,
+    kind: msg.kind,
+    deliveryStatus: msg.status,
+    providerSid: msg.providerSid,
+    errorCode: msg.errorCode,
+    errorMessage: msg.errorMessage,
+    createdAt: msg.createdAt.toISOString(),
+  };
+}
+
 router.get("/sos/messages", async (req, res): Promise<void> => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
+  // Operational (SOS) messages only: concierge automation sends are
+  // tenant-scoped and surfaced by the automation report instead.
   const rows = await db
-    .select({ msg: sosMessagesTable, customerName: sosCustomersTable.name })
-    .from(sosMessagesTable)
-    .leftJoin(sosCustomersTable, eq(sosMessagesTable.customerId, sosCustomersTable.id))
-    .orderBy(desc(sosMessagesTable.createdAt))
+    .select({ msg: messagesTable, customerName: sosCustomersTable.name })
+    .from(messagesTable)
+    .leftJoin(sosCustomersTable, eq(messagesTable.customerId, sosCustomersTable.id))
+    .where(isNull(messagesTable.tenantId))
+    .orderBy(desc(messagesTable.createdAt))
     .limit(limit);
   res.json(
     ListSosMessagesResponse.parse(
-      rows.map(({ msg, customerName }) => ({
-        id: msg.id,
-        customerId: msg.customerId,
-        customerName,
-        toNumber: msg.toNumber,
-        direction: msg.direction,
-        body: msg.body,
-        kind: msg.kind,
-        deliveryStatus: msg.deliveryStatus,
-        providerSid: msg.providerSid,
-        errorCode: msg.errorCode,
-        errorMessage: msg.errorMessage,
-        createdAt: msg.createdAt.toISOString(),
-      })),
+      rows.map(({ msg, customerName }) => serializeSosMessage(msg, customerName)),
     ),
   );
 });
@@ -956,29 +944,15 @@ router.post("/sos/messages", async (req, res): Promise<void> => {
     res.status(404).json({ message: "Customer not found" });
     return;
   }
-  const { id } = await sendSms({
+  const msg = await sendMessage({
     customerId: customer.id,
     toNumber: customer.phone,
     kind: body.kind ?? "manual",
     body: body.body,
   });
-  const [msg] = await db.select().from(sosMessagesTable).where(eq(sosMessagesTable.id, id));
-  res.status(201).json(
-    SendSosMessageResponse.parse({
-      id: msg.id,
-      customerId: msg.customerId,
-      customerName: customer.name,
-      toNumber: msg.toNumber,
-      direction: msg.direction,
-      body: msg.body,
-      kind: msg.kind,
-      deliveryStatus: msg.deliveryStatus,
-      providerSid: msg.providerSid,
-      errorCode: msg.errorCode,
-      errorMessage: msg.errorMessage,
-      createdAt: msg.createdAt.toISOString(),
-    }),
-  );
+  res
+    .status(201)
+    .json(SendSosMessageResponse.parse(serializeSosMessage(msg, customer.name)));
 });
 
 // ── Twilio inbound SMS webhook ───────────────────────────────────────────────
@@ -991,6 +965,44 @@ async function findCustomerByPhone(from: string | null) {
     .from(sosCustomersTable)
     .where(sql`${sosCustomersTable.phone} is not null`);
   return candidates.find((c) => normalizeToE164(c.phone) === from) ?? null;
+}
+
+/** Ids of concierge client profiles whose phone matches the inbound number. */
+async function findClientProfileIdsByPhone(from: string | null): Promise<number[]> {
+  if (!from) return [];
+  const candidates = await db
+    .select({ id: clientProfilesTable.id, phone: clientProfilesTable.phone })
+    .from(clientProfilesTable)
+    .where(sql`${clientProfilesTable.phone} is not null`);
+  return candidates.filter((p) => normalizeToE164(p.phone) === from).map((p) => p.id);
+}
+
+/**
+ * Apply an inbound STOP/START uniformly: the sender's operational (SOS)
+ * customer record, its linked concierge profile, and any other concierge
+ * profiles with the same phone number all change together, so opt-out covers
+ * concierge automations too — not just SOS texts.
+ */
+async function applyOptInChange(
+  customer: { id: number; clientProfileId: number | null } | null,
+  fromNumber: string | null,
+  smsOptIn: boolean,
+): Promise<void> {
+  if (customer) {
+    await db
+      .update(sosCustomersTable)
+      .set({ smsOptIn })
+      .where(eq(sosCustomersTable.id, customer.id));
+    await syncLinkedProfile(customer.clientProfileId, { smsOptIn });
+  }
+  const profileIds = await findClientProfileIdsByPhone(fromNumber);
+  const remaining = profileIds.filter((id) => id !== customer?.clientProfileId);
+  if (remaining.length > 0) {
+    await db
+      .update(clientProfilesTable)
+      .set({ smsOptIn, updatedAt: new Date() })
+      .where(inArray(clientProfilesTable.id, remaining));
+  }
 }
 
 const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
@@ -1018,18 +1030,39 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
   const body = typeof params.Body === "string" ? params.Body : "";
   const customer = await findCustomerByPhone(normalizeToE164(params.From));
 
-  // Every inbound text is logged, matched to a customer when possible.
-  await db.insert(sosMessagesTable).values({
+  // Every inbound text is recorded in the unified messages table, matched to
+  // a customer when possible.
+  await recordInboundMessage({
     customerId: customer?.id ?? null,
-    toNumber: fromNumber, // the sender — shown as the counterparty in the log
-    direction: "inbound",
+    clientProfileId: customer?.clientProfileId ?? null,
+    fromNumber, // the sender — shown as the counterparty in the log
     body,
-    kind: "inbound",
-    deliveryStatus: "received",
     providerSid: params.MessageSid ?? null,
   });
 
   const keyword = parseInboundKeyword(body);
+
+  if (keyword === "stop") {
+    // Applies to SOS texts AND concierge automations, even for senders who
+    // only exist as a concierge client profile.
+    await applyOptInChange(customer, fromNumber, false);
+    logger.info(
+      { customerId: customer?.id ?? null, fromNumber },
+      "Sender opted out of SMS via STOP",
+    );
+    // Twilio sends its own compliance auto-reply for STOP; don't double-text.
+    res.type("text/xml").send(twiml);
+    return;
+  }
+  if (keyword === "start") {
+    await applyOptInChange(customer, fromNumber, true);
+    logger.info(
+      { customerId: customer?.id ?? null, fromNumber },
+      "Sender opted back in to SMS via START",
+    );
+    res.type("text/xml").send(twiml);
+    return;
+  }
 
   if (!customer) {
     // Unknown sender: logged above, no auto-response.
@@ -1037,23 +1070,7 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
     return;
   }
 
-  if (keyword === "stop") {
-    await db
-      .update(sosCustomersTable)
-      .set({ smsOptIn: false })
-      .where(eq(sosCustomersTable.id, customer.id));
-    // Concierge automations must respect the STOP too.
-    await syncLinkedProfile(customer.clientProfileId, { smsOptIn: false });
-    logger.info({ customerId: customer.id }, "Customer opted out of SMS via STOP");
-    // Twilio sends its own compliance auto-reply for STOP; don't double-text.
-  } else if (keyword === "start") {
-    await db
-      .update(sosCustomersTable)
-      .set({ smsOptIn: true })
-      .where(eq(sosCustomersTable.id, customer.id));
-    await syncLinkedProfile(customer.clientProfileId, { smsOptIn: true });
-    logger.info({ customerId: customer.id }, "Customer opted back in to SMS via START");
-  } else if (keyword === "yes") {
+  if (keyword === "yes") {
     // Reply-to-claim: act on the customer's notified waitlist entry.
     const [notified] = await db
       .select()
@@ -1077,14 +1094,14 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
           hour: "numeric",
           minute: "2-digit",
         });
-        await sendSms({
+        await sendMessage({
           customerId: customer.id,
           toNumber: customer.phone,
           kind: "claim_confirmation",
           body: `You're in, ${customer.name}! Your ${result.appointment.serviceType} is booked for ${when}. See you then!`,
         });
       } else {
-        await sendSms({
+        await sendMessage({
           customerId: customer.id,
           toNumber: customer.phone,
           kind: "claim_confirmation",
@@ -1105,7 +1122,7 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
         )
         .limit(1);
       if (waiting) {
-        await sendSms({
+        await sendMessage({
           customerId: customer.id,
           toNumber: customer.phone,
           kind: "claim_confirmation",
@@ -1214,7 +1231,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
         .returning();
       appointmentId = appt.id;
       outcome = "booked";
-      await sendSms({
+      await sendMessage({
         customerId: customer.id,
         toNumber: body.fromNumber,
         kind: "ai_followup",
@@ -1222,7 +1239,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
       });
     } else {
       outcome = "followup_sms";
-      await sendSms({
+      await sendMessage({
         customerId: customer.id,
         toNumber: body.fromNumber,
         kind: "ai_followup",
@@ -1231,7 +1248,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
     }
   } else if (parsed.intent === "question" || parsed.intent === "reschedule") {
     outcome = "followup_sms";
-    await sendSms({
+    await sendMessage({
       customerId: customer.id,
       toNumber: body.fromNumber,
       kind: "ai_followup",
@@ -1308,20 +1325,20 @@ router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
         .from(sosVisitsTable),
       db
         .select({
-          jobType: messageLogsTable.jobType,
-          status: messageLogsTable.status,
+          jobType: messagesTable.kind,
+          status: messagesTable.status,
           count: sql<number>`count(*)::int`,
         })
-        .from(messageLogsTable)
-        .where(gte(messageLogsTable.createdAt, since))
-        .groupBy(messageLogsTable.jobType, messageLogsTable.status),
+        .from(messagesTable)
+        .where(and(gte(messagesTable.createdAt, since), isNotNull(messagesTable.tenantId)))
+        .groupBy(messagesTable.kind, messagesTable.status),
       db
         .select({
-          day: sql<string>`to_char(${messageLogsTable.createdAt}, 'YYYY-MM-DD')`,
+          day: sql<string>`to_char(${messagesTable.createdAt}, 'YYYY-MM-DD')`,
           count: sql<number>`count(*)::int`,
         })
-        .from(messageLogsTable)
-        .where(gte(messageLogsTable.createdAt, since))
+        .from(messagesTable)
+        .where(and(gte(messagesTable.createdAt, since), isNotNull(messagesTable.tenantId)))
         .groupBy(sql`1`)
         .orderBy(sql`1`),
     ]);

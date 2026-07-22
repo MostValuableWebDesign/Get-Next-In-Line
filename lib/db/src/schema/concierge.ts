@@ -82,50 +82,5 @@ export const insertEngagementRuleSchema = createInsertSchema(engagementRulesTabl
 export type InsertEngagementRule = z.infer<typeof insertEngagementRuleSchema>;
 export type EngagementRule = typeof engagementRulesTable.$inferSelect;
 
-export const messageLogsTable = pgTable(
-  "message_logs",
-  {
-    id: serial("id").primaryKey(),
-    tenantId: integer("tenant_id")
-      .notNull()
-      .references(() => tenantsTable.id, { onDelete: "cascade" }),
-    clientProfileId: integer("client_profile_id").references(
-      () => clientProfilesTable.id,
-      { onDelete: "set null" },
-    ),
-    ruleId: integer("rule_id").references(() => engagementRulesTable.id, {
-      onDelete: "set null",
-    }),
-    // manual | send_reminder | rebooking_nudge
-    jobType: text("job_type").notNull().default("manual"),
-    // sms (only channel dispatched today)
-    channel: text("channel").notNull().default("sms"),
-    toNumber: text("to_number"),
-    // Message body plus any structured context the dispatch was based on.
-    payload: jsonb("payload").notNull().default({}),
-    // pending | sent | simulated | failed | skipped
-    status: text("status").notNull().default("pending"),
-    providerMessageId: text("provider_message_id"),
-    errorCode: text("error_code"),
-    errorMessage: text("error_message"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (t) => [
-    index("message_logs_tenant_created_idx").on(t.tenantId, t.createdAt.desc()),
-    // Dedupe lookups: latest log per client per job type
-    index("message_logs_client_job_created_idx").on(
-      t.clientProfileId,
-      t.jobType,
-      t.createdAt.desc(),
-    ),
-  ],
-);
-
-export const insertMessageLogSchema = createInsertSchema(messageLogsTable).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-export type InsertMessageLog = z.infer<typeof insertMessageLogSchema>;
-export type MessageLog = typeof messageLogsTable.$inferSelect;
+// NOTE: message dispatch history now lives in the unified "messages" table
+// (see ./messages.ts); the old message_logs table has been retired.

@@ -5,8 +5,7 @@ import {
   tenantsTable,
   clientProfilesTable,
   sosCustomersTable,
-  sosMessagesTable,
-  messageLogsTable,
+  messagesTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -76,8 +75,8 @@ afterAll(async () => {
   }
   await db.delete(tenantsTable).where(eq(tenantsTable.id, tenantId));
   await db
-    .delete(sosMessagesTable)
-    .where(inArray(sosMessagesTable.toNumber, [PHONE_LINKED, PHONE_AMBIG, PHONE_NONE]));
+    .delete(messagesTable)
+    .where(inArray(messagesTable.toNumber, [PHONE_LINKED, PHONE_AMBIG, PHONE_NONE]));
 });
 
 async function createCustomer(body: Record<string, unknown>) {
@@ -148,7 +147,7 @@ describe("SOS customer ⇄ concierge profile link", () => {
     expect(res.body.status).toBe("skipped");
     expect(res.body.errorCode).toBe("opted_out");
 
-    await db.delete(messageLogsTable).where(eq(messageLogsTable.id, res.body.id));
+    await db.delete(messagesTable).where(eq(messagesTable.id, res.body.id));
   });
 
   it("re-opting in via PATCH lets concierge dispatch go through again", async () => {

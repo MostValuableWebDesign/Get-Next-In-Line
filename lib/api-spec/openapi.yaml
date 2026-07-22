@@ -1360,7 +1360,7 @@ components:
           enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation]
         deliveryStatus:
           type: string
-          enum: [sent, delivered, failed, simulated, received]
+          enum: [pending, sent, delivered, failed, simulated, skipped, received]
         providerSid:
           type: ["string", "null"]
         errorCode:

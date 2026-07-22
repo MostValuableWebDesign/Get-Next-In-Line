@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, tenantsTable, type MessageLog } from "@workspace/db";
+import { db, tenantsTable, type Message } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   SuggestConciergeUpsellsBody,
@@ -17,13 +17,13 @@ import {
 
 const router: IRouter = Router();
 
-function serializeLog(log: MessageLog) {
+function serializeLog(log: Message) {
   return {
     id: log.id,
     tenantId: log.tenantId,
     clientProfileId: log.clientProfileId,
     ruleId: log.ruleId,
-    jobType: log.jobType,
+    jobType: log.kind,
     channel: log.channel,
     toNumber: log.toNumber,
     status: log.status,
@@ -98,7 +98,7 @@ router.post("/concierge/suggest-upsells", async (req, res): Promise<void> => {
 
 // ── POST /concierge/dispatch-message ─────────────────────────────────────────
 // Looks up the client's contact info and preferred channel, records a
-// message_logs row, sends via the SMS service (simulated without Twilio
+// unified messages row, sends via the SMS service (simulated without Twilio
 // creds), and returns the updated log.
 router.post("/concierge/dispatch-message", async (req, res): Promise<void> => {
   const body = DispatchConciergeMessageBody.parse(req.body);

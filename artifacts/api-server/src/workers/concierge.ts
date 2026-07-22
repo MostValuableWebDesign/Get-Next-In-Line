@@ -2,7 +2,7 @@ import {
   db,
   clientProfilesTable,
   engagementRulesTable,
-  messageLogsTable,
+  messagesTable,
   type ClientProfile,
   type EngagementRule,
 } from "@workspace/db";
@@ -22,7 +22,7 @@ import { logger } from "../lib/logger";
 //   REBOOKING_NUDGE — clients whose time since last_visit_at exceeds their
 //                     average cycle get a rebooking nudge.
 // Each tenant's active engagement rules gate the sends, and every dispatch is
-// audited in message_logs. Uses BullMQ + Redis when REDIS_URL is set, and an
+// audited in the unified messages table. Uses BullMQ + Redis when REDIS_URL is set, and an
 // in-process interval scheduler (same handlers) otherwise.
 
 export const JOB_SEND_REMINDER = "SEND_REMINDER";
@@ -43,23 +43,23 @@ async function activeRulesByTenant(ruleType: string): Promise<EngagementRule[]> 
     );
 }
 
-/** True when this client already has a non-failed log of jobType since `since`. */
+/** True when this client already has a non-failed message of this kind since `since`. */
 async function alreadyLogged(
   clientProfileId: number,
   jobType: string,
   since: Date,
 ): Promise<boolean> {
   const [row] = await db
-    .select({ id: messageLogsTable.id, status: messageLogsTable.status })
-    .from(messageLogsTable)
+    .select({ id: messagesTable.id, status: messagesTable.status })
+    .from(messagesTable)
     .where(
       and(
-        eq(messageLogsTable.clientProfileId, clientProfileId),
-        eq(messageLogsTable.jobType, jobType),
-        gte(messageLogsTable.createdAt, since),
+        eq(messagesTable.clientProfileId, clientProfileId),
+        eq(messagesTable.kind, jobType),
+        gte(messagesTable.createdAt, since),
       ),
     )
-    .orderBy(desc(messageLogsTable.createdAt))
+    .orderBy(desc(messagesTable.createdAt))
     .limit(1);
   return Boolean(row && row.status !== "failed");
 }

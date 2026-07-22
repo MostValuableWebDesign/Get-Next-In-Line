@@ -4,8 +4,7 @@ import {
   tenantsTable,
   clientProfilesTable,
   engagementRulesTable,
-  messageLogsTable,
-  sosMessagesTable,
+  messagesTable,
 } from "@workspace/db";
 import { and, eq, like } from "drizzle-orm";
 import { handleSendReminder, handleRebookingNudge } from "../concierge";
@@ -35,11 +34,11 @@ const PHONE_PREFIX = "+1555987";
 async function logsFor(profileId: number, jobType: string) {
   return db
     .select()
-    .from(messageLogsTable)
+    .from(messagesTable)
     .where(
       and(
-        eq(messageLogsTable.clientProfileId, profileId),
-        eq(messageLogsTable.jobType, jobType),
+        eq(messagesTable.clientProfileId, profileId),
+        eq(messagesTable.kind, jobType),
       ),
     );
 }
@@ -99,7 +98,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.delete(tenantsTable).where(eq(tenantsTable.id, tenantId)); // cascades
-  await db.delete(sosMessagesTable).where(like(sosMessagesTable.toNumber, `${PHONE_PREFIX}%`));
+  await db.delete(messagesTable).where(like(messagesTable.toNumber, `${PHONE_PREFIX}%`));
 });
 
 describe("SEND_REMINDER handler", () => {
@@ -111,7 +110,7 @@ describe("SEND_REMINDER handler", () => {
     expect(logs).toHaveLength(1);
     expect(logs[0].status).toBe("simulated");
     expect(logs[0].ruleId).toBe(reminderRuleId);
-    expect((logs[0].payload as { body: string }).body).toContain("Reminder for Due Soon");
+    expect(logs[0].body).toContain("Reminder for Due Soon");
 
     expect(await logsFor(farOutId, "send_reminder")).toHaveLength(0);
   });
@@ -127,8 +126,8 @@ describe("SEND_REMINDER handler", () => {
       .set({ isActive: false })
       .where(eq(engagementRulesTable.id, reminderRuleId));
     await db
-      .delete(messageLogsTable)
-      .where(eq(messageLogsTable.clientProfileId, dueSoonId));
+      .delete(messagesTable)
+      .where(eq(messagesTable.clientProfileId, dueSoonId));
 
     await handleSendReminder(NOW);
     expect(await logsFor(dueSoonId, "send_reminder")).toHaveLength(0);
@@ -149,7 +148,7 @@ describe("REBOOKING_NUDGE handler", () => {
     expect(logs).toHaveLength(1);
     expect(logs[0].status).toBe("simulated");
     expect(logs[0].ruleId).toBe(nudgeRuleId);
-    expect((logs[0].payload as { body: string }).body).toBe(
+    expect(logs[0].body).toBe(
       "Overdue, it has been 40 days!",
     );
 
@@ -167,8 +166,8 @@ describe("REBOOKING_NUDGE handler", () => {
       .set({ isActive: false })
       .where(eq(engagementRulesTable.id, nudgeRuleId));
     await db
-      .delete(messageLogsTable)
-      .where(eq(messageLogsTable.clientProfileId, overdueId));
+      .delete(messagesTable)
+      .where(eq(messagesTable.clientProfileId, overdueId));
 
     await handleRebookingNudge(NOW);
     expect(await logsFor(overdueId, "rebooking_nudge")).toHaveLength(0);

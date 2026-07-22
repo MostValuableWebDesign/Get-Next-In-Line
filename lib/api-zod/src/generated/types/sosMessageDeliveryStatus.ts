@@ -10,9 +10,11 @@ export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typ
 
 
 export const SosMessageDeliveryStatus = {
+  pending: 'pending',
   sent: 'sent',
   delivered: 'delivered',
   failed: 'failed',
   simulated: 'simulated',
+  skipped: 'skipped',
   received: 'received',
 } as const;

@@ -57,6 +57,20 @@
       "when": 1784710270351,
       "tag": "0007_quick_nightcrawler",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784712449454,
+      "tag": "0008_shiny_white_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784712480972,
+      "tag": "0009_chunky_mockingbird",
+      "breakpoints": true
     }
   ]
 }

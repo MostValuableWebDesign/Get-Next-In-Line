@@ -5,8 +5,7 @@ import {
   tenantsTable,
   clientProfilesTable,
   engagementRulesTable,
-  messageLogsTable,
-  sosMessagesTable,
+  messagesTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -83,8 +82,8 @@ afterAll(async () => {
   await db.delete(tenantsTable).where(eq(tenantsTable.id, tenantId));
   // sos_messages rows written by the shared SMS service are not tenant-scoped.
   await db
-    .delete(sosMessagesTable)
-    .where(inArray(sosMessagesTable.toNumber, ["+15551230001", "+15551230002"]));
+    .delete(messagesTable)
+    .where(inArray(messagesTable.toNumber, ["+15551230001", "+15551230002"]));
 });
 
 describe("POST /api/concierge/suggest-upsells", () => {
@@ -158,11 +157,11 @@ describe("POST /api/concierge/dispatch-message", () => {
 
     const [log] = await db
       .select()
-      .from(messageLogsTable)
-      .where(eq(messageLogsTable.id, res.body.id));
+      .from(messagesTable)
+      .where(eq(messagesTable.id, res.body.id));
     expect(log.tenantId).toBe(tenantId);
     expect(log.status).toBe("simulated");
-    expect((log.payload as { body: string }).body).toBe(`Hello ${RUN}`);
+    expect(log.body).toBe(`Hello ${RUN}`);
   });
 
   it("skips (409) when the profile has no phone number, still logging the attempt", async () => {

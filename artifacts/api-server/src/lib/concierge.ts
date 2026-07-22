@@ -2,20 +2,17 @@ import {
   db,
   clientProfilesTable,
   engagementRulesTable,
-  messageLogsTable,
-  sosCustomersTable,
   type ClientProfile,
   type EngagementRule,
-  type MessageLog,
+  type Message,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod/v4";
-import { sendSms } from "./sms";
-import { logger } from "./logger";
+import { sendMessage } from "./messaging";
 
 // ── Shared concierge dispatch/engagement logic ───────────────────────────────
 // Used by both the /concierge routes and the background worker so a message
-// dispatch is always audited in message_logs the same way.
+// dispatch is always audited in the unified messages table the same way.
 
 export type ConciergeJobType = "manual" | "send_reminder" | "rebooking_nudge";
 
@@ -88,82 +85,23 @@ export interface DispatchOptions {
 }
 
 /**
- * Dispatch a message to a client profile via its preferred channel, recording
- * a message_logs row first (status "pending") and updating it with the send
- * outcome. Only SMS is dispatched today; a non-SMS preferred channel is
- * logged as "skipped" rather than silently dropped.
+ * Dispatch a message to a client profile via its preferred channel through
+ * the unified messaging service, which records the message, applies the
+ * shared guards (opt-out on either the profile or its linked SOS customer,
+ * unsupported channel, missing phone), and finalizes the send outcome.
  */
-export async function dispatchToProfile(opts: DispatchOptions): Promise<MessageLog> {
+export async function dispatchToProfile(opts: DispatchOptions): Promise<Message> {
   const { tenantId, profile, body, jobType } = opts;
-  const channel = profile.preferredChannel || "sms";
-
-  const [log] = await db
-    .insert(messageLogsTable)
-    .values({
-      tenantId,
-      clientProfileId: profile.id,
-      ruleId: opts.ruleId ?? null,
-      jobType,
-      channel,
-      toNumber: profile.phone ?? null,
-      payload: { body, ...(opts.context ?? {}) },
-      status: "pending",
-    })
-    .returning();
-
-  let status: string;
-  let errorCode: string | null = null;
-  let errorMessage: string | null = null;
-
-  if (channel !== "sms") {
-    status = "skipped";
-    errorCode = "unsupported_channel";
-    errorMessage = `Channel "${channel}" is not dispatchable yet (SMS only)`;
-  } else if (!profile.smsOptIn) {
-    status = "skipped";
-    errorCode = "opted_out";
-    errorMessage = "Client has opted out of SMS";
-  } else if (await linkedSosCustomerOptedOut(profile.id)) {
-    // The same person's operational (SOS) record says STOP — respect it even
-    // if the marketing profile hasn't caught up yet.
-    status = "skipped";
-    errorCode = "opted_out";
-    errorMessage = "Linked SOS customer has opted out of SMS";
-  } else if (!profile.phone) {
-    status = "skipped";
-    errorCode = "no_phone";
-    errorMessage = "Client profile has no phone number";
-  } else {
-    try {
-      const result = await sendSms({
-        toNumber: profile.phone,
-        body,
-        kind: "concierge",
-      });
-      status = result.deliveryStatus; // sent | failed | simulated
-    } catch (err) {
-      status = "failed";
-      errorMessage = err instanceof Error ? err.message : "Unknown send error";
-      logger.error({ err, logId: log.id }, "Concierge SMS dispatch threw");
-    }
-  }
-
-  const [updated] = await db
-    .update(messageLogsTable)
-    .set({ status, errorCode, errorMessage, updatedAt: new Date() })
-    .where(eq(messageLogsTable.id, log.id))
-    .returning();
-  return updated;
-}
-
-/** True when an SOS customer is linked to this profile and has opted out. */
-async function linkedSosCustomerOptedOut(clientProfileId: number): Promise<boolean> {
-  const [row] = await db
-    .select({ smsOptIn: sosCustomersTable.smsOptIn })
-    .from(sosCustomersTable)
-    .where(eq(sosCustomersTable.clientProfileId, clientProfileId))
-    .limit(1);
-  return row != null && !row.smsOptIn;
+  return sendMessage({
+    tenantId,
+    clientProfileId: profile.id,
+    ruleId: opts.ruleId ?? null,
+    toNumber: profile.phone,
+    body,
+    kind: jobType,
+    channel: profile.preferredChannel || "sms",
+    context: opts.context,
+  });
 }
 
 export async function getProfileForTenant(

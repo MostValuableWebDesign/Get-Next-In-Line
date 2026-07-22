@@ -97,23 +97,6 @@ export const sosWaitlistTable = pgTable("sos_waitlist_entries", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const sosMessagesTable = pgTable("sos_messages", {
-  id: serial("id").primaryKey(),
-  customerId: integer("customer_id").references(() => sosCustomersTable.id),
-  toNumber: text("to_number"),
-  // outbound | inbound
-  direction: text("direction").notNull().default("outbound"),
-  body: text("body").notNull(),
-  // you_are_next | slot_open | ai_followup | manual | inbound
-  kind: text("kind").notNull().default("manual"),
-  // sent | delivered | failed | simulated
-  deliveryStatus: text("delivery_status").notNull().default("simulated"),
-  providerSid: text("provider_sid"),
-  errorCode: text("error_code"),
-  errorMessage: text("error_message"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
 export const sosCallsTable = pgTable("sos_calls", {
   id: serial("id").primaryKey(),
   fromNumber: text("from_number").notNull(),
