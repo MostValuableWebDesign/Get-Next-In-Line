@@ -9,6 +9,7 @@ import {
   CreateTenantBody,
   CreateTenantResponse,
   GetTenantActivityResponse,
+  GetTenantActivityQueryParams,
   GetTenantParams,
   GetTenantResponse,
   UpdateTenantParams,
@@ -72,8 +73,15 @@ router.post("/tenants", async (req, res): Promise<void> => {
   );
 });
 
-router.get("/tenants/activity", async (_req, res): Promise<void> => {
-  const activities = await db
+router.get("/tenants/activity", async (req, res): Promise<void> => {
+  const query = GetTenantActivityQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
+  const { tenantId } = query.data;
+
+  const baseQuery = db
     .select({
       id: tenantActivitiesTable.id,
       tenantId: tenantActivitiesTable.tenantId,
@@ -84,8 +92,12 @@ router.get("/tenants/activity", async (_req, res): Promise<void> => {
     })
     .from(tenantActivitiesTable)
     .leftJoin(tenantsTable, eq(tenantActivitiesTable.tenantId, tenantsTable.id))
-    .orderBy(desc(tenantActivitiesTable.timestamp))
-    .limit(20);
+    .orderBy(desc(tenantActivitiesTable.timestamp));
+
+  const activities =
+    tenantId !== undefined
+      ? await baseQuery.where(eq(tenantActivitiesTable.tenantId, tenantId))
+      : await baseQuery.limit(20);
 
   res.json(
     GetTenantActivityResponse.parse(

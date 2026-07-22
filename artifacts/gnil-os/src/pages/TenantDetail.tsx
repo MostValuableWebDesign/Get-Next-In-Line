@@ -5,6 +5,7 @@ import {
   useGetTenantActivity,
   getGetTenantQueryKey,
   getGetTenantModulesQueryKey,
+  getGetTenantActivityQueryKey,
 } from '@workspace/api-client-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,7 +33,10 @@ export default function TenantDetail() {
   const { data: modules, isLoading: isLoadingModules } = useGetTenantModules(tenantId, {
     query: { queryKey: getGetTenantModulesQueryKey(tenantId), enabled: validId },
   });
-  const { data: activities, isLoading: isLoadingActivity } = useGetTenantActivity();
+  const { data: tenantActivity, isLoading: isLoadingActivity } = useGetTenantActivity(
+    { tenantId },
+    { query: { queryKey: getGetTenantActivityQueryKey({ tenantId }), enabled: validId } }
+  );
 
   if (isLoadingTenant) {
     return (
@@ -58,8 +62,6 @@ export default function TenantDetail() {
       </div>
     );
   }
-
-  const tenantActivity = (activities ?? []).filter((a) => a.tenantId === tenantId);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -191,7 +193,7 @@ export default function TenantDetail() {
                 <Skeleton className="h-12 w-full rounded-lg" />
                 <Skeleton className="h-12 w-full rounded-lg" />
               </div>
-            ) : tenantActivity.length === 0 ? (
+            ) : !tenantActivity || tenantActivity.length === 0 ? (
               <p className="text-sm text-muted-foreground" data-testid="text-no-activity">
                 No recent activity for this tenant.
               </p>

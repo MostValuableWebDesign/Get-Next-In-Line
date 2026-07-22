@@ -15,6 +15,7 @@ export * from './checkoutInput';
 export * from './checkoutResult';
 export * from './connectorRegistryEntry';
 export * from './connectorRegistryEntryUpdate';
+export * from './getTenantActivityParams';
 export * from './healthStatus';
 export * from './module';
 export * from './modulePricing';

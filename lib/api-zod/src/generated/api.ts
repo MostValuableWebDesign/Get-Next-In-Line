@@ -111,6 +111,10 @@ export const CreateTenantResponse = zod.object({
 /**
  * @summary Recent tenant provisioning and status change activity feed
  */
+export const GetTenantActivityQueryParams = zod.object({
+  "tenantId": zod.coerce.number().optional().describe('Filter activity to a single tenant and return its full history')
+})
+
 export const GetTenantActivityResponseItem = zod.object({
   "id": zod.number(),
   "tenantId": zod.number(),

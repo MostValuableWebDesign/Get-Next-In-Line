@@ -28,6 +28,7 @@ import type {
   CheckoutResult,
   ConnectorRegistryEntry,
   ConnectorRegistryEntryUpdate,
+  GetTenantActivityParams,
   HealthStatus,
   Module,
   ModulePricing,
@@ -517,20 +518,27 @@ export const useCreateTenant = <TError = ErrorType<unknown>,
       return useMutation(getCreateTenantMutationOptions(options));
     }
 
-export const getGetTenantActivityUrl = () => {
+export const getGetTenantActivityUrl = (params?: GetTenantActivityParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/tenants/activity`
+  return stringifiedParams.length > 0 ? `/api/tenants/activity?${stringifiedParams}` : `/api/tenants/activity`
 }
 
 /**
  * @summary Recent tenant provisioning and status change activity feed
  */
-export const getTenantActivity = async ( options?: RequestInit): Promise<TenantActivity[]> => {
+export const getTenantActivity = async (params?: GetTenantActivityParams, options?: RequestInit): Promise<TenantActivity[]> => {
 
-  return customFetch<TenantActivity[]>(getGetTenantActivityUrl(),
+  return customFetch<TenantActivity[]>(getGetTenantActivityUrl(params),
   {
     ...options,
     method: 'GET'
@@ -543,23 +551,23 @@ export const getTenantActivity = async ( options?: RequestInit): Promise<TenantA
 
 
 
-export const getGetTenantActivityQueryKey = () => {
+export const getGetTenantActivityQueryKey = (params?: GetTenantActivityParams,) => {
     return [
-    `/api/tenants/activity`
+    `/api/tenants/activity`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetTenantActivityQueryOptions = <TData = Awaited<ReturnType<typeof getTenantActivity>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetTenantActivityQueryOptions = <TData = Awaited<ReturnType<typeof getTenantActivity>>, TError = ErrorType<unknown>>(params?: GetTenantActivityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetTenantActivityQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetTenantActivityQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTenantActivity>>> = ({ signal }) => getTenantActivity({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTenantActivity>>> = ({ signal }) => getTenantActivity(params, { signal, ...requestOptions });
 
 
 
@@ -577,11 +585,11 @@ export type GetTenantActivityQueryError = ErrorType<unknown>
  */
 
 export function useGetTenantActivity<TData = Awaited<ReturnType<typeof getTenantActivity>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: GetTenantActivityParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTenantActivity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetTenantActivityQueryOptions(options)
+  const queryOptions = getGetTenantActivityQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

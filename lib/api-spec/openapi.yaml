@@ -115,6 +115,13 @@ paths:
       operationId: getTenantActivity
       tags: [tenants]
       summary: Recent tenant provisioning and status change activity feed
+      parameters:
+        - name: tenantId
+          in: query
+          required: false
+          description: Filter activity to a single tenant and return its full history
+          schema:
+            type: integer
       responses:
         "200":
           description: Activity feed

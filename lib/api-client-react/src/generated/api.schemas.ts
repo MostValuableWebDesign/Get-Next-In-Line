@@ -213,3 +213,10 @@ export interface CheckoutResult {
   message: string;
 }
 
+export type GetTenantActivityParams = {
+/**
+ * Filter activity to a single tenant and return its full history
+ */
+tenantId?: number;
+};
+
