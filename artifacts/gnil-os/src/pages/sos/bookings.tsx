@@ -9,6 +9,8 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +25,7 @@ import { AiReceptionistPage } from '@/pages/sos/ai-receptionist';
 import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
   Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
-  Activity, ListOrdered, CheckCircle2, Phone, DollarSign,
+  Activity, ListOrdered, CheckCircle2, Phone, DollarSign, Search,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
@@ -57,13 +59,12 @@ export function BookingsPage() {
   const { data: dashboard, isLoading: isLoadingDash } = useGetSosDashboard();
 
   const now = Date.now();
-  const { upcoming, past } = useMemo(() => {
-    const all = appointments ?? [];
-    return {
-      upcoming: all.filter(a => new Date(a.startsAt).getTime() >= now && a.status !== 'cancelled' && a.status !== 'no_show'),
-      past: all.filter(a => new Date(a.startsAt).getTime() < now || a.status === 'cancelled' || a.status === 'no_show'),
-    };
-  }, [appointments, now]);
+  const upcoming = useMemo(
+    () => (appointments ?? []).filter(
+      a => new Date(a.startsAt).getTime() >= now && a.status !== 'cancelled' && a.status !== 'no_show',
+    ),
+    [appointments, now],
+  );
 
   const inService = visits?.filter(v => v.status === 'in_service') || [];
   const openTickets = visits?.filter(v => v.status === 'payment') || [];
@@ -175,22 +176,7 @@ export function BookingsPage() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
-                    <History className="h-4 w-4" /> Past & Cancelled
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {isLoadingAppointments ? (
-                    <Skeleton className="h-14 w-full" />
-                  ) : past.length === 0 ? (
-                    <div className="text-sm text-muted-foreground text-center py-6">No past appointments.</div>
-                  ) : (
-                    past.slice(0, 8).map(apt => <AppointmentLine key={apt.id} apt={apt} muted />)
-                  )}
-                </CardContent>
-              </Card>
+              <BookingHistoryCard />
             </div>
             <TicketsColumn isLoadingVisits={isLoadingVisits} openTickets={openTickets} inService={inService} />
           </div>
@@ -224,6 +210,169 @@ export function BookingsPage() {
           <AiReceptionistPage embedded />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// ── Booking history ──────────────────────────────────────────────────────────
+
+const HISTORY_RANGES = [
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+  { value: '90', label: 'Last 90 days' },
+  { value: 'all', label: 'All time' },
+] as const;
+
+type HistoryEntry =
+  | { kind: 'appointment'; at: number; apt: SosAppointment }
+  | {
+      kind: 'visit';
+      at: number;
+      visit: { id: number; customerName: string; serviceType: string; paymentAmount: number | null; checkedOutAt: string | null; checkedInAt: string };
+    };
+
+/**
+ * Real booking history: fetches genuinely historical appointments from the API
+ * (date-range scoped, independent of the upcoming list) and merges in
+ * completed/paid visits, with search and date-range filtering.
+ */
+function BookingHistoryCard() {
+  const [range, setRange] = useState<string>('30');
+  const [search, setSearch] = useState('');
+
+  // Query the API for the selected window rather than reusing whatever the
+  // upcoming list happens to return. `to` = now so this stays purely history.
+  const historyParams = useMemo(() => {
+    const to = new Date().toISOString();
+    if (range === 'all') return { to };
+    const from = new Date(Date.now() - Number(range) * 24 * 60 * 60 * 1000).toISOString();
+    return { from, to };
+  }, [range]);
+
+  const { data: pastAppointments, isLoading: isLoadingPast } = useListSosAppointments(historyParams);
+  // All visits (no `active` filter) so completed/checked-out ones are included.
+  const { data: allVisits, isLoading: isLoadingAllVisits } = useListSosVisits({});
+
+  const isLoading = isLoadingPast || isLoadingAllVisits;
+
+  const entries = useMemo<HistoryEntry[]>(() => {
+    const now = Date.now();
+    const fromMs = range === 'all' ? -Infinity : now - Number(range) * 24 * 60 * 60 * 1000;
+    const q = search.trim().toLowerCase();
+    const matches = (name: string, service: string) =>
+      !q || name.toLowerCase().includes(q) || service.toLowerCase().includes(q);
+
+    const apts: HistoryEntry[] = (pastAppointments ?? [])
+      .filter(a => new Date(a.startsAt).getTime() < now || a.status === 'cancelled' || a.status === 'no_show')
+      .filter(a => matches(a.customerName, a.serviceType))
+      .map(a => ({ kind: 'appointment', at: new Date(a.startsAt).getTime(), apt: a }));
+
+    const visits: HistoryEntry[] = (allVisits ?? [])
+      .filter(v => v.status === 'checked_out')
+      .map(v => ({ ...v, atMs: new Date(v.checkedOutAt ?? v.checkedInAt).getTime() }))
+      .filter(v => v.atMs >= fromMs && v.atMs <= now)
+      .filter(v => matches(v.customerName, v.serviceType))
+      .map(v => ({
+        kind: 'visit',
+        at: v.atMs,
+        visit: {
+          id: v.id,
+          customerName: v.customerName,
+          serviceType: v.serviceType,
+          paymentAmount: v.paymentAmount ?? null,
+          checkedOutAt: v.checkedOutAt ?? null,
+          checkedInAt: v.checkedInAt,
+        },
+      }));
+
+    return [...apts, ...visits].sort((a, b) => b.at - a.at);
+  }, [pastAppointments, allVisits, range, search]);
+
+  return (
+    <Card data-testid="card-booking-history">
+      <CardHeader className="space-y-3">
+        <CardTitle className="flex items-center gap-2 text-base text-muted-foreground">
+          <History className="h-4 w-4" /> History
+        </CardTitle>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search customer or service…"
+              className="pl-8 h-9"
+              data-testid="input-history-search"
+            />
+          </div>
+          <Select value={range} onValueChange={setRange}>
+            <SelectTrigger className="w-36 h-9 shrink-0" data-testid="select-history-range">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {HISTORY_RANGES.map(r => (
+                <SelectItem key={r.value} value={r.value} data-testid={`option-history-range-${r.value}`}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <div className="space-y-2"><Skeleton className="h-14 w-full" /><Skeleton className="h-14 w-full" /></div>
+        ) : entries.length === 0 ? (
+          <div className="text-sm text-muted-foreground text-center py-6" data-testid="text-history-empty">
+            {search ? 'No history matches your search.' : 'No booking history in this period.'}
+          </div>
+        ) : (
+          entries.slice(0, 50).map(entry =>
+            entry.kind === 'appointment' ? (
+              <AppointmentLine key={`apt-${entry.apt.id}`} apt={entry.apt} muted />
+            ) : (
+              <CompletedVisitLine key={`visit-${entry.visit.id}`} visit={entry.visit} />
+            ),
+          )
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** Completed (checked-out) visit shown in the history list alongside appointments. */
+function CompletedVisitLine({
+  visit,
+}: {
+  visit: { id: number; customerName: string; serviceType: string; paymentAmount: number | null; checkedOutAt: string | null; checkedInAt: string };
+}) {
+  const d = new Date(visit.checkedOutAt ?? visit.checkedInAt);
+  return (
+    <div className="p-3 border rounded-lg opacity-70" data-testid={`row-history-visit-${visit.id}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="flex flex-col text-center w-14 shrink-0 border-r pr-4">
+            <span className="text-[10px] uppercase font-bold text-muted-foreground">
+              {d.toLocaleDateString([], { weekday: 'short' })}
+            </span>
+            <span className="text-lg font-bold leading-tight">{d.getDate()}</span>
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium truncate">{visit.customerName}</div>
+            <div className="text-xs text-muted-foreground truncate">
+              {visit.serviceType} • {d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {visit.paymentAmount != null && (
+            <Badge variant="outline" className="text-[10px] shrink-0 border-emerald-500/40 text-emerald-600 bg-emerald-500/5">
+              <DollarSign className="h-3 w-3" /> {visit.paymentAmount.toFixed(2)} paid
+            </Badge>
+          )}
+          <Badge variant="outline" className="text-[10px] capitalize shrink-0">completed visit</Badge>
+        </div>
+      </div>
     </div>
   );
 }
