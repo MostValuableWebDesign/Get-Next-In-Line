@@ -31,6 +31,8 @@ vi.mock('@workspace/api-client-react', () => ({
   getListSosMessagesQueryKey: () => ['/api/sos/messages'],
   useSimulateSosCall: () => ({ mutate: vi.fn(), isPending: false }),
   useSendSosMessage: () => ({ mutate: vi.fn(), isPending: false }),
+  useListSosCustomers: () => ({ data: [] }),
+  getListSosCustomersQueryKey: () => ['/api/sos/customers'],
   // Tenant-scoped variants — unused when rendering the global page
   useGetTenantSettings: () => ({ data: undefined, isLoading: false }),
   getGetTenantSettingsQueryKey: (id: number) => ['/api/tenants', id, 'settings'],

@@ -1459,6 +1459,12 @@ router.post("/sos/messages", async (req, res): Promise<void> => {
     res.status(404).json({ message: "Customer not found" });
     return;
   }
+  // Manual sends/replies respect the customer's SMS opt-in: an opted-out
+  // customer must never receive staff-initiated texts.
+  if (!customer.smsOptIn) {
+    res.status(409).json({ message: "Customer has opted out of SMS" });
+    return;
+  }
   const msg = await sendMessage({
     customerId: customer.id,
     toNumber: customer.phone,

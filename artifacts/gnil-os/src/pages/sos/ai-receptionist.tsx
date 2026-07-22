@@ -21,6 +21,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
 import { MessageHistoryTable, type MessageHistoryItem } from '@/components/message-history';
+import { SmsConversations } from '@/components/sms-conversations';
 
 /**
  * Unified AI Receptionist view.
@@ -265,10 +266,12 @@ export function AiReceptionistPage({ embedded = false }: { embedded?: boolean })
         )}
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-primary" /> SMS Broadcast History
+            <MessageSquare className="w-5 h-5 text-primary" /> Conversations
           </h2>
           <SendSmsDialog />
         </div>
+        <SmsConversations />
+        <h2 className="text-xl font-semibold">SMS Broadcast History</h2>
         <MessageLogList />
       </div>
         </>

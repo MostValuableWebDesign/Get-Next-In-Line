@@ -3375,7 +3375,7 @@ export const sendSosMessage = async (sosMessageInput: SosMessageInput, options?:
 
 
 
-export const getSendSosMessageMutationOptions = <TError = ErrorType<unknown>,
+export const getSendSosMessageMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendSosMessage>>, TError,{data: BodyType<SosMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof sendSosMessage>>, TError,{data: BodyType<SosMessageInput>}, TContext> => {
 
@@ -3404,12 +3404,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type SendSosMessageMutationResult = NonNullable<Awaited<ReturnType<typeof sendSosMessage>>>
     export type SendSosMessageMutationBody = BodyType<SosMessageInput>
-    export type SendSosMessageMutationError = ErrorType<unknown>
+    export type SendSosMessageMutationError = ErrorType<void>
 
     /**
  * @summary Send an SMS to a customer
  */
-export const useSendSosMessage = <TError = ErrorType<unknown>,
+export const useSendSosMessage = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendSosMessage>>, TError,{data: BodyType<SosMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof sendSosMessage>>,

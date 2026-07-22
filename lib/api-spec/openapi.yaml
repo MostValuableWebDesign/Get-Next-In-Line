@@ -874,6 +874,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SosMessage"
+        "404":
+          description: Customer not found
+        "409":
+          description: Customer has opted out of SMS
 
   /sos/calls:
     get:
