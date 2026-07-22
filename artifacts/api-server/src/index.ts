@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seedConnectorMapping } from "./lib/connectorSeed";
+import { startConciergeWorker, type ConciergeWorkerHandle } from "./workers/concierge";
 import { pool, checkSchemaDrift, formatDriftReport } from "@workspace/db";
 
 const rawPort = process.env["PORT"];
@@ -37,7 +38,18 @@ seedConnectorMapping().catch((err) => {
   logger.error({ err }, "Connector mapping seed failed");
 });
 
-app.listen(port, (err) => {
+// Concierge background worker (reminders + rebooking nudges). BullMQ when
+// REDIS_URL is set; in-process interval scheduler otherwise.
+let conciergeWorker: ConciergeWorkerHandle | null = null;
+startConciergeWorker()
+  .then((handle) => {
+    conciergeWorker = handle;
+  })
+  .catch((err) => {
+    logger.error({ err }, "Concierge worker failed to start");
+  });
+
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
@@ -45,3 +57,21 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 });
+
+// Graceful shutdown: stop the worker and close the HTTP server.
+let shuttingDown = false;
+async function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info({ signal }, "Shutting down");
+  try {
+    await conciergeWorker?.stop();
+  } catch (err) {
+    logger.error({ err }, "Error stopping concierge worker");
+  }
+  server.close(() => process.exit(0));
+  // Hard exit if connections refuse to drain.
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));

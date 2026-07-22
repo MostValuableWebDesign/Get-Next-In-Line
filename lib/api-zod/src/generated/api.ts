@@ -903,3 +903,54 @@ export const GetSosReportsSummaryResponse = zod.object({
 })
 
 
+/**
+ * @summary Suggest active add-ons/enhancements compatible with a service selection for a tenant
+ */
+
+
+
+export const SuggestConciergeUpsellsBody = zod.object({
+  "tenantId": zod.number(),
+  "serviceName": zod.string().min(1)
+})
+
+export const SuggestConciergeUpsellsResponse = zod.object({
+  "tenantId": zod.number(),
+  "serviceName": zod.string(),
+  "suggestions": zod.array(zod.object({
+  "name": zod.string(),
+  "price": zod.number().nullish(),
+  "description": zod.string().nullish(),
+  "ruleId": zod.number().optional()
+}))
+})
+
+
+/**
+ * @summary Dispatch a message to a client via their preferred channel and record an audit log
+ */
+
+
+
+export const DispatchConciergeMessageBody = zod.object({
+  "tenantId": zod.number(),
+  "clientProfileId": zod.number(),
+  "body": zod.string().min(1),
+  "jobType": zod.enum(['manual', 'send_reminder', 'rebooking_nudge']).optional()
+})
+
+export const DispatchConciergeMessageResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "clientProfileId": zod.number().nullable(),
+  "ruleId": zod.number().nullish(),
+  "jobType": zod.string(),
+  "channel": zod.string(),
+  "toNumber": zod.string().nullish(),
+  "status": zod.enum(['pending', 'sent', 'simulated', 'failed', 'skipped']),
+  "errorCode": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+

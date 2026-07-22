@@ -26,6 +26,10 @@ import type {
   BillingSummary,
   CheckoutInput,
   CheckoutResult,
+  ConciergeDispatchMessageInput,
+  ConciergeMessageLog,
+  ConciergeSuggestUpsellsInput,
+  ConciergeSuggestUpsellsResult,
   ConnectorRegistryEntry,
   ConnectorRegistryEntryUpdate,
   GetTenantActivityParams,
@@ -3324,4 +3328,146 @@ export function useGetSosReportsSummary<TData = Awaited<ReturnType<typeof getSos
 
 
 
+
+export const getSuggestConciergeUpsellsUrl = () => {
+
+
+
+
+  return `/api/concierge/suggest-upsells`
+}
+
+/**
+ * @summary Suggest active add-ons/enhancements compatible with a service selection for a tenant
+ */
+export const suggestConciergeUpsells = async (conciergeSuggestUpsellsInput: ConciergeSuggestUpsellsInput, options?: RequestInit): Promise<ConciergeSuggestUpsellsResult> => {
+
+  return customFetch<ConciergeSuggestUpsellsResult>(getSuggestConciergeUpsellsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(conciergeSuggestUpsellsInput)
+  }
+);}
+
+
+
+
+
+export const getSuggestConciergeUpsellsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suggestConciergeUpsells>>, TError,{data: BodyType<ConciergeSuggestUpsellsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof suggestConciergeUpsells>>, TError,{data: BodyType<ConciergeSuggestUpsellsInput>}, TContext> => {
+
+const mutationKey = ['suggestConciergeUpsells'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof suggestConciergeUpsells>>, {data: BodyType<ConciergeSuggestUpsellsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  suggestConciergeUpsells(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SuggestConciergeUpsellsMutationResult = NonNullable<Awaited<ReturnType<typeof suggestConciergeUpsells>>>
+    export type SuggestConciergeUpsellsMutationBody = BodyType<ConciergeSuggestUpsellsInput>
+    export type SuggestConciergeUpsellsMutationError = ErrorType<void>
+
+    /**
+ * @summary Suggest active add-ons/enhancements compatible with a service selection for a tenant
+ */
+export const useSuggestConciergeUpsells = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suggestConciergeUpsells>>, TError,{data: BodyType<ConciergeSuggestUpsellsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof suggestConciergeUpsells>>,
+        TError,
+        {data: BodyType<ConciergeSuggestUpsellsInput>},
+        TContext
+      > => {
+      return useMutation(getSuggestConciergeUpsellsMutationOptions(options));
+    }
+
+export const getDispatchConciergeMessageUrl = () => {
+
+
+
+
+  return `/api/concierge/dispatch-message`
+}
+
+/**
+ * @summary Dispatch a message to a client via their preferred channel and record an audit log
+ */
+export const dispatchConciergeMessage = async (conciergeDispatchMessageInput: ConciergeDispatchMessageInput, options?: RequestInit): Promise<ConciergeMessageLog> => {
+
+  return customFetch<ConciergeMessageLog>(getDispatchConciergeMessageUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(conciergeDispatchMessageInput)
+  }
+);}
+
+
+
+
+
+export const getDispatchConciergeMessageMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchConciergeMessage>>, TError,{data: BodyType<ConciergeDispatchMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof dispatchConciergeMessage>>, TError,{data: BodyType<ConciergeDispatchMessageInput>}, TContext> => {
+
+const mutationKey = ['dispatchConciergeMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dispatchConciergeMessage>>, {data: BodyType<ConciergeDispatchMessageInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  dispatchConciergeMessage(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DispatchConciergeMessageMutationResult = NonNullable<Awaited<ReturnType<typeof dispatchConciergeMessage>>>
+    export type DispatchConciergeMessageMutationBody = BodyType<ConciergeDispatchMessageInput>
+    export type DispatchConciergeMessageMutationError = ErrorType<void>
+
+    /**
+ * @summary Dispatch a message to a client via their preferred channel and record an audit log
+ */
+export const useDispatchConciergeMessage = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchConciergeMessage>>, TError,{data: BodyType<ConciergeDispatchMessageInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof dispatchConciergeMessage>>,
+        TError,
+        {data: BodyType<ConciergeDispatchMessageInput>},
+        TContext
+      > => {
+      return useMutation(getDispatchConciergeMessageMutationOptions(options));
+    }
 

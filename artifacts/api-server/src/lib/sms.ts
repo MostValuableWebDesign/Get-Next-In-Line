@@ -16,7 +16,13 @@ interface SendSmsOptions {
   customerId?: number | null;
   toNumber: string | null | undefined;
   body: string;
-  kind: "you_are_next" | "slot_open" | "ai_followup" | "manual" | "claim_confirmation";
+  kind:
+    | "you_are_next"
+    | "slot_open"
+    | "ai_followup"
+    | "manual"
+    | "claim_confirmation"
+    | "concierge";
 }
 
 interface TwilioCreds {

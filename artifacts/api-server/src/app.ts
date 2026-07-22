@@ -1,4 +1,14 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
+// NOTE: api-zod schemas may come from a different zod module instance than
+// this package's, so `instanceof ZodError` is unreliable — duck-type instead.
+function isZodError(err: unknown): err is { issues: Array<{ path: Array<string | number>; message: string }> } {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { name?: string }).name === "ZodError" &&
+    Array.isArray((err as { issues?: unknown }).issues)
+  );
+}
 import cors from "cors";
 import session from "express-session";
 import pinoHttp from "pino-http";
@@ -143,5 +153,26 @@ app.use(
 );
 
 app.use("/api", router);
+
+// Structured error responses: Zod validation failures become 400s with the
+// issue list instead of the default HTML 500 page.
+app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (res.headersSent) {
+    next(err);
+    return;
+  }
+  if (isZodError(err)) {
+    res.status(400).json({
+      error: "Validation failed",
+      issues: err.issues.map((i) => ({
+        path: i.path.join("."),
+        message: i.message,
+      })),
+    });
+    return;
+  }
+  logger.error({ err }, "Unhandled request error");
+  res.status(500).json({ error: "Internal server error" });
+});
 
 export default app;

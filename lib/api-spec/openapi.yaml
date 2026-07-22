@@ -834,8 +834,130 @@ paths:
               schema:
                 $ref: "#/components/schemas/SosReportsSummary"
 
+  /concierge/suggest-upsells:
+    post:
+      operationId: suggestConciergeUpsells
+      tags: [concierge]
+      summary: Suggest active add-ons/enhancements compatible with a service selection for a tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeSuggestUpsellsInput"
+      responses:
+        "200":
+          description: Compatible upsell suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeSuggestUpsellsResult"
+        "404":
+          description: Tenant not found
+
+  /concierge/dispatch-message:
+    post:
+      operationId: dispatchConciergeMessage
+      tags: [concierge]
+      summary: Dispatch a message to a client via their preferred channel and record an audit log
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConciergeDispatchMessageInput"
+      responses:
+        "201":
+          description: Message dispatched (or simulated) and logged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConciergeMessageLog"
+        "404":
+          description: Tenant or client profile not found
+        "409":
+          description: Client cannot receive messages (opted out or missing contact info)
+
 components:
   schemas:
+    ConciergeSuggestUpsellsInput:
+      type: object
+      required: [tenantId, serviceName]
+      properties:
+        tenantId:
+          type: integer
+        serviceName:
+          type: string
+          minLength: 1
+
+    ConciergeUpsellSuggestion:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        price:
+          type: ["number", "null"]
+        description:
+          type: ["string", "null"]
+        ruleId:
+          type: integer
+
+    ConciergeSuggestUpsellsResult:
+      type: object
+      required: [tenantId, serviceName, suggestions]
+      properties:
+        tenantId:
+          type: integer
+        serviceName:
+          type: string
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConciergeUpsellSuggestion"
+
+    ConciergeDispatchMessageInput:
+      type: object
+      required: [tenantId, clientProfileId, body]
+      properties:
+        tenantId:
+          type: integer
+        clientProfileId:
+          type: integer
+        body:
+          type: string
+          minLength: 1
+        jobType:
+          type: string
+          enum: [manual, send_reminder, rebooking_nudge]
+
+    ConciergeMessageLog:
+      type: object
+      required: [id, tenantId, clientProfileId, jobType, channel, status, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        clientProfileId:
+          type: ["integer", "null"]
+        ruleId:
+          type: ["integer", "null"]
+        jobType:
+          type: string
+        channel:
+          type: string
+        toNumber:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, sent, simulated, failed, skipped]
+        errorCode:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        createdAt:
+          type: string
     SosSettings:
       type: object
       required: [id, businessName, industryType, resourceLabel, aiReceptionistEnabled, waitlistAutoFillEnabled, updatedAt]

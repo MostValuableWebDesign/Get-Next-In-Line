@@ -5,6 +5,74 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+export interface ConciergeSuggestUpsellsInput {
+  tenantId: number;
+  /** @minLength 1 */
+  serviceName: string;
+}
+
+export interface ConciergeUpsellSuggestion {
+  name: string;
+  /** @nullable */
+  price?: number | null;
+  /** @nullable */
+  description?: string | null;
+  ruleId?: number;
+}
+
+export interface ConciergeSuggestUpsellsResult {
+  tenantId: number;
+  serviceName: string;
+  suggestions: ConciergeUpsellSuggestion[];
+}
+
+export type ConciergeDispatchMessageInputJobType = typeof ConciergeDispatchMessageInputJobType[keyof typeof ConciergeDispatchMessageInputJobType];
+
+
+export const ConciergeDispatchMessageInputJobType = {
+  manual: 'manual',
+  send_reminder: 'send_reminder',
+  rebooking_nudge: 'rebooking_nudge',
+} as const;
+
+export interface ConciergeDispatchMessageInput {
+  tenantId: number;
+  clientProfileId: number;
+  /** @minLength 1 */
+  body: string;
+  jobType?: ConciergeDispatchMessageInputJobType;
+}
+
+export type ConciergeMessageLogStatus = typeof ConciergeMessageLogStatus[keyof typeof ConciergeMessageLogStatus];
+
+
+export const ConciergeMessageLogStatus = {
+  pending: 'pending',
+  sent: 'sent',
+  simulated: 'simulated',
+  failed: 'failed',
+  skipped: 'skipped',
+} as const;
+
+export interface ConciergeMessageLog {
+  id: number;
+  tenantId: number;
+  /** @nullable */
+  clientProfileId: number | null;
+  /** @nullable */
+  ruleId?: number | null;
+  jobType: string;
+  channel: string;
+  /** @nullable */
+  toNumber?: string | null;
+  status: ConciergeMessageLogStatus;
+  /** @nullable */
+  errorCode?: string | null;
+  /** @nullable */
+  errorMessage?: string | null;
+  createdAt: string;
+}
+
 export type SosSettingsSmsMode = typeof SosSettingsSmsMode[keyof typeof SosSettingsSmsMode];
 
 

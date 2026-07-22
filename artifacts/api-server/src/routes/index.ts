@@ -8,6 +8,7 @@ import modulesRouter from "./modules";
 import billingRouter from "./billing";
 import adminRouter from "./admin";
 import sosRouter from "./sos";
+import conciergeRouter from "./concierge";
 
 const router: IRouter = Router();
 
@@ -25,5 +26,6 @@ router.use(tenantsRouter);
 router.use(modulesRouter);
 router.use(billingRouter);
 router.use(adminRouter);
+router.use(conciergeRouter); // AI Concierge & Automation module
 
 export default router;
