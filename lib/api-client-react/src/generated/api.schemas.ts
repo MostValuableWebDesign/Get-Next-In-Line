@@ -5,6 +5,14 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+export type SosSettingsSmsMode = typeof SosSettingsSmsMode[keyof typeof SosSettingsSmsMode];
+
+
+export const SosSettingsSmsMode = {
+  live: 'live',
+  simulated: 'simulated',
+} as const;
+
 export interface SosSettings {
   id: number;
   businessName: string;
@@ -14,6 +22,9 @@ export interface SosSettings {
   waitlistAutoFillEnabled: boolean;
   /** @nullable */
   smsFromNumber?: string | null;
+  smsMode?: SosSettingsSmsMode;
+  /** @nullable */
+  smsActiveFromNumber?: string | null;
   updatedAt: string;
 }
 
@@ -298,6 +309,12 @@ export interface SosMessage {
   body: string;
   kind: SosMessageKind;
   deliveryStatus: SosMessageDeliveryStatus;
+  /** @nullable */
+  providerSid?: string | null;
+  /** @nullable */
+  errorCode?: string | null;
+  /** @nullable */
+  errorMessage?: string | null;
   createdAt: string;
 }
 

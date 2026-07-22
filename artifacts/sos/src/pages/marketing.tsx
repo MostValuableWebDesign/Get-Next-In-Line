@@ -186,8 +186,14 @@ function MessageLogList() {
                 <Badge variant="outline" className="text-[10px] capitalize">{msg.kind.replace('_', ' ')}</Badge>
               </td>
               <td className="px-4 py-3">
-                <span className={`text-xs ${msg.deliveryStatus === 'failed' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                <span
+                  className={`text-xs ${msg.deliveryStatus === 'failed' ? 'text-destructive' : 'text-muted-foreground'}`}
+                  title={msg.deliveryStatus === 'failed' && msg.errorMessage ? `${msg.errorCode ? `[${msg.errorCode}] ` : ''}${msg.errorMessage}` : undefined}
+                >
                   {msg.deliveryStatus}
+                  {msg.deliveryStatus === 'failed' && msg.errorMessage && (
+                    <span className="block max-w-[200px] truncate text-[10px] text-destructive/80">{msg.errorMessage}</span>
+                  )}
                 </span>
               </td>
               <td className="px-4 py-3 text-muted-foreground text-xs">

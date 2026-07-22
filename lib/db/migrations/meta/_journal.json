@@ -29,6 +29,13 @@
       "when": 1784704286600,
       "tag": "0003_sos_platform",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784705326536,
+      "tag": "0004_organic_baron_strucker",
+      "breakpoints": true
     }
   ]
 }

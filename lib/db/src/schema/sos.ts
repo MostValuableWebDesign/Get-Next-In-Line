@@ -102,6 +102,8 @@ export const sosMessagesTable = pgTable("sos_messages", {
   // sent | delivered | failed | simulated
   deliveryStatus: text("delivery_status").notNull().default("simulated"),
   providerSid: text("provider_sid"),
+  errorCode: text("error_code"),
+  errorMessage: text("error_message"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

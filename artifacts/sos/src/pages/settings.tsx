@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 export function SettingsPage() {
   const { data: settings, isLoading } = useGetSosSettings();
@@ -121,6 +122,20 @@ export function SettingsPage() {
               checked={form.waitlistAutoFillEnabled}
               onCheckedChange={c => setForm(f => ({...f, waitlistAutoFillEnabled: c}))}
             />
+          </div>
+
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-0.5">
+              <Label className="text-base">SMS Delivery</Label>
+              <p className="text-sm text-muted-foreground">
+                {settings?.smsMode === 'live'
+                  ? <>Real texts are being sent via Twilio from <span className="font-medium">{settings?.smsActiveFromNumber}</span>.</>
+                  : 'Simulated mode — messages are logged but not actually sent. Connect Twilio and set a From number to go live.'}
+              </p>
+            </div>
+            <Badge variant={settings?.smsMode === 'live' ? 'default' : 'secondary'} data-testid="badge-sms-mode">
+              {settings?.smsMode === 'live' ? 'Live' : 'Simulated'}
+            </Badge>
           </div>
 
           <div className="grid gap-2 pt-2">

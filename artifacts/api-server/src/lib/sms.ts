@@ -1,4 +1,5 @@
 import { db, sosMessagesTable, sosSettingsTable } from "@workspace/db";
+import twilio from "twilio";
 import { logger } from "./logger";
 
 /**
@@ -6,6 +7,9 @@ import { logger } from "./logger";
  * Replit Twilio connector or TWILIO_* env vars); otherwise records the
  * message with deliveryStatus "simulated" so the product flow keeps working
  * end-to-end and is explicit about the fact that nothing was really sent.
+ *
+ * When credentials ARE present, failures are recorded as "failed" with the
+ * Twilio error code/message — they never silently downgrade to "simulated".
  */
 
 interface SendSmsOptions {
@@ -21,7 +25,20 @@ interface TwilioCreds {
   fromNumber: string | null;
 }
 
+// Cache creds briefly so per-message sends don't hammer the connector proxy.
+let credsCache: { creds: TwilioCreds | null; fetchedAt: number } | null = null;
+const CREDS_TTL_MS = 60_000;
+
 async function getTwilioCreds(): Promise<TwilioCreds | null> {
+  if (credsCache && Date.now() - credsCache.fetchedAt < CREDS_TTL_MS) {
+    return credsCache.creds;
+  }
+  const creds = await fetchTwilioCreds();
+  credsCache = { creds, fetchedAt: Date.now() };
+  return creds;
+}
+
+async function fetchTwilioCreds(): Promise<TwilioCreds | null> {
   // Replit Twilio connector exposes credentials through the connectors proxy.
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
@@ -66,48 +83,91 @@ async function getTwilioCreds(): Promise<TwilioCreds | null> {
   return null;
 }
 
+/**
+ * Normalize a phone number to E.164 (best effort, US-biased default country).
+ * Returns null when the input can't plausibly be a valid number.
+ */
+export function normalizeToE164(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const hasPlus = trimmed.startsWith("+");
+  const digits = trimmed.replace(/\D/g, "");
+  if (hasPlus) {
+    // Already international: just strip formatting.
+    if (digits.length < 8 || digits.length > 15) return null;
+    return `+${digits}`;
+  }
+  if (digits.length === 10) return `+1${digits}`; // US/CA without country code
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  if (digits.length >= 11 && digits.length <= 15) return `+${digits}`;
+  return null;
+}
+
+/** Live vs. simulated SMS status, for the Settings page. */
+export async function getSmsStatus(): Promise<{
+  smsMode: "live" | "simulated";
+  activeFromNumber: string | null;
+}> {
+  const [settings] = await db.select().from(sosSettingsTable).limit(1);
+  const creds = await getTwilioCreds();
+  const fromNumber = normalizeToE164(settings?.smsFromNumber ?? creds?.fromNumber);
+  return {
+    smsMode: creds && fromNumber ? "live" : "simulated",
+    activeFromNumber: fromNumber,
+  };
+}
+
 export async function sendSms(opts: SendSmsOptions): Promise<{
   id: number;
   deliveryStatus: string;
 }> {
   const [settings] = await db.select().from(sosSettingsTable).limit(1);
   const creds = await getTwilioCreds();
-  const fromNumber = settings?.smsFromNumber ?? creds?.fromNumber ?? null;
+  // Settings override wins over the connector/env From number.
+  const fromNumber = normalizeToE164(settings?.smsFromNumber ?? creds?.fromNumber);
+  const toNumber = normalizeToE164(opts.toNumber);
 
   let deliveryStatus: "sent" | "failed" | "simulated" = "simulated";
   let providerSid: string | null = null;
+  let errorCode: string | null = null;
+  let errorMessage: string | null = null;
 
-  if (creds && fromNumber && opts.toNumber) {
-    try {
-      const res = await fetch(
-        `https://api.twilio.com/2010-04-01/Accounts/${creds.accountSid}/Messages.json`,
-        {
-          method: "POST",
-          headers: {
-            Authorization:
-              "Basic " +
-              Buffer.from(`${creds.accountSid}:${creds.authToken}`).toString("base64"),
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            To: opts.toNumber,
-            From: fromNumber,
-            Body: opts.body,
-          }),
-        },
-      );
-      if (res.ok) {
-        const payload = (await res.json()) as { sid?: string };
-        providerSid = payload.sid ?? null;
-        deliveryStatus = "sent";
-      } else {
-        const errText = await res.text();
-        logger.error({ status: res.status, errText }, "Twilio send failed");
-        deliveryStatus = "failed";
-      }
-    } catch (err) {
-      logger.error({ err }, "Twilio send threw");
+  if (creds && fromNumber) {
+    if (!toNumber) {
+      // Real SMS is active but this recipient's number is unusable — flag it
+      // instead of silently pretending it was simulated.
       deliveryStatus = "failed";
+      errorCode = "invalid_number";
+      errorMessage = `Recipient phone number ${JSON.stringify(opts.toNumber ?? null)} is not a valid E.164 number`;
+      logger.warn({ toNumber: opts.toNumber }, "SMS skipped: invalid recipient number");
+    } else {
+      try {
+        const client = twilio(creds.accountSid, creds.authToken);
+        const message = await client.messages.create({
+          to: toNumber,
+          from: fromNumber,
+          body: opts.body,
+        });
+        providerSid = message.sid;
+        if (message.status === "failed" || message.status === "undelivered") {
+          deliveryStatus = "failed";
+          errorCode = message.errorCode != null ? String(message.errorCode) : null;
+          errorMessage = message.errorMessage ?? null;
+          logger.error(
+            { sid: message.sid, errorCode, errorMessage },
+            "Twilio message failed",
+          );
+        } else {
+          deliveryStatus = "sent";
+        }
+      } catch (err) {
+        deliveryStatus = "failed";
+        const e = err as { code?: number | string; message?: string; status?: number };
+        errorCode = e.code != null ? String(e.code) : null;
+        errorMessage = e.message ?? "Unknown Twilio error";
+        logger.error({ err, errorCode }, "Twilio send failed");
+      }
     }
   }
 
@@ -115,12 +175,14 @@ export async function sendSms(opts: SendSmsOptions): Promise<{
     .insert(sosMessagesTable)
     .values({
       customerId: opts.customerId ?? null,
-      toNumber: opts.toNumber ?? null,
+      toNumber: toNumber ?? opts.toNumber ?? null,
       direction: "outbound",
       body: opts.body,
       kind: opts.kind,
       deliveryStatus,
       providerSid,
+      errorCode,
+      errorMessage,
     })
     .returning({ id: sosMessagesTable.id });
 

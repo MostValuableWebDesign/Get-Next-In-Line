@@ -381,6 +381,8 @@ export const GetSosSettingsResponse = zod.object({
   "aiReceptionistEnabled": zod.boolean(),
   "waitlistAutoFillEnabled": zod.boolean(),
   "smsFromNumber": zod.string().nullish(),
+  "smsMode": zod.enum(['live', 'simulated']).optional(),
+  "smsActiveFromNumber": zod.string().nullish(),
   "updatedAt": zod.string()
 })
 
@@ -405,6 +407,8 @@ export const UpdateSosSettingsResponse = zod.object({
   "aiReceptionistEnabled": zod.boolean(),
   "waitlistAutoFillEnabled": zod.boolean(),
   "smsFromNumber": zod.string().nullish(),
+  "smsMode": zod.enum(['live', 'simulated']).optional(),
+  "smsActiveFromNumber": zod.string().nullish(),
   "updatedAt": zod.string()
 })
 
@@ -799,6 +803,9 @@ export const ListSosMessagesResponseItem = zod.object({
   "body": zod.string(),
   "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound']),
   "deliveryStatus": zod.enum(['sent', 'delivered', 'failed', 'simulated']),
+  "providerSid": zod.string().nullish(),
+  "errorCode": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
   "createdAt": zod.string()
 })
 export const ListSosMessagesResponse = zod.array(ListSosMessagesResponseItem)
@@ -825,6 +832,9 @@ export const SendSosMessageResponse = zod.object({
   "body": zod.string(),
   "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound']),
   "deliveryStatus": zod.enum(['sent', 'delivered', 'failed', 'simulated']),
+  "providerSid": zod.string().nullish(),
+  "errorCode": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
   "createdAt": zod.string()
 })
 

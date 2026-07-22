@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { SosSettingsSmsMode } from './sosSettingsSmsMode';
 
 export interface SosSettings {
   id: number;
@@ -15,5 +16,8 @@ export interface SosSettings {
   waitlistAutoFillEnabled: boolean;
   /** @nullable */
   smsFromNumber?: string | null;
+  smsMode?: SosSettingsSmsMode;
+  /** @nullable */
+  smsActiveFromNumber?: string | null;
   updatedAt: string;
 }

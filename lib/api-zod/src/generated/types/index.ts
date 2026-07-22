@@ -54,6 +54,7 @@ export * from './sosResourceStatus';
 export * from './sosResourceUpdate';
 export * from './sosResourceUpdateStatus';
 export * from './sosSettings';
+export * from './sosSettingsSmsMode';
 export * from './sosSettingsUpdate';
 export * from './sosVisit';
 export * from './sosVisitAdvance';

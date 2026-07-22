@@ -854,6 +854,11 @@ components:
           type: boolean
         smsFromNumber:
           type: ["string", "null"]
+        smsMode:
+          type: string
+          enum: [live, simulated]
+        smsActiveFromNumber:
+          type: ["string", "null"]
         updatedAt:
           type: string
 
@@ -1140,6 +1145,12 @@ components:
         deliveryStatus:
           type: string
           enum: [sent, delivered, failed, simulated]
+        providerSid:
+          type: ["string", "null"]
+        errorCode:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
         createdAt:
           type: string
 

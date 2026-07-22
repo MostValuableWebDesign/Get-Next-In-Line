@@ -47,7 +47,7 @@ import {
   GetSosReportsSummaryResponse,
 } from "@workspace/api-zod";
 import { and, desc, eq, gte, ilike, inArray, lte, ne, sql } from "drizzle-orm";
-import { sendSms } from "../lib/sms";
+import { sendSms, getSmsStatus } from "../lib/sms";
 import { parseCallIntent } from "../lib/receptionist";
 
 const router: IRouter = Router();
@@ -248,6 +248,7 @@ router.get("/sos/dashboard", async (_req, res): Promise<void> => {
 
 router.get("/sos/settings", async (_req, res): Promise<void> => {
   const s = await getSettings();
+  const sms = await getSmsStatus();
   res.json(
     GetSosSettingsResponse.parse({
       id: s.id,
@@ -257,6 +258,8 @@ router.get("/sos/settings", async (_req, res): Promise<void> => {
       aiReceptionistEnabled: s.aiReceptionistEnabled,
       waitlistAutoFillEnabled: s.waitlistAutoFillEnabled,
       smsFromNumber: s.smsFromNumber,
+      smsMode: sms.smsMode,
+      smsActiveFromNumber: sms.activeFromNumber,
       updatedAt: s.updatedAt.toISOString(),
     }),
   );
@@ -270,6 +273,7 @@ router.patch("/sos/settings", async (req, res): Promise<void> => {
     .set({ ...body, updatedAt: new Date() })
     .where(eq(sosSettingsTable.id, s.id))
     .returning();
+  const sms = await getSmsStatus();
   res.json(
     UpdateSosSettingsResponse.parse({
       id: updated.id,
@@ -279,6 +283,8 @@ router.patch("/sos/settings", async (req, res): Promise<void> => {
       aiReceptionistEnabled: updated.aiReceptionistEnabled,
       waitlistAutoFillEnabled: updated.waitlistAutoFillEnabled,
       smsFromNumber: updated.smsFromNumber,
+      smsMode: sms.smsMode,
+      smsActiveFromNumber: sms.activeFromNumber,
       updatedAt: updated.updatedAt.toISOString(),
     }),
   );
@@ -781,6 +787,9 @@ router.get("/sos/messages", async (req, res): Promise<void> => {
         body: msg.body,
         kind: msg.kind,
         deliveryStatus: msg.deliveryStatus,
+        providerSid: msg.providerSid,
+        errorCode: msg.errorCode,
+        errorMessage: msg.errorMessage,
         createdAt: msg.createdAt.toISOString(),
       })),
     ),
@@ -814,6 +823,9 @@ router.post("/sos/messages", async (req, res): Promise<void> => {
       body: msg.body,
       kind: msg.kind,
       deliveryStatus: msg.deliveryStatus,
+      providerSid: msg.providerSid,
+      errorCode: msg.errorCode,
+      errorMessage: msg.errorMessage,
       createdAt: msg.createdAt.toISOString(),
     }),
   );

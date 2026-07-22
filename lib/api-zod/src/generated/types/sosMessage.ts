@@ -21,5 +21,11 @@ export interface SosMessage {
   body: string;
   kind: SosMessageKind;
   deliveryStatus: SosMessageDeliveryStatus;
+  /** @nullable */
+  providerSid?: string | null;
+  /** @nullable */
+  errorCode?: string | null;
+  /** @nullable */
+  errorMessage?: string | null;
   createdAt: string;
 }
