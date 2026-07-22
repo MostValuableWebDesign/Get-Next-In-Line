@@ -148,9 +148,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
           <SidebarHeader className="p-4 border-b border-sidebar-border/50 group-data-[collapsible=icon]:p-2">
             <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-              <div className="size-8 shrink-0 bg-primary rounded flex items-center justify-center text-primary-foreground shadow-sm">
-                GN
-              </div>
+              <div className="size-8 shrink-0 bg-primary rounded shadow-sm" />
               <span className="text-white group-data-[collapsible=icon]:hidden">GNIL Operator Terminal</span>
             </div>
           </SidebarHeader>
