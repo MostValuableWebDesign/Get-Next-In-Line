@@ -43,6 +43,16 @@ type SidebarContextProps = {
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
 
+/** Reads the persisted sidebar state from the cookie. Returns null when unset. */
+function getSidebarStateFromCookie(): boolean | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith(`${SIDEBAR_COOKIE_NAME}=`));
+  if (!match) return null;
+  return match.split('=')[1] === 'true';
+}
+
 function useSidebar() {
   const context = React.useContext(SidebarContext);
   if (!context) {
@@ -70,7 +80,10 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen);
+  // Restore the persisted state from the cookie; fall back to defaultOpen.
+  const [_open, _setOpen] = React.useState(
+    () => getSidebarStateFromCookie() ?? defaultOpen,
+  );
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
