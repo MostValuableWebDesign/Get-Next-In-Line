@@ -221,6 +221,22 @@ export function AiReceptionistPage({ embedded = false }: { embedded?: boolean })
         </CardContent>
       </Card>
 
+      {/* Per-tenant, the call and SMS logs live on the unified
+          Communications tab — link there instead of duplicating them. */}
+      {isTenantScoped && (
+        <div
+          className="flex items-center justify-between gap-3 rounded-lg border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground"
+          data-testid="banner-comms-link"
+        >
+          <span>Looking for call logs and SMS history? They're in the Communications tab.</span>
+          <Button asChild variant="outline" size="sm" className="shrink-0" data-testid="link-communications-tab">
+            <Link href={`/tenants/${tenantId}?tab=communications`}>
+              <MessageSquare className="w-4 h-4 mr-1.5" /> View Communications
+            </Link>
+          </Button>
+        </div>
+      )}
+
       {/* Call logs, the simulator, and SMS history are business-wide views —
           only rendered on the global page, not per-tenant. */}
       {!isTenantScoped && (

@@ -11,8 +11,6 @@ import {
   useCreateClientProfile,
   useUpdateClientProfile,
   useDeleteClientProfile,
-  useListConciergeMessageLogs,
-  getListConciergeMessageLogsQueryKey,
   type EngagementRule,
   type ConciergeClientProfile,
 } from '@workspace/api-client-react';
@@ -33,7 +31,6 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
-import { MessageHistoryTable } from '@/components/message-history';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 
@@ -49,10 +46,10 @@ const RULE_TYPE_LABEL: Record<string, string> = Object.fromEntries(
 
 /*
  * Concierge management tabs, hosted on the Tenant Detail page
- * (/tenants/:id?tab=rules|clients|log): engagement rule editing,
- * client-profile CRUD, and the message dispatch log with status and
- * error reasons. The former standalone /tenants/:id/concierge route
- * redirects there.
+ * (/tenants/:id?tab=rules|clients): engagement rule editing and
+ * client-profile CRUD. The former standalone /tenants/:id/concierge route
+ * redirects there. The message dispatch log moved to the unified
+ * Communications tab (communications-tab.tsx).
  */
 
 // ── Engagement rules ──────────────────────────────────────────────────────────
@@ -514,49 +511,6 @@ export function ClientsTab({ tenantId }: { tenantId: number }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
-  );
-}
-
-// ── Message dispatch log ──────────────────────────────────────────────────────
-
-export function MessageLogTab({ tenantId }: { tenantId: number }) {
-  const { data: logs, isLoading } = useListConciergeMessageLogs(tenantId, {
-    query: { queryKey: getListConciergeMessageLogsQueryKey(tenantId) },
-  });
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Message Dispatch Log</CardTitle>
-        <CardDescription>
-          Every automated and manual concierge message, with delivery status and error reasons.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <Skeleton className="h-24 w-full rounded-lg" />
-        ) : !logs || logs.length === 0 ? (
-          <p className="text-sm text-muted-foreground" data-testid="text-no-logs">
-            No messages have been dispatched for this tenant yet.
-          </p>
-        ) : (
-          <MessageHistoryTable
-            items={logs.map((log) => ({
-              id: log.id,
-              createdAt: log.createdAt,
-              contact: log.clientName ?? null,
-              body: log.body ?? null,
-              kind: log.jobType,
-              status: log.status,
-              errorMessage: log.errorMessage ?? null,
-              errorCode: log.errorCode ?? null,
-            }))}
-            testId="table-message-logs"
-            emptyMessage="No messages have been dispatched for this tenant yet."
-          />
-        )}
-      </CardContent>
     </Card>
   );
 }

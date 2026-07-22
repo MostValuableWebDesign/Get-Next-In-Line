@@ -16,7 +16,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { ActivityFeed } from '@/components/shared/ActivityFeed';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RulesTab, ClientsTab, MessageLogTab } from '@/components/concierge-tabs';
+import { RulesTab, ClientsTab } from '@/components/concierge-tabs';
+import { CommunicationsTab } from '@/components/communications-tab';
 import { AiReceptionistPage } from '@/pages/sos/ai-receptionist';
 import SettingsPage from '@/pages/Settings';
 import { formatCurrency } from '@/lib/format';
@@ -27,8 +28,14 @@ import {
 
 const ACTIVITY_PAGE_SIZE = 20;
 
-const TAB_VALUES = ['overview', 'rules', 'clients', 'log', 'ai-receptionist', 'settings'] as const;
+const TAB_VALUES = ['overview', 'rules', 'clients', 'communications', 'ai-receptionist', 'settings'] as const;
 type TabValue = (typeof TAB_VALUES)[number];
+
+/** Legacy tab deep links remapped to their new home. */
+const LEGACY_TAB_ALIASES: Record<string, TabValue> = {
+  // The old "Message Log" tab was folded into Communications.
+  log: 'communications',
+};
 
 export default function TenantDetail() {
   const params = useParams<{ id: string }>();
@@ -38,7 +45,8 @@ export default function TenantDetail() {
   // The active tab is driven by the ?tab= query param so deep links (e.g.
   // the old /tenants/:id/concierge redirect) land on the right tab.
   const search = useSearch();
-  const requestedTab = new URLSearchParams(search).get('tab');
+  const requestedRaw = new URLSearchParams(search).get('tab');
+  const requestedTab = requestedRaw != null ? (LEGACY_TAB_ALIASES[requestedRaw] ?? requestedRaw) : null;
   const initialTab: TabValue = TAB_VALUES.includes(requestedTab as TabValue)
     ? (requestedTab as TabValue)
     : 'overview';
@@ -195,8 +203,8 @@ export default function TenantDetail() {
           <TabsTrigger value="clients" data-testid="tab-clients">
             <Users className="w-4 h-4 mr-1.5" /> Client Profiles
           </TabsTrigger>
-          <TabsTrigger value="log" data-testid="tab-log">
-            <ScrollText className="w-4 h-4 mr-1.5" /> Message Log
+          <TabsTrigger value="communications" data-testid="tab-communications">
+            <ScrollText className="w-4 h-4 mr-1.5" /> Communications
           </TabsTrigger>
           <TabsTrigger value="ai-receptionist" data-testid="tab-ai-receptionist">
             <Phone className="w-4 h-4 mr-1.5" /> AI Receptionist
@@ -332,8 +340,8 @@ export default function TenantDetail() {
         <TabsContent value="clients" className="mt-4">
           <ClientsTab tenantId={tenantId} />
         </TabsContent>
-        <TabsContent value="log" className="mt-4">
-          <MessageLogTab tenantId={tenantId} />
+        <TabsContent value="communications" className="mt-4">
+          <CommunicationsTab tenantId={tenantId} />
         </TabsContent>
         {/* Former standalone pages, folded in as tabs. Both read the tenant
             id from the /tenants/:id route params, so tenant scoping is
