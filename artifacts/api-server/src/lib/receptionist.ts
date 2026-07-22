@@ -15,18 +15,19 @@ export interface ParsedCallIntent {
   usedAi: boolean;
 }
 
+// Industry-neutral service terms for the deterministic fallback parser.
+// Keep these generic — the AI path handles business-specific phrasing.
 const SERVICE_KEYWORDS = [
-  "haircut",
-  "color",
-  "cleaning",
-  "checkup",
   "consultation",
-  "massage",
-  "manicure",
+  "appointment",
+  "checkup",
+  "estimate",
+  "cleaning",
   "repair",
-  "oil change",
-  "table",
+  "maintenance",
+  "service",
   "reservation",
+  "follow-up",
 ];
 
 function fallbackParse(inquiry: string): ParsedCallIntent {

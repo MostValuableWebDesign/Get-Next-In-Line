@@ -81,7 +81,7 @@ export function SettingsPage() {
               <Input 
                 value={form.industryType} 
                 onChange={e => setForm(f => ({...f, industryType: e.target.value}))} 
-                placeholder="e.g. Salon, Restaurant"
+                placeholder="e.g. Clinic, Restaurant, Auto Shop"
               />
             </div>
             <div className="grid gap-2">
@@ -89,7 +89,7 @@ export function SettingsPage() {
               <Input 
                 value={form.resourceLabel} 
                 onChange={e => setForm(f => ({...f, resourceLabel: e.target.value}))} 
-                placeholder="e.g. Chair, Table, Bay"
+                placeholder="e.g. Station, Table, Room"
               />
             </div>
           </div>

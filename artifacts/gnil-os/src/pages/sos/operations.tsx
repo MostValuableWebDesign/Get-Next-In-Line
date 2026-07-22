@@ -307,7 +307,7 @@ function CheckInDialog() {
           </div>
           <div className="space-y-2">
             <Label>Service Type</Label>
-            <Input value={serviceType} onChange={e => setServiceType(e.target.value)} placeholder="e.g. Haircut, Consultation" />
+            <Input value={serviceType} onChange={e => setServiceType(e.target.value)} placeholder="e.g. Consultation, Appointment" />
           </div>
           <div className="space-y-2">
             <Label>Party Size</Label>
@@ -342,11 +342,11 @@ function AddResourceDialog() {
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Resource Name</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Chair 1, Room A" />
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Station 1, Room A" />
           </div>
           <div className="space-y-2">
             <Label>Resource Type</Label>
-            <Input value={type} onChange={e => setType(e.target.value)} placeholder="e.g. Chair, Room, Bay" />
+            <Input value={type} onChange={e => setType(e.target.value)} placeholder="e.g. Station, Room, Bay" />
           </div>
         </div>
         <DialogFooter>
