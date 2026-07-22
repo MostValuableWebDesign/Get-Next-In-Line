@@ -63,11 +63,8 @@ vi.mock('@workspace/api-client-react', () => ({
 // The Operations hub pulls in the full SOS operations + partner pages; they
 // are irrelevant to marketplace placement, so stub them out.
 vi.mock('@/pages/sos/operations', () => ({ OperationsPage: () => <div /> }));
-vi.mock('@/pages/sos/static-pages', () => ({
-  EmployeesPage: () => <div />,
-  PayrollPage: () => <div />,
-  BusinessProtectionPage: () => <div />,
-  EmployeeBenefitsPage: () => <div />,
+vi.mock('@/components/static-page', () => ({
+  StaticPlaceholderPage: () => <div />,
 }));
 
 vi.mock('@/hooks/use-online', () => ({

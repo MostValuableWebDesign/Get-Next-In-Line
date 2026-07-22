@@ -4,18 +4,11 @@ import {
   useListModules,
   useGetModulesPricing,
   useGetAgencySettings,
-  useListTenants,
   useGetModuleTenantCounts,
   useGetModuleTenants,
-  useSimulateCheckout,
-  getListTenantsQueryKey,
-  getGetModuleTenantCountsQueryKey,
   getGetModuleTenantsQueryKey,
-  getGetBillingSummaryQueryKey,
-  getGetAgencyDashboardQueryKey,
-  getGetTenantActivityQueryKey,
 } from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { CheckoutSimulationDialog } from '@/components/checkout/CheckoutSimulationDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -289,110 +282,19 @@ export default function ModuleConsole() {
 
 function ProvisionModuleDialog({ moduleId, moduleName }: { moduleId: number; moduleName: string }) {
   const [open, setOpen] = useState(false);
-  const [selectedTenant, setSelectedTenant] = useState<string>('');
-  const { data: tenants } = useListTenants();
-  const { data: pricing } = useGetModulesPricing();
-  const simulateCheckout = useSimulateCheckout();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  const priceInfo = pricing?.find((p) => p.id === moduleId);
-
-  const handleProvision = () => {
-    if (!selectedTenant) return;
-    simulateCheckout.mutate(
-      {
-        data: {
-          tenantId: parseInt(selectedTenant),
-          moduleIds: [moduleId],
-          applyMarkup: true,
-        },
-      },
-      {
-        onSuccess: (res) => {
-          setOpen(false);
-          setSelectedTenant('');
-          queryClient.invalidateQueries({ queryKey: getListTenantsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetModuleTenantCountsQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetModuleTenantsQueryKey(moduleId) });
-          queryClient.invalidateQueries({ queryKey: getGetBillingSummaryQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetAgencyDashboardQueryKey() });
-          queryClient.invalidateQueries({ queryKey: getGetTenantActivityQueryKey() });
-          toast({
-            title: 'Module Provisioned',
-            description: `${moduleName} activated — ${res.transactionId} | ${formatCurrency(res.totalResale)}/mo`,
-          });
-        },
-        onError: () => {
-          toast({
-            title: 'Provisioning failed',
-            description: 'The request could not be completed. Please try again.',
-            variant: 'destructive',
-          });
-        },
-      },
-    );
-  };
 
   return (
     <>
       <Button className="gap-2" onClick={() => setOpen(true)} data-testid="button-provision-module">
         <CreditCard className="w-4 h-4" /> Provision Module
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Provision {moduleName}</DialogTitle>
-            <DialogDescription>
-              Simulated Stripe checkout — select the tenant that will receive this module.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Target Tenant</label>
-              <Select value={selectedTenant} onValueChange={setSelectedTenant}>
-                <SelectTrigger data-testid="select-provision-tenant">
-                  <SelectValue placeholder="Choose tenant..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {tenants?.map((t) => (
-                    <SelectItem key={t.id} value={t.id.toString()}>{t.brandName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="bg-muted/30 p-4 rounded-lg border space-y-2 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Wholesale Cost</span>
-                <span className="font-mono">{formatCurrency(priceInfo?.wholesalePrice ?? 0)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-emerald-600">Agency Margin</span>
-                <span className="font-mono text-emerald-600">+{formatCurrency(priceInfo?.margin ?? 0)}</span>
-              </div>
-              <div className="flex justify-between items-center pt-2 border-t">
-                <span className="font-bold">Monthly Charge</span>
-                <span className="font-mono font-bold text-lg" data-testid="text-provision-total">
-                  {formatCurrency(priceInfo?.resalePrice ?? 0)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button
-              disabled={!selectedTenant || simulateCheckout.isPending}
-              onClick={handleProvision}
-              data-testid="button-confirm-provision"
-            >
-              {simulateCheckout.isPending ? 'Processing...' : 'Confirm Provisioning'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <CheckoutSimulationDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={`Provision ${moduleName}`}
+        description="Simulated Stripe checkout — select the tenant that will receive this module."
+        lockedModuleId={moduleId}
+      />
     </>
   );
 }

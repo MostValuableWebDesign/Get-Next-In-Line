@@ -4,8 +4,9 @@
  *    for regular modules;
  *  - shows the "Partner Direct (0% Markup)" badge (no price / no provision
  *    button) for partner modules;
- *  - single-module provisioning flow: pick a tenant, confirm, checkout is
- *    called with just this module, and a success toast fires.
+ *  - single-module provisioning flow (shared CheckoutSimulationDialog): pick a
+ *    tenant, run, checkout is called with just this module, and a success
+ *    toast fires.
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -78,6 +79,8 @@ vi.mock('@workspace/api-client-react', () => ({
   getGetAgencyDashboardQueryKey: () => ['dashboard'],
   getGetTenantActivityQueryKey: () => ['activity'],
   getGetModulesPricingQueryKey: () => ['pricing'],
+  useHealthCheck: () => ({ data: { status: 'ok' }, isError: false, isFetched: true }),
+  getHealthCheckQueryKey: () => ['health'],
 }));
 
 function renderConsole(path: string) {
@@ -164,15 +167,15 @@ describe('ModuleConsole', () => {
     fireEvent.click(screen.getByTestId('button-provision-module'));
 
     // Confirm disabled until a tenant is chosen
-    expect(screen.getByTestId('button-confirm-provision')).toBeDisabled();
+    expect(screen.getByTestId('button-run-transaction')).toBeDisabled();
 
-    fireEvent.click(screen.getByTestId('select-provision-tenant'));
+    fireEvent.click(screen.getByTestId('select-checkout-tenant'));
     fireEvent.click(await screen.findByRole('option', { name: 'Apex Salon' }));
 
-    // Order summary shows the module's resale price
-    expect(screen.getByTestId('text-provision-total')).toHaveTextContent('$224');
+    // Order summary shows the module's resale price as the total charge
+    expect(screen.getByText('Total Charge')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId('button-confirm-provision'));
+    fireEvent.click(screen.getByTestId('button-run-transaction'));
 
     expect(mutateMock).toHaveBeenCalledTimes(1);
     expect(mutateMock.mock.calls[0][0]).toEqual({
@@ -180,7 +183,7 @@ describe('ModuleConsole', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Module Provisioned')).toBeInTheDocument();
+      expect(screen.getByText('Checkout Simulation Successful')).toBeInTheDocument();
     });
     expect(screen.getByText(/txn_abc123/)).toBeInTheDocument();
   });
@@ -192,12 +195,12 @@ describe('ModuleConsole', () => {
 
     renderConsole('/modules/1');
     fireEvent.click(screen.getByTestId('button-provision-module'));
-    fireEvent.click(screen.getByTestId('select-provision-tenant'));
+    fireEvent.click(screen.getByTestId('select-checkout-tenant'));
     fireEvent.click(await screen.findByRole('option', { name: 'Apex Salon' }));
-    fireEvent.click(screen.getByTestId('button-confirm-provision'));
+    fireEvent.click(screen.getByTestId('button-run-transaction'));
 
     await waitFor(() => {
-      expect(screen.getByText('Provisioning failed')).toBeInTheDocument();
+      expect(screen.getByText('Checkout simulation failed')).toBeInTheDocument();
     });
   });
 });
