@@ -64,6 +64,10 @@ const moduleTenants: Record<number, Array<{ tenantId: number; brandName: string;
 
 const mutateMock = vi.fn();
 
+// Mutable admin module-detail response: undefined simulates a non-admin
+// session (query errors); set to a detail object to simulate an admin.
+let adminDetailData: Record<string, unknown> | undefined;
+
 vi.mock('@workspace/api-client-react', () => ({
   useListModules: () => ({ data: modules, isLoading: false }),
   useGetModulesPricing: () => ({ data: pricing, isLoading: false }),
@@ -75,7 +79,7 @@ vi.mock('@workspace/api-client-react', () => ({
   getGetModuleTenantsQueryKey: (id: number) => ['module-tenants', id],
   // Non-admin case: the admin module-detail query errors, so the merged page
   // hides the connector-mapping section.
-  useGetAdminModuleDetail: () => ({ data: undefined, isLoading: false, isError: true }),
+  useGetAdminModuleDetail: () => ({ data: adminDetailData, isLoading: false, isError: adminDetailData === undefined }),
   getGetAdminModuleDetailQueryKey: (id: number) => ['admin-module-detail', id],
   useSimulateCheckout: () => ({ mutate: mutateMock, isPending: false }),
   getListTenantsQueryKey: () => ['tenants'],
@@ -103,6 +107,43 @@ function renderConsole(path: string) {
 describe('ModuleConsole', () => {
   beforeEach(() => {
     mutateMock.mockReset();
+    adminDetailData = undefined;
+  });
+
+  it('hides the admin connector jump and section for non-admin sessions', () => {
+    renderConsole('/modules/1');
+
+    expect(screen.queryByTestId('link-admin-connector-view')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('section-admin-connector')).not.toBeInTheDocument();
+  });
+
+  it('shows a one-click jump to the connector section for admin sessions', () => {
+    adminDetailData = {
+      wholesalePrice: 149,
+      resalePrice: 223.5,
+      resalePriceBiweekly: null,
+      markupPercent: 50,
+      mapping: {
+        id: 1,
+        slug: 'smart-booking',
+        upstreamVendor: 'Acme',
+        hiddenConnector: 'acme-booking',
+        proxyNotes: null,
+        isActive: true,
+      },
+      activity: [],
+    };
+
+    renderConsole('/modules/1');
+
+    const section = screen.getByTestId('section-admin-connector');
+    expect(section).toHaveAttribute('id', 'admin-connector-section');
+
+    const scrollSpy = vi.fn();
+    section.scrollIntoView = scrollSpy;
+
+    fireEvent.click(screen.getByTestId('link-admin-connector-view'));
+    expect(scrollSpy).toHaveBeenCalledTimes(1);
   });
 
   it('renders module details with markup-based resale price for a regular module', () => {

@@ -158,6 +158,20 @@ export default function ModuleConsole() {
                 )}
               </div>
             )}
+            {adminDetail && (
+              <Button
+                variant="outline"
+                className="gap-2"
+                data-testid="link-admin-connector-view"
+                onClick={() =>
+                  document
+                    .getElementById('admin-connector-section')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }
+              >
+                <ShieldAlert className="w-4 h-4" /> Connector View
+              </Button>
+            )}
             <Button asChild variant="outline" className="gap-2" data-testid="link-module-settings">
               <Link href={MODULE_SETTINGS_ANCHOR[module.name] ?? CATEGORY_SETTINGS_ANCHOR[module.categorySlug] ?? '/settings'}>
                 <Settings className="w-4 h-4" /> Configure
@@ -306,7 +320,7 @@ function AdminConnectorSection({
   const { mapping } = detail;
 
   return (
-    <div className="space-y-6" data-testid="section-admin-connector">
+    <div className="space-y-6 scroll-mt-6" id="admin-connector-section" data-testid="section-admin-connector">
       <Card data-testid="card-connector-mapping">
         <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base font-semibold">Connector Mapping</CardTitle>
