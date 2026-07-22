@@ -559,6 +559,25 @@ paths:
                 $ref: "#/components/schemas/SosCustomer"
 
   /sos/customers/{id}:
+    get:
+      operationId: getSosCustomer
+      tags: [sos]
+      summary: Get a customer (combined operational + marketing view)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Combined customer record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosCustomer"
+        "404":
+          description: Not found
     patch:
       operationId: updateSosCustomer
       tags: [sos]
@@ -1069,7 +1088,7 @@ components:
 
     SosCustomer:
       type: object
-      required: [id, name, smsOptIn, visitCount, createdAt]
+      required: [id, name, smsOptIn, visitCount, createdAt, clientProfileId, marketing]
       properties:
         id:
           type: integer
@@ -1087,6 +1106,33 @@ components:
           type: ["string", "null"]
         createdAt:
           type: string
+        clientProfileId:
+          type: ["integer", "null"]
+        marketing:
+          oneOf:
+            - type: "null"
+            - $ref: "#/components/schemas/SosCustomerMarketing"
+
+    SosCustomerMarketing:
+      type: object
+      description: Marketing fields sourced from the linked concierge client profile.
+      required:
+        [clientProfileId, tenantId, preferredChannel, smsOptIn, nextVisitAt, lastVisitAt, averageCycleDays]
+      properties:
+        clientProfileId:
+          type: integer
+        tenantId:
+          type: integer
+        preferredChannel:
+          type: string
+        smsOptIn:
+          type: boolean
+        nextVisitAt:
+          type: ["string", "null"]
+        lastVisitAt:
+          type: ["string", "null"]
+        averageCycleDays:
+          type: ["integer", "null"]
 
     SosCustomerInput:
       type: object

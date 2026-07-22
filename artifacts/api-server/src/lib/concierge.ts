@@ -3,6 +3,7 @@ import {
   clientProfilesTable,
   engagementRulesTable,
   messageLogsTable,
+  sosCustomersTable,
   type ClientProfile,
   type EngagementRule,
   type MessageLog,
@@ -122,6 +123,12 @@ export async function dispatchToProfile(opts: DispatchOptions): Promise<MessageL
     status = "skipped";
     errorCode = "opted_out";
     errorMessage = "Client has opted out of SMS";
+  } else if (await linkedSosCustomerOptedOut(profile.id)) {
+    // The same person's operational (SOS) record says STOP — respect it even
+    // if the marketing profile hasn't caught up yet.
+    status = "skipped";
+    errorCode = "opted_out";
+    errorMessage = "Linked SOS customer has opted out of SMS";
   } else if (!profile.phone) {
     status = "skipped";
     errorCode = "no_phone";
@@ -147,6 +154,16 @@ export async function dispatchToProfile(opts: DispatchOptions): Promise<MessageL
     .where(eq(messageLogsTable.id, log.id))
     .returning();
   return updated;
+}
+
+/** True when an SOS customer is linked to this profile and has opted out. */
+async function linkedSosCustomerOptedOut(clientProfileId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ smsOptIn: sosCustomersTable.smsOptIn })
+    .from(sosCustomersTable)
+    .where(eq(sosCustomersTable.clientProfileId, clientProfileId))
+    .limit(1);
+  return row != null && !row.smsOptIn;
 }
 
 export async function getProfileForTenant(

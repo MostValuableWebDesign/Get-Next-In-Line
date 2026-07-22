@@ -7,6 +7,7 @@ import {
   numeric,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { clientProfilesTable } from "./concierge";
 
 // SOS operations platform tables (separate product from GNIL OS agency tables)
 
@@ -37,6 +38,12 @@ export const sosCustomersTable = pgTable("sos_customers", {
   phone: text("phone"),
   email: text("email"),
   smsOptIn: boolean("sms_opt_in").notNull().default(true),
+  // Explicit link to a concierge client_profiles row (marketing record for the
+  // same person). Established by phone matching but survives phone edits.
+  clientProfileId: integer("client_profile_id").references(
+    () => clientProfilesTable.id,
+    { onDelete: "set null" },
+  ),
   visitCount: integer("visit_count").notNull().default(0),
   lastVisitAt: timestamp("last_visit_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

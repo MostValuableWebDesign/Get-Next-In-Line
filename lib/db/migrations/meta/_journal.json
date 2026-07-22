@@ -50,6 +50,13 @@
       "when": 1784710228529,
       "tag": "0006_deep_randall_flagg",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784710270351,
+      "tag": "0007_quick_nightcrawler",
+      "breakpoints": true
     }
   ]
 }

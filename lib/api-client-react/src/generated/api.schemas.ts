@@ -153,6 +153,22 @@ export interface SosResourceUpdate {
   status?: SosResourceUpdateStatus;
 }
 
+/**
+ * Marketing fields sourced from the linked concierge client profile.
+ */
+export interface SosCustomerMarketing {
+  clientProfileId: number;
+  tenantId: number;
+  preferredChannel: string;
+  smsOptIn: boolean;
+  /** @nullable */
+  nextVisitAt: string | null;
+  /** @nullable */
+  lastVisitAt: string | null;
+  /** @nullable */
+  averageCycleDays: number | null;
+}
+
 export interface SosCustomer {
   id: number;
   name: string;
@@ -165,6 +181,9 @@ export interface SosCustomer {
   /** @nullable */
   lastVisitAt?: string | null;
   createdAt: string;
+  /** @nullable */
+  clientProfileId: number | null;
+  marketing: null | SosCustomerMarketing;
 }
 
 export interface SosCustomerInput {

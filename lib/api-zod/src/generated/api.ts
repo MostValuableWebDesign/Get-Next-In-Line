@@ -554,7 +554,17 @@ export const ListSosCustomersResponseItem = zod.object({
   "smsOptIn": zod.boolean(),
   "visitCount": zod.number(),
   "lastVisitAt": zod.string().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "clientProfileId": zod.number().nullable(),
+  "marketing": zod.union([zod.null(),zod.object({
+  "clientProfileId": zod.number(),
+  "tenantId": zod.number(),
+  "preferredChannel": zod.string(),
+  "smsOptIn": zod.boolean(),
+  "nextVisitAt": zod.string().nullable(),
+  "lastVisitAt": zod.string().nullable(),
+  "averageCycleDays": zod.number().nullable()
+}).describe('Marketing fields sourced from the linked concierge client profile.')])
 })
 export const ListSosCustomersResponse = zod.array(ListSosCustomersResponseItem)
 
@@ -580,7 +590,46 @@ export const CreateSosCustomerResponse = zod.object({
   "smsOptIn": zod.boolean(),
   "visitCount": zod.number(),
   "lastVisitAt": zod.string().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "clientProfileId": zod.number().nullable(),
+  "marketing": zod.union([zod.null(),zod.object({
+  "clientProfileId": zod.number(),
+  "tenantId": zod.number(),
+  "preferredChannel": zod.string(),
+  "smsOptIn": zod.boolean(),
+  "nextVisitAt": zod.string().nullable(),
+  "lastVisitAt": zod.string().nullable(),
+  "averageCycleDays": zod.number().nullable()
+}).describe('Marketing fields sourced from the linked concierge client profile.')])
+})
+
+
+/**
+ * @summary Get a customer (combined operational + marketing view)
+ */
+export const GetSosCustomerParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetSosCustomerResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "smsOptIn": zod.boolean(),
+  "visitCount": zod.number(),
+  "lastVisitAt": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "clientProfileId": zod.number().nullable(),
+  "marketing": zod.union([zod.null(),zod.object({
+  "clientProfileId": zod.number(),
+  "tenantId": zod.number(),
+  "preferredChannel": zod.string(),
+  "smsOptIn": zod.boolean(),
+  "nextVisitAt": zod.string().nullable(),
+  "lastVisitAt": zod.string().nullable(),
+  "averageCycleDays": zod.number().nullable()
+}).describe('Marketing fields sourced from the linked concierge client profile.')])
 })
 
 
@@ -606,7 +655,17 @@ export const UpdateSosCustomerResponse = zod.object({
   "smsOptIn": zod.boolean(),
   "visitCount": zod.number(),
   "lastVisitAt": zod.string().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "clientProfileId": zod.number().nullable(),
+  "marketing": zod.union([zod.null(),zod.object({
+  "clientProfileId": zod.number(),
+  "tenantId": zod.number(),
+  "preferredChannel": zod.string(),
+  "smsOptIn": zod.boolean(),
+  "nextVisitAt": zod.string().nullable(),
+  "lastVisitAt": zod.string().nullable(),
+  "averageCycleDays": zod.number().nullable()
+}).describe('Marketing fields sourced from the linked concierge client profile.')])
 })
 
 

@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { SosCustomerMarketing } from './sosCustomerMarketing';
 
 export interface SosCustomer {
   id: number;
@@ -18,4 +19,7 @@ export interface SosCustomer {
   /** @nullable */
   lastVisitAt?: string | null;
   createdAt: string;
+  /** @nullable */
+  clientProfileId: number | null;
+  marketing: null | SosCustomerMarketing;
 }

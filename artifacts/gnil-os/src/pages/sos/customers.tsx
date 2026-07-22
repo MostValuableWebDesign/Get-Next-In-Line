@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 import { 
-  useListSosCustomers, useCreateSosCustomer,
-  getListSosCustomersQueryKey
+  useListSosCustomers, useCreateSosCustomer, useGetSosCustomer,
+  getListSosCustomersQueryKey, getGetSosCustomerQueryKey
 } from '@workspace/api-client-react';
+import type { SosCustomer } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Plus, Phone, Mail, MessageSquare } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Search, Plus, Phone, Mail, MessageSquare, Sparkles, CalendarClock } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export function CustomersPage() {
   const [search, setSearch] = useState('');
+  const [detailId, setDetailId] = useState<number | null>(null);
   const { data: customers } = useListSosCustomers({ search: search || undefined });
 
   return (
@@ -44,6 +47,7 @@ export function CustomersPage() {
               <tr>
                 <th className="px-6 py-3 font-medium">Name</th>
                 <th className="px-6 py-3 font-medium">Contact</th>
+                <th className="px-6 py-3 font-medium">Messaging</th>
                 <th className="px-6 py-3 font-medium">Marketing</th>
                 <th className="px-6 py-3 font-medium">Visits</th>
                 <th className="px-6 py-3 font-medium">Last Visit</th>
@@ -51,7 +55,11 @@ export function CustomersPage() {
             </thead>
             <tbody className="divide-y">
               {customers?.map(c => (
-                <tr key={c.id} className="hover:bg-muted/30 transition-colors">
+                <tr
+                  key={c.id}
+                  className="hover:bg-muted/30 transition-colors cursor-pointer"
+                  onClick={() => setDetailId(c.id)}
+                >
                   <td className="px-6 py-4 font-medium">{c.name}</td>
                   <td className="px-6 py-4 text-muted-foreground">
                     {c.phone && <div className="flex items-center gap-1.5"><Phone className="w-3 h-3"/> {c.phone}</div>}
@@ -67,6 +75,23 @@ export function CustomersPage() {
                       <span className="text-muted-foreground text-xs">Opted out</span>
                     )}
                   </td>
+                  <td className="px-6 py-4">
+                    {c.marketing ? (
+                      <div className="space-y-1">
+                        <span className="inline-flex items-center gap-1.5 text-violet-700 bg-violet-50 px-2 py-1 rounded text-xs font-medium border border-violet-200">
+                          <Sparkles className="w-3 h-3" /> Concierge linked
+                        </span>
+                        {c.marketing.nextVisitAt && (
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <CalendarClock className="w-3 h-3" />
+                            Next: {new Date(c.marketing.nextVisitAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">Not linked</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">{c.visitCount}</td>
                   <td className="px-6 py-4 text-muted-foreground">
                     {c.lastVisitAt ? new Date(c.lastVisitAt).toLocaleDateString() : 'Never'}
@@ -75,7 +100,7 @@ export function CustomersPage() {
               ))}
               {customers?.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                     No customers found.
                   </td>
                 </tr>
@@ -84,7 +109,84 @@ export function CustomersPage() {
           </table>
         </div>
       </Card>
+
+      <CustomerDetailDialog customerId={detailId} onClose={() => setDetailId(null)} />
     </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-4 py-1.5 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right">{value ?? '—'}</span>
+    </div>
+  );
+}
+
+function CustomerDetailDialog({ customerId, onClose }: { customerId: number | null; onClose: () => void }) {
+  const { data: c } = useGetSosCustomer(customerId ?? 0, {
+    query: {
+      queryKey: getGetSosCustomerQueryKey(customerId ?? 0),
+      enabled: customerId != null,
+    },
+  });
+  const m = c?.marketing ?? null;
+
+  return (
+    <Dialog open={customerId != null} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{c?.name ?? 'Customer'}</DialogTitle>
+        </DialogHeader>
+        {c && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Operations</h3>
+              <div className="divide-y rounded-md border px-3 py-1">
+                <DetailRow label="Phone" value={c.phone} />
+                <DetailRow label="Email" value={c.email} />
+                <DetailRow label="SMS opt-in" value={c.smsOptIn ? 'Subscribed' : 'Opted out'} />
+                <DetailRow label="Visits" value={c.visitCount} />
+                <DetailRow
+                  label="Last visit"
+                  value={c.lastVisitAt ? new Date(c.lastVisitAt).toLocaleDateString() : 'Never'}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Marketing</h3>
+                {m && (
+                  <Badge variant="outline" className="text-violet-700 border-violet-200 bg-violet-50">
+                    <Sparkles className="w-3 h-3 mr-1" /> From linked concierge profile
+                  </Badge>
+                )}
+              </div>
+              {m ? (
+                <div className="divide-y rounded-md border px-3 py-1">
+                  <DetailRow label="Preferred channel" value={m.preferredChannel.toUpperCase()} />
+                  <DetailRow
+                    label="Next visit"
+                    value={m.nextVisitAt ? new Date(m.nextVisitAt).toLocaleString() : null}
+                  />
+                  <DetailRow
+                    label="Visit cadence"
+                    value={m.averageCycleDays != null ? `Every ~${m.averageCycleDays} days` : null}
+                  />
+                  <DetailRow label="Concierge SMS opt-in" value={m.smsOptIn ? 'Subscribed' : 'Opted out'} />
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground border rounded-md px-3 py-3">
+                  No linked concierge profile. A link is created automatically when a
+                  concierge client profile matches this customer's phone number.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

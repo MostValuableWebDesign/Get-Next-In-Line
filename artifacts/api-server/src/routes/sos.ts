@@ -10,6 +10,8 @@ import {
   sosMessagesTable,
   sosCallsTable,
   messageLogsTable,
+  clientProfilesTable,
+  type ClientProfile,
 } from "@workspace/db";
 import {
   GetSosDashboardResponse,
@@ -22,6 +24,7 @@ import {
   UpdateSosResourceBody,
   UpdateSosResourceResponse,
   ListSosCustomersResponse,
+  GetSosCustomerResponse,
   CreateSosCustomerBody,
   CreateSosCustomerResponse,
   UpdateSosCustomerBody,
@@ -53,6 +56,11 @@ import { sendSms, getSmsStatus, getTwilioAuthToken, normalizeToE164 } from "../l
 import { parseCallIntent } from "../lib/receptionist";
 import { parseInboundKeyword, getInboundWebhookUrl } from "../lib/inboundSms";
 import { claimWaitlistSlot } from "../lib/waitlistClaim";
+import {
+  autoLinkCustomer,
+  getLinkedProfile,
+  syncLinkedProfile,
+} from "../lib/customerLink";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -66,7 +74,7 @@ type CustomerRow = typeof sosCustomersTable.$inferSelect;
 type VisitRow = typeof sosVisitsTable.$inferSelect;
 type AppointmentRow = typeof sosAppointmentsTable.$inferSelect;
 
-function serializeCustomer(c: CustomerRow) {
+function serializeCustomer(c: CustomerRow, profile: ClientProfile | null = null) {
   return {
     id: c.id,
     name: c.name,
@@ -76,6 +84,20 @@ function serializeCustomer(c: CustomerRow) {
     visitCount: c.visitCount,
     lastVisitAt: iso(c.lastVisitAt),
     createdAt: c.createdAt.toISOString(),
+    clientProfileId: c.clientProfileId,
+    // Marketing fields sourced from the linked concierge client profile.
+    marketing:
+      profile == null
+        ? null
+        : {
+            clientProfileId: profile.id,
+            tenantId: profile.tenantId,
+            preferredChannel: profile.preferredChannel,
+            smsOptIn: profile.smsOptIn,
+            nextVisitAt: iso(profile.nextVisitAt),
+            lastVisitAt: iso(profile.lastVisitAt),
+            averageCycleDays: profile.averageCycleDays,
+          },
   };
 }
 
@@ -387,17 +409,47 @@ router.delete("/sos/resources/:id", async (req, res): Promise<void> => {
 router.get("/sos/customers", async (req, res): Promise<void> => {
   const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
   const rows = await db
-    .select()
+    .select({ customer: sosCustomersTable, profile: clientProfilesTable })
     .from(sosCustomersTable)
+    .leftJoin(
+      clientProfilesTable,
+      eq(sosCustomersTable.clientProfileId, clientProfilesTable.id),
+    )
     .where(search ? ilike(sosCustomersTable.name, `%${search}%`) : undefined)
     .orderBy(desc(sosCustomersTable.createdAt));
-  res.json(ListSosCustomersResponse.parse(rows.map(serializeCustomer)));
+  res.json(
+    ListSosCustomersResponse.parse(
+      rows.map((r) => serializeCustomer(r.customer, r.profile)),
+    ),
+  );
+});
+
+router.get("/sos/customers/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const [row] = await db
+    .select({ customer: sosCustomersTable, profile: clientProfilesTable })
+    .from(sosCustomersTable)
+    .leftJoin(
+      clientProfilesTable,
+      eq(sosCustomersTable.clientProfileId, clientProfilesTable.id),
+    )
+    .where(eq(sosCustomersTable.id, id));
+  if (!row) {
+    res.status(404).json({ message: "Customer not found" });
+    return;
+  }
+  res.json(GetSosCustomerResponse.parse(serializeCustomer(row.customer, row.profile)));
 });
 
 router.post("/sos/customers", async (req, res): Promise<void> => {
   const body = CreateSosCustomerBody.parse(req.body);
   const [row] = await db.insert(sosCustomersTable).values(body).returning();
-  res.status(201).json(CreateSosCustomerResponse.parse(serializeCustomer(row)));
+  // Establish the concierge link by phone match when unambiguous.
+  const profile = await autoLinkCustomer(row);
+  const created = profile ? { ...row, clientProfileId: profile.id } : row;
+  res
+    .status(201)
+    .json(CreateSosCustomerResponse.parse(serializeCustomer(created, profile)));
 });
 
 router.patch("/sos/customers/:id", async (req, res): Promise<void> => {
@@ -412,7 +464,22 @@ router.patch("/sos/customers/:id", async (req, res): Promise<void> => {
     res.status(404).json({ message: "Customer not found" });
     return;
   }
-  res.json(UpdateSosCustomerResponse.parse(serializeCustomer(row)));
+  let profile: ClientProfile | null = null;
+  if (row.clientProfileId != null) {
+    // Keep the linked concierge profile consistent with contact/opt-in edits.
+    await syncLinkedProfile(row.clientProfileId, {
+      name: body.name,
+      phone: body.phone,
+      email: body.email,
+      smsOptIn: body.smsOptIn,
+    });
+    profile = await getLinkedProfile(row.clientProfileId);
+  } else if (body.phone !== undefined) {
+    // A phone edit may make an unlinked customer linkable.
+    profile = await autoLinkCustomer(row);
+    if (profile) row.clientProfileId = profile.id;
+  }
+  res.json(UpdateSosCustomerResponse.parse(serializeCustomer(row, profile)));
 });
 
 // ── visits (customer journey state machine) ──────────────────────────────────
@@ -866,6 +933,8 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
       .update(sosCustomersTable)
       .set({ smsOptIn: false })
       .where(eq(sosCustomersTable.id, customer.id));
+    // Concierge automations must respect the STOP too.
+    await syncLinkedProfile(customer.clientProfileId, { smsOptIn: false });
     logger.info({ customerId: customer.id }, "Customer opted out of SMS via STOP");
     // Twilio sends its own compliance auto-reply for STOP; don't double-text.
   } else if (keyword === "start") {
@@ -873,6 +942,7 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
       .update(sosCustomersTable)
       .set({ smsOptIn: true })
       .where(eq(sosCustomersTable.id, customer.id));
+    await syncLinkedProfile(customer.clientProfileId, { smsOptIn: true });
     logger.info({ customerId: customer.id }, "Customer opted back in to SMS via START");
   } else if (keyword === "yes") {
     // Reply-to-claim: act on the customer's notified waitlist entry.

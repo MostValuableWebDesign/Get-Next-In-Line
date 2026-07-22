@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seedConnectorMapping } from "./lib/connectorSeed";
+import { backfillCustomerLinks } from "./lib/customerLink";
 import { startConciergeWorker, type ConciergeWorkerHandle } from "./workers/concierge";
 import { pool, checkSchemaDrift, formatDriftReport } from "@workspace/db";
 
@@ -36,6 +37,12 @@ checkSchemaDrift(pool)
 // Registry is always complete, in every environment.
 seedConnectorMapping().catch((err) => {
   logger.error({ err }, "Connector mapping seed failed");
+});
+
+// Idempotent: link pre-existing SOS customers to concierge client profiles
+// by unambiguous phone match (link is a durable FK once established).
+backfillCustomerLinks().catch((err) => {
+  logger.error({ err }, "Customer link backfill failed");
 });
 
 // Concierge background worker (reminders + rebooking nudges). BullMQ when

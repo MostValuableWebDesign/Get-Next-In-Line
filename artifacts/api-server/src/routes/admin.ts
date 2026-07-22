@@ -131,6 +131,7 @@ router.get("/admin/modules/:id", async (req, res): Promise<void> => {
       subdomain: tenantsTable.subdomain,
       status: tenantsTable.status,
       provisionedAt: tenantModulesTable.provisionedAt,
+      billingCadence: tenantModulesTable.billingCadence,
     })
     .from(tenantModulesTable)
     .innerJoin(tenantsTable, eq(tenantModulesTable.tenantId, tenantsTable.id))
@@ -180,12 +181,13 @@ router.get("/admin/modules/:id", async (req, res): Promise<void> => {
         subdomain: a.subdomain,
         status: a.status,
         provisionedAt: a.provisionedAt.toISOString(),
-        // Cadence is module-level today: modules with a bi-weekly wholesale
-        // rate bill bi-weekly; everything else is monthly.
-        cadence: m.wholesalePriceBiweekly != null ? "biweekly" : "monthly",
-        mrrContribution: m.wholesalePriceBiweekly != null && resaleBiweekly != null
-          ? round2((resaleBiweekly * 26) / 12)
-          : resale,
+        // Cadence is per-assignment: each tenant stores its own billing
+        // cadence on tenant_modules.
+        cadence: a.billingCadence === "biweekly" ? "biweekly" : "monthly",
+        mrrContribution:
+          a.billingCadence === "biweekly" && resaleBiweekly != null
+            ? round2((resaleBiweekly * 26) / 12)
+            : resale,
       })),
       activity: provisioningActivity.map((a) => ({
         id: a.id,

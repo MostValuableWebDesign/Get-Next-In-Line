@@ -44,6 +44,7 @@ beforeAll(async () => {
       categorySlug: "test",
       description: "Integration test module",
       wholesalePrice: "100.00",
+      wholesalePriceBiweekly: "55.00",
       isActive: true,
       slug: `test_module_${RUN}`,
       upstreamVendor: SECRET_VENDOR,
@@ -65,7 +66,12 @@ beforeAll(async () => {
 
   await db.insert(tenantModulesTable).values([
     { tenantId: tenantAId, moduleId, provisionedAt: new Date("2026-05-01T00:00:00.000Z") },
-    { tenantId: tenantBId, moduleId, provisionedAt: new Date("2026-06-01T00:00:00.000Z") },
+    {
+      tenantId: tenantBId,
+      moduleId,
+      provisionedAt: new Date("2026-06-01T00:00:00.000Z"),
+      billingCadence: "biweekly",
+    },
   ]);
 
   await db.insert(tenantActivitiesTable).values([
@@ -145,6 +151,17 @@ describe("GET /api/admin/modules/:id", () => {
       mrrContribution: res.body.resalePrice,
     });
     expect(tenantA.provisionedAt).toBe("2026-05-01T00:00:00.000Z");
+
+    // Mixed cadences on the same module: cadence and MRR come from each
+    // tenant's stored billing_cadence, not module-level biweekly support.
+    const tenantB = res.body.tenants.find(
+      (t: { tenantId: number }) => t.tenantId === tenantBId,
+    );
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    expect(tenantB).toMatchObject({
+      cadence: "biweekly",
+      mrrContribution: round2((res.body.resalePriceBiweekly * 26) / 12),
+    });
 
     // Provisioning activity: includes only entries mentioning this module
     const details = res.body.activity.map((a: { details: string | null }) => a.details);

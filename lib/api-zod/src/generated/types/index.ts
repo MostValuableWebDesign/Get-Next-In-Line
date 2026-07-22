@@ -53,6 +53,7 @@ export * from './sosCallOutcome';
 export * from './sosCancellationResult';
 export * from './sosCustomer';
 export * from './sosCustomerInput';
+export * from './sosCustomerMarketing';
 export * from './sosCustomerUpdate';
 export * from './sosDashboard';
 export * from './sosDayCount';

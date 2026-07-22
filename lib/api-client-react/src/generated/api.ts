@@ -2283,6 +2283,83 @@ export const useCreateSosCustomer = <TError = ErrorType<unknown>,
       return useMutation(getCreateSosCustomerMutationOptions(options));
     }
 
+export const getGetSosCustomerUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/customers/${id}`
+}
+
+/**
+ * @summary Get a customer (combined operational + marketing view)
+ */
+export const getSosCustomer = async (id: number, options?: RequestInit): Promise<SosCustomer> => {
+
+  return customFetch<SosCustomer>(getGetSosCustomerUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSosCustomerQueryKey = (id: number,) => {
+    return [
+    `/api/sos/customers/${id}`
+    ] as const;
+    }
+
+
+export const getGetSosCustomerQueryOptions = <TData = Awaited<ReturnType<typeof getSosCustomer>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosCustomer>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSosCustomerQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSosCustomer>>> = ({ signal }) => getSosCustomer(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSosCustomer>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSosCustomerQueryResult = NonNullable<Awaited<ReturnType<typeof getSosCustomer>>>
+export type GetSosCustomerQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get a customer (combined operational + marketing view)
+ */
+
+export function useGetSosCustomer<TData = Awaited<ReturnType<typeof getSosCustomer>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosCustomer>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSosCustomerQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getUpdateSosCustomerUrl = (id: number,) => {
 
 
