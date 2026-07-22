@@ -1,0 +1,2 @@
+CREATE INDEX "tenant_activities_tenant_id_timestamp_id_idx" ON "tenant_activities" USING btree ("tenant_id","timestamp" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "tenant_activities_timestamp_id_idx" ON "tenant_activities" USING btree ("timestamp" DESC NULLS LAST,"id" DESC NULLS LAST);

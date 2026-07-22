@@ -1,4 +1,4 @@
-import { pgTable, serial, text, numeric, integer, timestamp, boolean, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, numeric, integer, timestamp, boolean, unique, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -30,13 +30,22 @@ export const insertTenantSchema = createInsertSchema(tenantsTable).omit({ id: tr
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type Tenant = typeof tenantsTable.$inferSelect;
 
-export const tenantActivitiesTable = pgTable("tenant_activities", {
-  id: serial("id").primaryKey(),
-  tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
-  action: text("action").notNull(),
-  details: text("details"),
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
-});
+export const tenantActivitiesTable = pgTable(
+  "tenant_activities",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id").notNull().references(() => tenantsTable.id, { onDelete: "cascade" }),
+    action: text("action").notNull(),
+    details: text("details"),
+    timestamp: timestamp("timestamp").notNull().defaultNow(),
+  },
+  (table) => [
+    // Supports GET /tenants/activity filtered by tenant, ordered by (timestamp desc, id desc)
+    index("tenant_activities_tenant_id_timestamp_id_idx").on(table.tenantId, table.timestamp.desc(), table.id.desc()),
+    // Supports the unfiltered activity feed ordered by (timestamp desc, id desc)
+    index("tenant_activities_timestamp_id_idx").on(table.timestamp.desc(), table.id.desc()),
+  ]
+);
 
 export const insertTenantActivitySchema = createInsertSchema(tenantActivitiesTable).omit({ id: true, timestamp: true });
 export type InsertTenantActivity = z.infer<typeof insertTenantActivitySchema>;
