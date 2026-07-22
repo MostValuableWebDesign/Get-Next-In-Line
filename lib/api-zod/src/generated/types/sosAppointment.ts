@@ -7,6 +7,7 @@
  */
 import type { SosAppointmentSource } from './sosAppointmentSource';
 import type { SosAppointmentStatus } from './sosAppointmentStatus';
+import type { SosDepositHold } from './sosDepositHold';
 
 export interface SosAppointment {
   id: number;
@@ -21,5 +22,7 @@ export interface SosAppointment {
   resourceId?: number | null;
   /** @nullable */
   notes?: string | null;
+  /** No-Show Shield deposit hold for this appointment, when a policy was active at booking time. */
+  deposit?: SosDepositHold | null;
   createdAt: string;
 }

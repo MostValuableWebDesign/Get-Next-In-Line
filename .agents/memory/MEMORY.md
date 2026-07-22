@@ -14,4 +14,5 @@
 - [Artifact path shadowing](artifact-path-shadowing.md) — an artifact's registered path prefix shadows same-prefix routes in the root app; re-path retired artifacts to free the prefix.
 - Artifact-managed workflows can't be removed via removeWorkflow; deleting the artifact directory auto-deregisters both the artifact and its workflow.
 - Concierge worker tick runs under pg_try_advisory_xact_lock (tx-scoped, auto-released on crash) and reaps stale "pending" messages to failed so retries aren't suppressed; keep new schedulers on runConciergeTick.
+- api-server integration tests run in parallel and share the legacy (tenant_id NULL) sos_settings row: mutate only the fields under test, never flip waitlistAutoFillEnabled, and use unique per-run service names so cancellations don't match other tests' waitlist entries.
 - mockup-sandbox `vite build` fails (requires PORT at build time), so root `pnpm run build` (-r) always fails at that package; unrelated to other artifacts.

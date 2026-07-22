@@ -2,7 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import {
   useListSosAppointments, useCreateSosAppointment, getListSosAppointmentsQueryKey,
-  useListSosVisits,
+  useListSosVisits, useMarkSosAppointmentNoShow,
+  type SosAppointment,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Plus, Calendar as CalIcon, CreditCard, ArrowRight, Receipt, Clock, History,
-  LayoutDashboard, Users, BarChart3,
+  LayoutDashboard, Users, BarChart3, ShieldCheck, UserX,
 } from 'lucide-react';
 
 /**
@@ -31,8 +32,8 @@ export function BookingsPage() {
   const { upcoming, past } = useMemo(() => {
     const all = appointments ?? [];
     return {
-      upcoming: all.filter(a => new Date(a.startsAt).getTime() >= now && a.status !== 'cancelled'),
-      past: all.filter(a => new Date(a.startsAt).getTime() < now || a.status === 'cancelled'),
+      upcoming: all.filter(a => new Date(a.startsAt).getTime() >= now && a.status !== 'cancelled' && a.status !== 'no_show'),
+      past: all.filter(a => new Date(a.startsAt).getTime() < now || a.status === 'cancelled' || a.status === 'no_show'),
     };
   }, [appointments, now]);
 
@@ -208,26 +209,101 @@ function JumpLinkCard({
   );
 }
 
-function AppointmentLine({ apt, muted = false }: { apt: any; muted?: boolean }) {
+const DEPOSIT_BADGE_STYLES: Record<string, string> = {
+  held: 'border-sky-500/40 text-sky-600 bg-sky-500/5',
+  released: 'border-emerald-500/40 text-emerald-600 bg-emerald-500/5',
+  captured: 'border-amber-500/40 text-amber-600 bg-amber-500/5',
+};
+
+function DepositBadge({ deposit }: { deposit: NonNullable<SosAppointment['deposit']> }) {
+  const label =
+    deposit.status === 'held'
+      ? `$${deposit.depositAmount.toFixed(2)} held`
+      : deposit.status === 'released'
+        ? 'Deposit released'
+        : `$${deposit.feeAmount.toFixed(2)} fee captured`;
+  return (
+    <Badge
+      variant="outline"
+      className={`text-[10px] shrink-0 gap-1 ${DEPOSIT_BADGE_STYLES[deposit.status] ?? ''}`}
+      title={deposit.outcomeReason ?? undefined}
+      data-testid="badge-deposit-status"
+    >
+      <ShieldCheck className="h-3 w-3" /> {label}
+    </Badge>
+  );
+}
+
+function AppointmentLine({ apt, muted = false }: { apt: SosAppointment; muted?: boolean }) {
   const dStart = new Date(apt.startsAt);
   const dEnd = new Date(apt.endsAt);
+  const markNoShow = useMarkSosAppointmentNoShow();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const handleNoShow = () => {
+    markNoShow.mutate(
+      { id: apt.id },
+      {
+        onSuccess: (updated) => {
+          queryClient.invalidateQueries({ queryKey: getListSosAppointmentsQueryKey({}) });
+          toast({
+            title: 'Marked as no-show',
+            description: updated.deposit?.outcomeReason ?? 'No deposit was held for this appointment.',
+          });
+        },
+        onError: () => {
+          toast({ title: "Couldn't mark no-show", description: 'Please try again.', variant: 'destructive' });
+        },
+      },
+    );
+  };
+
   return (
-    <div className={`flex items-center justify-between p-3 border rounded-lg ${muted ? 'opacity-70' : ''}`}>
-      <div className="flex items-center gap-4 min-w-0">
-        <div className="flex flex-col text-center w-14 shrink-0 border-r pr-4">
-          <span className="text-[10px] uppercase font-bold text-muted-foreground">
-            {dStart.toLocaleDateString([], { weekday: 'short' })}
-          </span>
-          <span className="text-lg font-bold leading-tight">{dStart.getDate()}</span>
-        </div>
-        <div className="min-w-0">
-          <div className="font-medium truncate">{apt.customerName}</div>
-          <div className="text-xs text-muted-foreground truncate">
-            {apt.serviceType} • {dStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {dEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+    <div className={`p-3 border rounded-lg space-y-2 ${muted ? 'opacity-70' : ''}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="flex flex-col text-center w-14 shrink-0 border-r pr-4">
+            <span className="text-[10px] uppercase font-bold text-muted-foreground">
+              {dStart.toLocaleDateString([], { weekday: 'short' })}
+            </span>
+            <span className="text-lg font-bold leading-tight">{dStart.getDate()}</span>
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium truncate">{apt.customerName}</div>
+            <div className="text-xs text-muted-foreground truncate">
+              {apt.serviceType} • {dStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {dEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
           </div>
         </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {apt.status === 'booked' && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-amber-600"
+              onClick={handleNoShow}
+              disabled={markNoShow.isPending}
+              data-testid={`button-mark-no-show-${apt.id}`}
+            >
+              <UserX className="h-3.5 w-3.5 mr-1" /> No-show
+            </Button>
+          )}
+          <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+            {apt.status === 'no_show' ? 'no-show' : apt.status}
+          </Badge>
+        </div>
       </div>
-      <Badge variant="outline" className="text-[10px] capitalize shrink-0">{apt.status}</Badge>
+      {apt.deposit && (
+        <div className="flex items-center gap-2 pl-[4.5rem]">
+          <DepositBadge deposit={apt.deposit} />
+          {apt.deposit.outcomeReason && (
+            <span className="text-[11px] text-muted-foreground truncate" data-testid="text-deposit-reason">
+              {apt.deposit.outcomeReason}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

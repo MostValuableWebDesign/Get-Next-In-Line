@@ -29,6 +29,21 @@ export const sosSettingsTable = pgTable("sos_settings", {
   aiReceptionistEnabled: boolean("ai_receptionist_enabled").notNull().default(true),
   waitlistAutoFillEnabled: boolean("waitlist_auto_fill_enabled").notNull().default(true),
   smsFromNumber: text("sms_from_number"),
+  // ── No-Show Shield & Deposits policy ──────────────────────────────────────
+  // Only enforced when the no_show_shield module is provisioned AND this flag
+  // is on. Amounts are simulated card-on-file holds (no real payments).
+  noShowShieldEnabled: boolean("no_show_shield_enabled").notNull().default(false),
+  noShowDepositAmount: numeric("no_show_deposit_amount", { precision: 10, scale: 2 })
+    .notNull()
+    .default("25.00"),
+  // Cancellations at least this many hours before the start release the hold;
+  // later cancellations (or no-shows) capture the fee.
+  noShowCancellationWindowHours: integer("no_show_cancellation_window_hours")
+    .notNull()
+    .default(24),
+  noShowFee: numeric("no_show_fee", { precision: 10, scale: 2 })
+    .notNull()
+    .default("25.00"),
   // Business-specific service names the AI receptionist should recognize,
   // in addition to the generic industry-neutral terms.
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -107,6 +122,26 @@ export const sosWaitlistTable = pgTable("sos_waitlist_entries", {
   openSlotStartsAt: timestamp("open_slot_starts_at"),
   openSlotEndsAt: timestamp("open_slot_ends_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Internal simulated card-on-file deposit holds (No-Show Shield module).
+// One hold per appointment; policy terms are snapshotted at booking time so
+// later enforcement uses the terms in force when the slot was reserved.
+export const sosDepositHoldsTable = pgTable("sos_deposit_holds", {
+  id: serial("id").primaryKey(),
+  appointmentId: integer("appointment_id")
+    .notNull()
+    .unique()
+    .references(() => sosAppointmentsTable.id, { onDelete: "cascade" }),
+  depositAmount: numeric("deposit_amount", { precision: 10, scale: 2 }).notNull(),
+  feeAmount: numeric("fee_amount", { precision: 10, scale: 2 }).notNull(),
+  cancellationWindowHours: integer("cancellation_window_hours").notNull(),
+  // held | released | captured
+  status: text("status").notNull().default("held"),
+  // Human-readable reason for the outcome (why a fee was / wasn't charged).
+  outcomeReason: text("outcome_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
 });
 
 export const sosCallsTable = pgTable("sos_calls", {

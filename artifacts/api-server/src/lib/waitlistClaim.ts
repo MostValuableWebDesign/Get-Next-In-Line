@@ -5,6 +5,7 @@ import {
   sosAppointmentsTable,
 } from "@workspace/db";
 import { and, eq, ne } from "drizzle-orm";
+import { placeDepositHoldIfActive } from "./noShowShield";
 
 type AppointmentRow = typeof sosAppointmentsTable.$inferSelect;
 type CustomerRow = typeof sosCustomersTable.$inferSelect;
@@ -13,7 +14,12 @@ export type ClaimResult =
   | { outcome: "not_found" }
   | { outcome: "no_slot_held" }
   | { outcome: "already_claimed" }
-  | { outcome: "claimed"; appointment: AppointmentRow; customer: CustomerRow };
+  | {
+      outcome: "claimed";
+      appointment: AppointmentRow;
+      customer: CustomerRow;
+      depositHold: Awaited<ReturnType<typeof placeDepositHoldIfActive>>;
+    };
 
 /**
  * Atomically claim an open slot held by a notified waitlist entry.
@@ -60,6 +66,9 @@ export async function claimWaitlistSlot(entryId: number): Promise<ClaimResult> {
     })
     .returning();
 
+  // No-Show Shield applies to waitlist-filled bookings too.
+  const depositHold = await placeDepositHoldIfActive(appointment.id);
+
   // Everyone else who was notified for this same slot goes back to waiting.
   await db
     .update(sosWaitlistTable)
@@ -77,5 +86,5 @@ export async function claimWaitlistSlot(entryId: number): Promise<ClaimResult> {
       ),
     );
 
-  return { outcome: "claimed", appointment, customer };
+  return { outcome: "claimed", appointment, customer, depositHold };
 }

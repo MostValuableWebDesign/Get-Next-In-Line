@@ -21,7 +21,11 @@ import {
   UpdateTenantSettingsResponse,
 } from "@workspace/api-zod";
 import { sosSettingsTable } from "@workspace/db";
-import { getSettingsForTenant, serializeSettings } from "../lib/settings";
+import {
+  getSettingsForTenant,
+  serializeSettings,
+  toSettingsColumnUpdates,
+} from "../lib/settings";
 
 const router: IRouter = Router();
 
@@ -51,7 +55,7 @@ router.patch("/tenants/:id/settings", async (req, res): Promise<void> => {
   }
   const [updated] = await db
     .update(sosSettingsTable)
-    .set({ ...body, updatedAt: new Date() })
+    .set({ ...toSettingsColumnUpdates(body), updatedAt: new Date() })
     .where(eq(sosSettingsTable.id, settings.id))
     .returning();
   res.json(UpdateTenantSettingsResponse.parse(await serializeSettings(updated)));

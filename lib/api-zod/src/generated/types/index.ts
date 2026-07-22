@@ -71,6 +71,8 @@ export * from './sosCustomerMarketing';
 export * from './sosCustomerUpdate';
 export * from './sosDashboard';
 export * from './sosDayCount';
+export * from './sosDepositHold';
+export * from './sosDepositHoldStatus';
 export * from './sosMessage';
 export * from './sosMessageDeliveryStatus';
 export * from './sosMessageDirection';

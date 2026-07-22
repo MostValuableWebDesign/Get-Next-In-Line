@@ -437,6 +437,11 @@ export const GetSosSettingsResponse = zod.object({
   "smsActiveFromNumber": zod.string().nullish(),
   "smsInboundWebhookUrl": zod.string().nullish(),
   "smsInboundReady": zod.boolean().optional(),
+  "noShowShieldEnabled": zod.boolean(),
+  "noShowShieldProvisioned": zod.boolean().describe('Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled.'),
+  "noShowDepositAmount": zod.number(),
+  "noShowCancellationWindowHours": zod.number(),
+  "noShowFee": zod.number(),
   "updatedAt": zod.string()
 })
 
@@ -444,6 +449,14 @@ export const GetSosSettingsResponse = zod.object({
 /**
  * @summary Update SOS business settings
  */
+export const updateSosSettingsBodyNoShowDepositAmountMin = 0;
+
+export const updateSosSettingsBodyNoShowCancellationWindowHoursMin = 0;
+
+export const updateSosSettingsBodyNoShowFeeMin = 0;
+
+
+
 export const UpdateSosSettingsBody = zod.object({
   "businessName": zod.string().optional(),
   "industryType": zod.string().optional(),
@@ -451,7 +464,11 @@ export const UpdateSosSettingsBody = zod.object({
   "serviceNames": zod.string().optional(),
   "aiReceptionistEnabled": zod.boolean().optional(),
   "waitlistAutoFillEnabled": zod.boolean().optional(),
-  "smsFromNumber": zod.string().optional()
+  "smsFromNumber": zod.string().optional(),
+  "noShowShieldEnabled": zod.boolean().optional(),
+  "noShowDepositAmount": zod.number().min(updateSosSettingsBodyNoShowDepositAmountMin).optional(),
+  "noShowCancellationWindowHours": zod.number().min(updateSosSettingsBodyNoShowCancellationWindowHoursMin).optional(),
+  "noShowFee": zod.number().min(updateSosSettingsBodyNoShowFeeMin).optional()
 })
 
 export const UpdateSosSettingsResponse = zod.object({
@@ -468,6 +485,11 @@ export const UpdateSosSettingsResponse = zod.object({
   "smsActiveFromNumber": zod.string().nullish(),
   "smsInboundWebhookUrl": zod.string().nullish(),
   "smsInboundReady": zod.boolean().optional(),
+  "noShowShieldEnabled": zod.boolean(),
+  "noShowShieldProvisioned": zod.boolean().describe('Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled.'),
+  "noShowDepositAmount": zod.number(),
+  "noShowCancellationWindowHours": zod.number(),
+  "noShowFee": zod.number(),
   "updatedAt": zod.string()
 })
 
@@ -793,10 +815,20 @@ export const ListSosAppointmentsResponseItem = zod.object({
   "serviceType": zod.string(),
   "startsAt": zod.string(),
   "endsAt": zod.string(),
-  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled']),
+  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled', 'no_show']),
   "source": zod.enum(['staff', 'ai_receptionist', 'waitlist_fill', 'self_book']),
   "resourceId": zod.number().nullish(),
   "notes": zod.string().nullish(),
+  "deposit": zod.union([zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['held', 'released', 'captured']),
+  "depositAmount": zod.number(),
+  "feeAmount": zod.number(),
+  "cancellationWindowHours": zod.number(),
+  "outcomeReason": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullable()
+}),zod.null()]).optional().describe('No-Show Shield deposit hold for this appointment, when a policy was active at booking time.'),
   "createdAt": zod.string()
 })
 export const ListSosAppointmentsResponse = zod.array(ListSosAppointmentsResponseItem)
@@ -825,10 +857,20 @@ export const CreateSosAppointmentResponse = zod.object({
   "serviceType": zod.string(),
   "startsAt": zod.string(),
   "endsAt": zod.string(),
-  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled']),
+  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled', 'no_show']),
   "source": zod.enum(['staff', 'ai_receptionist', 'waitlist_fill', 'self_book']),
   "resourceId": zod.number().nullish(),
   "notes": zod.string().nullish(),
+  "deposit": zod.union([zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['held', 'released', 'captured']),
+  "depositAmount": zod.number(),
+  "feeAmount": zod.number(),
+  "cancellationWindowHours": zod.number(),
+  "outcomeReason": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullable()
+}),zod.null()]).optional().describe('No-Show Shield deposit hold for this appointment, when a policy was active at booking time.'),
   "createdAt": zod.string()
 })
 
@@ -848,14 +890,56 @@ export const CancelSosAppointmentResponse = zod.object({
   "serviceType": zod.string(),
   "startsAt": zod.string(),
   "endsAt": zod.string(),
-  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled']),
+  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled', 'no_show']),
   "source": zod.enum(['staff', 'ai_receptionist', 'waitlist_fill', 'self_book']),
   "resourceId": zod.number().nullish(),
   "notes": zod.string().nullish(),
+  "deposit": zod.union([zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['held', 'released', 'captured']),
+  "depositAmount": zod.number(),
+  "feeAmount": zod.number(),
+  "cancellationWindowHours": zod.number(),
+  "outcomeReason": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullable()
+}),zod.null()]).optional().describe('No-Show Shield deposit hold for this appointment, when a policy was active at booking time.'),
   "createdAt": zod.string()
 }),
   "waitlistNotified": zod.number(),
   "messagesSent": zod.number()
+})
+
+
+/**
+ * @summary Mark a booked appointment as a no-show — captures the No-Show Shield deposit hold as a penalty fee when one is held
+ */
+export const MarkSosAppointmentNoShowParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkSosAppointmentNoShowResponse = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "customerName": zod.string(),
+  "serviceType": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled', 'no_show']),
+  "source": zod.enum(['staff', 'ai_receptionist', 'waitlist_fill', 'self_book']),
+  "resourceId": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "deposit": zod.union([zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['held', 'released', 'captured']),
+  "depositAmount": zod.number(),
+  "feeAmount": zod.number(),
+  "cancellationWindowHours": zod.number(),
+  "outcomeReason": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullable()
+}),zod.null()]).optional().describe('No-Show Shield deposit hold for this appointment, when a policy was active at booking time.'),
+  "createdAt": zod.string()
 })
 
 
@@ -916,10 +1000,20 @@ export const ClaimSosWaitlistSlotResponse = zod.object({
   "serviceType": zod.string(),
   "startsAt": zod.string(),
   "endsAt": zod.string(),
-  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled']),
+  "status": zod.enum(['booked', 'cancelled', 'completed', 'filled', 'no_show']),
   "source": zod.enum(['staff', 'ai_receptionist', 'waitlist_fill', 'self_book']),
   "resourceId": zod.number().nullish(),
   "notes": zod.string().nullish(),
+  "deposit": zod.union([zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['held', 'released', 'captured']),
+  "depositAmount": zod.number(),
+  "feeAmount": zod.number(),
+  "cancellationWindowHours": zod.number(),
+  "outcomeReason": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "resolvedAt": zod.string().nullable()
+}),zod.null()]).optional().describe('No-Show Shield deposit hold for this appointment, when a policy was active at booking time.'),
   "createdAt": zod.string()
 })
 
@@ -1078,6 +1172,11 @@ export const GetTenantSettingsResponse = zod.object({
   "smsActiveFromNumber": zod.string().nullish(),
   "smsInboundWebhookUrl": zod.string().nullish(),
   "smsInboundReady": zod.boolean().optional(),
+  "noShowShieldEnabled": zod.boolean(),
+  "noShowShieldProvisioned": zod.boolean().describe('Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled.'),
+  "noShowDepositAmount": zod.number(),
+  "noShowCancellationWindowHours": zod.number(),
+  "noShowFee": zod.number(),
   "updatedAt": zod.string()
 })
 
@@ -1089,6 +1188,14 @@ export const UpdateTenantSettingsParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const updateTenantSettingsBodyNoShowDepositAmountMin = 0;
+
+export const updateTenantSettingsBodyNoShowCancellationWindowHoursMin = 0;
+
+export const updateTenantSettingsBodyNoShowFeeMin = 0;
+
+
+
 export const UpdateTenantSettingsBody = zod.object({
   "businessName": zod.string().optional(),
   "industryType": zod.string().optional(),
@@ -1096,7 +1203,11 @@ export const UpdateTenantSettingsBody = zod.object({
   "serviceNames": zod.string().optional(),
   "aiReceptionistEnabled": zod.boolean().optional(),
   "waitlistAutoFillEnabled": zod.boolean().optional(),
-  "smsFromNumber": zod.string().optional()
+  "smsFromNumber": zod.string().optional(),
+  "noShowShieldEnabled": zod.boolean().optional(),
+  "noShowDepositAmount": zod.number().min(updateTenantSettingsBodyNoShowDepositAmountMin).optional(),
+  "noShowCancellationWindowHours": zod.number().min(updateTenantSettingsBodyNoShowCancellationWindowHoursMin).optional(),
+  "noShowFee": zod.number().min(updateTenantSettingsBodyNoShowFeeMin).optional()
 })
 
 export const UpdateTenantSettingsResponse = zod.object({
@@ -1113,6 +1224,11 @@ export const UpdateTenantSettingsResponse = zod.object({
   "smsActiveFromNumber": zod.string().nullish(),
   "smsInboundWebhookUrl": zod.string().nullish(),
   "smsInboundReady": zod.boolean().optional(),
+  "noShowShieldEnabled": zod.boolean(),
+  "noShowShieldProvisioned": zod.boolean().describe('Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled.'),
+  "noShowDepositAmount": zod.number(),
+  "noShowCancellationWindowHours": zod.number(),
+  "noShowFee": zod.number(),
   "updatedAt": zod.string()
 })
 

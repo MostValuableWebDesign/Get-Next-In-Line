@@ -229,6 +229,12 @@ export interface SosSettings {
   /** @nullable */
   smsInboundWebhookUrl?: string | null;
   smsInboundReady?: boolean;
+  noShowShieldEnabled: boolean;
+  /** Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled. */
+  noShowShieldProvisioned: boolean;
+  noShowDepositAmount: number;
+  noShowCancellationWindowHours: number;
+  noShowFee: number;
   updatedAt: string;
 }
 
@@ -240,6 +246,13 @@ export interface SosSettingsUpdate {
   aiReceptionistEnabled?: boolean;
   waitlistAutoFillEnabled?: boolean;
   smsFromNumber?: string;
+  noShowShieldEnabled?: boolean;
+  /** @minimum 0 */
+  noShowDepositAmount?: number;
+  /** @minimum 0 */
+  noShowCancellationWindowHours?: number;
+  /** @minimum 0 */
+  noShowFee?: number;
 }
 
 export type SosResourceStatus = typeof SosResourceStatus[keyof typeof SosResourceStatus];
@@ -404,6 +417,7 @@ export const SosAppointmentStatus = {
   cancelled: 'cancelled',
   completed: 'completed',
   filled: 'filled',
+  no_show: 'no_show',
 } as const;
 
 export type SosAppointmentSource = typeof SosAppointmentSource[keyof typeof SosAppointmentSource];
@@ -415,6 +429,28 @@ export const SosAppointmentSource = {
   waitlist_fill: 'waitlist_fill',
   self_book: 'self_book',
 } as const;
+
+export type SosDepositHoldStatus = typeof SosDepositHoldStatus[keyof typeof SosDepositHoldStatus];
+
+
+export const SosDepositHoldStatus = {
+  held: 'held',
+  released: 'released',
+  captured: 'captured',
+} as const;
+
+export interface SosDepositHold {
+  id: number;
+  status: SosDepositHoldStatus;
+  depositAmount: number;
+  feeAmount: number;
+  cancellationWindowHours: number;
+  /** @nullable */
+  outcomeReason: string | null;
+  createdAt: string;
+  /** @nullable */
+  resolvedAt: string | null;
+}
 
 export interface SosAppointment {
   id: number;
@@ -429,6 +465,8 @@ export interface SosAppointment {
   resourceId?: number | null;
   /** @nullable */
   notes?: string | null;
+  /** No-Show Shield deposit hold for this appointment, when a policy was active at booking time. */
+  deposit?: SosDepositHold | null;
   createdAt: string;
 }
 

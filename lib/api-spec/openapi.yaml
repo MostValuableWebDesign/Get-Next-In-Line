@@ -759,6 +759,29 @@ paths:
         "404":
           description: Not found
 
+  /sos/appointments/{id}/no-show:
+    post:
+      operationId: markSosAppointmentNoShow
+      tags: [sos]
+      summary: Mark a booked appointment as a no-show — captures the No-Show Shield deposit hold as a penalty fee when one is held
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated appointment including deposit outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosAppointment"
+        "404":
+          description: Not found
+        "409":
+          description: Appointment is not in a booked state
+
   /sos/waitlist:
     get:
       operationId: listSosWaitlist
@@ -1417,7 +1440,7 @@ components:
 
     SosSettings:
       type: object
-      required: [id, businessName, industryType, resourceLabel, aiReceptionistEnabled, waitlistAutoFillEnabled, serviceNames, updatedAt]
+      required: [id, businessName, industryType, resourceLabel, aiReceptionistEnabled, waitlistAutoFillEnabled, serviceNames, noShowShieldEnabled, noShowShieldProvisioned, noShowDepositAmount, noShowCancellationWindowHours, noShowFee, updatedAt]
       properties:
         id:
           type: integer
@@ -1447,6 +1470,17 @@ components:
           type: ["string", "null"]
         smsInboundReady:
           type: boolean
+        noShowShieldEnabled:
+          type: boolean
+        noShowShieldProvisioned:
+          type: boolean
+          description: Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled.
+        noShowDepositAmount:
+          type: number
+        noShowCancellationWindowHours:
+          type: integer
+        noShowFee:
+          type: number
         updatedAt:
           type: string
 
@@ -1467,6 +1501,17 @@ components:
           type: boolean
         smsFromNumber:
           type: string
+        noShowShieldEnabled:
+          type: boolean
+        noShowDepositAmount:
+          type: number
+          minimum: 0
+        noShowCancellationWindowHours:
+          type: integer
+          minimum: 0
+        noShowFee:
+          type: number
+          minimum: 0
 
     SosResource:
       type: object
@@ -1660,7 +1705,7 @@ components:
           type: string
         status:
           type: string
-          enum: [booked, cancelled, completed, filled]
+          enum: [booked, cancelled, completed, filled, no_show]
         source:
           type: string
           enum: [staff, ai_receptionist, waitlist_fill, self_book]
@@ -1668,6 +1713,11 @@ components:
           type: ["integer", "null"]
         notes:
           type: ["string", "null"]
+        deposit:
+          oneOf:
+            - $ref: "#/components/schemas/SosDepositHold"
+            - type: "null"
+          description: No-Show Shield deposit hold for this appointment, when a policy was active at booking time.
         createdAt:
           type: string
 
@@ -1691,6 +1741,28 @@ components:
         source:
           type: string
           enum: [staff, ai_receptionist, waitlist_fill, self_book]
+
+    SosDepositHold:
+      type: object
+      required: [id, status, depositAmount, feeAmount, cancellationWindowHours, outcomeReason, createdAt, resolvedAt]
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [held, released, captured]
+        depositAmount:
+          type: number
+        feeAmount:
+          type: number
+        cancellationWindowHours:
+          type: integer
+        outcomeReason:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        resolvedAt:
+          type: ["string", "null"]
 
     SosCancellationResult:
       type: object

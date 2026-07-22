@@ -2969,6 +2969,77 @@ export const useCancelSosAppointment = <TError = ErrorType<void>,
       return useMutation(getCancelSosAppointmentMutationOptions(options));
     }
 
+export const getMarkSosAppointmentNoShowUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/appointments/${id}/no-show`
+}
+
+/**
+ * @summary Mark a booked appointment as a no-show — captures the No-Show Shield deposit hold as a penalty fee when one is held
+ */
+export const markSosAppointmentNoShow = async (id: number, options?: RequestInit): Promise<SosAppointment> => {
+
+  return customFetch<SosAppointment>(getMarkSosAppointmentNoShowUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkSosAppointmentNoShowMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markSosAppointmentNoShow>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markSosAppointmentNoShow>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['markSosAppointmentNoShow'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markSosAppointmentNoShow>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  markSosAppointmentNoShow(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkSosAppointmentNoShowMutationResult = NonNullable<Awaited<ReturnType<typeof markSosAppointmentNoShow>>>
+
+    export type MarkSosAppointmentNoShowMutationError = ErrorType<void>
+
+    /**
+ * @summary Mark a booked appointment as a no-show — captures the No-Show Shield deposit hold as a penalty fee when one is held
+ */
+export const useMarkSosAppointmentNoShow = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markSosAppointmentNoShow>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markSosAppointmentNoShow>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getMarkSosAppointmentNoShowMutationOptions(options));
+    }
+
 export const getListSosWaitlistUrl = () => {
 
 

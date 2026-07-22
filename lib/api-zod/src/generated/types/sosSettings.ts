@@ -26,5 +26,11 @@ export interface SosSettings {
   /** @nullable */
   smsInboundWebhookUrl?: string | null;
   smsInboundReady?: boolean;
+  noShowShieldEnabled: boolean;
+  /** Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled. */
+  noShowShieldProvisioned: boolean;
+  noShowDepositAmount: number;
+  noShowCancellationWindowHours: number;
+  noShowFee: number;
   updatedAt: string;
 }

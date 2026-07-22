@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Activity, ArrowLeft, Bot, Building2, ExternalLink, MessageSquare } from 'lucide-react';
+import { Activity, ArrowLeft, Bot, Building2, ExternalLink, MessageSquare, ShieldCheck } from 'lucide-react';
 
 /**
  * Unified configuration screen.
@@ -75,6 +75,10 @@ export default function Settings() {
   const [serviceNames, setServiceNames] = React.useState('');
   const [waitlistAutoFillEnabled, setWaitlistAutoFillEnabled] = React.useState(false);
   const [smsFromNumber, setSmsFromNumber] = React.useState('');
+  const [noShowShieldEnabled, setNoShowShieldEnabled] = React.useState(false);
+  const [noShowDepositAmount, setNoShowDepositAmount] = React.useState('25');
+  const [noShowCancellationWindowHours, setNoShowCancellationWindowHours] = React.useState('24');
+  const [noShowFee, setNoShowFee] = React.useState('25');
 
   const initialized = useRef(false);
 
@@ -94,6 +98,10 @@ export default function Settings() {
       setServiceNames(settings.serviceNames || '');
       setWaitlistAutoFillEnabled(settings.waitlistAutoFillEnabled);
       setSmsFromNumber(settings.smsFromNumber || '');
+      setNoShowShieldEnabled(settings.noShowShieldEnabled);
+      setNoShowDepositAmount(String(settings.noShowDepositAmount));
+      setNoShowCancellationWindowHours(String(settings.noShowCancellationWindowHours));
+      setNoShowFee(String(settings.noShowFee));
       initialized.current = true;
     }
   }, [settings]);
@@ -118,6 +126,10 @@ export default function Settings() {
       aiReceptionistEnabled: boolean;
       waitlistAutoFillEnabled: boolean;
       smsFromNumber: string;
+      noShowShieldEnabled: boolean;
+      noShowDepositAmount: number;
+      noShowCancellationWindowHours: number;
+      noShowFee: number;
     }>,
   ) => {
     const onSuccess = () => {
@@ -363,6 +375,108 @@ export default function Settings() {
               data-testid="button-save-sos-operations"
             >
               Save SOS Operations
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── No-Show Shield & Deposits ───────────────────────────────── */}
+      <Card id="no-show-shield" className="scroll-mt-6" data-testid="section-no-show-shield">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-primary" /> No-Show Shield & Deposits
+            </CardTitle>
+            <Badge
+              variant={settings?.noShowShieldEnabled && settings?.noShowShieldProvisioned ? 'default' : 'secondary'}
+              data-testid="badge-no-show-shield"
+            >
+              {settings?.noShowShieldEnabled && settings?.noShowShieldProvisioned
+                ? 'Active'
+                : settings?.noShowShieldEnabled
+                  ? 'Enabled — awaiting provisioning'
+                  : 'Off'}
+            </Badge>
+          </div>
+          <CardDescription>
+            Card-on-file deposit holds that release on timely cancellations and capture a fee on
+            late cancellations or no-shows.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!settings?.noShowShieldProvisioned && (
+            <div className="p-3 border rounded-lg bg-muted/40 text-sm text-muted-foreground" data-testid="text-no-show-shield-not-provisioned">
+              The No-Show Shield & Deposits module isn't provisioned yet. You can configure the
+              policy now, but it won't enforce on bookings until the module is provisioned.
+            </div>
+          )}
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-0.5">
+              <Label className="text-base">Enforce deposit policy</Label>
+              <p className="text-sm text-muted-foreground">
+                Every new booking records a policy agreement and places a deposit hold automatically.
+              </p>
+            </div>
+            <Switch
+              checked={noShowShieldEnabled}
+              onCheckedChange={setNoShowShieldEnabled}
+              data-testid="switch-no-show-shield"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="grid gap-2">
+              <Label>Deposit amount ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={noShowDepositAmount}
+                onChange={(e) => setNoShowDepositAmount(e.target.value)}
+                data-testid="input-no-show-deposit"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Cancellation window (hours)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                value={noShowCancellationWindowHours}
+                onChange={(e) => setNoShowCancellationWindowHours(e.target.value)}
+                data-testid="input-no-show-window"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>No-show / late-cancel fee ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={noShowFee}
+                onChange={(e) => setNoShowFee(e.target.value)}
+                data-testid="input-no-show-fee"
+              />
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Cancelling at least the window's hours before the start time releases the hold in
+            full; cancelling later — or missing the appointment — captures the fee from the held
+            deposit. Terms are locked in at booking time.
+          </p>
+          <div className="flex justify-end">
+            <Button
+              onClick={() =>
+                saveSection('No-Show Shield', {
+                  noShowShieldEnabled,
+                  noShowDepositAmount: Math.max(0, parseFloat(noShowDepositAmount) || 0),
+                  noShowCancellationWindowHours: Math.max(0, Math.round(parseFloat(noShowCancellationWindowHours) || 0)),
+                  noShowFee: Math.max(0, parseFloat(noShowFee) || 0),
+                })
+              }
+              disabled={isPending}
+              data-testid="button-save-no-show-shield"
+            >
+              Save No-Show Shield
             </Button>
           </div>
         </CardContent>

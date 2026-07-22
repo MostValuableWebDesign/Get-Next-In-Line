@@ -14,4 +14,11 @@ export interface SosSettingsUpdate {
   aiReceptionistEnabled?: boolean;
   waitlistAutoFillEnabled?: boolean;
   smsFromNumber?: string;
+  noShowShieldEnabled?: boolean;
+  /** @minimum 0 */
+  noShowDepositAmount?: number;
+  /** @minimum 0 */
+  noShowCancellationWindowHours?: number;
+  /** @minimum 0 */
+  noShowFee?: number;
 }

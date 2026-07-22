@@ -76,9 +76,32 @@ export async function resolveSettings(
   return getLegacySettings();
 }
 
+/**
+ * Convert an API settings-update body into column values: numeric policy
+ * amounts arrive as numbers but are stored as numeric strings.
+ */
+export function toSettingsColumnUpdates<
+  T extends { noShowDepositAmount?: number; noShowFee?: number },
+>(body: T): Omit<T, "noShowDepositAmount" | "noShowFee"> &
+  Partial<Pick<typeof sosSettingsTable.$inferInsert, "noShowDepositAmount" | "noShowFee">> {
+  const { noShowDepositAmount, noShowFee, ...rest } = body;
+  return {
+    ...rest,
+    ...(noShowDepositAmount != null
+      ? { noShowDepositAmount: noShowDepositAmount.toFixed(2) }
+      : {}),
+    ...(noShowFee != null ? { noShowFee: noShowFee.toFixed(2) } : {}),
+  };
+}
+
 /** Serialize a settings row into the SosSettings API shape. */
 export async function serializeSettings(s: SosSettingsRow) {
-  const sms = await getSmsStatus(s.tenantId);
+  // Imported lazily to avoid a settings ↔ noShowShield module cycle.
+  const { isNoShowShieldProvisioned } = await import("./noShowShield");
+  const [sms, noShowShieldProvisioned] = await Promise.all([
+    getSmsStatus(s.tenantId),
+    isNoShowShieldProvisioned(),
+  ]);
   return {
     id: s.id,
     tenantId: s.tenantId,
@@ -93,6 +116,11 @@ export async function serializeSettings(s: SosSettingsRow) {
     smsActiveFromNumber: sms.activeFromNumber,
     smsInboundWebhookUrl: getInboundWebhookUrl(),
     smsInboundReady: (await getTwilioAuthToken()) != null,
+    noShowShieldEnabled: s.noShowShieldEnabled,
+    noShowShieldProvisioned,
+    noShowDepositAmount: parseFloat(s.noShowDepositAmount),
+    noShowCancellationWindowHours: s.noShowCancellationWindowHours,
+    noShowFee: parseFloat(s.noShowFee),
     updatedAt: s.updatedAt.toISOString(),
   };
 }

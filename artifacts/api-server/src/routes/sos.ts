@@ -7,6 +7,7 @@ import {
   sosVisitsTable,
   sosAppointmentsTable,
   sosWaitlistTable,
+  sosDepositHoldsTable,
   messagesTable,
   sosCallsTable,
   clientProfilesTable,
@@ -38,6 +39,7 @@ import {
   CreateSosAppointmentBody,
   CreateSosAppointmentResponse,
   CancelSosAppointmentResponse,
+  MarkSosAppointmentNoShowResponse,
   ListSosWaitlistResponse,
   CreateSosWaitlistEntryBody,
   CreateSosWaitlistEntryResponse,
@@ -69,7 +71,18 @@ import {
   syncLinkedProfile,
 } from "../lib/customerLink";
 import { logger } from "../lib/logger";
-import { getLegacySettings, serializeSettings } from "../lib/settings";
+import {
+  getLegacySettings,
+  serializeSettings,
+  toSettingsColumnUpdates,
+} from "../lib/settings";
+import {
+  placeDepositHoldIfActive,
+  settleHoldOnCancellation,
+  captureHoldForNoShow,
+  serializeDepositHold,
+  type DepositHoldRow,
+} from "../lib/noShowShield";
 
 const router: IRouter = Router();
 
@@ -131,7 +144,11 @@ function serializeVisit(
   };
 }
 
-function serializeAppointment(a: AppointmentRow, customerName: string) {
+function serializeAppointment(
+  a: AppointmentRow,
+  customerName: string,
+  hold: DepositHoldRow | null = null,
+) {
   return {
     id: a.id,
     customerId: a.customerId,
@@ -143,17 +160,26 @@ function serializeAppointment(a: AppointmentRow, customerName: string) {
     source: a.source,
     resourceId: a.resourceId,
     notes: a.notes,
+    deposit: serializeDepositHold(hold),
     createdAt: a.createdAt.toISOString(),
   };
 }
 
 async function getAppointmentWithName(id: number) {
   const [row] = await db
-    .select({ appt: sosAppointmentsTable, customerName: sosCustomersTable.name })
+    .select({
+      appt: sosAppointmentsTable,
+      customerName: sosCustomersTable.name,
+      hold: sosDepositHoldsTable,
+    })
     .from(sosAppointmentsTable)
     .innerJoin(
       sosCustomersTable,
       eq(sosAppointmentsTable.customerId, sosCustomersTable.id),
+    )
+    .leftJoin(
+      sosDepositHoldsTable,
+      eq(sosDepositHoldsTable.appointmentId, sosAppointmentsTable.id),
     )
     .where(eq(sosAppointmentsTable.id, id));
   return row ?? null;
@@ -291,7 +317,7 @@ router.patch("/sos/settings", async (req, res): Promise<void> => {
   const s = await getSettings();
   const [updated] = await db
     .update(sosSettingsTable)
-    .set({ ...body, updatedAt: new Date() })
+    .set({ ...toSettingsColumnUpdates(body), updatedAt: new Date() })
     .where(eq(sosSettingsTable.id, s.id))
     .returning();
   res.json(UpdateSosSettingsResponse.parse(await serializeSettings(updated)));
@@ -715,15 +741,23 @@ router.get("/sos/appointments", async (req, res): Promise<void> => {
   if (to && !isNaN(to.getTime())) conditions.push(lte(sosAppointmentsTable.startsAt, to));
 
   const rows = await db
-    .select({ appt: sosAppointmentsTable, customerName: sosCustomersTable.name })
+    .select({
+      appt: sosAppointmentsTable,
+      customerName: sosCustomersTable.name,
+      hold: sosDepositHoldsTable,
+    })
     .from(sosAppointmentsTable)
     .innerJoin(sosCustomersTable, eq(sosAppointmentsTable.customerId, sosCustomersTable.id))
+    .leftJoin(
+      sosDepositHoldsTable,
+      eq(sosDepositHoldsTable.appointmentId, sosAppointmentsTable.id),
+    )
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(sosAppointmentsTable.startsAt);
 
   res.json(
     ListSosAppointmentsResponse.parse(
-      rows.map((r) => serializeAppointment(r.appt, r.customerName)),
+      rows.map((r) => serializeAppointment(r.appt, r.customerName, r.hold)),
     ),
   );
 });
@@ -750,9 +784,11 @@ router.post("/sos/appointments", async (req, res): Promise<void> => {
       source: body.source ?? "staff",
     })
     .returning();
+  // No-Show Shield: records the policy agreement + deposit hold when active.
+  const hold = await placeDepositHoldIfActive(row.id);
   res
     .status(201)
-    .json(CreateSosAppointmentResponse.parse(serializeAppointment(row, customer.name)));
+    .json(CreateSosAppointmentResponse.parse(serializeAppointment(row, customer.name, hold)));
 });
 
 router.post("/sos/appointments/:id/cancel", async (req, res): Promise<void> => {
@@ -773,6 +809,10 @@ router.post("/sos/appointments/:id/cancel", async (req, res): Promise<void> => {
     .where(eq(sosAppointmentsTable.id, id))
     .returning();
 
+  // No-Show Shield: outside the agreed window → release the hold;
+  // inside it → capture the late-cancellation fee.
+  const hold = await settleHoldOnCancellation(cancelled.id, cancelled.startsAt);
+
   const settings = await getSettings();
   let waitlistNotified = 0;
   let messagesSent = 0;
@@ -788,10 +828,38 @@ router.post("/sos/appointments/:id/cancel", async (req, res): Promise<void> => {
 
   res.json(
     CancelSosAppointmentResponse.parse({
-      appointment: serializeAppointment(cancelled, found.customerName),
+      appointment: serializeAppointment(cancelled, found.customerName, hold),
       waitlistNotified,
       messagesSent,
     }),
+  );
+});
+
+// Mark a booked appointment as a no-show — captures the held deposit (if
+// any) as the agreed penalty fee.
+router.post("/sos/appointments/:id/no-show", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const found = await getAppointmentWithName(id);
+  if (!found) {
+    res.status(404).json({ message: "Appointment not found" });
+    return;
+  }
+  if (found.appt.status !== "booked") {
+    res.status(409).json({ message: `Appointment is already ${found.appt.status}` });
+    return;
+  }
+
+  const [updated] = await db
+    .update(sosAppointmentsTable)
+    .set({ status: "no_show" })
+    .where(eq(sosAppointmentsTable.id, id))
+    .returning();
+  const hold = await captureHoldForNoShow(id);
+
+  res.json(
+    MarkSosAppointmentNoShowResponse.parse(
+      serializeAppointment(updated, found.customerName, hold),
+    ),
   );
 });
 
@@ -864,7 +932,7 @@ router.post("/sos/waitlist/:id/claim", async (req, res): Promise<void> => {
     case "claimed":
       res.json(
         ClaimSosWaitlistSlotResponse.parse(
-          serializeAppointment(result.appointment, result.customer.name),
+          serializeAppointment(result.appointment, result.customer.name, result.depositHold),
         ),
       );
       return;
@@ -1252,6 +1320,8 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
         .returning();
       appointmentId = appt.id;
       outcome = "booked";
+      // No-Show Shield applies to AI-receptionist bookings too.
+      await placeDepositHoldIfActive(appt.id);
       await sendMessageSafe({
         customerId: customer.id,
         toNumber: body.fromNumber,

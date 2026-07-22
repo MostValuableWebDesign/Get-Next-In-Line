@@ -37,6 +37,12 @@ const CATEGORY_SETTINGS_ANCHOR: Record<string, string> = {
   marketing: '/settings#sms',
 };
 
+// Modules with a dedicated settings section link straight to it. Keyed by
+// module name — the public modules API deliberately omits internal slugs.
+const MODULE_SETTINGS_ANCHOR: Record<string, string> = {
+  'No-Show Shield & Deposits': '/settings#no-show-shield',
+};
+
 const CATEGORY_ROUTES: Record<string, { path: string; label: string }> = {
   marketing: { path: '/marketing', label: 'Marketing OS & Bridge' },
   operations: { path: '/operations', label: 'Operations' },
@@ -140,7 +146,7 @@ export default function ModuleConsole() {
               </div>
             )}
             <Button asChild variant="outline" className="gap-2" data-testid="link-module-settings">
-              <Link href={CATEGORY_SETTINGS_ANCHOR[module.categorySlug] ?? '/settings'}>
+              <Link href={MODULE_SETTINGS_ANCHOR[module.name] ?? CATEGORY_SETTINGS_ANCHOR[module.categorySlug] ?? '/settings'}>
                 <Settings className="w-4 h-4" /> Configure
               </Link>
             </Button>

@@ -14,4 +14,5 @@ export const SosAppointmentStatus = {
   cancelled: 'cancelled',
   completed: 'completed',
   filled: 'filled',
+  no_show: 'no_show',
 } as const;
