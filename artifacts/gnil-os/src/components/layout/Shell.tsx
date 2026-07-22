@@ -8,14 +8,16 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Activity, LayoutDashboard, Users, Zap, Briefcase, Radio, CreditCard, Cable } from 'lucide-react';
 
 const NAV_ITEMS = [
   { name: 'Command Center', path: '/', icon: LayoutDashboard },
-  { name: 'Tenant Ops', path: '/tenants', icon: Users },
+  { name: 'Tenant Dashboards', path: '/tenants', icon: Users },
   { name: 'GHL Bridge', path: '/marketing', icon: Zap },
-  { name: 'Core Ops', path: '/operations', icon: Activity },
+  { name: 'Waitlist & Booking', path: '/operations', icon: Activity },
   { name: 'Partners (0%)', path: '/partners', icon: Briefcase },
   { name: 'Media Resale', path: '/media', icon: Radio },
   { name: 'Billing', path: '/billing', icon: CreditCard },
@@ -24,11 +26,42 @@ const NAV_ITEMS = [
 
 import { useHealthCheck } from '@workspace/api-client-react';
 
+/** Nav list — closes the mobile drawer after each click */
+function NavMenu({ location }: { location: string }) {
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  return (
+    <SidebarMenu>
+      {NAV_ITEMS.map((item) => (
+        <SidebarMenuItem key={item.path}>
+          <SidebarMenuButton
+            asChild
+            isActive={location === item.path}
+            className="data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium h-10"
+          >
+            <Link
+              href={item.path}
+              className="flex items-center gap-3 px-3"
+              onClick={() => {
+                if (isMobile) setOpenMobile(false);
+              }}
+            >
+              <item.icon className="size-5" />
+              <span>{item.name}</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  );
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { data: health } = useHealthCheck();
-  
+
   const isOnline = health?.status === 'ok';
+  const currentLabel = NAV_ITEMS.find((n) => n.path === location)?.name || 'Agency OS';
 
   return (
     <SidebarProvider>
@@ -46,28 +79,17 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
           </SidebarHeader>
           <SidebarContent className="p-2">
-            <SidebarMenu>
-              {NAV_ITEMS.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.path}
-                    className="data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium h-10"
-                  >
-                    <Link href={item.path} className="flex items-center gap-3 px-3">
-                      <item.icon className="size-5" />
-                      <span>{item.name}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
+            <NavMenu location={location} />
           </SidebarContent>
         </Sidebar>
         <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden">
-          <header className="h-16 border-b bg-card flex items-center px-8 shrink-0 justify-between">
-            <h2 className="font-semibold text-lg">{NAV_ITEMS.find((n) => n.path === location)?.name || 'Agency OS'}</h2>
-            <div className="flex items-center gap-4 text-sm font-mono text-muted-foreground">
+          <header className="h-16 border-b bg-card flex items-center px-4 shrink-0 justify-between gap-3">
+            <div className="flex items-center gap-2">
+              {/* Always-visible sidebar toggle — prominent on narrow viewports */}
+              <SidebarTrigger className="h-9 w-9 shrink-0 text-foreground hover:bg-accent" />
+              <h2 className="font-semibold text-lg truncate">{currentLabel}</h2>
+            </div>
+            <div className="flex items-center gap-4 text-sm font-mono text-muted-foreground shrink-0">
               <span>SYS.STATUS: <span className={isOnline ? "text-emerald-500 font-bold" : "text-amber-500 font-bold"}>{isOnline ? 'ONLINE' : 'CONNECTING'}</span></span>
             </div>
           </header>
