@@ -12,8 +12,8 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import {
-  Activity, LayoutDashboard, Users, Zap, Briefcase, Radio, CreditCard, Cable, WifiOff, X,
-  Calendar, UserCircle, ShieldCheck, Heart, BarChart3, Megaphone, Settings,
+  Activity, LayoutDashboard, Users, Zap, Radio, CreditCard, Cable, WifiOff, X,
+  Calendar, BarChart3, Megaphone, Settings,
 } from 'lucide-react';
 
 type NavItem = {
@@ -28,9 +28,21 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'Command Center', path: '/', icon: LayoutDashboard },
   { name: 'Tenant Dashboards', path: '/tenants', icon: Users },
   { name: 'GNIL Bridge', path: '/marketing', icon: Zap },
-  // Unified hub: Modules tab (/operations) + Live Operations tab (/sos/operations)
-  { name: 'Operations', path: '/operations', icon: Activity, aliases: ['/sos/operations'] },
-  { name: 'Partners (0%)', path: '/partners', icon: Briefcase },
+  // Unified hub: Modules (/operations), Live Operations (/sos/operations),
+  // Partner Integrations (/partners), and the SOS partner tabs
+  {
+    name: 'Operations',
+    path: '/operations',
+    icon: Activity,
+    aliases: [
+      '/sos/operations',
+      '/partners',
+      '/sos/employees',
+      '/sos/payroll',
+      '/sos/business-protection',
+      '/sos/employee-benefits',
+    ],
+  },
   { name: 'Media Resale', path: '/media', icon: Radio },
   { name: 'Billing', path: '/billing', icon: CreditCard },
   { name: 'Connector Registry', path: '/connectors', icon: Cable },
@@ -44,10 +56,6 @@ const SOS_NAV_ITEMS: NavItem[] = [
   { name: 'POS', path: '/sos/pos', icon: CreditCard },
   { name: 'Reports', path: '/sos/reports', icon: BarChart3 },
   { name: 'Marketing', path: '/sos/marketing', icon: Megaphone },
-  { name: 'Employees', path: '/sos/employees', icon: UserCircle },
-  { name: 'Payroll (Gusto)', path: '/sos/payroll', icon: Briefcase },
-  { name: 'Business Protection', path: '/sos/business-protection', icon: ShieldCheck },
-  { name: 'Employee Benefits', path: '/sos/employee-benefits', icon: Heart },
 ];
 
 import { useOnlineStatus } from '@/hooks/use-online';

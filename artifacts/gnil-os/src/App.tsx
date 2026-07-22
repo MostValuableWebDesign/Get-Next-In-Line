@@ -11,7 +11,6 @@ import TenantDetail from "@/pages/TenantDetail";
 import Concierge from "@/pages/Concierge";
 import Marketing from "@/pages/Marketing";
 import OperationsHub from "@/pages/OperationsHub";
-import Partners from "@/pages/Partners";
 import Media from "@/pages/Media";
 import Billing from "@/pages/Billing";
 import ModuleConsole from "@/pages/ModuleConsole";
@@ -28,12 +27,6 @@ import { PosPage as SosPos } from "@/pages/sos/pos";
 import { ReportsPage as SosReports } from "@/pages/sos/reports";
 import { MarketingPage as SosMarketing } from "@/pages/sos/marketing";
 import Settings from "@/pages/Settings";
-import {
-  EmployeesPage as SosEmployees,
-  PayrollPage as SosPayroll,
-  BusinessProtectionPage as SosBusinessProtection,
-  EmployeeBenefitsPage as SosEmployeeBenefits,
-} from "@/pages/sos/static-pages";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,7 +73,8 @@ function ProtectedApp() {
         <Route path="/marketing" component={Marketing} />
         {/* Unified Operations hub — Modules tab */}
         <Route path="/operations" component={OperationsHub} />
-        <Route path="/partners" component={Partners} />
+        {/* Unified Operations hub — Partner Integrations tab */}
+        <Route path="/partners" component={OperationsHub} />
         <Route path="/media" component={Media} />
         <Route path="/modules/:id" component={ModuleConsole} />
         <Route path="/billing" component={Billing} />
@@ -100,10 +94,11 @@ function ProtectedApp() {
         <Route path="/sos/settings">
           <Redirect to="/settings" replace />
         </Route>
-        <Route path="/sos/employees" component={SosEmployees} />
-        <Route path="/sos/payroll" component={SosPayroll} />
-        <Route path="/sos/business-protection" component={SosBusinessProtection} />
-        <Route path="/sos/employee-benefits" component={SosEmployeeBenefits} />
+        {/* Unified Operations hub — old SOS partner page URLs deep-link to tabs */}
+        <Route path="/sos/employees" component={OperationsHub} />
+        <Route path="/sos/payroll" component={OperationsHub} />
+        <Route path="/sos/business-protection" component={OperationsHub} />
+        <Route path="/sos/employee-benefits" component={OperationsHub} />
         <Route component={NotFound} />
       </Switch>
     </Shell>
