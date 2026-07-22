@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: 'Tenant Dashboards', path: '/tenants', icon: Users },
   // Unified hub: Modules (/operations),
   // Marketing marketplace (/marketing, the old GNIL Bridge page),
-  // Partner Integrations (/partners), and the Partner Services tab.
+  // and the merged Partners tab (/partners — grid + partner services).
   // Live Operations moved to the Command Center landing page.
   {
     name: 'Operations',
@@ -39,7 +39,6 @@ const NAV_ITEMS: NavItem[] = [
       '/marketing',
       '/media',
       '/partners',
-      '/sos/partner-services',
     ],
   },
   { name: 'Billing', path: '/billing', icon: CreditCard },

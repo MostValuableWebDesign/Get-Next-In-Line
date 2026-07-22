@@ -4,7 +4,7 @@ description: How schema changes are applied in this project and the known drizzl
 ---
 
 ## Rule
-Use `drizzle-kit push` (not `generate && migrate`) for non-interactive schema sync.
+Use `drizzle-kit push` (not `generate && migrate`) for non-interactive schema sync — but when the diff includes new tables/renames, `push` also opens an interactive prompt and dies without a TTY. In that case fall back to the manual apply + stamp recovery below.
 
 **Why:** `drizzle-kit push` compares the live DB against the Drizzle schema and applies only the diff — no migration-file tracking required, exits cleanly with no TTY (stdin closed in post-merge context).
 

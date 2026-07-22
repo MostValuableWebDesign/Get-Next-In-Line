@@ -86,7 +86,7 @@ function ProtectedApp() {
         <Route path="/marketing" component={OperationsHub} />
         {/* Unified Operations hub — Modules tab */}
         <Route path="/operations" component={OperationsHub} />
-        {/* Unified Operations hub — Partner Integrations tab */}
+        {/* Unified Operations hub — merged Partners tab (grid + services) */}
         <Route path="/partners" component={OperationsHub} />
         {/* Unified Operations hub — Media tab (old Media & Assets page URL) */}
         <Route path="/media" component={OperationsHub} />
@@ -151,20 +151,23 @@ function ProtectedApp() {
         <Route path="/sos/settings">
           <Redirect to="/settings" replace />
         </Route>
-        {/* Unified Operations hub — combined Partner Services tab. The four
-            former per-partner placeholder URLs redirect to it. */}
-        <Route path="/sos/partner-services" component={OperationsHub} />
+        {/* Partner Services is merged into the Partners tab of the Operations
+            hub — its old URL and the four former per-partner placeholder URLs
+            all redirect to /partners. */}
+        <Route path="/sos/partner-services">
+          <Redirect to="/partners" replace />
+        </Route>
         <Route path="/sos/employees">
-          <Redirect to="/sos/partner-services" replace />
+          <Redirect to="/partners" replace />
         </Route>
         <Route path="/sos/payroll">
-          <Redirect to="/sos/partner-services" replace />
+          <Redirect to="/partners" replace />
         </Route>
         <Route path="/sos/business-protection">
-          <Redirect to="/sos/partner-services" replace />
+          <Redirect to="/partners" replace />
         </Route>
         <Route path="/sos/employee-benefits">
-          <Redirect to="/sos/partner-services" replace />
+          <Redirect to="/partners" replace />
         </Route>
         <Route component={NotFound} />
       </Switch>
