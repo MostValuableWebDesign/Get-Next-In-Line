@@ -107,7 +107,6 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
 
   // Update tenant MRR and modules count
   const newMrr = parseFloat(tenant.mrr ?? "0") + totalResale;
-  const newModulesEnabled = tenant.modulesEnabled + modulesToProvision.length;
 
   // Record per-tenant module assignments
   if (modulesToProvision.length > 0) {
@@ -116,6 +115,13 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
       .values(modulesToProvision.map((m) => ({ tenantId, moduleId: m.id })))
       .onConflictDoNothing();
   }
+
+  // Derive modulesEnabled from the join table so the two can never drift apart.
+  const assignmentsAfter = await db
+    .select()
+    .from(tenantModulesTable)
+    .where(eq(tenantModulesTable.tenantId, tenantId));
+  const newModulesEnabled = assignmentsAfter.length;
 
   await db
     .update(tenantsTable)
