@@ -30,7 +30,7 @@ const SERVICE_KEYWORDS = [
   "follow-up",
 ];
 
-function fallbackParse(inquiry: string): ParsedCallIntent {
+export function fallbackParse(inquiry: string): ParsedCallIntent {
   const lower = inquiry.toLowerCase();
   const wantsBooking =
     /\b(book|appointment|schedule|reserve|reservation|come in|slot|opening)\b/.test(lower);
