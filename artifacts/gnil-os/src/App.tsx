@@ -26,6 +26,7 @@ import { CustomersPage as SosCustomers } from "@/pages/sos/customers";
 import { PosPage as SosPos } from "@/pages/sos/pos";
 import { ReportsPage as SosReports } from "@/pages/sos/reports";
 import { MarketingPage as SosMarketing } from "@/pages/sos/marketing";
+import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
 import Settings from "@/pages/Settings";
 
 const queryClient = new QueryClient({
@@ -89,6 +90,7 @@ function ProtectedApp() {
         <Route path="/sos/customers" component={SosCustomers} />
         <Route path="/sos/pos" component={SosPos} />
         <Route path="/sos/reports" component={SosReports} />
+        <Route path="/sos/bookings" component={SosBookings} />
         <Route path="/sos/marketing" component={SosMarketing} />
         {/* Old standalone SOS settings page — folded into the unified Configuration screen */}
         <Route path="/sos/settings">
