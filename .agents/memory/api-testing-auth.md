@@ -11,3 +11,6 @@ curl -c jar.txt -X POST "https://$REPLIT_DEV_DOMAIN/api/auth/login" -H 'Content-
 curl -b jar.txt "https://$REPLIT_DEV_DOMAIN/api/..."
 ```
 Screenshots of the web app also land on the login screen; API-level verification is the practical path.
+
+## Supertest and the Secure session cookie
+In-process supertest requests look like plain HTTP, so express-session (Secure cookie + `trust proxy`) sends no Set-Cookie on login. Set `X-Forwarded-Proto: https` on the login request, then replay the raw cookie value via `.set("Cookie", ...)` (superagent won't replay Secure cookies over http).

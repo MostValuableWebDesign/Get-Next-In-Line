@@ -11,3 +11,5 @@
 - api-zod schemas come from a different zod instance than api-server's; `instanceof ZodError` fails across them — duck-type on `err.name === "ZodError"` in error middleware.
 - [Validation gates](validation-gates.md) — api-server-test excludes the known-broken SOS inbound-SMS test file; drop the exclude once those webhook tests are fixed.
 - [Artifact path shadowing](artifact-path-shadowing.md) — an artifact's registered path prefix shadows same-prefix routes in the root app; re-path retired artifacts to free the prefix.
+- Artifact-managed workflows can't be removed via removeWorkflow; deleting the artifact directory auto-deregisters both the artifact and its workflow.
+- mockup-sandbox `vite build` fails (requires PORT at build time), so root `pnpm run build` (-r) always fails at that package; unrelated to other artifacts.
