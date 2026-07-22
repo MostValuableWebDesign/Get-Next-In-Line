@@ -15,6 +15,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  useGetSosCustomerPlans, getGetSosCustomerPlansQueryKey,
+} from '@workspace/api-client-react';
+import { PLAN_ICONS, planStatusBadgeClass, CancelPlanButton } from '@/components/sos/plan-benefits';
+import { Crown } from 'lucide-react';
 
 export function CustomersPage() {
   const [search, setSearch] = useState('');
@@ -193,11 +198,86 @@ function CustomerDetailDialog({ customerId, onClose }: { customerId: number | nu
                 </p>
               )}
             </div>
+            <CustomerPlansSection customerId={c.id} />
             <CustomerTimeline customerId={c.id} />
           </div>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+const TXN_LABELS: Record<string, string> = {
+  purchase: 'Purchased',
+  renewal: 'Renewed',
+  redemption: 'Credit redeemed',
+  discount: 'Discount applied',
+  cancellation: 'Cancelled',
+};
+
+function CustomerPlansSection({ customerId }: { customerId: number }) {
+  const { data, isLoading } = useGetSosCustomerPlans(customerId, {
+    query: { queryKey: getGetSosCustomerPlansQueryKey(customerId) },
+  });
+
+  return (
+    <div>
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+        Memberships & Credits
+      </h3>
+      {isLoading ? (
+        <Skeleton className="h-12 w-full" />
+      ) : !data || data.plans.length === 0 ? (
+        <p className="text-sm text-muted-foreground border rounded-md px-3 py-3">
+          No plans yet. Sell a membership, package, or pass from the POS ticket.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {data.plans.map(p => {
+            const Icon = PLAN_ICONS[p.planType] ?? Crown;
+            return (
+              <div key={p.id} className="border rounded-md px-3 py-2 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium flex items-center gap-1.5">
+                    <Icon className="w-3.5 h-3.5 text-amber-600" /> {p.planName}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium border capitalize ${planStatusBadgeClass(p.status)}`}>
+                    {p.status.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {p.planType === 'membership'
+                      ? `${p.discountPercent}% off • $${p.price.toFixed(2)}/${p.billingInterval === 'yearly' ? 'yr' : 'mo'}${p.renewsAt ? ` • renews ${new Date(p.renewsAt).toLocaleDateString()}` : ''}`
+                      : `${p.remainingCredits ?? 0} credits remaining`}
+                  </span>
+                  <CancelPlanButton plan={p} />
+                </div>
+              </div>
+            );
+          })}
+          {data.transactions.length > 0 && (
+            <div className="border rounded-md px-3 py-2 max-h-40 overflow-y-auto">
+              <div className="text-xs font-semibold text-muted-foreground mb-1">Plan history</div>
+              <div className="space-y-1">
+                {data.transactions.map(t => (
+                  <div key={t.id} className="flex justify-between gap-2 text-xs">
+                    <span>
+                      {TXN_LABELS[t.transactionType] ?? t.transactionType} — {t.planName}
+                      {t.creditsDelta != null && t.creditsDelta < 0 && ' (−1 credit)'}
+                      {t.amount != null && ` ($${t.amount.toFixed(2)})`}
+                    </span>
+                    <span className="text-muted-foreground shrink-0">
+                      {new Date(t.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

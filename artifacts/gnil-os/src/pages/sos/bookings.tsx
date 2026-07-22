@@ -14,9 +14,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CustomerPlanBadges } from '@/components/sos/plan-benefits';
 import {
   Plus, Calendar as CalIcon, CreditCard, ArrowRight, Receipt, Clock, History,
-  LayoutDashboard, Users, BarChart3, ShieldCheck, UserX,
+  LayoutDashboard, Users, BarChart3, ShieldCheck, UserX, Crown,
 } from 'lucide-react';
 
 /**
@@ -83,6 +84,12 @@ export function BookingsPage() {
           icon={BarChart3}
           title="Reports"
           description="Business performance and AI efficiency metrics"
+        />
+        <JumpLinkCard
+          href="/sos/memberships"
+          icon={Crown}
+          title="Memberships & Passes"
+          description="Manage plans, packages, and loyalty credit passes"
         />
       </div>
 
@@ -350,6 +357,9 @@ function QuickBookDialog() {
           <div className="space-y-2">
             <Label>Customer ID</Label>
             <Input value={customerId} onChange={e => setCustomerId(e.target.value)} />
+            <CustomerPlanBadges
+              customerId={Number.isInteger(parseInt(customerId, 10)) && parseInt(customerId, 10) > 0 ? parseInt(customerId, 10) : null}
+            />
           </div>
           <div className="space-y-2">
             <Label>Service Type</Label>

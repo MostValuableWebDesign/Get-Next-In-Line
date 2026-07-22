@@ -144,6 +144,66 @@ export const sosDepositHoldsTable = pgTable("sos_deposit_holds", {
   resolvedAt: timestamp("resolved_at"),
 });
 
+// ── memberships, packages & credit passes ───────────────────────────────────
+
+// Plan catalog definitions a shop sells to its customers.
+export const sosPlansTable = pgTable("sos_plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  // membership (recurring discount) | package (one-time bundle of credits) |
+  // pass (credit-based loyalty pass)
+  planType: text("plan_type").notNull(),
+  description: text("description"),
+  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  // Recurring memberships only: monthly | yearly
+  billingInterval: text("billing_interval"),
+  // Recurring memberships only: percentage discount applied at checkout.
+  discountPercent: integer("discount_percent"),
+  // Packages/passes only: number of prepaid service credits granted per purchase.
+  creditCount: integer("credit_count"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// A customer's enrollment in a plan (purchased at POS).
+export const sosCustomerPlansTable = pgTable("sos_customer_plans", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => sosCustomersTable.id),
+  planId: integer("plan_id")
+    .notNull()
+    .references(() => sosPlansTable.id),
+  // active | past_due | cancelled
+  status: text("status").notNull().default("active"),
+  // Packages/passes: credits remaining. NULL for memberships.
+  remainingCredits: integer("remaining_credits"),
+  // Memberships: next renewal/billing date. NULL for packages/passes.
+  renewsAt: timestamp("renews_at"),
+  purchasedAt: timestamp("purchased_at").notNull().defaultNow(),
+  cancelledAt: timestamp("cancelled_at"),
+});
+
+// Ledger of purchases, renewals, redemptions, and discount applications.
+export const sosPlanTransactionsTable = pgTable("sos_plan_transactions", {
+  id: serial("id").primaryKey(),
+  customerPlanId: integer("customer_plan_id")
+    .notNull()
+    .references(() => sosCustomerPlansTable.id),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => sosCustomersTable.id),
+  visitId: integer("visit_id").references(() => sosVisitsTable.id),
+  // purchase | renewal | redemption | discount | cancellation
+  transactionType: text("transaction_type").notNull(),
+  // Money collected (purchase/renewal) or discounted (discount). NULL when n/a.
+  amount: numeric("amount", { precision: 10, scale: 2 }),
+  // Credit movement: +N on purchase of packages/passes, -1 on redemption.
+  creditsDelta: integer("credits_delta"),
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const sosCallsTable = pgTable("sos_calls", {
   id: serial("id").primaryKey(),
   fromNumber: text("from_number").notNull(),

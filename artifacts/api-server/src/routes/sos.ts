@@ -10,6 +10,9 @@ import {
   sosDepositHoldsTable,
   messagesTable,
   sosCallsTable,
+  sosPlansTable,
+  sosCustomerPlansTable,
+  sosPlanTransactionsTable,
   clientProfilesTable,
   tenantsTable,
   type ClientProfile,
@@ -52,6 +55,16 @@ import {
   SimulateSosCallResponse,
   GetSosReportsSummaryResponse,
   GetSosCustomerTimelineResponse,
+  ListSosPlansResponse,
+  CreateSosPlanBody,
+  CreateSosPlanResponse,
+  UpdateSosPlanBody,
+  UpdateSosPlanResponse,
+  GetSosCustomerPlansResponse,
+  SellSosPlanBody,
+  SellSosPlanResponse,
+  RenewSosCustomerPlanResponse,
+  CancelSosCustomerPlanResponse,
 } from "@workspace/api-zod";
 import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import twilio from "twilio";
@@ -570,6 +583,257 @@ router.get("/sos/customers/:id/timeline", async (req, res): Promise<void> => {
   res.json(GetSosCustomerTimelineResponse.parse(entries));
 });
 
+// ── memberships, packages & credit passes ───────────────────────────────────
+
+type PlanRow = typeof sosPlansTable.$inferSelect;
+type CustomerPlanRow = typeof sosCustomerPlansTable.$inferSelect;
+
+function serializePlan(p: PlanRow) {
+  return {
+    id: p.id,
+    name: p.name,
+    planType: p.planType,
+    description: p.description,
+    price: parseFloat(p.price),
+    billingInterval: p.billingInterval,
+    discountPercent: p.discountPercent,
+    creditCount: p.creditCount,
+    isActive: p.isActive,
+    createdAt: p.createdAt.toISOString(),
+  };
+}
+
+function serializeCustomerPlan(cp: CustomerPlanRow, plan: PlanRow) {
+  return {
+    id: cp.id,
+    customerId: cp.customerId,
+    planId: cp.planId,
+    planName: plan.name,
+    planType: plan.planType,
+    price: parseFloat(plan.price),
+    billingInterval: plan.billingInterval,
+    discountPercent: plan.discountPercent,
+    status: cp.status,
+    remainingCredits: cp.remainingCredits,
+    renewsAt: iso(cp.renewsAt),
+    purchasedAt: cp.purchasedAt.toISOString(),
+    cancelledAt: iso(cp.cancelledAt),
+  };
+}
+
+function nextRenewalDate(interval: string | null, from: Date): Date {
+  const d = new Date(from);
+  if (interval === "yearly") d.setFullYear(d.getFullYear() + 1);
+  else d.setMonth(d.getMonth() + 1);
+  return d;
+}
+
+router.get("/sos/plans", async (_req, res): Promise<void> => {
+  const rows = await db.select().from(sosPlansTable).orderBy(sosPlansTable.id);
+  res.json(ListSosPlansResponse.parse(rows.map(serializePlan)));
+});
+
+router.post("/sos/plans", async (req, res): Promise<void> => {
+  const body = CreateSosPlanBody.parse(req.body);
+  if (body.planType === "membership" && body.discountPercent == null) {
+    res.status(400).json({ message: "discountPercent is required for memberships" });
+    return;
+  }
+  if (body.planType !== "membership" && body.creditCount == null) {
+    res.status(400).json({ message: "creditCount is required for packages and passes" });
+    return;
+  }
+  const [row] = await db
+    .insert(sosPlansTable)
+    .values({
+      name: body.name,
+      planType: body.planType,
+      description: body.description ?? null,
+      price: body.price.toFixed(2),
+      billingInterval:
+        body.planType === "membership" ? (body.billingInterval ?? "monthly") : null,
+      discountPercent: body.planType === "membership" ? body.discountPercent : null,
+      creditCount: body.planType === "membership" ? null : body.creditCount,
+    })
+    .returning();
+  res.status(201).json(CreateSosPlanResponse.parse(serializePlan(row)));
+});
+
+router.patch("/sos/plans/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const body = UpdateSosPlanBody.parse(req.body);
+  const updates: Partial<typeof sosPlansTable.$inferInsert> = {};
+  if (body.name !== undefined) updates.name = body.name;
+  if (body.description !== undefined) updates.description = body.description;
+  if (body.price !== undefined) updates.price = body.price.toFixed(2);
+  if (body.billingInterval !== undefined) updates.billingInterval = body.billingInterval;
+  if (body.discountPercent !== undefined) updates.discountPercent = body.discountPercent;
+  if (body.creditCount !== undefined) updates.creditCount = body.creditCount;
+  if (body.isActive !== undefined) updates.isActive = body.isActive;
+  const [row] = await db
+    .update(sosPlansTable)
+    .set(updates)
+    .where(eq(sosPlansTable.id, id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ message: "Plan not found" });
+    return;
+  }
+  res.json(UpdateSosPlanResponse.parse(serializePlan(row)));
+});
+
+router.get("/sos/customers/:id/plans", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const [customer] = await db
+    .select({ id: sosCustomersTable.id })
+    .from(sosCustomersTable)
+    .where(eq(sosCustomersTable.id, id));
+  if (!customer) {
+    res.status(404).json({ message: "Customer not found" });
+    return;
+  }
+  const [plans, txns] = await Promise.all([
+    db
+      .select({ cp: sosCustomerPlansTable, plan: sosPlansTable })
+      .from(sosCustomerPlansTable)
+      .innerJoin(sosPlansTable, eq(sosCustomerPlansTable.planId, sosPlansTable.id))
+      .where(eq(sosCustomerPlansTable.customerId, id))
+      .orderBy(desc(sosCustomerPlansTable.purchasedAt)),
+    db
+      .select({ txn: sosPlanTransactionsTable, planName: sosPlansTable.name })
+      .from(sosPlanTransactionsTable)
+      .innerJoin(
+        sosCustomerPlansTable,
+        eq(sosPlanTransactionsTable.customerPlanId, sosCustomerPlansTable.id),
+      )
+      .innerJoin(sosPlansTable, eq(sosCustomerPlansTable.planId, sosPlansTable.id))
+      .where(eq(sosPlanTransactionsTable.customerId, id))
+      .orderBy(desc(sosPlanTransactionsTable.createdAt)),
+  ]);
+  res.json(
+    GetSosCustomerPlansResponse.parse({
+      plans: plans.map((r) => serializeCustomerPlan(r.cp, r.plan)),
+      transactions: txns.map((r) => ({
+        id: r.txn.id,
+        customerPlanId: r.txn.customerPlanId,
+        customerId: r.txn.customerId,
+        planName: r.planName,
+        visitId: r.txn.visitId,
+        transactionType: r.txn.transactionType,
+        amount: r.txn.amount == null ? null : parseFloat(r.txn.amount),
+        creditsDelta: r.txn.creditsDelta,
+        note: r.txn.note,
+        createdAt: r.txn.createdAt.toISOString(),
+      })),
+    }),
+  );
+});
+
+router.post("/sos/customer-plans", async (req, res): Promise<void> => {
+  const body = SellSosPlanBody.parse(req.body);
+  const [[customer], [plan]] = await Promise.all([
+    db.select().from(sosCustomersTable).where(eq(sosCustomersTable.id, body.customerId)),
+    db.select().from(sosPlansTable).where(eq(sosPlansTable.id, body.planId)),
+  ]);
+  if (!customer) {
+    res.status(404).json({ message: "Customer not found" });
+    return;
+  }
+  if (!plan || !plan.isActive) {
+    res.status(404).json({ message: "Plan not found or inactive" });
+    return;
+  }
+  const now = new Date();
+  const [cp] = await db
+    .insert(sosCustomerPlansTable)
+    .values({
+      customerId: customer.id,
+      planId: plan.id,
+      status: "active",
+      remainingCredits: plan.planType === "membership" ? null : plan.creditCount,
+      renewsAt:
+        plan.planType === "membership"
+          ? nextRenewalDate(plan.billingInterval, now)
+          : null,
+    })
+    .returning();
+  await db.insert(sosPlanTransactionsTable).values({
+    customerPlanId: cp.id,
+    customerId: customer.id,
+    transactionType: "purchase",
+    amount: plan.price,
+    creditsDelta: plan.planType === "membership" ? null : plan.creditCount,
+    note: `Purchased ${plan.name}`,
+  });
+  res.status(201).json(SellSosPlanResponse.parse(serializeCustomerPlan(cp, plan)));
+});
+
+async function getCustomerPlanWithPlan(id: number) {
+  const [row] = await db
+    .select({ cp: sosCustomerPlansTable, plan: sosPlansTable })
+    .from(sosCustomerPlansTable)
+    .innerJoin(sosPlansTable, eq(sosCustomerPlansTable.planId, sosPlansTable.id))
+    .where(eq(sosCustomerPlansTable.id, id));
+  return row ?? null;
+}
+
+router.post("/sos/customer-plans/:id/renew", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const found = await getCustomerPlanWithPlan(id);
+  if (!found) {
+    res.status(404).json({ message: "Enrollment not found" });
+    return;
+  }
+  const { cp, plan } = found;
+  if (plan.planType !== "membership" || cp.status === "cancelled") {
+    res.status(409).json({ message: "Enrollment is not renewable" });
+    return;
+  }
+  // Renew from the current renewal date when still in the future (early
+  // renewal extends), otherwise from now (past-due renewal restarts).
+  const now = new Date();
+  const base = cp.renewsAt && cp.renewsAt > now ? cp.renewsAt : now;
+  const [updated] = await db
+    .update(sosCustomerPlansTable)
+    .set({ status: "active", renewsAt: nextRenewalDate(plan.billingInterval, base) })
+    .where(eq(sosCustomerPlansTable.id, id))
+    .returning();
+  await db.insert(sosPlanTransactionsTable).values({
+    customerPlanId: cp.id,
+    customerId: cp.customerId,
+    transactionType: "renewal",
+    amount: plan.price,
+    note: `Renewed ${plan.name}`,
+  });
+  res.json(RenewSosCustomerPlanResponse.parse(serializeCustomerPlan(updated, plan)));
+});
+
+router.post("/sos/customer-plans/:id/cancel", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const found = await getCustomerPlanWithPlan(id);
+  if (!found) {
+    res.status(404).json({ message: "Enrollment not found" });
+    return;
+  }
+  const { cp, plan } = found;
+  if (cp.status === "cancelled") {
+    res.status(409).json({ message: "Enrollment already cancelled" });
+    return;
+  }
+  const [updated] = await db
+    .update(sosCustomerPlansTable)
+    .set({ status: "cancelled", cancelledAt: new Date() })
+    .where(eq(sosCustomerPlansTable.id, id))
+    .returning();
+  await db.insert(sosPlanTransactionsTable).values({
+    customerPlanId: cp.id,
+    customerId: cp.customerId,
+    transactionType: "cancellation",
+    note: `Cancelled ${plan.name}`,
+  });
+  res.json(CancelSosCustomerPlanResponse.parse(serializeCustomerPlan(updated, plan)));
+});
+
 // ── visits (customer journey state machine) ──────────────────────────────────
 
 async function serializeVisits(activeOnly: boolean) {
@@ -698,6 +962,67 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
   if (body.action === "request_payment" || body.action === "check_out") {
     if (body.paymentAmount != null) {
       updates.paymentAmount = body.paymentAmount.toFixed(2);
+    }
+  }
+
+  // Optional plan benefit at checkout: redeem a prepaid credit or apply a
+  // membership discount. Validated before the visit transition is written.
+  if (body.action === "check_out" && body.benefitCustomerPlanId != null) {
+    if (!body.benefitType) {
+      res.status(400).json({ message: "benefitType is required with benefitCustomerPlanId" });
+      return;
+    }
+    const found = await getCustomerPlanWithPlan(body.benefitCustomerPlanId);
+    if (!found || found.cp.customerId !== visit.customerId) {
+      res.status(404).json({ message: "Plan enrollment not found for this customer" });
+      return;
+    }
+    if (found.cp.status === "cancelled") {
+      res.status(409).json({ message: "Plan enrollment is cancelled" });
+      return;
+    }
+    if (body.benefitType === "redeem_credit") {
+      if (found.plan.planType === "membership") {
+        res.status(409).json({ message: "Memberships have no credits to redeem" });
+        return;
+      }
+      // Conditional decrement guards against two concurrent redemptions
+      // spending the same last credit.
+      const [spent] = await db
+        .update(sosCustomerPlansTable)
+        .set({ remainingCredits: sql`${sosCustomerPlansTable.remainingCredits} - 1` })
+        .where(
+          and(
+            eq(sosCustomerPlansTable.id, found.cp.id),
+            gte(sosCustomerPlansTable.remainingCredits, 1),
+          ),
+        )
+        .returning({ remaining: sosCustomerPlansTable.remainingCredits });
+      if (!spent) {
+        res.status(409).json({ message: "No credits remaining on this plan" });
+        return;
+      }
+      await db.insert(sosPlanTransactionsTable).values({
+        customerPlanId: found.cp.id,
+        customerId: visit.customerId,
+        visitId: visit.id,
+        transactionType: "redemption",
+        creditsDelta: -1,
+        note: `Redeemed 1 credit from ${found.plan.name} for ${visit.serviceType} (${spent.remaining} left)`,
+      });
+    } else {
+      if (found.plan.planType !== "membership") {
+        res.status(409).json({ message: "Only memberships grant a discount" });
+        return;
+      }
+      await db.insert(sosPlanTransactionsTable).values({
+        customerPlanId: found.cp.id,
+        customerId: visit.customerId,
+        visitId: visit.id,
+        transactionType: "discount",
+        amount: body.paymentAmount != null ? body.paymentAmount.toFixed(2) : null,
+        note: `${found.plan.discountPercent}% ${found.plan.name} discount applied to ${visit.serviceType}`,
+      });
     }
   }
 

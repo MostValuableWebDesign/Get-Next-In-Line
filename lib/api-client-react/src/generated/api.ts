@@ -56,10 +56,16 @@ import type {
   SosCancellationResult,
   SosCustomer,
   SosCustomerInput,
+  SosCustomerPlan,
+  SosCustomerPlanInput,
+  SosCustomerPlansSummary,
   SosCustomerUpdate,
   SosDashboard,
   SosMessage,
   SosMessageInput,
+  SosPlan,
+  SosPlanInput,
+  SosPlanUpdate,
   SosReportsSummary,
   SosResource,
   SosResourceInput,
@@ -3638,6 +3644,516 @@ export function useGetSosReportsSummary<TData = Awaited<ReturnType<typeof getSos
 
 
 
+
+export const getListSosPlansUrl = () => {
+
+
+
+
+  return `/api/sos/plans`
+}
+
+/**
+ * @summary List plan definitions — memberships, packages, credit passes
+ */
+export const listSosPlans = async ( options?: RequestInit): Promise<SosPlan[]> => {
+
+  return customFetch<SosPlan[]>(getListSosPlansUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSosPlansQueryKey = () => {
+    return [
+    `/api/sos/plans`
+    ] as const;
+    }
+
+
+export const getListSosPlansQueryOptions = <TData = Awaited<ReturnType<typeof listSosPlans>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSosPlansQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSosPlans>>> = ({ signal }) => listSosPlans({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSosPlans>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSosPlansQueryResult = NonNullable<Awaited<ReturnType<typeof listSosPlans>>>
+export type ListSosPlansQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List plan definitions — memberships, packages, credit passes
+ */
+
+export function useListSosPlans<TData = Awaited<ReturnType<typeof listSosPlans>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSosPlansQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSosPlanUrl = () => {
+
+
+
+
+  return `/api/sos/plans`
+}
+
+/**
+ * @summary Create a plan definition
+ */
+export const createSosPlan = async (sosPlanInput: SosPlanInput, options?: RequestInit): Promise<SosPlan> => {
+
+  return customFetch<SosPlan>(getCreateSosPlanUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosPlanInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSosPlanMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosPlan>>, TError,{data: BodyType<SosPlanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSosPlan>>, TError,{data: BodyType<SosPlanInput>}, TContext> => {
+
+const mutationKey = ['createSosPlan'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSosPlan>>, {data: BodyType<SosPlanInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSosPlan(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSosPlanMutationResult = NonNullable<Awaited<ReturnType<typeof createSosPlan>>>
+    export type CreateSosPlanMutationBody = BodyType<SosPlanInput>
+    export type CreateSosPlanMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a plan definition
+ */
+export const useCreateSosPlan = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosPlan>>, TError,{data: BodyType<SosPlanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSosPlan>>,
+        TError,
+        {data: BodyType<SosPlanInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSosPlanMutationOptions(options));
+    }
+
+export const getUpdateSosPlanUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/plans/${id}`
+}
+
+/**
+ * @summary Update or deactivate a plan definition
+ */
+export const updateSosPlan = async (id: number,
+    sosPlanUpdate: SosPlanUpdate, options?: RequestInit): Promise<SosPlan> => {
+
+  return customFetch<SosPlan>(getUpdateSosPlanUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosPlanUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSosPlanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosPlan>>, TError,{id: number;data: BodyType<SosPlanUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSosPlan>>, TError,{id: number;data: BodyType<SosPlanUpdate>}, TContext> => {
+
+const mutationKey = ['updateSosPlan'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSosPlan>>, {id: number;data: BodyType<SosPlanUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSosPlan(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSosPlanMutationResult = NonNullable<Awaited<ReturnType<typeof updateSosPlan>>>
+    export type UpdateSosPlanMutationBody = BodyType<SosPlanUpdate>
+    export type UpdateSosPlanMutationError = ErrorType<void>
+
+    /**
+ * @summary Update or deactivate a plan definition
+ */
+export const useUpdateSosPlan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosPlan>>, TError,{id: number;data: BodyType<SosPlanUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSosPlan>>,
+        TError,
+        {id: number;data: BodyType<SosPlanUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSosPlanMutationOptions(options));
+    }
+
+export const getGetSosCustomerPlansUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/customers/${id}/plans`
+}
+
+/**
+ * @summary A customer's plan enrollments, balances, and redemption history
+ */
+export const getSosCustomerPlans = async (id: number, options?: RequestInit): Promise<SosCustomerPlansSummary> => {
+
+  return customFetch<SosCustomerPlansSummary>(getGetSosCustomerPlansUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSosCustomerPlansQueryKey = (id: number,) => {
+    return [
+    `/api/sos/customers/${id}/plans`
+    ] as const;
+    }
+
+
+export const getGetSosCustomerPlansQueryOptions = <TData = Awaited<ReturnType<typeof getSosCustomerPlans>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosCustomerPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSosCustomerPlansQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSosCustomerPlans>>> = ({ signal }) => getSosCustomerPlans(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSosCustomerPlans>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSosCustomerPlansQueryResult = NonNullable<Awaited<ReturnType<typeof getSosCustomerPlans>>>
+export type GetSosCustomerPlansQueryError = ErrorType<void>
+
+
+/**
+ * @summary A customer's plan enrollments, balances, and redemption history
+ */
+
+export function useGetSosCustomerPlans<TData = Awaited<ReturnType<typeof getSosCustomerPlans>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosCustomerPlans>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSosCustomerPlansQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSellSosPlanUrl = () => {
+
+
+
+
+  return `/api/sos/customer-plans`
+}
+
+/**
+ * @summary Sell a plan to a customer (records the purchase transaction)
+ */
+export const sellSosPlan = async (sosCustomerPlanInput: SosCustomerPlanInput, options?: RequestInit): Promise<SosCustomerPlan> => {
+
+  return customFetch<SosCustomerPlan>(getSellSosPlanUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosCustomerPlanInput)
+  }
+);}
+
+
+
+
+
+export const getSellSosPlanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sellSosPlan>>, TError,{data: BodyType<SosCustomerPlanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sellSosPlan>>, TError,{data: BodyType<SosCustomerPlanInput>}, TContext> => {
+
+const mutationKey = ['sellSosPlan'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sellSosPlan>>, {data: BodyType<SosCustomerPlanInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sellSosPlan(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SellSosPlanMutationResult = NonNullable<Awaited<ReturnType<typeof sellSosPlan>>>
+    export type SellSosPlanMutationBody = BodyType<SosCustomerPlanInput>
+    export type SellSosPlanMutationError = ErrorType<void>
+
+    /**
+ * @summary Sell a plan to a customer (records the purchase transaction)
+ */
+export const useSellSosPlan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sellSosPlan>>, TError,{data: BodyType<SosCustomerPlanInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sellSosPlan>>,
+        TError,
+        {data: BodyType<SosCustomerPlanInput>},
+        TContext
+      > => {
+      return useMutation(getSellSosPlanMutationOptions(options));
+    }
+
+export const getRenewSosCustomerPlanUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/customer-plans/${id}/renew`
+}
+
+/**
+ * @summary Record a membership renewal payment and advance the renewal date
+ */
+export const renewSosCustomerPlan = async (id: number, options?: RequestInit): Promise<SosCustomerPlan> => {
+
+  return customFetch<SosCustomerPlan>(getRenewSosCustomerPlanUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRenewSosCustomerPlanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renewSosCustomerPlan>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof renewSosCustomerPlan>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['renewSosCustomerPlan'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renewSosCustomerPlan>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  renewSosCustomerPlan(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenewSosCustomerPlanMutationResult = NonNullable<Awaited<ReturnType<typeof renewSosCustomerPlan>>>
+
+    export type RenewSosCustomerPlanMutationError = ErrorType<void>
+
+    /**
+ * @summary Record a membership renewal payment and advance the renewal date
+ */
+export const useRenewSosCustomerPlan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renewSosCustomerPlan>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof renewSosCustomerPlan>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRenewSosCustomerPlanMutationOptions(options));
+    }
+
+export const getCancelSosCustomerPlanUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/customer-plans/${id}/cancel`
+}
+
+/**
+ * @summary Cancel a customer's plan enrollment
+ */
+export const cancelSosCustomerPlan = async (id: number, options?: RequestInit): Promise<SosCustomerPlan> => {
+
+  return customFetch<SosCustomerPlan>(getCancelSosCustomerPlanUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCancelSosCustomerPlanMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSosCustomerPlan>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelSosCustomerPlan>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['cancelSosCustomerPlan'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelSosCustomerPlan>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  cancelSosCustomerPlan(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelSosCustomerPlanMutationResult = NonNullable<Awaited<ReturnType<typeof cancelSosCustomerPlan>>>
+
+    export type CancelSosCustomerPlanMutationError = ErrorType<void>
+
+    /**
+ * @summary Cancel a customer's plan enrollment
+ */
+export const useCancelSosCustomerPlan = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelSosCustomerPlan>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelSosCustomerPlan>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getCancelSosCustomerPlanMutationOptions(options));
+    }
 
 export const getGetTenantSettingsUrl = (id: number,) => {
 

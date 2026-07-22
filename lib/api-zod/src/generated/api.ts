@@ -780,7 +780,9 @@ export const AdvanceSosVisitParams = zod.object({
 export const AdvanceSosVisitBody = zod.object({
   "action": zod.enum(['queue', 'assign', 'notify', 'start_service', 'request_payment', 'check_out']),
   "resourceId": zod.number().optional(),
-  "paymentAmount": zod.number().optional()
+  "paymentAmount": zod.number().optional(),
+  "benefitCustomerPlanId": zod.number().optional(),
+  "benefitType": zod.enum(['redeem_credit', 'membership_discount']).optional()
 })
 
 export const AdvanceSosVisitResponse = zod.object({
@@ -1149,6 +1151,211 @@ export const GetSosReportsSummaryResponse = zod.object({
 }))
 }).describe('Concierge automation metrics aggregated from message_logs over the report window')
 })
+
+
+/**
+ * @summary List plan definitions — memberships, packages, credit passes
+ */
+export const ListSosPlansResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "planType": zod.enum(['membership', 'package', 'pass']),
+  "description": zod.string().nullable(),
+  "price": zod.number(),
+  "billingInterval": zod.union([zod.literal('monthly'),zod.literal('yearly'),zod.literal(null)]).nullable(),
+  "discountPercent": zod.number().nullable(),
+  "creditCount": zod.number().nullable(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListSosPlansResponse = zod.array(ListSosPlansResponseItem)
+
+
+/**
+ * @summary Create a plan definition
+ */
+
+export const createSosPlanBodyPriceMin = 0;
+
+export const createSosPlanBodyDiscountPercentMin = 0;
+export const createSosPlanBodyDiscountPercentMax = 100;
+
+
+
+
+export const CreateSosPlanBody = zod.object({
+  "name": zod.string().min(1),
+  "planType": zod.enum(['membership', 'package', 'pass']),
+  "description": zod.string().optional(),
+  "price": zod.number().min(createSosPlanBodyPriceMin),
+  "billingInterval": zod.enum(['monthly', 'yearly']).optional(),
+  "discountPercent": zod.number().min(createSosPlanBodyDiscountPercentMin).max(createSosPlanBodyDiscountPercentMax).optional(),
+  "creditCount": zod.number().min(1).optional()
+})
+
+export const CreateSosPlanResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "planType": zod.enum(['membership', 'package', 'pass']),
+  "description": zod.string().nullable(),
+  "price": zod.number(),
+  "billingInterval": zod.union([zod.literal('monthly'),zod.literal('yearly'),zod.literal(null)]).nullable(),
+  "discountPercent": zod.number().nullable(),
+  "creditCount": zod.number().nullable(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update or deactivate a plan definition
+ */
+export const UpdateSosPlanParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const updateSosPlanBodyPriceMin = 0;
+
+export const updateSosPlanBodyDiscountPercentMin = 0;
+export const updateSosPlanBodyDiscountPercentMax = 100;
+
+
+
+
+export const UpdateSosPlanBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "description": zod.string().optional(),
+  "price": zod.number().min(updateSosPlanBodyPriceMin).optional(),
+  "billingInterval": zod.enum(['monthly', 'yearly']).optional(),
+  "discountPercent": zod.number().min(updateSosPlanBodyDiscountPercentMin).max(updateSosPlanBodyDiscountPercentMax).optional(),
+  "creditCount": zod.number().min(1).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateSosPlanResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "planType": zod.enum(['membership', 'package', 'pass']),
+  "description": zod.string().nullable(),
+  "price": zod.number(),
+  "billingInterval": zod.union([zod.literal('monthly'),zod.literal('yearly'),zod.literal(null)]).nullable(),
+  "discountPercent": zod.number().nullable(),
+  "creditCount": zod.number().nullable(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary A customer's plan enrollments, balances, and redemption history
+ */
+export const GetSosCustomerPlansParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetSosCustomerPlansResponse = zod.object({
+  "plans": zod.array(zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "planId": zod.number(),
+  "planName": zod.string(),
+  "planType": zod.enum(['membership', 'package', 'pass']),
+  "price": zod.number(),
+  "billingInterval": zod.string().nullable(),
+  "discountPercent": zod.number().nullable(),
+  "status": zod.enum(['active', 'past_due', 'cancelled']),
+  "remainingCredits": zod.number().nullable(),
+  "renewsAt": zod.string().nullable(),
+  "purchasedAt": zod.string(),
+  "cancelledAt": zod.string().nullable()
+}).describe('A customer\'s enrollment in a plan, with the plan definition denormalized.')),
+  "transactions": zod.array(zod.object({
+  "id": zod.number(),
+  "customerPlanId": zod.number(),
+  "customerId": zod.number(),
+  "planName": zod.string(),
+  "visitId": zod.number().nullable(),
+  "transactionType": zod.enum(['purchase', 'renewal', 'redemption', 'discount', 'cancellation']),
+  "amount": zod.number().nullable(),
+  "creditsDelta": zod.number().nullable(),
+  "note": zod.string().nullable(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Sell a plan to a customer (records the purchase transaction)
+ */
+export const SellSosPlanBody = zod.object({
+  "customerId": zod.number(),
+  "planId": zod.number()
+})
+
+export const SellSosPlanResponse = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "planId": zod.number(),
+  "planName": zod.string(),
+  "planType": zod.enum(['membership', 'package', 'pass']),
+  "price": zod.number(),
+  "billingInterval": zod.string().nullable(),
+  "discountPercent": zod.number().nullable(),
+  "status": zod.enum(['active', 'past_due', 'cancelled']),
+  "remainingCredits": zod.number().nullable(),
+  "renewsAt": zod.string().nullable(),
+  "purchasedAt": zod.string(),
+  "cancelledAt": zod.string().nullable()
+}).describe('A customer\'s enrollment in a plan, with the plan definition denormalized.')
+
+
+/**
+ * @summary Record a membership renewal payment and advance the renewal date
+ */
+export const RenewSosCustomerPlanParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RenewSosCustomerPlanResponse = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "planId": zod.number(),
+  "planName": zod.string(),
+  "planType": zod.enum(['membership', 'package', 'pass']),
+  "price": zod.number(),
+  "billingInterval": zod.string().nullable(),
+  "discountPercent": zod.number().nullable(),
+  "status": zod.enum(['active', 'past_due', 'cancelled']),
+  "remainingCredits": zod.number().nullable(),
+  "renewsAt": zod.string().nullable(),
+  "purchasedAt": zod.string(),
+  "cancelledAt": zod.string().nullable()
+}).describe('A customer\'s enrollment in a plan, with the plan definition denormalized.')
+
+
+/**
+ * @summary Cancel a customer's plan enrollment
+ */
+export const CancelSosCustomerPlanParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CancelSosCustomerPlanResponse = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number(),
+  "planId": zod.number(),
+  "planName": zod.string(),
+  "planType": zod.enum(['membership', 'package', 'pass']),
+  "price": zod.number(),
+  "billingInterval": zod.string().nullable(),
+  "discountPercent": zod.number().nullable(),
+  "status": zod.enum(['active', 'past_due', 'cancelled']),
+  "remainingCredits": zod.number().nullable(),
+  "renewsAt": zod.string().nullable(),
+  "purchasedAt": zod.string(),
+  "cancelledAt": zod.string().nullable()
+}).describe('A customer\'s enrollment in a plan, with the plan definition denormalized.')
 
 
 /**

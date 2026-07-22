@@ -56,7 +56,7 @@ const SOS_NAV_ITEMS: NavItem[] = [
     name: 'Business Bookings',
     path: '/sos/bookings',
     icon: BookOpenCheck,
-    aliases: ['/sos', '/sos/customers', '/sos/reports'],
+    aliases: ['/sos', '/sos/customers', '/sos/reports', '/sos/memberships'],
   },
   // Live communications logs (AI calls + SMS); setup lives in Configuration.
   { name: 'Marketing & Comms', path: '/sos/marketing', icon: Megaphone },

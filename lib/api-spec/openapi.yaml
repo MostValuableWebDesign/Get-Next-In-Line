@@ -920,6 +920,153 @@ paths:
               schema:
                 $ref: "#/components/schemas/SosReportsSummary"
 
+  /sos/plans:
+    get:
+      operationId: listSosPlans
+      tags: [sos]
+      summary: List plan definitions — memberships, packages, credit passes
+      responses:
+        "200":
+          description: Plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosPlan"
+    post:
+      operationId: createSosPlan
+      tags: [sos]
+      summary: Create a plan definition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosPlanInput"
+      responses:
+        "201":
+          description: Created plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosPlan"
+
+  /sos/plans/{id}:
+    patch:
+      operationId: updateSosPlan
+      tags: [sos]
+      summary: Update or deactivate a plan definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosPlanUpdate"
+      responses:
+        "200":
+          description: Updated plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosPlan"
+        "404":
+          description: Not found
+
+  /sos/customers/{id}/plans:
+    get:
+      operationId: getSosCustomerPlans
+      tags: [sos]
+      summary: A customer's plan enrollments, balances, and redemption history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Enrollments and transaction history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosCustomerPlansSummary"
+        "404":
+          description: Customer not found
+
+  /sos/customer-plans:
+    post:
+      operationId: sellSosPlan
+      tags: [sos]
+      summary: Sell a plan to a customer (records the purchase transaction)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosCustomerPlanInput"
+      responses:
+        "201":
+          description: New enrollment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosCustomerPlan"
+        "404":
+          description: Customer or plan not found
+
+  /sos/customer-plans/{id}/renew:
+    post:
+      operationId: renewSosCustomerPlan
+      tags: [sos]
+      summary: Record a membership renewal payment and advance the renewal date
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Renewed enrollment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosCustomerPlan"
+        "404":
+          description: Enrollment not found
+        "409":
+          description: Enrollment is not renewable
+
+  /sos/customer-plans/{id}/cancel:
+    post:
+      operationId: cancelSosCustomerPlan
+      tags: [sos]
+      summary: Cancel a customer's plan enrollment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cancelled enrollment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosCustomerPlan"
+        "404":
+          description: Enrollment not found
+        "409":
+          description: Enrollment already cancelled
+
   /tenants/{id}/settings:
     get:
       operationId: getTenantSettings
@@ -1686,6 +1833,173 @@ components:
           type: integer
         paymentAmount:
           type: number
+        # Optional plan benefit to apply at check_out: redeem one prepaid
+        # credit from a package/pass, or apply a membership discount.
+        benefitCustomerPlanId:
+          type: integer
+        benefitType:
+          type: string
+          enum: [redeem_credit, membership_discount]
+
+    SosPlan:
+      type: object
+      required: [id, name, planType, description, price, billingInterval, discountPercent, creditCount, isActive, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        planType:
+          type: string
+          enum: [membership, package, pass]
+        description:
+          type: ["string", "null"]
+        price:
+          type: number
+        billingInterval:
+          type: ["string", "null"]
+          enum: [monthly, yearly, null]
+        discountPercent:
+          type: ["integer", "null"]
+        creditCount:
+          type: ["integer", "null"]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+
+    SosPlanInput:
+      type: object
+      required: [name, planType, price]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        planType:
+          type: string
+          enum: [membership, package, pass]
+        description:
+          type: string
+        price:
+          type: number
+          minimum: 0
+        billingInterval:
+          type: string
+          enum: [monthly, yearly]
+        discountPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        creditCount:
+          type: integer
+          minimum: 1
+
+    SosPlanUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        price:
+          type: number
+          minimum: 0
+        billingInterval:
+          type: string
+          enum: [monthly, yearly]
+        discountPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        creditCount:
+          type: integer
+          minimum: 1
+        isActive:
+          type: boolean
+
+    SosCustomerPlan:
+      type: object
+      description: A customer's enrollment in a plan, with the plan definition denormalized.
+      required:
+        [id, customerId, planId, planName, planType, price, billingInterval, discountPercent, status, remainingCredits, renewsAt, purchasedAt, cancelledAt]
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        planId:
+          type: integer
+        planName:
+          type: string
+        planType:
+          type: string
+          enum: [membership, package, pass]
+        price:
+          type: number
+        billingInterval:
+          type: ["string", "null"]
+        discountPercent:
+          type: ["integer", "null"]
+        status:
+          type: string
+          enum: [active, past_due, cancelled]
+        remainingCredits:
+          type: ["integer", "null"]
+        renewsAt:
+          type: ["string", "null"]
+        purchasedAt:
+          type: string
+        cancelledAt:
+          type: ["string", "null"]
+
+    SosCustomerPlanInput:
+      type: object
+      required: [customerId, planId]
+      properties:
+        customerId:
+          type: integer
+        planId:
+          type: integer
+
+    SosPlanTransaction:
+      type: object
+      required: [id, customerPlanId, customerId, planName, visitId, transactionType, amount, creditsDelta, note, createdAt]
+      properties:
+        id:
+          type: integer
+        customerPlanId:
+          type: integer
+        customerId:
+          type: integer
+        planName:
+          type: string
+        visitId:
+          type: ["integer", "null"]
+        transactionType:
+          type: string
+          enum: [purchase, renewal, redemption, discount, cancellation]
+        amount:
+          type: ["number", "null"]
+        creditsDelta:
+          type: ["integer", "null"]
+        note:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    SosCustomerPlansSummary:
+      type: object
+      required: [plans, transactions]
+      properties:
+        plans:
+          type: array
+          items:
+            $ref: "#/components/schemas/SosCustomerPlan"
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SosPlanTransaction"
 
     SosAppointment:
       type: object

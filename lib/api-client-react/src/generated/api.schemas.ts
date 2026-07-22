@@ -403,10 +403,196 @@ export const SosVisitAdvanceAction = {
   check_out: 'check_out',
 } as const;
 
+export type SosVisitAdvanceBenefitType = typeof SosVisitAdvanceBenefitType[keyof typeof SosVisitAdvanceBenefitType];
+
+
+export const SosVisitAdvanceBenefitType = {
+  redeem_credit: 'redeem_credit',
+  membership_discount: 'membership_discount',
+} as const;
+
 export interface SosVisitAdvance {
   action: SosVisitAdvanceAction;
   resourceId?: number;
   paymentAmount?: number;
+  benefitCustomerPlanId?: number;
+  benefitType?: SosVisitAdvanceBenefitType;
+}
+
+export type SosPlanPlanType = typeof SosPlanPlanType[keyof typeof SosPlanPlanType];
+
+
+export const SosPlanPlanType = {
+  membership: 'membership',
+  package: 'package',
+  pass: 'pass',
+} as const;
+
+/**
+ * @nullable
+ */
+export type SosPlanBillingInterval = typeof SosPlanBillingInterval[keyof typeof SosPlanBillingInterval] | null;
+
+
+export const SosPlanBillingInterval = {
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export interface SosPlan {
+  id: number;
+  name: string;
+  planType: SosPlanPlanType;
+  /** @nullable */
+  description: string | null;
+  price: number;
+  /** @nullable */
+  billingInterval: SosPlanBillingInterval;
+  /** @nullable */
+  discountPercent: number | null;
+  /** @nullable */
+  creditCount: number | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export type SosPlanInputPlanType = typeof SosPlanInputPlanType[keyof typeof SosPlanInputPlanType];
+
+
+export const SosPlanInputPlanType = {
+  membership: 'membership',
+  package: 'package',
+  pass: 'pass',
+} as const;
+
+export type SosPlanInputBillingInterval = typeof SosPlanInputBillingInterval[keyof typeof SosPlanInputBillingInterval];
+
+
+export const SosPlanInputBillingInterval = {
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export interface SosPlanInput {
+  /** @minLength 1 */
+  name: string;
+  planType: SosPlanInputPlanType;
+  description?: string;
+  /** @minimum 0 */
+  price: number;
+  billingInterval?: SosPlanInputBillingInterval;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  discountPercent?: number;
+  /** @minimum 1 */
+  creditCount?: number;
+}
+
+export type SosPlanUpdateBillingInterval = typeof SosPlanUpdateBillingInterval[keyof typeof SosPlanUpdateBillingInterval];
+
+
+export const SosPlanUpdateBillingInterval = {
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export interface SosPlanUpdate {
+  /** @minLength 1 */
+  name?: string;
+  description?: string;
+  /** @minimum 0 */
+  price?: number;
+  billingInterval?: SosPlanUpdateBillingInterval;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  discountPercent?: number;
+  /** @minimum 1 */
+  creditCount?: number;
+  isActive?: boolean;
+}
+
+export type SosCustomerPlanPlanType = typeof SosCustomerPlanPlanType[keyof typeof SosCustomerPlanPlanType];
+
+
+export const SosCustomerPlanPlanType = {
+  membership: 'membership',
+  package: 'package',
+  pass: 'pass',
+} as const;
+
+export type SosCustomerPlanStatus = typeof SosCustomerPlanStatus[keyof typeof SosCustomerPlanStatus];
+
+
+export const SosCustomerPlanStatus = {
+  active: 'active',
+  past_due: 'past_due',
+  cancelled: 'cancelled',
+} as const;
+
+/**
+ * A customer's enrollment in a plan, with the plan definition denormalized.
+ */
+export interface SosCustomerPlan {
+  id: number;
+  customerId: number;
+  planId: number;
+  planName: string;
+  planType: SosCustomerPlanPlanType;
+  price: number;
+  /** @nullable */
+  billingInterval: string | null;
+  /** @nullable */
+  discountPercent: number | null;
+  status: SosCustomerPlanStatus;
+  /** @nullable */
+  remainingCredits: number | null;
+  /** @nullable */
+  renewsAt: string | null;
+  purchasedAt: string;
+  /** @nullable */
+  cancelledAt: string | null;
+}
+
+export interface SosCustomerPlanInput {
+  customerId: number;
+  planId: number;
+}
+
+export type SosPlanTransactionTransactionType = typeof SosPlanTransactionTransactionType[keyof typeof SosPlanTransactionTransactionType];
+
+
+export const SosPlanTransactionTransactionType = {
+  purchase: 'purchase',
+  renewal: 'renewal',
+  redemption: 'redemption',
+  discount: 'discount',
+  cancellation: 'cancellation',
+} as const;
+
+export interface SosPlanTransaction {
+  id: number;
+  customerPlanId: number;
+  customerId: number;
+  planName: string;
+  /** @nullable */
+  visitId: number | null;
+  transactionType: SosPlanTransactionTransactionType;
+  /** @nullable */
+  amount: number | null;
+  /** @nullable */
+  creditsDelta: number | null;
+  /** @nullable */
+  note: string | null;
+  createdAt: string;
+}
+
+export interface SosCustomerPlansSummary {
+  plans: SosCustomerPlan[];
+  transactions: SosPlanTransaction[];
 }
 
 export type SosAppointmentStatus = typeof SosAppointmentStatus[keyof typeof SosAppointmentStatus];

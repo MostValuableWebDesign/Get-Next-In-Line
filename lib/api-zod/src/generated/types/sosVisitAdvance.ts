@@ -6,9 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SosVisitAdvanceAction } from './sosVisitAdvanceAction';
+import type { SosVisitAdvanceBenefitType } from './sosVisitAdvanceBenefitType';
 
 export interface SosVisitAdvance {
   action: SosVisitAdvanceAction;
   resourceId?: number;
   paymentAmount?: number;
+  benefitCustomerPlanId?: number;
+  benefitType?: SosVisitAdvanceBenefitType;
 }
