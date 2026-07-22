@@ -151,10 +151,7 @@ export function Shell({ children }: { children: ReactNode }) {
               <div className="size-8 shrink-0 bg-primary rounded flex items-center justify-center text-primary-foreground shadow-sm">
                 GN
               </div>
-              <span className="text-white group-data-[collapsible=icon]:hidden">Get Next In Line</span>
-            </div>
-            <div className="text-xs text-sidebar-foreground/60 font-mono tracking-widest mt-1 uppercase group-data-[collapsible=icon]:hidden">
-              Operator Terminal
+              <span className="text-white group-data-[collapsible=icon]:hidden">GNIL Operator Terminal</span>
             </div>
           </SidebarHeader>
           <SidebarContent className="p-2">
