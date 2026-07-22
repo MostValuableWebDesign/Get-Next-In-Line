@@ -9,7 +9,7 @@
 - [Dev DB drift behind Drizzle schema](dev-db-drift.md) — on missing-column query errors, diff information_schema vs schema and push additive DDL.
 - [Drizzle silent migrate failures](drizzle-migrations.md) — migrate can exit 1 silently; verify tables, apply SQL manually, stamp hash/`when` into drizzle.__drizzle_migrations. Hash = sha256 of the migration .sql contents.
 - api-zod schemas come from a different zod instance than api-server's; `instanceof ZodError` fails across them — duck-type on `err.name === "ZodError"` in error middleware.
-- [Validation gates](validation-gates.md) — api-server-test excludes the known-broken SOS inbound-SMS test file; drop the exclude once those webhook tests are fixed.
+- [Validation gates](validation-gates.md) — api-server-test now runs the full suite (exclude removed); fix red suites at root cause (often DB drift) instead of excluding.
 - orval: an operation with both path and query params generates a zod `<Op>Params` and a TS type `<Op>Params` that collide on re-export; avoid query params on parameterized paths or rename.
 - [Artifact path shadowing](artifact-path-shadowing.md) — an artifact's registered path prefix shadows same-prefix routes in the root app; re-path retired artifacts to free the prefix.
 - Artifact-managed workflows can't be removed via removeWorkflow; deleting the artifact directory auto-deregisters both the artifact and its workflow.

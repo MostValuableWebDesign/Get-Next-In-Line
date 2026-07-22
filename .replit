@@ -47,12 +47,12 @@ isValidation = true
 name = "api-server-test"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "pnpm --filter @workspace/api-server exec vitest run --exclude \"src/routes/__tests__/sos-inbound-sms.integration.test.ts\""
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/api-server exec vitest run"
 
 [[workflows.workflow]]
 name = "gnil-os-test"

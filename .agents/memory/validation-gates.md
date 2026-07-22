@@ -7,8 +7,8 @@ description: How the registered CI-style validation commands are scoped and one 
 
 Registered validations: `api-server-typecheck`, `api-server-test`, `gnil-os-test` (plus pre-existing `db-drift`).
 
-**Rule:** `api-server-test` deliberately excludes `src/routes/__tests__/sos-inbound-sms.integration.test.ts`.
+**Rule:** `api-server-test` runs the full vitest suite with no exclusions.
 
-**Why:** those webhook tests fail on every run for pre-existing reasons owned by the Twilio delivery-pipeline work; including them would make the blocking gate permanently red and hide real regressions (like the hidden-connector leak tests, which do run and block).
+**Why:** all suites now pass; excludes would hide regressions.
 
-**How to apply:** once the inbound-SMS webhook tests are fixed, remove the `--exclude` flag from the `api-server-test` validation command so they gate changes again.
+**How to apply:** if a suite goes permanently red again, fix the root cause (often DB drift — run `db:check-drift`) rather than re-adding excludes.
