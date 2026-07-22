@@ -44,7 +44,7 @@ export default function Login() {
             <div className="w-9 h-9 rounded-md bg-indigo-600 flex items-center justify-center">
               <span className="text-white text-sm font-bold tracking-tight">GN</span>
             </div>
-            <span className="text-slate-900 font-bold text-lg tracking-tight">GNIL OS</span>
+            <span className="text-slate-900 font-bold text-lg tracking-tight">Get Next In Line</span>
           </div>
           <p className="text-xs font-medium text-slate-400 uppercase tracking-widest">
             Operator Terminal

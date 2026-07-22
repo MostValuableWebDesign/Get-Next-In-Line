@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Get Next In Line — GHL + GNIL OS"
+title = "Get Next In Line"
 version = "1.0.0"
 id = "artifacts/gnil-os"
 router = "path"
