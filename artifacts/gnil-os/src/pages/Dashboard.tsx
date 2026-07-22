@@ -1,4 +1,5 @@
-import { useGetAgencyDashboard, useGetAgencySettings, useUpdateAgencySettings, getGetModulesPricingQueryKey, useGetTenantActivity } from '@workspace/api-client-react';
+import { useGetAgencyDashboard, useGetAgencySettings, useUpdateAgencySettings, getGetModulesPricingQueryKey, useGetTenantActivity, getGetTenantActivityQueryKey, getTenantActivity, type TenantActivity } from '@workspace/api-client-react';
+import { Button } from '@/components/ui/button';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, formatPercent } from '@/lib/format';
@@ -99,9 +100,45 @@ export default function Dashboard() {
   );
 }
 
+const FEED_PAGE_SIZE = 20;
+
 function ActivityFeed() {
-  const { data: activityPage, isLoading } = useGetTenantActivity();
-  const activities = activityPage?.items;
+  const { data: activityPage, isLoading } = useGetTenantActivity(
+    { limit: FEED_PAGE_SIZE },
+    { query: { queryKey: getGetTenantActivityQueryKey({ limit: FEED_PAGE_SIZE }) } }
+  );
+  const [extraActivity, setExtraActivity] = useState<TenantActivity[]>([]);
+  const [extraHasMore, setExtraHasMore] = useState<boolean | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
+
+  const firstPageItems = activityPage?.items ?? [];
+  const activities = [...firstPageItems, ...extraActivity];
+  const hasMore = extraHasMore ?? activityPage?.hasMore ?? false;
+
+  const loadMore = async () => {
+    // Keyset cursor: the (timestamp, id) of the last loaded item.
+    const lastItem =
+      extraActivity.length > 0
+        ? extraActivity[extraActivity.length - 1]
+        : firstPageItems[firstPageItems.length - 1];
+    if (!lastItem) return;
+    setIsLoadingMore(true);
+    setLoadMoreError(false);
+    try {
+      const page = await getTenantActivity({
+        limit: FEED_PAGE_SIZE,
+        before_timestamp: lastItem.timestamp,
+        before_id: lastItem.id,
+      });
+      setExtraActivity((prev) => [...prev, ...page.items]);
+      setExtraHasMore(page.hasMore);
+      setIsLoadingMore(false);
+    } catch {
+      setLoadMoreError(true);
+      setIsLoadingMore(false);
+    }
+  };
 
   return (
     <Card className="border-none shadow-md col-span-1 lg:col-span-3">
@@ -117,8 +154,9 @@ function ActivityFeed() {
         ) : !activities?.length ? (
           <div className="text-center text-muted-foreground py-8">No recent activity.</div>
         ) : (
+          <>
           <div className="space-y-4">
-            {activities.slice(0, 5).map(activity => (
+            {activities.map(activity => (
               <div key={activity.id} className="flex items-start gap-4 text-sm">
                 <div className="w-2 h-2 mt-1.5 rounded-full bg-primary shrink-0" />
                 <div className="flex-1">
@@ -131,6 +169,25 @@ function ActivityFeed() {
               </div>
             ))}
           </div>
+          {loadMoreError && (
+            <p className="pt-4 text-xs text-destructive text-center" data-testid="text-feed-load-more-error">
+              Couldn't load more activity. Please try again.
+            </p>
+          )}
+          {hasMore && (
+            <div className="pt-4 flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoadingMore}
+                onClick={loadMore}
+                data-testid="button-feed-load-more"
+              >
+                {isLoadingMore ? 'Loading…' : loadMoreError ? 'Retry' : 'Load more'}
+              </Button>
+            </div>
+          )}
+          </>
         )}
       </CardContent>
     </Card>
