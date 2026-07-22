@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
   Activity, LayoutDashboard, Users, Zap, Radio, CreditCard, Cable, WifiOff, X,
-  Megaphone, Settings, BookOpenCheck,
+  Bot, Settings, BookOpenCheck,
 } from 'lucide-react';
 
 type NavItem = {
@@ -58,8 +58,9 @@ const SOS_NAV_ITEMS: NavItem[] = [
     icon: BookOpenCheck,
     aliases: ['/sos', '/sos/customers', '/sos/reports', '/sos/memberships'],
   },
-  // Live communications logs (AI calls + SMS); setup lives in Configuration.
-  { name: 'Marketing & Comms', path: '/sos/marketing', icon: Megaphone },
+  // Unified AI Receptionist view: settings, simulator, call logs, and SMS
+  // broadcast history in one place (replaces the old Marketing & Comms page).
+  { name: 'AI Receptionist', path: '/sos/ai-receptionist', icon: Bot, aliases: ['/sos/marketing'] },
 ];
 
 import { useOnlineStatus } from '@/hooks/use-online';

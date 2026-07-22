@@ -12,7 +12,7 @@ import {
   type SosSettingsUpdate,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'wouter';
+import { Link, useLocation, useParams } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -106,15 +106,23 @@ export default function Settings() {
     }
   }, [settings]);
 
+  const [, navigate] = useLocation();
+
   // Scroll to the section referenced by the URL hash (e.g. /settings#sms)
-  // once data has loaded and the sections exist in the DOM.
+  // once data has loaded and the sections exist in the DOM. The global AI
+  // Receptionist section moved to the unified AI Receptionist view, so old
+  // /settings#ai-receptionist deep links redirect there instead.
   useEffect(() => {
     if (isLoading) return;
     const hash = window.location.hash.replace('#', '');
     if (!hash) return;
+    if (hash === 'ai-receptionist' && !isTenantScoped) {
+      navigate('/sos/ai-receptionist', { replace: true });
+      return;
+    }
     const el = document.getElementById(hash);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [isLoading]);
+  }, [isLoading, isTenantScoped, navigate]);
 
   const saveSection = (
     sectionLabel: string,
@@ -154,18 +162,6 @@ export default function Settings() {
       updateGlobal.mutate({ data }, { onSuccess, onError });
     }
   };
-
-  // Cross-links into the live Marketing & Comms logs. When tenant-scoped,
-  // carry a `settings=` param so its "settings" shortcuts lead back here.
-  const settingsPath = isTenantScoped ? `/tenants/${tenantId}/settings` : '/settings';
-  const marketingLink = (tab: 'receptionist' | 'sms') =>
-    `/sos/marketing?tab=${tab}${isTenantScoped ? `&settings=${encodeURIComponent(settingsPath)}` : ''}`;
-
-  const parseServiceNames = (text: string): string[] =>
-    text
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
 
   if (isLoading) {
     return (
@@ -272,7 +268,11 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* ── AI Receptionist module ───────────────────────────────────── */}
+      {/* ── AI Receptionist module ───────────────────────────────────────
+          Global setup moved to the unified AI Receptionist view; this card
+          only remains for tenant-scoped settings, which that view doesn't
+          cover. */}
+      {isTenantScoped ? (
       <Card id="ai-receptionist" className="scroll-mt-6" data-testid="section-ai-receptionist">
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
@@ -323,7 +323,7 @@ export default function Settings() {
               className="text-muted-foreground -ml-2"
               data-testid="link-ai-call-logs"
             >
-              <Link href={marketingLink('receptionist')}>
+              <Link href="/sos/ai-receptionist">
                 <ExternalLink className="w-4 h-4 mr-2" /> View AI call logs
               </Link>
             </Button>
@@ -337,6 +337,7 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
 
       {/* ── SOS Operations module ────────────────────────────────────── */}
       <Card id="sos-operations" className="scroll-mt-6" data-testid="section-sos-operations">
@@ -571,7 +572,7 @@ export default function Settings() {
               className="text-muted-foreground -ml-2"
               data-testid="link-sms-history"
             >
-              <Link href={marketingLink('sms')}>
+              <Link href="/sos/ai-receptionist">
                 <ExternalLink className="w-4 h-4 mr-2" /> View SMS broadcast history
               </Link>
             </Button>

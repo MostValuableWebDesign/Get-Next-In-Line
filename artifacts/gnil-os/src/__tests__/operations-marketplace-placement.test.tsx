@@ -119,14 +119,14 @@ describe('Sidebar — service modules never become navigation tabs', () => {
 
     // Daily-workflow section stays limited to the known entries
     expect(screen.getByText('Business Bookings')).toBeInTheDocument();
-    expect(screen.getByText('Marketing & Comms')).toBeInTheDocument();
+    expect(screen.getByText('AI Receptionist')).toBeInTheDocument();
     expect(screen.getByText('Operations')).toBeInTheDocument();
   });
 });
 
 describe('Daily-workflow pages — no module marketplace leakage (source scan)', () => {
   const PAGES_DIR = path.resolve(__dirname, '../pages/sos');
-  const DAILY_WORKFLOW_PAGES = ['bookings.tsx', 'calendar.tsx', 'pos.tsx', 'marketing.tsx'];
+  const DAILY_WORKFLOW_PAGES = ['bookings.tsx', 'calendar.tsx', 'pos.tsx', 'ai-receptionist.tsx'];
   const FORBIDDEN_TOKENS = [
     ...OPERATIONS_MODULES,
     'ModuleGrid',

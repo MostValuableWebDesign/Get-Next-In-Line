@@ -1,120 +1,193 @@
-import React, { useState } from 'react';
-import { Link, useSearch } from 'wouter';
-import { 
+import React, { useEffect, useRef, useState } from 'react';
+import { Link } from 'wouter';
+import {
   useListSosCalls, useListSosMessages, useSimulateSosCall, useSendSosMessage,
-  useGetSosSettings, getGetSosSettingsQueryKey,
-  getListSosCallsQueryKey, getListSosMessagesQueryKey
+  useGetSosSettings, useUpdateSosSettings, getGetSosSettingsQueryKey,
+  getListSosCallsQueryKey, getListSosMessagesQueryKey,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Phone, MessageSquare, Bot, Play, Send, Settings2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Bot, MessageSquare, Phone, Play, Send } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog';
 
-/** Query-param values accepted for `?tab=` deep links. */
-const TAB_VALUES = ['receptionist', 'sms'] as const;
-type TabValue = (typeof TAB_VALUES)[number];
-
-export function MarketingPage() {
-  const searchString = useSearch();
-  // Deep links: /sos/marketing?tab=sms selects the SMS tab. An optional
-  // `settings=<path>` param lets the caller (e.g. a tenant-scoped
-  // Configuration page) control where the "settings" shortcuts lead back to.
-  const params = new URLSearchParams(searchString);
-  const rawTab = params.get('tab');
-  const initialTab: TabValue = TAB_VALUES.includes(rawTab as TabValue)
-    ? (rawTab as TabValue)
-    : 'receptionist';
-  const settingsParam = params.get('settings');
-  // Only allow in-app absolute paths, so the param can't point elsewhere.
-  const settingsBase =
-    settingsParam && settingsParam.startsWith('/') && !settingsParam.startsWith('//')
-      ? settingsParam
-      : '/settings';
-  const [tab, setTab] = useState<TabValue>(initialTab);
-
+/**
+ * Unified AI Receptionist view.
+ *
+ * One place for everything receptionist-related: configuration (enable
+ * toggle + service names), the inbound-call simulator, the live call log,
+ * and the SMS broadcast history with the manual-send control. Replaces the
+ * old split between the Configuration page (setup) and the Marketing &
+ * Comms page (live logs).
+ */
+export function AiReceptionistPage() {
   const { data: settings } = useGetSosSettings({
     query: { queryKey: getGetSosSettingsQueryKey() },
   });
 
+  const update = useUpdateSosSettings();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const [aiReceptionistEnabled, setAiReceptionistEnabled] = useState(false);
+  const [serviceNames, setServiceNames] = useState('');
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (settings && !initialized.current) {
+      setAiReceptionistEnabled(settings.aiReceptionistEnabled);
+      setServiceNames(settings.serviceNames || '');
+      initialized.current = true;
+    }
+  }, [settings]);
+
+  const save = (data: { aiReceptionistEnabled: boolean; serviceNames?: string }) => {
+    update.mutate(
+      { data },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetSosSettingsQueryKey() });
+          toast({ title: 'AI Receptionist settings saved' });
+        },
+        onError: () => {
+          toast({
+            title: "Couldn't save AI Receptionist settings",
+            description: 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
+  // Inline enable from the disabled-state banner — no cross-page hop.
+  const enableNow = () => {
+    setAiReceptionistEnabled(true);
+    save({ aiReceptionistEnabled: true });
+  };
+
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6 h-full flex flex-col">
+    <div className="p-8 max-w-6xl mx-auto space-y-6" data-testid="page-ai-receptionist">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Marketing &amp; Comms</h1>
+        <h1 className="text-3xl font-bold tracking-tight">AI Receptionist</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Live operations — AI Receptionist call logs and SMS broadcast history. Feature setup lives
-          in{' '}
-          <Link href={settingsBase} className="underline underline-offset-2 hover:text-foreground" data-testid="link-configuration">
-            Configuration
-          </Link>
-          .
+          Configure, test, and monitor the AI Receptionist — settings, call logs, and SMS
+          broadcasts, all in one place.
         </p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="w-[400px]">
-          <TabsTrigger value="receptionist" className="flex-1" data-testid="tab-receptionist"><Bot className="w-4 h-4 mr-2"/> AI Receptionist</TabsTrigger>
-          <TabsTrigger value="sms" className="flex-1" data-testid="tab-sms"><MessageSquare className="w-4 h-4 mr-2"/> SMS Broadcasts</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="receptionist" className="flex-1 flex flex-col min-h-0 mt-4 space-y-4">
-          {settings && !settings.aiReceptionistEnabled && (
-            <div
-              className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-400 shrink-0"
-              data-testid="banner-ai-disabled"
-            >
-              <span>The AI Receptionist is currently disabled — new calls won't be answered.</span>
-              <Button asChild variant="outline" size="sm" className="shrink-0">
-                <Link href={`${settingsBase}#ai-receptionist`}>Enable in Configuration</Link>
-              </Button>
-            </div>
-          )}
-          <div className="flex justify-between items-center shrink-0">
-            <h2 className="text-xl font-semibold">Call Logs</h2>
-            <div className="flex items-center gap-2">
-              <Button asChild variant="ghost" size="sm" className="text-muted-foreground" data-testid="link-ai-settings">
-                <Link href={`${settingsBase}#ai-receptionist`}>
-                  <Settings2 className="w-4 h-4 mr-2" /> AI Receptionist settings
-                </Link>
-              </Button>
-              <SimulateCallDialog />
-            </div>
-          </div>
-          <CallLogList />
-        </TabsContent>
+      {settings && !settings.aiReceptionistEnabled && (
+        <div
+          className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-400"
+          data-testid="banner-ai-disabled"
+        >
+          <span>The AI Receptionist is currently disabled — new calls won't be answered.</span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={enableNow}
+            disabled={update.isPending}
+            data-testid="button-enable-ai"
+          >
+            Enable now
+          </Button>
+        </div>
+      )}
 
-        <TabsContent value="sms" className="flex-1 flex flex-col min-h-0 mt-4 space-y-4">
-          {settings && settings.smsMode !== 'live' && (
-            <div
-              className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-400 shrink-0"
-              data-testid="banner-sms-simulated"
+      {/* ── Configuration ─────────────────────────────────────────────── */}
+      <Card id="ai-receptionist" className="scroll-mt-6" data-testid="section-ai-receptionist">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="w-5 h-5 text-primary" /> Configuration
+            </CardTitle>
+            <Badge
+              variant={settings?.aiReceptionistEnabled ? 'default' : 'secondary'}
+              data-testid="badge-ai-receptionist"
             >
-              <span>SMS is in simulated mode — messages are logged but not actually sent.</span>
-              <Button asChild variant="outline" size="sm" className="shrink-0">
-                <Link href={`${settingsBase}#sms`}>Go live in Configuration</Link>
-              </Button>
-            </div>
-          )}
-          <div className="flex justify-between items-center shrink-0">
-            <h2 className="text-xl font-semibold">Message History</h2>
-            <div className="flex items-center gap-2">
-              <Button asChild variant="ghost" size="sm" className="text-muted-foreground" data-testid="link-sms-settings">
-                <Link href={`${settingsBase}#sms`}>
-                  <Settings2 className="w-4 h-4 mr-2" /> SMS settings
-                </Link>
-              </Button>
-              <SendSmsDialog />
-            </div>
+              {settings?.aiReceptionistEnabled ? 'Enabled' : 'Disabled'}
+            </Badge>
           </div>
-          <MessageLogList />
-        </TabsContent>
-      </Tabs>
+          <CardDescription>Autonomous call handling for your business.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-0.5">
+              <Label className="text-base">AI Receptionist</Label>
+              <p className="text-sm text-muted-foreground">
+                Automatically answer calls, take messages, and book appointments.
+              </p>
+            </div>
+            <Switch
+              checked={aiReceptionistEnabled}
+              onCheckedChange={setAiReceptionistEnabled}
+              data-testid="switch-ai-receptionist"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label>Service Names</Label>
+            <Input
+              value={serviceNames}
+              onChange={(e) => setServiceNames(e.target.value)}
+              placeholder="e.g. haircut, color, blowout"
+              data-testid="input-service-names"
+            />
+            <p className="text-sm text-muted-foreground">
+              Comma-separated list of your services. The receptionist uses these to recognize
+              what callers are asking for.
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => save({ aiReceptionistEnabled, serviceNames })}
+              disabled={update.isPending}
+              data-testid="button-save-ai-receptionist"
+            >
+              Save AI Receptionist
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Call log ──────────────────────────────────────────────────── */}
+      <div className="space-y-4" data-testid="section-call-logs">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold">Call Logs</h2>
+          <SimulateCallDialog />
+        </div>
+        <CallLogList />
+      </div>
+
+      {/* ── SMS broadcast history ─────────────────────────────────────── */}
+      <div className="space-y-4" data-testid="section-sms-history">
+        {settings && settings.smsMode !== 'live' && (
+          <div
+            className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-400"
+            data-testid="banner-sms-simulated"
+          >
+            <span>SMS is in simulated mode — messages are logged but not actually sent.</span>
+            <Button asChild variant="outline" size="sm" className="shrink-0">
+              <Link href="/settings#sms">Go live in Configuration</Link>
+            </Button>
+          </div>
+        )}
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-primary" /> SMS Broadcast History
+          </h2>
+          <SendSmsDialog />
+        </div>
+        <MessageLogList />
+      </div>
     </div>
   );
 }
@@ -123,7 +196,7 @@ function CallLogList() {
   const { data: calls } = useListSosCalls();
 
   return (
-    <div className="flex-1 overflow-y-auto space-y-3">
+    <div className="space-y-3">
       {calls?.map(call => (
         <Card key={call.id} className="shadow-sm">
           <CardContent className="p-4 flex gap-4">
@@ -162,7 +235,7 @@ function SimulateCallDialog() {
   const [callerName, setName] = useState("Jane Doe");
   const [inquiry, setInquiry] = useState("I'd like to book an appointment for tomorrow at 2pm.");
   const [result, setResult] = useState<any>(null);
-  
+
   const simulate = useSimulateSosCall();
   const queryClient = useQueryClient();
 
@@ -255,7 +328,7 @@ function MessageLogList() {
   );
 
   return (
-    <div className="flex-1 overflow-y-auto border rounded-lg">
+    <div className="border rounded-lg overflow-x-auto">
       <table className="w-full text-sm text-left">
         <thead className="bg-muted/50 text-muted-foreground sticky top-0">
           <tr>
@@ -309,7 +382,7 @@ function SendSmsDialog() {
   const [open, setOpen] = useState(false);
   const [customerId, setCustomerId] = useState("1");
   const [body, setBody] = useState("");
-  
+
   const send = useSendSosMessage();
   const queryClient = useQueryClient();
   const { toast } = useToast();

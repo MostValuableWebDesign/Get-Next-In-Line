@@ -25,7 +25,7 @@ import { CalendarPage as SosCalendar } from "@/pages/sos/calendar";
 import { CustomersPage as SosCustomers } from "@/pages/sos/customers";
 import { PosPage as SosPos } from "@/pages/sos/pos";
 import { ReportsPage as SosReports } from "@/pages/sos/reports";
-import { MarketingPage as SosMarketing } from "@/pages/sos/marketing";
+import { AiReceptionistPage } from "@/pages/sos/ai-receptionist";
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
 import { MembershipsPage as SosMemberships } from "@/pages/sos/memberships";
 import Settings from "@/pages/Settings";
@@ -93,7 +93,13 @@ function ProtectedApp() {
         <Route path="/sos/reports" component={SosReports} />
         <Route path="/sos/bookings" component={SosBookings} />
         <Route path="/sos/memberships" component={SosMemberships} />
-        <Route path="/sos/marketing" component={SosMarketing} />
+        <Route path="/sos/ai-receptionist" component={AiReceptionistPage} />
+        {/* Old Marketing & Comms page — its receptionist and SMS tabs are now
+            part of the unified AI Receptionist view, so any ?tab= deep link
+            lands there too. */}
+        <Route path="/sos/marketing">
+          <Redirect to="/sos/ai-receptionist" replace />
+        </Route>
         {/* Old standalone SOS settings page — folded into the unified Configuration screen */}
         <Route path="/sos/settings">
           <Redirect to="/settings" replace />

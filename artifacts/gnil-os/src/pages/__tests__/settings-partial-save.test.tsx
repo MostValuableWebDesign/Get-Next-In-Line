@@ -59,9 +59,10 @@ describe('Settings per-section partial save', () => {
     renderSettings();
     expect(screen.getByText('Configuration')).toBeInTheDocument();
     expect(screen.getByTestId('section-profile')).toBeInTheDocument();
-    expect(screen.getByTestId('section-ai-receptionist')).toBeInTheDocument();
     expect(screen.getByTestId('section-sos-operations')).toBeInTheDocument();
     expect(screen.getByTestId('section-sms')).toBeInTheDocument();
+    // Global AI Receptionist setup moved to the unified AI Receptionist view.
+    expect(screen.queryByTestId('section-ai-receptionist')).not.toBeInTheDocument();
   });
 
   it('Save Profile sends only the business-profile fields', () => {
@@ -74,19 +75,6 @@ describe('Settings per-section partial save', () => {
       businessName: 'New Name',
       industryType: 'Clinic',
       resourceLabel: 'Room',
-    });
-  });
-
-  it('Save AI Receptionist sends only its own fields', () => {
-    renderSettings();
-    fireEvent.click(screen.getByTestId('switch-ai-receptionist'));
-    fireEvent.change(screen.getByTestId('input-service-names'), {
-      target: { value: 'haircut, color' },
-    });
-    fireEvent.click(screen.getByTestId('button-save-ai-receptionist'));
-    expect(lastPayload()).toEqual({
-      aiReceptionistEnabled: false,
-      serviceNames: 'haircut, color',
     });
   });
 
