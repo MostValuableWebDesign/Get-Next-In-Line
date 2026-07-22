@@ -1,0 +1,72 @@
+Fully Obfuscated Hidden Connectors
+Every single module listed below runs through a server-side proxy and API mapping architecture. When your tenants and clients use them inside Get Next In Line, all upstream vendor names, external domains, and third-party software markers are completely hidden under your white-label brand.
+
+Category 0.5: Marketing OS (GHL Bridge)
+Lead Pipelines & CRM Core (ghl_crm_pipelines):
+
+Hidden Connector: HighLevel CRM & Pipeline API v2 (Proxy Tunled via app.getnextinline.io/api/v1/crm)
+
+Unified Omnichannel Inbox (ghl_omnichannel_inbox):
+
+Hidden Connector: HighLevel Conversations & Twilio/Mailgun SMS/Email API Gateway (Obfuscated Omnichannel Router)
+
+High-Converting Funnel & Site Builder (ghl_funnel_builder):
+
+Hidden Connector: HighLevel Funnel Engine & Custom Domain SSL Proxy (Rendered natively via white-label iframe/DOM wrapper)
+
+AI Voice & SMS Nurture Bots (ghl_ai_automation):
+
+Hidden Connector: HighLevel Conversation AI & OpenAI GPT-4 Server-Side Agent Bridge
+
+Category 2: Partner Integrations (0% Markup)
+Commercial Liability & Workers Comp (the_hartford):
+
+Hidden Connector: The Hartford API Brokerage & Direct Underwriting Gateway
+
+Automated Retirement & 401(k) (vestwell):
+
+Hidden Connector: Vestwell Embedded API & Payroll Deduction Sync Engine
+
+Group Health Insurance Hub (simply_insured):
+
+Hidden Connector: SimplyInsured Brokerage API & Benefits Administration Proxy
+
+Integrated W-2 & Contractor Payroll (gusto):
+
+Hidden Connector: Gusto Embedded Payroll API & Tax Filing Engine
+
+General Ledger & Financial Sync (quickbooks):
+
+Hidden Connector: QuickBooks Online OAuth2 & Two-Way Accounting Reconciliation Bridge
+
+Category 3: White-Label Resale Engines
+High-Definition Live Stream Studio (qujam):
+
+Hidden Connector: Qujam WebRTC Broadcast API & Ultra-Low Latency Video Streaming Node
+
+Connected TV & OTT Ad Network (vibe_co):
+
+Hidden Connector: Vibe.co Programmatic CTV Ad Placement & Budget Routing API
+
+Omnichannel Retargeting & Display (adroll):
+
+Hidden Connector: AdRoll Programmatic Display & Social Retargeting API
+
+Programmatic Digital Audio Ads (audiogo):
+
+Hidden Connector: AudioGo Podcast & Streaming Music Ad Insertion Gateway
+
+AI Voice & Audio Script Synthesis (wondercraft_ai):
+
+Hidden Connector: Wondercraft AI Text-to-Speech Generation Pipeline
+
+Automated AI Video Ad Generator (creatify_ai):
+
+Hidden Connector: Creatify AI URL-to-Video Rendering Engine
+
+Unified Social Analytics & Scheduler (metricool):
+
+Hidden Connector: Metricool Multi-Channel Social Graph API & Automated Reporting Gateway
+
+
+Cold Cutters College
