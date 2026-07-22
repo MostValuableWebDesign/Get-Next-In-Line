@@ -21,15 +21,35 @@ const allowedOrigins = new Set<string>(
 
 // Production origins. Overridable via ALLOWED_ORIGINS (comma-separated full
 // origins, e.g. "https://www.getnextinline.com,https://getnextinline.com").
+// NOTE: setting ALLOWED_ORIGINS *replaces* these defaults. If it is set
+// without the getnextinline.com origins, marketing-site logins break with a
+// CORS error — warn loudly at startup so the misconfiguration isn't silent.
+const DEFAULT_PRODUCTION_ORIGINS = [
+  "https://www.getnextinline.com",
+  "https://getnextinline.com",
+];
 const extraOrigins = (
-  process.env.ALLOWED_ORIGINS ??
-  "https://www.getnextinline.com,https://getnextinline.com"
+  process.env.ALLOWED_ORIGINS ?? DEFAULT_PRODUCTION_ORIGINS.join(",")
 )
   .split(",")
   .map((o) => o.trim())
   .filter(Boolean);
 for (const origin of extraOrigins) {
   allowedOrigins.add(origin);
+}
+
+if (process.env.ALLOWED_ORIGINS) {
+  const missingDefaults = DEFAULT_PRODUCTION_ORIGINS.filter(
+    (o) => !allowedOrigins.has(o),
+  );
+  if (missingDefaults.length > 0) {
+    logger.warn(
+      { missingOrigins: missingDefaults },
+      `ALLOWED_ORIGINS is set but does not include the getnextinline.com defaults (${missingDefaults.join(
+        ", ",
+      )}). ALLOWED_ORIGINS *replaces* the built-in defaults, so logins from the marketing site will fail with a CORS error. Include these origins in ALLOWED_ORIGINS if that is not intended.`,
+    );
+  }
 }
 
 // Allow localhost variants in non-production for local development

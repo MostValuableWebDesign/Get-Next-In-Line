@@ -33,6 +33,14 @@ async function loadApp(): Promise<import("express").Express> {
   return (await import("../../app")).default;
 }
 
+async function loadLoggerWarnSpy() {
+  // Must be called after vi.resetModules() (i.e. right before loadApp's
+  // dynamic import re-evaluates app.ts) so the spy attaches to the same
+  // logger instance the freshly-loaded app module uses.
+  const { logger } = await import("../../lib/logger");
+  return vi.spyOn(logger, "warn");
+}
+
 describe("CORS allowlist for cross-site logins", () => {
   beforeEach(() => {
     delete process.env.REPLIT_DEV_DOMAIN;
@@ -113,5 +121,59 @@ describe("CORS allowlist for cross-site logins", () => {
     expect(
       resDefault.headers["access-control-allow-origin"],
     ).toBeUndefined();
+  });
+
+  it("warns loudly at startup when ALLOWED_ORIGINS omits the getnextinline.com origins", async () => {
+    process.env.ALLOWED_ORIGINS = "https://other.example.com";
+
+    vi.resetModules();
+    const warnSpy = await loadLoggerWarnSpy();
+    await import("../../app");
+
+    const warning = warnSpy.mock.calls.find(
+      (call) =>
+        typeof call[1] === "string" && call[1].includes("ALLOWED_ORIGINS"),
+    );
+    expect(warning).toBeDefined();
+    expect(warning![1]).toContain("getnextinline.com");
+    expect(warning![0]).toMatchObject({
+      missingOrigins: expect.arrayContaining([
+        "https://getnextinline.com",
+        "https://www.getnextinline.com",
+      ]),
+    });
+
+    warnSpy.mockRestore();
+  });
+
+  it("does not warn when ALLOWED_ORIGINS includes the getnextinline.com origins", async () => {
+    process.env.ALLOWED_ORIGINS =
+      "https://www.getnextinline.com,https://getnextinline.com,https://other.example.com";
+
+    vi.resetModules();
+    const warnSpy = await loadLoggerWarnSpy();
+    await import("../../app");
+
+    const warning = warnSpy.mock.calls.find(
+      (call) =>
+        typeof call[1] === "string" && call[1].includes("ALLOWED_ORIGINS"),
+    );
+    expect(warning).toBeUndefined();
+
+    warnSpy.mockRestore();
+  });
+
+  it("does not warn when ALLOWED_ORIGINS is unset", async () => {
+    vi.resetModules();
+    const warnSpy = await loadLoggerWarnSpy();
+    await import("../../app");
+
+    const warning = warnSpy.mock.calls.find(
+      (call) =>
+        typeof call[1] === "string" && call[1].includes("ALLOWED_ORIGINS"),
+    );
+    expect(warning).toBeUndefined();
+
+    warnSpy.mockRestore();
   });
 });
