@@ -19,6 +19,19 @@ const allowedOrigins = new Set<string>(
     .map((d) => `https://${d}`),
 );
 
+// Production origins. Overridable via ALLOWED_ORIGINS (comma-separated full
+// origins, e.g. "https://www.getnextinline.com,https://getnextinline.com").
+const extraOrigins = (
+  process.env.ALLOWED_ORIGINS ??
+  "https://www.getnextinline.com,https://getnextinline.com"
+)
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+for (const origin of extraOrigins) {
+  allowedOrigins.add(origin);
+}
+
 // Allow localhost variants in non-production for local development
 if (process.env.NODE_ENV !== "production") {
   allowedOrigins.add("http://localhost:3000");
