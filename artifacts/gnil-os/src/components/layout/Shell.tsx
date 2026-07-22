@@ -12,8 +12,8 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import {
-  Activity, LayoutDashboard, Users, CreditCard, WifiOff, X,
-  Settings, BookOpenCheck,
+  Activity, LayoutDashboard, WifiOff, X,
+  BookOpenCheck,
 } from 'lucide-react';
 
 type NavItem = {
@@ -25,8 +25,15 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { name: 'Command Center', path: '/', icon: LayoutDashboard },
-  { name: 'Tenant Dashboards', path: '/tenants', icon: Users },
+  // Command Center hub: Dashboard (/), plus the Tenants (/tenants),
+  // Billing (/billing), and Agency Settings (/settings) tabs — the old
+  // standalone sidebar entries were folded in as tabs.
+  {
+    name: 'Command Center',
+    path: '/',
+    icon: LayoutDashboard,
+    aliases: ['/tenants', '/billing', '/settings'],
+  },
   // Unified hub: Modules (/operations),
   // Marketing marketplace (/marketing, the old GNIL Bridge page),
   // and the merged Partners tab (/partners — grid + partner services).
@@ -41,9 +48,6 @@ const NAV_ITEMS: NavItem[] = [
       '/partners',
     ],
   },
-  { name: 'Billing', path: '/billing', icon: CreditCard },
-  // Connector Registry now lives inside Configuration (/settings#connectors)
-  { name: 'Configuration', path: '/settings', icon: Settings },
 ];
 
 const SOS_NAV_ITEMS: NavItem[] = [

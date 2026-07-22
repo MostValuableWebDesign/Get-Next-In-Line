@@ -11,10 +11,76 @@ import { StatCard } from '@/components/shared/StatCard';
 import { ActivityFeed } from '@/components/shared/ActivityFeed';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useRef, useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { OperationsPage as LiveOperations } from '@/pages/sos/operations';
+import Tenants from '@/pages/Tenants';
+import Billing from '@/pages/Billing';
+import Settings from '@/pages/Settings';
 
-export default function Dashboard() {
+/**
+ * Command Center hub.
+ *
+ * Tabbed agency-management hub: the Dashboard overview (plus Live
+ * Operations), the Tenants grid (/tenants), Billing (/billing), and Agency
+ * Settings — the Configuration page including the connector registry
+ * (/settings, /settings#connectors). Each tab keeps its own URL, so the old
+ * top-level URLs act as deep links to the matching tab and the active tab
+ * survives refresh/link-sharing. Only the active tab's content is mounted,
+ * so each tab's data fetching stays scoped to that tab.
+ */
+const TAB_ROUTES: Record<string, string> = {
+  dashboard: '/',
+  tenants: '/tenants',
+  billing: '/billing',
+  settings: '/settings',
+};
+
+function tabForLocation(location: string): string {
+  const match = Object.entries(TAB_ROUTES).find(
+    ([tab, path]) => tab !== 'dashboard' && location === path,
+  );
+  return match ? match[0] : 'dashboard';
+}
+
+export default function CommandCenter() {
+  const [location, setLocation] = useLocation();
+  const activeTab = tabForLocation(location);
+
+  return (
+    <div className="space-y-4" data-testid="command-center-hub">
+      <Tabs
+        value={activeTab}
+        onValueChange={(tab) => {
+          // Keep the URL in sync so refresh/back and deep links stay correct
+          setLocation(TAB_ROUTES[tab] ?? '/', { replace: true });
+        }}
+      >
+        <TabsList data-testid="command-center-tabs" className="flex-wrap h-auto">
+          <TabsTrigger value="dashboard" data-testid="tab-dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="tenants" data-testid="tab-tenants">Tenants</TabsTrigger>
+          <TabsTrigger value="billing" data-testid="tab-billing">Billing</TabsTrigger>
+          <TabsTrigger value="settings" data-testid="tab-agency-settings">Agency Settings</TabsTrigger>
+        </TabsList>
+        <TabsContent value="dashboard" className="mt-4">
+          <DashboardTab />
+        </TabsContent>
+        <TabsContent value="tenants" className="mt-4">
+          <Tenants />
+        </TabsContent>
+        <TabsContent value="billing" className="mt-4">
+          <Billing />
+        </TabsContent>
+        <TabsContent value="settings" className="mt-4">
+          <Settings />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function DashboardTab() {
   const { data: dashboard, isLoading: isLoadingDashboard } = useGetAgencyDashboard();
   const { data: settings, isLoading: isLoadingSettings } = useGetAgencySettings();
   

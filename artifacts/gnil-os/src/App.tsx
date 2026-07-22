@@ -5,18 +5,15 @@ import { Route, Switch, Router as WouterRouter, Redirect, useSearch } from "wout
 import { Shell } from "@/components/layout/Shell";
 import { useAuth } from "@/hooks/useAuth";
 
-import Dashboard from "@/pages/Dashboard";
-import Tenants from "@/pages/Tenants";
+import CommandCenter from "@/pages/Dashboard";
 import TenantDetail from "@/pages/TenantDetail";
 import OperationsHub from "@/pages/OperationsHub";
-import Billing from "@/pages/Billing";
 import ModuleConsole from "@/pages/ModuleConsole";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
-import Settings from "@/pages/Settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,8 +63,11 @@ function ProtectedApp() {
   return (
     <Shell>
       <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/tenants" component={Tenants} />
+        {/* Command Center hub — tabs for Dashboard (/), Tenants (/tenants),
+            Billing (/billing), and Agency Settings (/settings). Each tab
+            keeps its own URL so old links/bookmarks land on the right tab. */}
+        <Route path="/" component={CommandCenter} />
+        <Route path="/tenants" component={CommandCenter} />
         {/* Tenant Settings and AI Receptionist are now tabs inside Tenant
             Detail — old standalone URLs redirect to the matching tab. */}
         <Route path="/tenants/:id/settings">
@@ -91,7 +91,7 @@ function ProtectedApp() {
         {/* Unified Operations hub — Media tab (old Media & Assets page URL) */}
         <Route path="/media" component={OperationsHub} />
         <Route path="/modules/:id" component={ModuleConsole} />
-        <Route path="/billing" component={Billing} />
+        <Route path="/billing" component={CommandCenter} />
         {/* Connector Registry is folded into Configuration — old links land
             on its Connectors section. */}
         <Route path="/connectors">
@@ -102,9 +102,7 @@ function ProtectedApp() {
         <Route path="/admin/modules/:id">
           {(params) => <Redirect to={`/modules/${params.id}`} replace />}
         </Route>
-        <Route path="/settings">
-          <Settings />
-        </Route>
+        <Route path="/settings" component={CommandCenter} />
         {/* SOS Operations section — the old standalone SOS Dashboard is folded
             into Business Bookings (its KPI stats now render there) */}
         <Route path="/sos">
