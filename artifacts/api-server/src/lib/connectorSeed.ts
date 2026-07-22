@@ -18,8 +18,9 @@ interface ConnectorMappingEntry {
   wholesalePrice: string;
   /** Optional distinct bi-weekly wholesale rate (not monthly/2). */
   wholesalePriceBiweekly?: string;
-  upstreamVendor: string;
-  hiddenConnector: string;
+  /** Null for internal (GNIL-native) modules with no external upstream. */
+  upstreamVendor: string | null;
+  hiddenConnector: string | null;
   proxyNotes: string | null;
 }
 
@@ -71,6 +72,70 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     upstreamVendor: "HighLevel / OpenAI",
     hiddenConnector: "HighLevel Conversation AI & OpenAI GPT-4 Server-Side Agent Bridge",
     proxyNotes: "Server-side agent bridge",
+  },
+  // ── Category 1: Core Service Modules (Operations marketplace) ────────────
+  // Internal GNIL-native modules — no hidden upstream connector. They live in
+  // the "Core Operations" grid of the Operations hub, never in daily-workflow
+  // sidebar tabs. categorySlug MUST stay "operations".
+  {
+    slug: "complete_payroll_suite",
+    name: "Complete Payroll & Tax Suite",
+    category: "Core Service Modules",
+    categorySlug: "operations",
+    description:
+      "End-to-end multi-state tax filing, automated wage calculations, and direct deposit infrastructure.",
+    wholesalePrice: "149.00",
+    upstreamVendor: null,
+    hiddenConnector: null,
+    proxyNotes: null,
+  },
+  {
+    slug: "smart_booking",
+    name: "Smart Booking System",
+    category: "Core Service Modules",
+    categorySlug: "operations",
+    description:
+      "Intelligent customer scheduling engine with automated calendar sync and SMS reminders.",
+    wholesalePrice: "79.00",
+    upstreamVendor: null,
+    hiddenConnector: null,
+    proxyNotes: null,
+  },
+  {
+    slug: "no_show_shield",
+    name: "No-Show Shield & Deposits",
+    category: "Core Service Modules",
+    categorySlug: "operations",
+    description:
+      "Secure card-on-file authorization holding automated penalty deposits for missed appointments.",
+    wholesalePrice: "49.00",
+    upstreamVendor: null,
+    hiddenConnector: null,
+    proxyNotes: null,
+  },
+  {
+    slug: "commission_ledger",
+    name: "Commission & Split Tracker",
+    category: "Core Service Modules",
+    categorySlug: "operations",
+    description:
+      "Real-time complex staff commission splits, tiered bonuses, and performance ledgering.",
+    wholesalePrice: "69.00",
+    upstreamVendor: null,
+    hiddenConnector: null,
+    proxyNotes: null,
+  },
+  {
+    slug: "payroll_hub",
+    name: "Service Payroll Hub",
+    category: "Core Service Modules",
+    categorySlug: "operations",
+    description:
+      "Specialized hourly & tip reporting command center optimized for service-based businesses.",
+    wholesalePrice: "99.00",
+    upstreamVendor: null,
+    hiddenConnector: null,
+    proxyNotes: null,
   },
   // ── Category 2: Partner Integrations (0% Markup) ─────────────────────────
   {
@@ -234,6 +299,9 @@ export async function seedConnectorMapping(): Promise<void> {
         .set({
           slug: entry.slug,
           category: entry.category,
+          // Keep marketplace placement pinned — e.g. Core Service Modules
+          // must stay under "operations" (Core Operations grid).
+          categorySlug: entry.categorySlug,
           upstreamVendor: entry.upstreamVendor,
           hiddenConnector: entry.hiddenConnector,
           proxyNotes: entry.proxyNotes,
