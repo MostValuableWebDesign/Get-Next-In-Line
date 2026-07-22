@@ -81,6 +81,17 @@ router.get("/tenants/activity", async (req, res): Promise<void> => {
   }
   const { tenantId } = query.data;
 
+  if (tenantId !== undefined) {
+    const [tenant] = await db
+      .select({ id: tenantsTable.id })
+      .from(tenantsTable)
+      .where(eq(tenantsTable.id, tenantId));
+    if (!tenant) {
+      res.status(404).json({ error: "Tenant not found" });
+      return;
+    }
+  }
+
   const baseQuery = db
     .select({
       id: tenantActivitiesTable.id,

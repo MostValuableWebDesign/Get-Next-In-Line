@@ -64,15 +64,24 @@ vi.mock("@workspace/db", () => {
     };
   }
 
+  const existingTenantIds = new Set([1, 2]);
+
   const db = {
     select: () => ({
-      from: () => ({
+      from: (table: unknown) => ({
         leftJoin: () => ({
           orderBy: () => makeActivityQuery(),
         }),
         orderBy: () => Promise.resolve([]),
         limit: () => Promise.resolve([]),
-        where: () => Promise.resolve([]),
+        // route: tenant-existence check .where(eq(tenantsTable.id, tenantId))
+        where: (cond: { rhs?: unknown } | unknown) => {
+          if (table === tenantsTable) {
+            const id = (cond as { rhs: number }).rhs;
+            return Promise.resolve(existingTenantIds.has(id) ? [{ id }] : []);
+          }
+          return Promise.resolve([]);
+        },
       }),
     }),
   };
@@ -138,6 +147,13 @@ describe("GET /api/tenants/activity", () => {
       expect(item.tenantId).toBe(2);
       expect(item.tenantName).toBe(TENANT_NAMES[2]);
     }
+  });
+
+  it("with a tenantId that does not exist returns 404, not an empty list", async () => {
+    const agent = await loggedInAgent();
+    const res = await agent.get("/api/tenants/activity?tenantId=999");
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "Tenant not found" });
   });
 
   it("with a non-numeric tenantId returns 400", async () => {
