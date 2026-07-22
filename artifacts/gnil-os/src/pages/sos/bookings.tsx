@@ -9,7 +9,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +24,7 @@ import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
   Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
   Activity, ListOrdered, CheckCircle2, Phone, DollarSign,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
 /**
@@ -196,23 +197,10 @@ export function BookingsPage() {
         </TabsContent>
 
         <TabsContent value="calendar" className="mt-0">
-          <div className="grid lg:grid-cols-2 gap-6 items-start">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <CalIcon className="h-4 w-4 text-primary" /> Schedule
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoadingAppointments ? (
-                  <div className="space-y-2"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
-                ) : (appointments?.length ?? 0) === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">No upcoming appointments.</div>
-                ) : (
-                  appointments!.map(apt => <CalendarAppointmentRow key={apt.id} apt={apt} />)
-                )}
-              </CardContent>
-            </Card>
+          <div className="grid lg:grid-cols-3 gap-6 items-start">
+            <div className="lg:col-span-2">
+              <MonthCalendar appointments={appointments ?? []} isLoading={isLoadingAppointments} />
+            </div>
             <TicketsColumn isLoadingVisits={isLoadingVisits} openTickets={openTickets} inService={inService} />
           </div>
         </TabsContent>
@@ -438,20 +426,167 @@ function AppointmentLine({ apt, muted = false }: { apt: SosAppointment; muted?: 
   );
 }
 
-/** Calendar-view row — detailed schedule entry with source badge and cancellation (from the old Calendar page). */
-function CalendarAppointmentRow({ apt }: { apt: SosAppointment }) {
-  const [open, setOpen] = useState(false);
+/** Local date key (yyyy-mm-dd) — avoids UTC shifting from toISOString(). */
+function toDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const CALENDAR_STATUS_STYLES: Record<string, string> = {
+  booked: 'bg-primary/10 text-primary border-primary/20',
+  completed: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20',
+  cancelled: 'bg-muted text-muted-foreground border-transparent line-through',
+  no_show: 'bg-amber-500/10 text-amber-700 border-amber-500/20 line-through',
+};
+
+/** Month grid calendar — appointments on their days, click a day to book. */
+function MonthCalendar({ appointments, isLoading }: { appointments: SosAppointment[]; isLoading: boolean }) {
+  const today = new Date();
+  const [monthStart, setMonthStart] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const [bookDate, setBookDate] = useState<string | null>(null);
+  const [detailApt, setDetailApt] = useState<SosAppointment | null>(null);
+
+  const byDay = useMemo(() => {
+    const map = new Map<string, SosAppointment[]>();
+    for (const apt of appointments) {
+      const key = toDateKey(new Date(apt.startsAt));
+      const list = map.get(key) ?? [];
+      list.push(apt);
+      map.set(key, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+    }
+    return map;
+  }, [appointments]);
+
+  // 6 fixed weeks starting on the Sunday on/before the 1st — stable grid height.
+  const gridDays = useMemo(() => {
+    const first = new Date(monthStart);
+    first.setDate(1 - first.getDay());
+    return Array.from({ length: 42 }, (_, i) => {
+      const d = new Date(first);
+      d.setDate(first.getDate() + i);
+      return d;
+    });
+  }, [monthStart]);
+
+  const todayKey = toDateKey(today);
+  const monthLabel = monthStart.toLocaleDateString([], { month: 'long', year: 'numeric' });
+  const shiftMonth = (delta: number) =>
+    setMonthStart(m => new Date(m.getFullYear(), m.getMonth() + delta, 1));
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalIcon className="h-4 w-4 text-primary" />
+            <span data-testid="text-calendar-month">{monthLabel}</span>
+          </CardTitle>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-8 px-2" onClick={() => shiftMonth(-1)} data-testid="button-calendar-prev">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-3 text-xs"
+              onClick={() => setMonthStart(new Date(today.getFullYear(), today.getMonth(), 1))}
+              data-testid="button-calendar-today"
+            >
+              Today
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 px-2" onClick={() => shiftMonth(1)} data-testid="button-calendar-next">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-96 w-full" />
+        ) : (
+          <div data-testid="grid-month-calendar">
+            <div className="grid grid-cols-7 mb-1">
+              {WEEKDAY_LABELS.map(d => (
+                <div key={d} className="text-center text-[11px] uppercase font-bold text-muted-foreground py-1">{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 border-t border-l rounded-b-md overflow-hidden">
+              {gridDays.map(day => {
+                const key = toDateKey(day);
+                const inMonth = day.getMonth() === monthStart.getMonth();
+                const dayApts = byDay.get(key) ?? [];
+                return (
+                  <div
+                    key={key}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setBookDate(key)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBookDate(key); } }}
+                    className={`min-h-24 border-r border-b p-1 text-left align-top cursor-pointer transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${inMonth ? '' : 'bg-muted/40 text-muted-foreground'}`}
+                    data-testid={`cell-day-${key}`}
+                    aria-label={`Book appointment on ${day.toLocaleDateString([], { month: 'long', day: 'numeric', year: 'numeric' })}`}
+                  >
+                    <div className={`text-xs font-semibold mb-1 h-5 w-5 flex items-center justify-center rounded-full ${key === todayKey ? 'bg-primary text-primary-foreground' : ''}`}>
+                      {day.getDate()}
+                    </div>
+                    <div className="space-y-0.5">
+                      {dayApts.slice(0, 3).map(apt => (
+                        <button
+                          key={apt.id}
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setDetailApt(apt); }}
+                          className={`w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded border truncate block ${CALENDAR_STATUS_STYLES[apt.status] ?? CALENDAR_STATUS_STYLES.booked}`}
+                          data-testid={`chip-appointment-${apt.id}`}
+                          title={`${apt.customerName} — ${apt.serviceType}`}
+                        >
+                          {new Date(apt.startsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} {apt.customerName}
+                        </button>
+                      ))}
+                      {dayApts.length > 3 && (
+                        <div className="text-[10px] text-muted-foreground px-1">+{dayApts.length - 3} more</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+
+      {/* Book on the clicked day — shared dialog pre-filled with that date */}
+      <BookAppointmentDialog
+        open={bookDate !== null}
+        onOpenChange={o => { if (!o) setBookDate(null); }}
+        initialDate={bookDate ?? undefined}
+      />
+
+      {/* Appointment detail (with cancellation) for a clicked appointment */}
+      <AppointmentDetailDialog apt={detailApt} onClose={() => setDetailApt(null)} />
+    </Card>
+  );
+}
+
+/** Appointment detail dialog — source badge, times, and cancellation (from the old Calendar page rows). */
+function AppointmentDetailDialog({ apt, onClose }: { apt: SosAppointment | null; onClose: () => void }) {
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
   const cancel = useCancelSosAppointment();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const handleCancel = () => {
+    if (!apt) return;
     cancel.mutate(
       { id: apt.id },
       {
         onSuccess: (res: any) => {
           queryClient.invalidateQueries({ queryKey: getListSosAppointmentsQueryKey({}) });
-          setOpen(false);
+          setConfirmingCancel(false);
+          onClose();
           toast({
             title: 'Appointment Cancelled',
             description: `Slot broadcast to ${res.waitlistNotified} waitlisted clients via SMS (${res.messagesSent} messages sent).`,
@@ -468,53 +603,71 @@ function CalendarAppointmentRow({ apt }: { apt: SosAppointment }) {
     waitlist_fill: { icon: UserPlus, label: 'Waitlist Fill', color: 'bg-emerald-100 text-emerald-800' },
     self_book: { icon: CalIcon, label: 'Self Book', color: 'bg-gray-100 text-gray-800' },
   };
-  const source = sources[apt.source] || sources.staff;
+  const source = apt ? (sources[apt.source] || sources.staff) : sources.staff;
   const SourceIcon = source.icon;
 
-  const dStart = new Date(apt.startsAt);
-  const dEnd = new Date(apt.endsAt);
+  const dStart = apt ? new Date(apt.startsAt) : null;
+  const dEnd = apt ? new Date(apt.endsAt) : null;
 
   return (
-    <div className="flex items-center justify-between p-4 border rounded-lg hover:border-primary/30 transition-colors">
-      <div className="flex items-center gap-6">
-        <div className="flex flex-col text-center w-20 border-r pr-6">
-          <span className="text-xs uppercase font-bold text-muted-foreground">{dStart.toLocaleDateString([], { weekday: 'short' })}</span>
-          <span className="text-2xl font-bold">{dStart.getDate()}</span>
-          <span className="text-xs text-muted-foreground">{dStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-        </div>
-        <div>
-          <div className="font-semibold text-lg">{apt.customerName}</div>
-          <div className="text-sm text-muted-foreground">{apt.serviceType} • {dStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {dEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-          <div className="mt-2 flex items-center gap-2">
-            <Badge variant="secondary" className={`${source.color} border-transparent text-[10px]`}>
-              <SourceIcon className="w-3 h-3 mr-1" /> {source.label}
-            </Badge>
-            <Badge variant="outline" className="text-[10px]">{apt.status}</Badge>
-          </div>
-        </div>
-      </div>
-
-      {apt.status === 'booked' && (
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive">
-              <X className="w-4 h-4 mr-2" /> Cancel
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
+    <Dialog
+      open={apt !== null}
+      onOpenChange={o => { if (!o) { setConfirmingCancel(false); onClose(); } }}
+    >
+      <DialogContent data-testid="dialog-appointment-detail">
+        {apt && dStart && dEnd && (
+          <>
             <DialogHeader>
-              <DialogTitle>Cancel Appointment?</DialogTitle>
+              <DialogTitle>{apt.customerName}</DialogTitle>
               <DialogDescription>
-                If there are matching clients on the waitlist, the AI will automatically broadcast this open slot to them via SMS.
+                {apt.serviceType} • {dStart.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })},{' '}
+                {dStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {dEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </DialogDescription>
             </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>Keep Appointment</Button>
-              <Button variant="destructive" onClick={handleCancel}>Confirm Cancellation</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className={`${source.color} border-transparent text-[10px]`}>
+                <SourceIcon className="w-3 h-3 mr-1" /> {source.label}
+              </Badge>
+              <Badge variant="outline" className="text-[10px] capitalize">
+                {apt.status === 'no_show' ? 'no-show' : apt.status}
+              </Badge>
+              {apt.deposit && <DepositBadge deposit={apt.deposit} />}
+            </div>
+            {confirmingCancel ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  If there are matching clients on the waitlist, the AI will automatically broadcast this open slot to them via SMS.
+                </p>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setConfirmingCancel(false)}>Keep Appointment</Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleCancel}
+                    disabled={cancel.isPending}
+                    data-testid="button-confirm-cancel-appointment"
+                  >
+                    Confirm Cancellation
+                  </Button>
+                </DialogFooter>
+              </>
+            ) : (
+              <DialogFooter>
+                <Button variant="outline" onClick={onClose}>Close</Button>
+                {apt.status === 'booked' && (
+                  <Button
+                    variant="ghost"
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => setConfirmingCancel(true)}
+                    data-testid="button-cancel-appointment"
+                  >
+                    <X className="w-4 h-4 mr-2" /> Cancel Appointment
+                  </Button>
+                )}
+              </DialogFooter>
+            )}
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

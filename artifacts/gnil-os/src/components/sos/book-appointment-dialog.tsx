@@ -17,8 +17,26 @@ import { Plus } from 'lucide-react';
  * (Business Bookings list and calendar views). One set of fields and
  * one save flow so behavior can't drift between pages.
  */
-export function BookAppointmentDialog({ triggerLabel = 'Book Appointment' }: { triggerLabel?: string }) {
-  const [open, setOpen] = useState(false);
+export function BookAppointmentDialog({
+  triggerLabel = 'Book Appointment',
+  open: openProp,
+  onOpenChange,
+  initialDate,
+}: {
+  triggerLabel?: string;
+  /** Controlled open state — when provided, the built-in trigger button is hidden. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Pre-fills the date field (yyyy-mm-dd) each time the dialog opens. */
+  initialDate?: string;
+}) {
+  const isControlled = openProp !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
   const [customer, setCustomer] = useState<SosCustomer | null>(null);
   const [serviceType, setServiceType] = useState('');
   const [date, setDate] = useState('');
@@ -27,6 +45,13 @@ export function BookAppointmentDialog({ triggerLabel = 'Book Appointment' }: { t
   const create = useCreateSosAppointment();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Pre-fill the date whenever the dialog opens with an initialDate (e.g.
+  // from clicking a day on the calendar grid).
+  React.useEffect(() => {
+    if (open && initialDate) setDate(initialDate);
+  }, [open, initialDate]);
+
 
   const handleSave = () => {
     if (!customer) return;
@@ -51,11 +76,13 @@ export function BookAppointmentDialog({ triggerLabel = 'Book Appointment' }: { t
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button data-testid="button-book-appointment">
-          <Plus className="mr-2 h-4 w-4" /> {triggerLabel}
-        </Button>
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button data-testid="button-book-appointment">
+            <Plus className="mr-2 h-4 w-4" /> {triggerLabel}
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Book Appointment</DialogTitle>
