@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getTenantActivity, type TenantActivity } from '@workspace/api-client-react';
-import { Link, useParams } from 'wouter';
+import { Link, useParams, useSearch } from 'wouter';
 import {
   useGetTenant,
   useGetTenantModules,
@@ -15,17 +15,37 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { ActivityFeed } from '@/components/shared/ActivityFeed';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RulesTab, ClientsTab, MessageLogTab } from '@/components/concierge-tabs';
 import { formatCurrency } from '@/lib/format';
 import {
-  Activity, ArrowLeft, Bot, Building2, CalendarClock, DollarSign, Mail, Package, Settings, User,
+  Activity, ArrowLeft, Bot, Building2, CalendarClock, DollarSign, LayoutDashboard, Mail, Package,
+  ScrollText, Settings, User, Users,
 } from 'lucide-react';
 
 const ACTIVITY_PAGE_SIZE = 20;
+
+const TAB_VALUES = ['overview', 'rules', 'clients', 'log'] as const;
+type TabValue = (typeof TAB_VALUES)[number];
 
 export default function TenantDetail() {
   const params = useParams<{ id: string }>();
   const tenantId = Number(params.id);
   const validId = Number.isInteger(tenantId);
+
+  // The active tab is driven by the ?tab= query param so deep links (e.g.
+  // the old /tenants/:id/concierge redirect) land on the right tab.
+  const search = useSearch();
+  const requestedTab = new URLSearchParams(search).get('tab');
+  const initialTab: TabValue = TAB_VALUES.includes(requestedTab as TabValue)
+    ? (requestedTab as TabValue)
+    : 'overview';
+  const [tab, setTab] = useState<TabValue>(initialTab);
+  useEffect(() => {
+    setTab(initialTab);
+    // Re-sync only when the URL-requested tab or tenant changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTab, tenantId]);
 
   const { data: tenant, isLoading: isLoadingTenant, error } = useGetTenant(tenantId, {
     query: { queryKey: getGetTenantQueryKey(tenantId), enabled: validId },
@@ -144,11 +164,6 @@ export default function TenantDetail() {
             </div>
           </div>
           <div className="flex items-center gap-4 self-stretch md:self-auto justify-end">
-          <Button asChild variant="outline" className="gap-2" data-testid="link-tenant-concierge">
-            <Link href={`/tenants/${tenantId}/concierge`}>
-              <Bot className="w-4 h-4" /> Concierge
-            </Link>
-          </Button>
           <Button asChild variant="outline" className="gap-2" data-testid="link-tenant-settings">
             <Link href={`/tenants/${tenantId}/settings`}>
               <Settings className="w-4 h-4" /> Configuration
@@ -167,6 +182,23 @@ export default function TenantDetail() {
         </CardContent>
       </Card>
 
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
+        <TabsList data-testid="tabs-tenant-detail">
+          <TabsTrigger value="overview" data-testid="tab-overview">
+            <LayoutDashboard className="w-4 h-4 mr-1.5" /> Overview
+          </TabsTrigger>
+          <TabsTrigger value="rules" data-testid="tab-rules">
+            <Bot className="w-4 h-4 mr-1.5" /> Engagement Rules
+          </TabsTrigger>
+          <TabsTrigger value="clients" data-testid="tab-clients">
+            <Users className="w-4 h-4 mr-1.5" /> Client Profiles
+          </TabsTrigger>
+          <TabsTrigger value="log" data-testid="tab-log">
+            <ScrollText className="w-4 h-4 mr-1.5" /> Message Log
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-4 space-y-6">
       {/* Contact & Meta */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-none shadow-md">
@@ -284,6 +316,18 @@ export default function TenantDetail() {
           </CardContent>
         </Card>
       </div>
+        </TabsContent>
+
+        <TabsContent value="rules" className="mt-4">
+          <RulesTab tenantId={tenantId} />
+        </TabsContent>
+        <TabsContent value="clients" className="mt-4">
+          <ClientsTab tenantId={tenantId} />
+        </TabsContent>
+        <TabsContent value="log" className="mt-4">
+          <MessageLogTab tenantId={tenantId} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

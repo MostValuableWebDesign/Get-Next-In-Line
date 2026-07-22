@@ -31,6 +31,8 @@ vi.mock('@workspace/api-client-react', () => ({
   useGetTenantSettings: () => ({ data: undefined, isLoading: false }),
   getGetTenantSettingsQueryKey: (id: number) => ['/api/tenants', id, 'settings'],
   useUpdateTenantSettings: () => ({ mutate: vi.fn(), isPending: false }),
+  // Connector Registry section (folded into Configuration) — empty registry.
+  useGetConnectorRegistry: () => ({ data: [], isLoading: false }),
 }));
 
 import Settings from '../Settings';

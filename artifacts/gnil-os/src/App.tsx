@@ -8,12 +8,10 @@ import { useAuth } from "@/hooks/useAuth";
 import Dashboard from "@/pages/Dashboard";
 import Tenants from "@/pages/Tenants";
 import TenantDetail from "@/pages/TenantDetail";
-import Concierge from "@/pages/Concierge";
 import OperationsHub from "@/pages/OperationsHub";
 import Media from "@/pages/Media";
 import Billing from "@/pages/Billing";
 import ModuleConsole from "@/pages/ModuleConsole";
-import ConnectorRegistry from "@/pages/ConnectorRegistry";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
@@ -68,7 +66,11 @@ function ProtectedApp() {
             home for that tenant's receptionist settings. */}
         <Route path="/tenants/:id/ai-receptionist" component={AiReceptionistPage} />
         <Route path="/tenants/:id" component={TenantDetail} />
-        <Route path="/tenants/:id/concierge" component={Concierge} />
+        {/* Concierge is folded into Tenant Detail as tabs — old deep links
+            land on the Engagement Rules tab. */}
+        <Route path="/tenants/:id/concierge">
+          {(params) => <Redirect to={`/tenants/${params.id}?tab=rules`} replace />}
+        </Route>
         {/* Unified Operations hub — Marketing tab (old GNIL Bridge URL) */}
         <Route path="/marketing" component={OperationsHub} />
         {/* Unified Operations hub — Modules tab */}
@@ -78,7 +80,11 @@ function ProtectedApp() {
         <Route path="/media" component={Media} />
         <Route path="/modules/:id" component={ModuleConsole} />
         <Route path="/billing" component={Billing} />
-        <Route path="/connectors" component={ConnectorRegistry} />
+        {/* Connector Registry is folded into Configuration — old links land
+            on its Connectors section. */}
+        <Route path="/connectors">
+          <Redirect to="/settings#connectors" replace />
+        </Route>
         {/* /modules/:id is the canonical Module Console route — the old admin
             path redirects so bookmarks and stale links keep working. */}
         <Route path="/admin/modules/:id">

@@ -12,7 +12,12 @@ import { ShieldAlert, Cable, Pencil, PanelsTopLeft } from 'lucide-react';
 
 const CATEGORY_ORDER = ['marketing', 'operations', 'partners', 'media'];
 
-export default function ConnectorRegistry() {
+/**
+ * Connector Registry, rendered as a section of the Configuration page
+ * (/settings#connectors). The former standalone /connectors route
+ * redirects there.
+ */
+export function ConnectorRegistrySection() {
   const { data: entries, isLoading } = useGetConnectorRegistry();
   const [editing, setEditing] = useState<ConnectorRegistryEntry | null>(null);
 
@@ -39,10 +44,10 @@ export default function ConnectorRegistry() {
     <div className="space-y-8" data-testid="page-connector-registry">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Cable className="size-6 text-primary" />
             Connector Registry
-          </h1>
+          </h2>
           <p className="text-muted-foreground mt-1 max-w-2xl">
             The full white-label proxy map — every module and the upstream vendor connector it
             runs through. Tenants and clients never see any of this.

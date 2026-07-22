@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Activity, ArrowLeft, Bot, Building2, ExternalLink, MessageSquare, ShieldCheck } from 'lucide-react';
+import { ConnectorRegistrySection } from '@/pages/ConnectorRegistry';
 
 /**
  * Unified configuration screen.
@@ -559,6 +560,15 @@ export default function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Connector Registry (admin-only, global config only) ─────────
+          Folded in from the former standalone /connectors page; deep links
+          land here via /settings#connectors. */}
+      {!isTenantScoped && (
+        <div id="connectors" className="scroll-mt-6 pt-4" data-testid="section-connectors">
+          <ConnectorRegistrySection />
+        </div>
+      )}
     </div>
   );
 }

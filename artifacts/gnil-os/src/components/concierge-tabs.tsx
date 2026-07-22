@@ -1,9 +1,6 @@
-import React, { useState } from 'react';
-import { Link, useParams } from 'wouter';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  useGetTenant,
-  getGetTenantQueryKey,
   useListEngagementRules,
   getListEngagementRulesQueryKey,
   useCreateEngagementRule,
@@ -27,7 +24,6 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -39,7 +35,7 @@ import {
 } from '@/components/ui/table';
 import { MessageHistoryTable } from '@/components/message-history';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Bot, Pencil, Plus, Trash2, Users, ScrollText } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 
 const RULE_TYPES = [
   { value: 'reminder', label: 'Appointment Reminder' },
@@ -51,81 +47,13 @@ const RULE_TYPE_LABEL: Record<string, string> = Object.fromEntries(
   RULE_TYPES.map((r) => [r.value, r.label]),
 );
 
-/**
- * Tenant-scoped Concierge management screen: engagement rule editing,
+/*
+ * Concierge management tabs, hosted on the Tenant Detail page
+ * (/tenants/:id?tab=rules|clients|log): engagement rule editing,
  * client-profile CRUD, and the message dispatch log with status and
- * error reasons.
+ * error reasons. The former standalone /tenants/:id/concierge route
+ * redirects there.
  */
-export default function Concierge() {
-  const params = useParams<{ id: string }>();
-  const tenantId = Number(params.id);
-  const validId = Number.isInteger(tenantId);
-
-  const { data: tenant, isLoading: isLoadingTenant, error } = useGetTenant(tenantId, {
-    query: { queryKey: getGetTenantQueryKey(tenantId), enabled: validId },
-  });
-
-  if (isLoadingTenant) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-40" />
-        <Skeleton className="h-[400px] w-full rounded-xl" />
-      </div>
-    );
-  }
-
-  if (!validId || error || !tenant) {
-    return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold tracking-tight">Tenant not found</h1>
-        <p className="text-muted-foreground">This tenant does not exist or is no longer available.</p>
-        <Button asChild variant="outline">
-          <Link href="/tenants">Back to Tenant Operations</Link>
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6" data-testid="page-concierge">
-      <Button asChild variant="ghost" size="sm" className="gap-2 -ml-2 text-muted-foreground" data-testid="link-back-tenant">
-        <Link href={`/tenants/${tenantId}`}>
-          <ArrowLeft className="w-4 h-4" /> Back to {tenant.brandName}
-        </Link>
-      </Button>
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Concierge</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Engagement rules, client profiles, and the automated message log for{' '}
-          <span className="font-medium">{tenant.brandName}</span>.
-        </p>
-      </div>
-
-      <Tabs defaultValue="rules">
-        <TabsList data-testid="tabs-concierge">
-          <TabsTrigger value="rules" data-testid="tab-rules">
-            <Bot className="w-4 h-4 mr-1.5" /> Engagement Rules
-          </TabsTrigger>
-          <TabsTrigger value="clients" data-testid="tab-clients">
-            <Users className="w-4 h-4 mr-1.5" /> Client Profiles
-          </TabsTrigger>
-          <TabsTrigger value="log" data-testid="tab-log">
-            <ScrollText className="w-4 h-4 mr-1.5" /> Message Log
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="rules" className="mt-4">
-          <RulesTab tenantId={tenantId} />
-        </TabsContent>
-        <TabsContent value="clients" className="mt-4">
-          <ClientsTab tenantId={tenantId} />
-        </TabsContent>
-        <TabsContent value="log" className="mt-4">
-          <MessageLogTab tenantId={tenantId} />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
 
 // ── Engagement rules ──────────────────────────────────────────────────────────
 
@@ -158,7 +86,7 @@ function defaultConfigFor(ruleType: string): string {
   }
 }
 
-function RulesTab({ tenantId }: { tenantId: number }) {
+export function RulesTab({ tenantId }: { tenantId: number }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: rules, isLoading } = useListEngagementRules(tenantId, {
@@ -383,7 +311,7 @@ const EMPTY_PROFILE: ProfileFormState = {
   smsOptIn: true,
 };
 
-function ClientsTab({ tenantId }: { tenantId: number }) {
+export function ClientsTab({ tenantId }: { tenantId: number }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: profiles, isLoading } = useListClientProfiles(tenantId, {
@@ -592,7 +520,7 @@ function ClientsTab({ tenantId }: { tenantId: number }) {
 
 // ── Message dispatch log ──────────────────────────────────────────────────────
 
-function MessageLogTab({ tenantId }: { tenantId: number }) {
+export function MessageLogTab({ tenantId }: { tenantId: number }) {
   const { data: logs, isLoading } = useListConciergeMessageLogs(tenantId, {
     query: { queryKey: getListConciergeMessageLogsQueryKey(tenantId) },
   });

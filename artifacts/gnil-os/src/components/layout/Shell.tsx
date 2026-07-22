@@ -12,7 +12,7 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import {
-  Activity, LayoutDashboard, Users, Radio, CreditCard, Cable, WifiOff, X,
+  Activity, LayoutDashboard, Users, Radio, CreditCard, WifiOff, X,
   Bot, Settings, BookOpenCheck,
 } from 'lucide-react';
 
@@ -43,7 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   { name: 'Media & Assets', path: '/media', icon: Radio },
   { name: 'Billing', path: '/billing', icon: CreditCard },
-  { name: 'Connector Registry', path: '/connectors', icon: Cable },
+  // Connector Registry now lives inside Configuration (/settings#connectors)
   { name: 'Configuration', path: '/settings', icon: Settings },
 ];
 

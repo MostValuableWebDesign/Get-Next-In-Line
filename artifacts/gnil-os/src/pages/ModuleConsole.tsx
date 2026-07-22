@@ -93,7 +93,7 @@ export default function ModuleConsole() {
         <h1 className="text-2xl font-bold tracking-tight">Module not found</h1>
         <p className="text-muted-foreground">This module does not exist or is no longer available.</p>
         <Button asChild variant="outline">
-          <Link href={isAdminRoute ? '/connectors' : '/'}>
+          <Link href={isAdminRoute ? '/settings#connectors' : '/'}>
             {isAdminRoute ? 'Back to Connector Registry' : 'Back to Command Center'}
           </Link>
         </Button>
@@ -106,7 +106,7 @@ export default function ModuleConsole() {
   const markupPercent = settings?.markupPercent ?? priceInfo?.markupPercent ?? 0;
   const activeTenants = tenantCounts?.find((c) => c.moduleId === module.id)?.activeTenantCount ?? 0;
   const backRoute = isAdminRoute
-    ? { path: '/connectors', label: 'Connector Registry' }
+    ? { path: '/settings#connectors', label: 'Connector Registry' }
     : CATEGORY_ROUTES[module.categorySlug] ?? { path: '/', label: 'Command Center' };
 
   return (
