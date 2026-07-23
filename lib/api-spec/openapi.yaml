@@ -2519,7 +2519,7 @@ components:
 
     Module:
       type: object
-      required: [id, name, category, categorySlug, description, wholesalePrice, isActive]
+      required: [id, name, category, categorySlug, description, wholesalePrice, isActive, partnerBrand]
       properties:
         id:
           type: integer
@@ -2535,6 +2535,11 @@ components:
           type: number
         isActive:
           type: boolean
+        partnerBrand:
+          # Customer-facing partner brand — only set for partner-category
+          # modules (narrow exception to the white-label contract). Null for
+          # all white-labeled modules.
+          type: ["string", "null"]
 
     ConnectorRegistryEntry:
       type: object

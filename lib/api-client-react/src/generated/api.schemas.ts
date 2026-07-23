@@ -1058,6 +1058,8 @@ export interface Module {
   description: string;
   wholesalePrice: number;
   isActive: boolean;
+  /** @nullable */
+  partnerBrand: string | null;
 }
 
 export interface ConnectorRegistryEntry {

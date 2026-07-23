@@ -110,17 +110,23 @@ describe('Billing checkout simulation', () => {
     modulesState = { data: moduleList, isLoading: false };
   });
 
-  it('shows retail price + margin for every row, including partner modules', () => {
+  it('shows partner-billed rows without cost figures, and retail price + margin for the rest', () => {
     renderBilling();
 
+    expect(screen.getByTestId('pricing-partner-3')).toHaveTextContent('Partner billed');
     // Non-partner rows show retail price + profit margin (formatCurrency rounds to 0 digits)
     expect(screen.getByText('$224')).toBeInTheDocument();
     expect(screen.getByTestId('pricing-margin-1')).toHaveTextContent('+$75 (33%)');
-    // Partner rows show the same columns (0-cost pass-through → $0 / +$0)
-    expect(screen.getByTestId('pricing-margin-3')).toHaveTextContent('+$0');
-    expect(screen.queryByTestId('pricing-partner-3')).not.toBeInTheDocument();
-    // Wholesale columns never render on the matrix
-    expect(document.body.textContent).not.toMatch(/[Ww]holesale/);
+    // Wholesale columns and pass-through wording never render
+    expect(document.body.textContent).not.toMatch(/Pass-through|0% markup|[Ww]holesale/);
+  });
+
+  it('keeps the loading skeleton until the module list resolves so partner rows never flash costs', () => {
+    modulesState = { data: undefined, isLoading: true };
+    renderBilling();
+
+    expect(screen.queryByText('Module Pricing Matrix')).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/\$\d/);
   });
 
   it('renders the pricing matrix and MRR summary', () => {

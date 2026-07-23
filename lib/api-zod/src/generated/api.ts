@@ -224,7 +224,8 @@ export const ListModulesResponseItem = zod.object({
   "categorySlug": zod.string(),
   "description": zod.string(),
   "wholesalePrice": zod.number(),
-  "isActive": zod.boolean()
+  "isActive": zod.boolean(),
+  "partnerBrand": zod.string().nullable()
 })
 export const ListModulesResponse = zod.array(ListModulesResponseItem)
 

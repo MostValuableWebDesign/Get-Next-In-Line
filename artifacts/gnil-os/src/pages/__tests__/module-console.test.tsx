@@ -171,12 +171,12 @@ describe('ModuleConsole', () => {
     expect(screen.queryByTestId('badge-partner-direct')).not.toBeInTheDocument();
   });
 
-  it('shows the Partner Direct (0% Markup) badge and pass-through margin for partner modules', () => {
+  it('shows Partner Direct badge instead of a price for partner modules', () => {
     renderConsole('/modules/2');
 
     expect(screen.getByTestId('text-module-name')).toHaveTextContent('Group Health Insurance Hub');
-    expect(screen.getByTestId('badge-partner-direct')).toHaveTextContent('Partner Direct (0% Markup)');
-    expect(screen.getByTestId('text-markup-percent')).toHaveTextContent('Pass-through · 0% markup');
+    expect(screen.getByTestId('badge-partner-direct')).toHaveTextContent('Partner Direct');
+    expect(screen.queryByText(/0% Markup|Pass-through/)).not.toBeInTheDocument();
     expect(screen.queryByTestId('text-resale-price')).not.toBeInTheDocument();
     expect(screen.queryByTestId('button-provision-module')).not.toBeInTheDocument();
   });

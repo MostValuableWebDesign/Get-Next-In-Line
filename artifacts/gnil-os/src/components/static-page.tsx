@@ -3,6 +3,7 @@ import { useListModules } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckoutSimulationDialog } from '@/components/checkout/CheckoutSimulationDialog';
+import { Badge } from '@/components/ui/badge';
 import { Zap } from 'lucide-react';
 
 interface StaticPageProps {
@@ -17,9 +18,14 @@ interface StaticPageProps {
    * to that module.
    */
   moduleName: string;
+  /**
+   * When provided, shows an Available / Coming Soon badge driven by the
+   * backing module's active state.
+   */
+  available?: boolean;
 }
 
-export function StaticPlaceholderPage({ title, description, partner, features, moduleName }: StaticPageProps) {
+export function StaticPlaceholderPage({ title, description, partner, features, moduleName, available }: StaticPageProps) {
   const { data: modules, isLoading } = useListModules();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
 
@@ -32,6 +38,15 @@ export function StaticPlaceholderPage({ title, description, partner, features, m
           <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4 text-primary">
             <Zap className="h-6 w-6" />
           </div>
+          {available !== undefined && (
+            <Badge
+              variant={available ? 'default' : 'secondary'}
+              className="mx-auto uppercase text-[10px] tracking-wider mb-2"
+              data-testid={`badge-availability-${partner.toLowerCase().replace(/\s+/g, '-')}`}
+            >
+              {available ? 'Available' : 'Coming Soon'}
+            </Badge>
+          )}
           <CardTitle className="text-3xl font-bold tracking-tight">{title}</CardTitle>
           <CardDescription className="text-lg mt-2">
             Powered by <span className="font-semibold text-foreground">{partner}</span>

@@ -26,6 +26,10 @@ router.get("/modules", async (_req, res): Promise<void> => {
         description: m.description,
         isActive: m.isActive,
         wholesalePrice: parseFloat(m.wholesalePrice),
+        // Customer-facing partner brand — exposed ONLY for the partners
+        // category (narrow exception to the white-label contract). All
+        // other categories stay fully white-labeled.
+        partnerBrand: m.categorySlug === "partners" ? m.partnerBrand : null,
       }))
     )
   );
