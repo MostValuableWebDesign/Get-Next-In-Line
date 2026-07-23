@@ -14,6 +14,7 @@ import {
   UpdateAgencySettingsBody,
   UpdateAgencySettingsResponse,
 } from "@workspace/api-zod";
+import { effectiveMarkupPercent } from "../lib/pricing";
 
 const router: IRouter = Router();
 
@@ -32,7 +33,7 @@ router.get("/agency/dashboard", async (req, res): Promise<void> => {
   // Revenue by category (apply markup to wholesale prices, proportioned by tenant count)
   const categoryMap: Record<string, number> = {};
   for (const mod of modules) {
-    const resale = parseFloat(mod.wholesalePrice) * (1 + markup / 100);
+    const resale = parseFloat(mod.wholesalePrice) * (1 + effectiveMarkupPercent(mod, markup) / 100);
     categoryMap[mod.category] = (categoryMap[mod.category] ?? 0) + resale;
   }
   const revenueByCategory = Object.entries(categoryMap).map(([category, mrr]) => ({
@@ -63,7 +64,7 @@ router.get("/agency/dashboard", async (req, res): Promise<void> => {
       const wholesale = biweekly
         ? parseFloat(mod.wholesalePriceBiweekly!)
         : parseFloat(mod.wholesalePrice);
-      marginPerCharge = wholesale * (markup / 100);
+      marginPerCharge = wholesale * (effectiveMarkupPercent(mod, markup) / 100);
     }
     markupEarnings += biweekly ? marginPerCharge * BIWEEKLY_TO_MONTHLY : marginPerCharge;
   }

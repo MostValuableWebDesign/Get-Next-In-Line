@@ -68,6 +68,10 @@ export const modulesTable = pgTable("modules", {
   // modules (deliberate, narrow exception to the white-label contract).
   // Null for all white-labeled modules; never derive from upstreamVendor.
   partnerBrand: text("partner_brand"),
+  // Per-module markup override (percent). When set, pricing surfaces use this
+  // instead of the agency-wide markup — e.g. 0 for partner-direct pass-through
+  // modules, 25 for white-label resale engines. Null = agency-wide markup.
+  markupPercentOverride: numeric("markup_percent_override", { precision: 5, scale: 2 }),
   // ── Hidden connector fields — ADMIN ONLY, never expose via tenant-facing APIs ──
   upstreamVendor: text("upstream_vendor"),
   hiddenConnector: text("hidden_connector"),

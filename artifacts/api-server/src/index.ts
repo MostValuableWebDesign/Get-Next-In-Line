@@ -3,7 +3,13 @@ import { logger } from "./lib/logger";
 import { seedConnectorMapping } from "./lib/connectorSeed";
 import { backfillCustomerLinks } from "./lib/customerLink";
 import { startConciergeWorker, type ConciergeWorkerHandle } from "./workers/concierge";
-import { pool, checkSchemaDrift, formatDriftReport } from "@workspace/db";
+import {
+  pool,
+  checkSchemaDrift,
+  formatDriftReport,
+  applyPendingMigrations,
+  findMigrationsDir,
+} from "@workspace/db";
 
 const rawPort = process.env["PORT"];
 
@@ -19,24 +25,60 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// Startup validation: warn loudly if the database is missing tables/columns
-// that exist in the Drizzle schema (i.e. schema changes were never pushed).
-checkSchemaDrift(pool)
-  .then((report) => {
+// Startup self-heal: the Replit dev database can be restored to an older
+// checkpoint snapshot while the code (and its migrations) stay newer. When
+// that happens, apply the pending migrations in reconcile mode — strictly
+// additive-forward (never drops or rewinds data) — and THEN run the connector
+// seed so partner brands / hidden connectors / markups are backfilled into
+// the repaired schema. All steps are idempotent and safe to re-run.
+async function ensureDatabaseReady(): Promise<void> {
+  try {
+    let report = await checkSchemaDrift(pool);
     if (!report.ok) {
-      logger.error({ report }, formatDriftReport(report));
+      logger.warn(
+        { report },
+        `Dev DB is behind the code schema (likely a checkpoint DB restore) — self-healing by applying pending migrations (non-destructive):\n${formatDriftReport(report)}`,
+      );
+      const migrationsDir = findMigrationsDir();
+      if (!migrationsDir) {
+        logger.error(
+          "Cannot self-heal: lib/db/migrations not found from cwd. Run `pnpm run db:reconcile` manually.",
+        );
+      } else {
+        const result = await applyPendingMigrations(pool, {
+          migrationsDir,
+          reconcile: true,
+          log: (m) => logger.info(m),
+        });
+        report = await checkSchemaDrift(pool);
+        if (report.ok) {
+          logger.info(
+            { applied: result.applied, skippedStatements: result.skippedStatements },
+            "Dev DB drift repaired: schema now matches code schema",
+          );
+        } else {
+          logger.error({ report }, formatDriftReport(report));
+        }
+      }
     } else {
       logger.info("Database schema matches code schema");
     }
-  })
-  .catch((err) => {
-    logger.error({ err }, "Schema drift check failed");
-  });
+  } catch (err) {
+    logger.error({ err }, "Schema drift check/self-heal failed");
+  }
 
-// Idempotent: upsert the hidden connector mapping so the admin Connector
-// Registry is always complete, in every environment.
-seedConnectorMapping().catch((err) => {
-  logger.error({ err }, "Connector mapping seed failed");
+  // Idempotent: upsert the hidden connector mapping so the admin Connector
+  // Registry (8 partner brands, hidden resale connectors, markup overrides)
+  // is always complete, in every environment — runs AFTER schema repair so
+  // the backfill lands in the repaired columns.
+  try {
+    await seedConnectorMapping();
+  } catch (err) {
+    logger.error({ err }, "Connector mapping seed failed");
+  }
+}
+ensureDatabaseReady().catch((err) => {
+  logger.error({ err }, "Database readiness bootstrap failed");
 });
 
 // Idempotent: link pre-existing SOS customers to concierge client profiles

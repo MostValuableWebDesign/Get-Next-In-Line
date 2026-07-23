@@ -18,6 +18,12 @@ interface ConnectorMappingEntry {
   wholesalePrice: string;
   /** Optional distinct bi-weekly wholesale rate (not monthly/2). */
   wholesalePriceBiweekly?: string;
+  /**
+   * Per-module markup override (percent). "0" for partner-direct pass-through
+   * modules, "25" for white-label resale engines. Omit to follow the
+   * agency-wide markup.
+   */
+  markupPercentOverride?: string;
   /** Null for internal (GNIL-native) modules with no external upstream. */
   upstreamVendor: string | null;
   /**
@@ -146,6 +152,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   // ── Category 2: Partner Integrations (0% Markup) ─────────────────────────
   {
     slug: "the_hartford",
+    markupPercentOverride: "0",
     partnerBrand: "The Hartford",
     name: "Commercial Liability & Workers Comp",
     category: "Partner-Direct Integrations",
@@ -158,6 +165,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "vestwell",
+    markupPercentOverride: "0",
     partnerBrand: "Vestwell",
     name: "Automated Retirement & 401(k)",
     category: "Partner-Direct Integrations",
@@ -170,6 +178,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "simply_insured",
+    markupPercentOverride: "0",
     partnerBrand: "SimplyInsured",
     name: "Group Health Insurance Hub",
     category: "Partner-Direct Integrations",
@@ -182,6 +191,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "gusto",
+    markupPercentOverride: "0",
     partnerBrand: "Gusto",
     name: "Integrated W-2 & Contractor Payroll",
     category: "Partner-Direct Integrations",
@@ -233,6 +243,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "quickbooks",
+    markupPercentOverride: "0",
     partnerBrand: "QuickBooks",
     name: "General Ledger & Financial Sync",
     category: "Partner-Direct Integrations",
@@ -246,6 +257,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   // ── Category 3: White-Label Resale Engines ───────────────────────────────
   {
     slug: "qujam",
+    markupPercentOverride: "25",
     name: "High-Definition Live Stream Studio",
     category: "White-Label Resale Engines",
     categorySlug: "media",
@@ -257,6 +269,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "vibe_co",
+    markupPercentOverride: "25",
     name: "Connected TV Ad Network",
     category: "White-Label Resale Engines",
     categorySlug: "media",
@@ -270,6 +283,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "adroll",
+    markupPercentOverride: "25",
     name: "Omnichannel Retargeting & Display",
     category: "White-Label Resale Engines",
     categorySlug: "media",
@@ -281,6 +295,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "audiogo",
+    markupPercentOverride: "25",
     name: "Programmatic Digital Audio Ads",
     category: "White-Label Resale Engines",
     categorySlug: "media",
@@ -292,6 +307,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "wondercraft_ai",
+    markupPercentOverride: "25",
     name: "AI Voice & Audio Script Synthesis",
     category: "White-Label Resale Engines",
     categorySlug: "media",
@@ -303,6 +319,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "creatify_ai",
+    markupPercentOverride: "25",
     name: "Automated AI Video Ad Generator",
     category: "White-Label Resale Engines",
     categorySlug: "media",
@@ -314,6 +331,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "metricool",
+    markupPercentOverride: "25",
     name: "Unified Social Analytics & Scheduler",
     category: "White-Label Resale Engines",
     categorySlug: "media",
@@ -357,6 +375,7 @@ export async function seedConnectorMapping(): Promise<void> {
           proxyNotes: entry.proxyNotes,
           partnerBrand: entry.partnerBrand ?? null,
           wholesalePriceBiweekly: entry.wholesalePriceBiweekly ?? null,
+          markupPercentOverride: entry.markupPercentOverride ?? null,
         })
         .where(eq(modulesTable.id, match.id));
       updated++;
@@ -368,6 +387,7 @@ export async function seedConnectorMapping(): Promise<void> {
         description: entry.description,
         wholesalePrice: entry.wholesalePrice,
         wholesalePriceBiweekly: entry.wholesalePriceBiweekly ?? null,
+        markupPercentOverride: entry.markupPercentOverride ?? null,
         isActive: true,
         slug: entry.slug,
         upstreamVendor: entry.upstreamVendor,

@@ -14,6 +14,7 @@ import {
   SimulateCheckoutResponse,
 } from "@workspace/api-zod";
 import { randomUUID } from "crypto";
+import { effectiveMarkupPercent } from "../lib/pricing";
 
 const router: IRouter = Router();
 
@@ -27,7 +28,7 @@ router.get("/billing/summary", async (_req, res): Promise<void> => {
 
   const categoryMap: Record<string, number> = {};
   for (const mod of modules) {
-    const resale = parseFloat(mod.wholesalePrice) * (1 + markup / 100);
+    const resale = parseFloat(mod.wholesalePrice) * (1 + effectiveMarkupPercent(mod, markup) / 100);
     categoryMap[mod.category] = (categoryMap[mod.category] ?? 0) + resale;
   }
   const byCategory = Object.entries(categoryMap).map(([category, mrr]) => ({
@@ -122,7 +123,10 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
     const cadence = cadenceById.get(mod.id) ?? "monthly";
     const wholesale =
       cadence === "biweekly" ? parseFloat(mod.wholesalePriceBiweekly!) : parseFloat(mod.wholesalePrice);
-    const resale = applyMarkup !== false ? wholesale * (1 + markup / 100) : wholesale;
+    // Per-module override (0% partner-direct, 25% resale engines) beats the
+    // agency-wide markup; applyMarkup=false still forces pass-through.
+    const moduleMarkup = effectiveMarkupPercent(mod, markup);
+    const resale = applyMarkup !== false ? wholesale * (1 + moduleMarkup / 100) : wholesale;
     chargedById.set(mod.id, {
       wholesale: Math.round(wholesale * 100) / 100,
       resale: Math.round(resale * 100) / 100,

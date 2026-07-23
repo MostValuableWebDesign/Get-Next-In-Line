@@ -15,3 +15,5 @@ export const db = drizzle(pool, { schema });
 
 export * from "./schema";
 export * from "./schema-drift";
+export * from "./migration-state";
+export * from "./apply-migrations";

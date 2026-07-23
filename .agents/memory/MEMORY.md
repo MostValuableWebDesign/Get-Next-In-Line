@@ -21,5 +21,6 @@
 - Integration tests that seed fixed phone numbers (e.g. customer-link) break if a crashed run leaves its test tenant behind — duplicate phones make auto-link ambiguous; delete stale `CustLink %` tenants (cascade removes profiles) to recover.
 - [Stripe deposit holds](stripe-deposits.md) — connector key is `settings.secret` not `secret_key`; stripe-replit-sync must be esbuild-external or its migrations silently no-op.
 - [Realized margin reporting](realized-margin-reporting.md) — profit figures must come from charged_wholesale/charged_resale persisted at checkout, never wholesale × current markup% (except legacy NULL rows).
+- [Dev DB checkpoint rollback self-heal](dev-db-checkpoint-rollback.md) — recurring "unstamped migrations" drift = checkpoint DB restore, not data loss; server startup now auto-reconciles then seeds.
 - After repairing DB drift, restart the API server — its start-time connector seed backfills columns (e.g. partner_brand) that silently stayed null while the column was missing.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.

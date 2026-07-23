@@ -8,6 +8,7 @@ import {
   GetModuleTenantsResponse,
 } from "@workspace/api-zod";
 import { eq, sql } from "drizzle-orm";
+import { effectiveMarkupPercent } from "../lib/pricing";
 
 const router: IRouter = Router();
 
@@ -132,21 +133,24 @@ router.get("/modules/pricing", async (_req, res): Promise<void> => {
   res.json(
     GetModulesPricingResponse.parse(
       modules.map((m) => {
+        // Per-module markup override (0% partner-direct, 25% resale engines)
+        // takes precedence over the agency-wide markup.
+        const moduleMarkup = effectiveMarkupPercent(m, markup);
         const wholesale = parseFloat(m.wholesalePrice);
-        const resale = Math.round(wholesale * (1 + markup / 100) * 100) / 100;
+        const resale = Math.round(wholesale * (1 + moduleMarkup / 100) * 100) / 100;
         const base = {
           id: m.id,
           name: m.name,
           category: m.category,
           wholesalePrice: wholesale,
           resalePrice: resale,
-          markupPercent: markup,
+          markupPercent: moduleMarkup,
           margin: Math.round((resale - wholesale) * 100) / 100,
         };
         // Bi-weekly cadence breakdown (only for modules that offer it)
         if (m.wholesalePriceBiweekly != null) {
           const wholesaleBw = parseFloat(m.wholesalePriceBiweekly);
-          const resaleBw = Math.round(wholesaleBw * (1 + markup / 100) * 100) / 100;
+          const resaleBw = Math.round(wholesaleBw * (1 + moduleMarkup / 100) * 100) / 100;
           return {
             ...base,
             wholesalePriceBiweekly: wholesaleBw,

@@ -3,18 +3,9 @@
  * per-migration progress and explicit failure reporting.
  *
  * Replaces `drizzle-kit migrate`, which has repeatedly exited 1 without
- * printing which migration failed. This script:
- *   - logs each migration as it is applied (or skipped as already applied)
- *   - on failure, prints the migration FILE, the offending STATEMENT, and the
- *     SQL error, then exits 1 — never a bare exit code
- *   - reports bookkeeping mismatches (applied hashes matching no file)
- *
- * Bookkeeping stays drizzle-compatible: (hash = sha256 of file contents,
- * created_at = journal `when`) rows in drizzle.__drizzle_migrations, so
- * `drizzle-kit migrate` and drizzle-orm's migrate() agree with us.
- *
- * Each migration runs in its own transaction: statements + bookkeeping row
- * commit atomically, so a failed migration leaves no partial state behind.
+ * printing which migration failed. The actual apply logic lives in
+ * lib/db/src/apply-migrations.ts (shared with server startup self-heal) and
+ * is strictly additive-forward: it never drops, resets, or rewinds anything.
  *
  * Usage:
  *   pnpm --filter @workspace/db run migrate
@@ -39,7 +30,8 @@ import {
   compareBookkeeping,
   fetchAppliedMigrations,
   loadMigrations,
-} from "./migration-state";
+} from "../src/migration-state";
+import { applyPendingMigrations } from "../src/apply-migrations";
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsDir = path.join(packageDir, "migrations");
@@ -49,29 +41,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-function splitStatements(sql: string): string[] {
-  return sql
-    .split("--> statement-breakpoint")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-}
-
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
-
-/**
- * Postgres error codes that mean "this DDL already took effect" — safe to skip
- * during --reconcile because the statement's outcome is already in place:
- *   42701 duplicate_column, 42P07 duplicate_table (also indexes),
- *   42710 duplicate_object (constraints, types), 42723 duplicate_function,
- *   42P06 duplicate_schema.
- */
-const ALREADY_EXISTS_CODES = new Set(["42701", "42P07", "42710", "42723", "42P06"]);
-
-function pgErrorCode(error: unknown): string | undefined {
-  return typeof error === "object" && error !== null && "code" in error
-    ? String((error as { code?: unknown }).code)
-    : undefined;
-}
 
 let exitCode = 0;
 try {
@@ -105,83 +75,21 @@ try {
 
   const reconcile = process.argv.includes("--reconcile");
 
-  if (report.unknownHashes.length > 0) {
-    console.error(report.summary);
-    console.error(
-      "MIGRATE FAILED: refusing to run with unknown applied hashes — resolve the bookkeeping mismatch first.",
-    );
-    process.exit(1);
-  }
-
-  if (report.pending.length === 0) {
-    console.log(
-      `All ${migrations.length} migrations already applied; nothing to do.`,
-    );
+  if (report.pending.length === 0 && report.unknownHashes.length === 0) {
+    console.log(`All ${migrations.length} migrations already applied; nothing to do.`);
   } else {
-    console.log(
-      `${migrations.length} migrations in folder, ${migrations.length - report.pending.length} already applied, ${report.pending.length} pending:`,
-    );
-    for (const m of report.pending) console.log(`  - ${m.file}`);
-
-    for (const migration of report.pending) {
-      const statements = splitStatements(migration.sql);
+    if (report.pending.length > 0) {
       console.log(
-        `Applying ${migration.file} (${statements.length} statement(s))${reconcile ? " [reconcile mode]" : ""}...`,
+        `${migrations.length} migrations in folder, ${migrations.length - report.pending.length} already applied, ${report.pending.length} pending:`,
       );
-      const client = await pool.connect();
-      try {
-        await client.query("BEGIN");
-        let skipped = 0;
-        for (const statement of statements) {
-          if (reconcile) await client.query("SAVEPOINT reconcile_stmt");
-          try {
-            await client.query(statement);
-          } catch (error) {
-            const code = pgErrorCode(error);
-            if (reconcile && code !== undefined && ALREADY_EXISTS_CODES.has(code)) {
-              await client.query("ROLLBACK TO SAVEPOINT reconcile_stmt");
-              skipped += 1;
-              console.log(
-                `  skipped (already applied, ${code}): ${statement.split("\n")[0].slice(0, 100)}`,
-              );
-              continue;
-            }
-            const message =
-              error instanceof Error ? error.message : String(error);
-            console.error(`\nMIGRATE FAILED in ${migration.file}`);
-            console.error(`SQL error: ${message}`);
-            console.error(`Offending statement:\n${statement}\n`);
-            console.error(
-              reconcile
-                ? "This error is not a benign \"already exists\" — reconcile refuses to skip it. The migration was rolled back; nothing was recorded."
-                : "The failed migration was rolled back; no partial changes or bookkeeping were recorded.\nIf this failed because the DDL already exists (migration applied out-of-band but never stamped), run `pnpm run db:reconcile` to replay pending migrations, skipping already-applied statements, and stamp them.",
-            );
-            throw new Error(`migration ${migration.file} failed`);
-          }
-        }
-        if (skipped > 0) {
-          console.log(
-            `  ${migration.file}: ${skipped}/${statements.length} statement(s) were already in effect and skipped.`,
-          );
-        }
-        await client.query(
-          `INSERT INTO "drizzle"."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
-          [migration.hash, migration.when],
-        );
-        await client.query("COMMIT");
-        console.log(`Applied ${migration.file}`);
-      } catch (error) {
-        await client.query("ROLLBACK").catch(() => {});
-        exitCode = 1;
-        break;
-      } finally {
-        client.release();
-      }
+      for (const m of report.pending) console.log(`  - ${m.file}`);
     }
-
-    if (exitCode === 0) {
-      console.log(`Done: applied ${report.pending.length} migration(s).`);
-    }
+    const result = await applyPendingMigrations(pool, {
+      migrationsDir,
+      reconcile,
+      log: (m) => console.log(m),
+    });
+    console.log(`Done: applied ${result.applied.length} migration(s).`);
   }
 } catch (error) {
   console.error(

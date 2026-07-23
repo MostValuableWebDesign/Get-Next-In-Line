@@ -1,0 +1,1 @@
+ALTER TABLE "modules" ADD COLUMN "markup_percent_override" numeric(5, 2);
