@@ -17,6 +17,8 @@ import { memoryLocation } from 'wouter/memory-location';
 
 const listSosCallsOptions = vi.fn();
 const listSosMessagesOptions = vi.fn();
+const listSosCustomersOptions = vi.fn();
+const sendSosMessageOptions = vi.fn();
 
 const conciergeLogs = [
   {
@@ -115,6 +117,16 @@ vi.mock('@workspace/api-client-react', () => ({
     return { data: sosMessages, isLoading: false };
   },
   getListSosMessagesQueryKey: (params: unknown) => ['/api/sos/messages', params],
+  // Embedded SmsConversations (two-way threads) dependencies
+  useListSosCustomers: (_params: unknown, options: unknown) => {
+    listSosCustomersOptions(options);
+    return { data: [] };
+  },
+  getListSosCustomersQueryKey: () => ['/api/sos/customers'],
+  useSendSosMessage: (options: unknown) => {
+    sendSosMessageOptions(options);
+    return { mutate: vi.fn(), isPending: false };
+  },
 }));
 
 import TenantDetail from '@/pages/TenantDetail';
@@ -184,6 +196,19 @@ describe('Tenant Detail unified Communications tab', () => {
       expect.objectContaining({ request: { headers: { 'x-tenant-id': '5' } } }),
     );
     expect(listSosMessagesOptions).toHaveBeenCalledWith(
+      expect.objectContaining({ request: { headers: { 'x-tenant-id': '5' } } }),
+    );
+  });
+
+  it('embeds tenant-scoped two-way conversations with a reply box', () => {
+    renderDetail();
+    expect(screen.getByTestId('section-conversations')).toBeInTheDocument();
+    expect(screen.getByTestId('sms-conversations')).toBeInTheDocument();
+    // Customer reads and replies carry the tenant header too.
+    expect(listSosCustomersOptions).toHaveBeenCalledWith(
+      expect.objectContaining({ request: { headers: { 'x-tenant-id': '5' } } }),
+    );
+    expect(sendSosMessageOptions).toHaveBeenCalledWith(
       expect.objectContaining({ request: { headers: { 'x-tenant-id': '5' } } }),
     );
   });

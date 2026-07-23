@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   useListSosMessages, useSendSosMessage, useListSosCustomers,
-  getListSosMessagesQueryKey,
+  getListSosMessagesQueryKey, getListSosCustomersQueryKey,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,10 @@ import { MessageSquare, Send } from 'lucide-react';
  *
  * Messages that can't be matched to a customer (unknown inbound numbers)
  * are grouped by phone number and shown read-only.
+ *
+ * Pass `tenantId` to scope the whole component to one tenant: the
+ * `x-tenant-id` header is attached to reads and replies, and query keys
+ * include the tenant so caches never mix scopes.
  */
 
 const CONVERSATION_FETCH_LIMIT = 200;
@@ -42,16 +46,29 @@ interface Thread {
   lastAt: string;
 }
 
-export function SmsConversations() {
+export function SmsConversations({ tenantId }: { tenantId?: number } = {}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // When tenant-scoped, attach the x-tenant-id header and include the tenant
+  // in query keys so per-tenant caches never mix with the global view.
+  const tenantRequest =
+    tenantId != null ? { headers: { 'x-tenant-id': String(tenantId) } } : undefined;
+  const scopeKey = (key: readonly unknown[]) =>
+    tenantId != null ? [...key, { tenantId }] : [...key];
+
   const { data: messages } = useListSosMessages(
     { limit: CONVERSATION_FETCH_LIMIT },
-    { query: { queryKey: getListSosMessagesQueryKey({ limit: CONVERSATION_FETCH_LIMIT }) } },
+    {
+      query: { queryKey: scopeKey(getListSosMessagesQueryKey({ limit: CONVERSATION_FETCH_LIMIT })) },
+      request: tenantRequest,
+    },
   );
-  const { data: customers } = useListSosCustomers();
-  const send = useSendSosMessage();
+  const { data: customers } = useListSosCustomers(undefined, {
+    query: { queryKey: scopeKey(getListSosCustomersQueryKey()) },
+    request: tenantRequest,
+  });
+  const send = useSendSosMessage({ request: tenantRequest });
 
   const threads = useMemo<Thread[]>(() => {
     if (!messages) return [];

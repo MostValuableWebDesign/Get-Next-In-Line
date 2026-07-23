@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageStatusBadge, type MessageHistoryItem } from '@/components/message-history';
+import { SmsConversations } from '@/components/sms-conversations';
 import { Bot, MessageSquare, Phone, ScrollText, User } from 'lucide-react';
 
 /**
@@ -133,6 +134,18 @@ export function CommunicationsTab({ tenantId }: { tenantId: number }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-2" data-testid="section-conversations">
+          <h3 className="text-sm font-semibold flex items-center gap-1.5">
+            <MessageSquare className="w-4 h-4 text-primary" /> Conversations
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Per-customer SMS threads for this business — read the exchange and reply in place.
+            Replies respect each customer's SMS opt-in.
+          </p>
+          <SmsConversations tenantId={tenantId} />
+        </div>
+
+        <h3 className="text-sm font-semibold pt-2">Activity log</h3>
         <div className="flex flex-wrap gap-2" data-testid="filters-communications">
           {FILTERS.map((f) => (
             <Button

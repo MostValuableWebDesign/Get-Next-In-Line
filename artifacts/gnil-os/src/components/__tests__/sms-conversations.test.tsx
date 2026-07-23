@@ -25,21 +25,32 @@ const msg = (over: Partial<Record<string, unknown>>) => ({
 let messages: ReturnType<typeof msg>[] = [];
 let customers: Array<{ id: number; name: string; smsOptIn: boolean }> = [];
 
+const hookCalls: Record<string, unknown[]> = { messages: [], customers: [], send: [] };
+
 vi.mock('@workspace/api-client-react', () => ({
-  useListSosMessages: () => ({ data: messages }),
+  useListSosMessages: (...args: unknown[]) => {
+    hookCalls.messages.push(args);
+    return { data: messages };
+  },
   getListSosMessagesQueryKey: () => ['/api/sos/messages'],
-  useSendSosMessage: () => ({ mutate: sendMutate, isPending: false }),
-  useListSosCustomers: () => ({ data: customers }),
+  useSendSosMessage: (...args: unknown[]) => {
+    hookCalls.send.push(args);
+    return { mutate: sendMutate, isPending: false };
+  },
+  useListSosCustomers: (...args: unknown[]) => {
+    hookCalls.customers.push(args);
+    return { data: customers };
+  },
   getListSosCustomersQueryKey: () => ['/api/sos/customers'],
 }));
 
 import { SmsConversations } from '../sms-conversations';
 
-function renderIt() {
+function renderIt(tenantId?: number) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <SmsConversations />
+      <SmsConversations tenantId={tenantId} />
     </QueryClientProvider>,
   );
 }
@@ -47,6 +58,9 @@ function renderIt() {
 describe('SmsConversations', () => {
   beforeEach(() => {
     sendMutate.mockClear();
+    hookCalls.messages = [];
+    hookCalls.customers = [];
+    hookCalls.send = [];
     customers = [
       { id: 1, name: 'Ana', smsOptIn: true },
       { id: 2, name: 'Bob', smsOptIn: false },
@@ -95,5 +109,35 @@ describe('SmsConversations', () => {
     fireEvent.click(screen.getByTestId('conversation-item-p:+15550009999'));
     expect(screen.getByTestId('text-no-reply')).toBeInTheDocument();
     expect(screen.queryByTestId('input-reply')).not.toBeInTheDocument();
+  });
+
+  it('scopes reads and replies to the tenant when tenantId is given', () => {
+    renderIt(7);
+    const tenantHeaders = { headers: { 'x-tenant-id': '7' } };
+
+    const msgOpts = (hookCalls.messages[0] as unknown[])[1] as {
+      query: { queryKey: unknown[] };
+      request?: unknown;
+    };
+    expect(msgOpts.request).toEqual(tenantHeaders);
+    expect(msgOpts.query.queryKey).toContainEqual({ tenantId: 7 });
+
+    const custOpts = (hookCalls.customers[0] as unknown[])[1] as {
+      query: { queryKey: unknown[] };
+      request?: unknown;
+    };
+    expect(custOpts.request).toEqual(tenantHeaders);
+    expect(custOpts.query.queryKey).toContainEqual({ tenantId: 7 });
+
+    const sendOpts = (hookCalls.send[0] as unknown[])[0] as { request?: unknown };
+    expect(sendOpts.request).toEqual(tenantHeaders);
+  });
+
+  it('stays unscoped (no tenant header) without a tenantId', () => {
+    renderIt();
+    const msgOpts = (hookCalls.messages[0] as unknown[])[1] as { request?: unknown };
+    expect(msgOpts.request).toBeUndefined();
+    const sendOpts = (hookCalls.send[0] as unknown[])[0] as { request?: unknown } | undefined;
+    expect(sendOpts?.request).toBeUndefined();
   });
 });
