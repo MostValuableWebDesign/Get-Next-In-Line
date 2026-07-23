@@ -40,10 +40,11 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Logo / brand */}
         <div className="mb-8 text-center">
-          <div className="inline-flex items-center mb-3">
+          <div className="inline-flex items-center gap-3 mb-3">
             <div className="rounded-md bg-indigo-600 px-4 py-2">
-              <span className="text-white font-bold text-lg tracking-tight">GNIL Operator Terminal</span>
+              <span className="text-white font-bold text-lg tracking-tight">GNIL</span>
             </div>
+            <span className="text-slate-900 font-bold text-lg tracking-tight">Operator Terminal</span>
           </div>
         </div>
 
