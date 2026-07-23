@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
-import { db, tenantsTable } from "@workspace/db";
+import { db, tenantsTable, messagesTable } from "@workspace/db";
 import { inArray } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
@@ -476,6 +476,50 @@ describe("scoped reads", () => {
 });
 
 describe("reports summary is scoped to the requesting tenant", () => {
+  it("keeps the automation section (concierge message stats) to the requesting tenant's rows", async () => {
+    // Seed concierge automation messages directly: two delivered reminders
+    // for tenant A, one failed nudge for tenant B. No other test touches
+    // these throwaway tenants' concierge rows, so scoped counts are exact.
+    const inserted = await db
+      .insert(messagesTable)
+      .values([
+        { tenantId: tenantA, origin: "concierge", kind: "send_reminder", status: "sent", body: `auto A1 ${RUN}` },
+        { tenantId: tenantA, origin: "concierge", kind: "send_reminder", status: "delivered", body: `auto A2 ${RUN}` },
+        { tenantId: tenantB, origin: "concierge", kind: "rebooking_nudge", status: "failed", body: `auto B1 ${RUN}` },
+      ])
+      .returning({ id: messagesTable.id });
+
+    try {
+      const [forA, forB] = await Promise.all([
+        agent.get("/api/sos/reports/summary").set(asTenant(tenantA)).expect(200),
+        agent.get("/api/sos/reports/summary").set(asTenant(tenantB)).expect(200),
+      ]);
+
+      // Tenant A sees only its two delivered reminders — B's failure never
+      // bleeds into A's failure count, and vice versa.
+      expect(forA.body.automation.remindersSent).toBe(2);
+      expect(forA.body.automation.deliveredCount).toBe(2);
+      expect(forA.body.automation.failedCount).toBe(0);
+      expect(forA.body.automation.byJobType).toEqual([
+        expect.objectContaining({ jobType: "send_reminder", delivered: 2, failed: 0, total: 2 }),
+      ]);
+
+      expect(forB.body.automation.remindersSent).toBe(0);
+      expect(forB.body.automation.deliveredCount).toBe(0);
+      expect(forB.body.automation.failedCount).toBe(1);
+      expect(forB.body.automation.byJobType).toEqual([
+        expect.objectContaining({ jobType: "rebooking_nudge", delivered: 0, failed: 1, total: 1 }),
+      ]);
+    } finally {
+      // messages.tenant_id is ON DELETE SET NULL (not cascade), so clean up
+      // explicitly — otherwise these rows would linger as NULL-tenant
+      // concierge messages after the tenants are deleted.
+      await db.delete(messagesTable).where(
+        inArray(messagesTable.id, inserted.map((r) => r.id)),
+      );
+    }
+  });
+
   it("keeps each tenant's report to its own rows, with legacy still served", async () => {
     // By this point in the suite: tenant B has AI calls; tenant A has
     // waitlist-fill bookings (claims) and cancellations but no calls.
