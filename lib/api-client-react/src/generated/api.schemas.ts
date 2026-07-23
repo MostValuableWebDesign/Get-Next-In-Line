@@ -734,6 +734,7 @@ export const SosMessageKind = {
   manual: 'manual',
   inbound: 'inbound',
   claim_confirmation: 'claim_confirmation',
+  deposit_update: 'deposit_update',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];

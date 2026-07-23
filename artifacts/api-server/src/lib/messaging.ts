@@ -24,7 +24,8 @@ export type OutboundMessageKind =
   | "manual"
   | "claim_confirmation"
   | "send_reminder"
-  | "rebooking_nudge";
+  | "rebooking_nudge"
+  | "deposit_update";
 
 export type MessageOrigin = "operational" | "concierge";
 

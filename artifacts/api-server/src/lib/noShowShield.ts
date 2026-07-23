@@ -4,9 +4,11 @@ import {
   tenantModulesTable,
   sosDepositHoldsTable,
   sosAppointmentsTable,
+  sosCustomersTable,
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { getLegacySettings, resolveSettings, type SosSettingsRow } from "./settings";
+import { sendMessageSafe } from "./messaging";
 import { logger } from "./logger";
 
 export const NO_SHOW_SHIELD_SLUG = "no_show_shield";
@@ -44,6 +46,79 @@ export async function isNoShowShieldActive(
   return isNoShowShieldProvisioned(s.tenantId);
 }
 
+type DepositEvent = "held" | "released" | "captured_late_cancel" | "captured_no_show";
+
+/**
+ * Text the appointment's customer about a deposit event (hold placed,
+ * released, or fee captured). Sends through the unified message pipeline
+ * (sendMessageSafe) so the text shows up in the comms log; skipped entirely
+ * when the customer has no phone or has opted out of SMS. Never throws —
+ * a notification failure must not affect the deposit state transition.
+ */
+async function notifyDepositEvent(
+  hold: DepositHoldRow,
+  event: DepositEvent,
+): Promise<void> {
+  try {
+    const [row] = await db
+      .select({
+        appt: sosAppointmentsTable,
+        customer: sosCustomersTable,
+      })
+      .from(sosAppointmentsTable)
+      .innerJoin(
+        sosCustomersTable,
+        eq(sosAppointmentsTable.customerId, sosCustomersTable.id),
+      )
+      .where(eq(sosAppointmentsTable.id, hold.appointmentId));
+    if (!row) return;
+    const { appt, customer } = row;
+    // Same convention as the waitlist broadcast: don't record a skipped row
+    // for customers we were never going to text.
+    if (!customer.smsOptIn || !customer.phone) return;
+
+    const deposit = `$${parseFloat(hold.depositAmount).toFixed(2)}`;
+    const fee = `$${parseFloat(hold.feeAmount).toFixed(2)}`;
+    const when = appt.startsAt.toLocaleString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+
+    let body: string;
+    switch (event) {
+      case "held":
+        body = `Hi ${customer.name}, your ${appt.serviceType} appointment on ${when} is confirmed. A ${deposit} deposit hold has been placed on your card. Cancel at least ${hold.cancellationWindowHours}h before your start time for a full release; late cancellations or no-shows incur a ${fee} fee.`;
+        break;
+      case "released":
+        body = `Hi ${customer.name}, your ${appt.serviceType} appointment on ${when} was cancelled outside the ${hold.cancellationWindowHours}h window. Your ${deposit} deposit hold has been fully released — no fee was charged.`;
+        break;
+      case "captured_late_cancel":
+        body = `Hi ${customer.name}, your ${appt.serviceType} appointment on ${when} was cancelled within the ${hold.cancellationWindowHours}h cancellation window, so the agreed ${fee} late-cancellation fee was charged from your deposit hold.`;
+        break;
+      case "captured_no_show":
+        body = `Hi ${customer.name}, you were marked as a no-show for your ${appt.serviceType} appointment on ${when}. Per the deposit policy you agreed to at booking, the ${fee} no-show fee was charged from your deposit hold.`;
+        break;
+    }
+
+    await sendMessageSafe({
+      tenantId: appt.tenantId,
+      customerId: customer.id,
+      toNumber: customer.phone,
+      kind: "deposit_update",
+      body,
+      context: { depositHoldId: hold.id, depositEvent: event },
+    });
+  } catch (err) {
+    logger.error(
+      { err, holdId: hold.id, event },
+      "Failed to send deposit notification SMS",
+    );
+  }
+}
+
 /**
  * Record the policy agreement and place a simulated card-on-file deposit
  * hold for a newly booked appointment. Terms are snapshotted from the
@@ -75,6 +150,8 @@ export async function placeDepositHoldIfActive(
       })
       .onConflictDoNothing()
       .returning();
+    // Notify only when this call actually placed the hold (conflict → no row).
+    if (hold) await notifyDepositEvent(hold, "held");
     return hold ?? null;
   } catch (err) {
     logger.error({ err, appointmentId }, "Failed to place No-Show Shield deposit hold");
@@ -125,6 +202,13 @@ export async function settleHoldOnCancellation(
       ),
     )
     .returning();
+  // Notify only when this call performed the transition (concurrency guard).
+  if (settled) {
+    await notifyDepositEvent(
+      settled,
+      outsideWindow ? "released" : "captured_late_cancel",
+    );
+  }
   return settled ?? hold;
 }
 
@@ -152,6 +236,7 @@ export async function captureHoldForNoShow(
       ),
     )
     .returning();
+  if (captured) await notifyDepositEvent(captured, "captured_no_show");
   return captured ?? hold;
 }
 

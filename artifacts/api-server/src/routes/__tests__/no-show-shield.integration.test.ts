@@ -429,6 +429,130 @@ describe("tenant-scoped bookings use the owning tenant's own policy", () => {
   });
 });
 
+describe("deposit notification texts", () => {
+  let smsCustomerId: number;
+  const smsPhone = `+1888${RUN.slice(-7).replace(/\D/g, "1")}`;
+
+  async function bookForSmsCustomer(startsAt: Date) {
+    const endsAt = new Date(startsAt.getTime() + 3600_000);
+    const res = await agent
+      .post("/api/sos/appointments")
+      .send({
+        customerId: smsCustomerId,
+        serviceType: `svc-sms-${RUN}`,
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+        source: "staff",
+      })
+      .expect(201);
+    createdAppointmentIds.push(res.body.id);
+    return res.body;
+  }
+
+  async function depositMessages() {
+    return db
+      .select()
+      .from(messagesTable)
+      .where(eq(messagesTable.customerId, smsCustomerId));
+  }
+
+  beforeAll(async () => {
+    await setPolicy({
+      noShowShieldEnabled: true,
+      noShowDepositAmount: 30,
+      noShowCancellationWindowHours: 24,
+      noShowFee: 20,
+    });
+    const [customer] = await db
+      .insert(sosCustomersTable)
+      .values({ name: `NSS Sms ${RUN}`, phone: smsPhone, smsOptIn: true })
+      .returning();
+    smsCustomerId = customer.id;
+  });
+
+  afterAll(async () => {
+    await db.delete(messagesTable).where(eq(messagesTable.customerId, smsCustomerId));
+    const appts = await db
+      .select({ id: sosAppointmentsTable.id })
+      .from(sosAppointmentsTable)
+      .where(eq(sosAppointmentsTable.customerId, smsCustomerId));
+    if (appts.length > 0) {
+      await db
+        .delete(sosAppointmentsTable)
+        .where(inArray(sosAppointmentsTable.id, appts.map((a) => a.id)));
+    }
+    await db.delete(sosCustomersTable).where(eq(sosCustomersTable.id, smsCustomerId));
+  });
+
+  it("texts the deposit terms when a hold is placed at booking", async () => {
+    const appt = await bookForSmsCustomer(new Date(Date.now() + 72 * 3600_000));
+    expect(appt.deposit.status).toBe("held");
+    const msgs = await depositMessages();
+    const held = msgs.filter((m) => m.kind === "deposit_update");
+    expect(held).toHaveLength(1);
+    expect(held[0].body).toContain("$30.00 deposit hold");
+    expect(held[0].body).toContain("24h");
+    expect(held[0].body).toContain("$20.00 fee");
+    expect(held[0].origin).toBe("operational");
+    expect(["simulated", "sent", "delivered"]).toContain(held[0].status);
+    // Visible in the SOS comms log.
+    const log = await agent.get("/api/sos/messages").expect(200);
+    expect(
+      log.body.some(
+        (m: { id: number; kind: string }) =>
+          m.id === held[0].id && m.kind === "deposit_update",
+      ),
+    ).toBe(true);
+  });
+
+  it("texts a release outcome when cancelling outside the window", async () => {
+    const appt = await bookForSmsCustomer(new Date(Date.now() + 72 * 3600_000));
+    await agent.post(`/api/sos/appointments/${appt.id}/cancel`).expect(200);
+    const msgs = await depositMessages();
+    const released = msgs.filter((m) => m.body.includes("fully released"));
+    expect(released).toHaveLength(1);
+    expect(released[0].kind).toBe("deposit_update");
+    expect(released[0].body).toContain("no fee was charged");
+  });
+
+  it("texts the fee outcome when cancelling inside the window", async () => {
+    const appt = await bookForSmsCustomer(new Date(Date.now() + 2 * 3600_000));
+    await agent.post(`/api/sos/appointments/${appt.id}/cancel`).expect(200);
+    const msgs = await depositMessages();
+    const captured = msgs.filter((m) => m.body.includes("late-cancellation fee"));
+    expect(captured).toHaveLength(1);
+    expect(captured[0].body).toContain("$20.00");
+  });
+
+  it("texts the no-show fee outcome when a no-show is captured", async () => {
+    const appt = await bookForSmsCustomer(new Date(Date.now() - 3600_000));
+    await agent.post(`/api/sos/appointments/${appt.id}/no-show`).expect(200);
+    const msgs = await depositMessages();
+    const noShow = msgs.filter((m) => m.body.includes("no-show fee"));
+    expect(noShow).toHaveLength(1);
+    expect(noShow[0].body).toContain("$20.00");
+  });
+
+  it("sends nothing (not even a skipped row) for a customer without phone/opt-in", async () => {
+    // The main test customer has phone=null and smsOptIn=false.
+    const before = await db
+      .select()
+      .from(messagesTable)
+      .where(eq(messagesTable.customerId, customerId));
+    const appt = await bookAppointment(new Date(Date.now() + 72 * 3600_000));
+    expect(appt.deposit.status).toBe("held");
+    await agent.post(`/api/sos/appointments/${appt.id}/cancel`).expect(200);
+    const after = await db
+      .select()
+      .from(messagesTable)
+      .where(eq(messagesTable.customerId, customerId));
+    expect(
+      after.filter((m) => m.kind === "deposit_update"),
+    ).toHaveLength(0);
+    expect(after.length).toBe(before.length);
+  });
+});
+
 describe("cancellation & no-show enforcement", () => {
   beforeAll(async () => {
     await setPolicy({
