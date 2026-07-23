@@ -17,47 +17,47 @@ A multi-tenant SaaS agency management platform ("Get Next In Line — GNIL OS") 
 
 ## Trust Boundaries
 
-- **Internet → API server** — The Express API is the primary trust boundary. Currently, this boundary is not enforced: no authentication separates anonymous callers from privileged agency operations. **This is the primary vulnerability.**
+- **Internet → API server** — The Express API is the primary trust boundary. It is enforced by session-cookie authentication (`express-session`, HttpOnly + Secure cookie) applied to all `/api` routes except an explicit exemption list (auth endpoints and Twilio webhooks, which are authenticated by X-Twilio-Signature validation).
 - **API server → PostgreSQL** — Drizzle ORM with parameterized queries; no raw SQL string concatenation observed. Low injection risk.
-- **Frontend → API** — The React frontend (`artifacts/gnil-os`) calls the API. Currently the frontend and API have no shared auth context.
+- **Frontend → API** — The React frontend (`artifacts/gnil-os`) calls the API with a shared session-cookie auth context (`credentials: include`), gated by a CORS origin allowlist.
 - **Mockup sandbox** — `artifacts/mockup-sandbox` is a design/preview tool, dev-only, not exposed in production API routes.
 
 ## Scan Anchors
 
 - **Production entry points:** `artifacts/api-server/src/app.ts` → `artifacts/api-server/src/routes/index.ts`
 - **Highest-risk routes:** `POST /api/billing/checkout`, `DELETE /api/tenants/:id`, `PATCH /api/agency/settings`
-- **Public surface:** Entire `/api/*` is currently public (no auth)
-- **Authenticated surface:** None — no authentication exists yet
-- **Admin surface:** No role separation; all endpoints treat every caller as an admin
+- **Public surface:** Auth endpoints (`/auth/login`, `/auth/logout`, `/auth/me`) and Twilio webhooks (signature-verified) — see `SESSION_EXEMPT_PATHS` in `routes/index.ts`
+- **Authenticated surface:** All other `/api/*` routes require a valid session
+- **Admin surface:** Single operator role; all authenticated callers are treated as the agency admin (no role separation yet)
 - **Dev-only:** `artifacts/mockup-sandbox` (design canvas, `/__mockup` path, not part of API surface)
 
 ## Threat Categories
 
 ### Spoofing / Authentication
 
-**Critical gap:** No authentication exists on any API endpoint. Every management operation — reading tenant PII, modifying billing, deleting tenants — is reachable by any unauthenticated HTTP request. There is no session, JWT, API key, or any other identity check anywhere in the middleware chain.
+Session-cookie authentication (ADMIN_PASSWORD login, `express-session` signed with SESSION_SECRET) protects all `/api` routes except the explicit exemption list (auth endpoints and signature-verified Twilio webhooks). Regression tests pin the exemption list to exactly those paths.
 
-**Required guarantee:** All `/api` routes except a health check MUST require a verified identity (session token, API key, or equivalent) before returning data or performing mutations.
+**Guarantee:** All `/api` routes except the audited exemptions MUST require a verified session before returning data or performing mutations; any addition to `SESSION_EXEMPT_PATHS` is a session-auth bypass and must be reviewed.
 
 ### Tampering
 
-Without authentication, any caller can mutate agency settings (markup percent affects all billing), update or delete any tenant, and trigger billing checkouts that permanently increment MRR. Business-logic controls (Zod schema validation) are present for input shape but cannot substitute for identity verification.
+Write endpoints (agency settings, tenant updates/deletes, billing checkouts) sit behind session auth, so only the authenticated agency operator can commit changes. Zod schema validation additionally constrains input shape.
 
-**Required guarantee:** Write endpoints (PATCH, POST, DELETE) MUST verify the caller is the authorized agency operator before committing changes.
+**Guarantee:** Write endpoints (PATCH, POST, DELETE) MUST remain behind session auth; identity verification cannot be replaced by input validation.
 
 ### Information Disclosure
 
-`GET /api/tenants` exposes contact emails and financial data for all tenants to any anonymous caller. `GET /api/modules/pricing` reveals wholesale costs and margins. CORS is configured as wildcard (`*`), permitting any website to read these responses cross-origin.
+Read endpoints returning PII or financial data (`GET /api/tenants`, `GET /api/modules/pricing`) require an authenticated session. CORS is restricted to an explicit origin allowlist (Replit domains from REPLIT_DOMAINS, production getnextinline.com origins / ALLOWED_ORIGINS, and localhost in development); requests from other origins are rejected, and regression tests cover the allowlist behavior.
 
-**Required guarantee:** Read endpoints returning PII or financial data MUST require authentication. CORS MUST be restricted to known frontend origins.
+**Guarantee:** Read endpoints returning PII or financial data MUST require authentication, and the CORS allowlist MUST NOT be widened to a wildcard — especially since credentials (session cookies) are enabled.
 
 ### Elevation of Privilege
 
-There is a single privilege level (no roles). Once authentication is added, role separation between agency admin and read-only viewers should be enforced server-side for mutating endpoints.
+There is a single authenticated privilege level (agency operator, no roles). If additional user types are added, role separation between agency admin and read-only viewers should be enforced server-side for mutating endpoints.
 
 ### Denial of Service
 
-No rate limiting is present on any endpoint. Public, unauthenticated endpoints that hit the database (e.g., `/api/tenants`) can be hammered without restriction.
+No rate limiting is present on any endpoint. The unauthenticated login endpoint (`POST /auth/login`) can be hammered without restriction, enabling password brute-forcing; rate limiting there should be a priority.
 
 ### Injection
 
