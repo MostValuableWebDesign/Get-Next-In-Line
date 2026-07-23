@@ -35,6 +35,8 @@ vi.mock('@workspace/api-client-react', async (importOriginal) => {
       isLoading: false,
     }),
     useGetModulesPricing: () => ({ data: [], isLoading: false }),
+    // Billing waits for the module list (partner pass-through classification)
+    useListModules: () => ({ data: [], isLoading: false }),
     // Agency Settings tab (Configuration + connector registry section)
     useGetSosSettings: () => ({
       data: {

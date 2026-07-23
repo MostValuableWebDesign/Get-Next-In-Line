@@ -68,6 +68,16 @@ export function ModuleGrid({ categorySlug, title, description }: { categorySlug:
                 </CardHeader>
                 <CardContent className="flex-1" />
                 <CardFooter className="border-t bg-muted/20 p-4 flex flex-col items-start gap-1">
+                  {isPartner ? (
+                    <div className="w-full" data-testid={`passthrough-pricing-${module.id}`}>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Pricing</div>
+                      <div className="text-lg font-bold text-foreground">Pass-through · 0% markup</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Billed directly to tenants by the partner — no agency cost or resale.
+                      </div>
+                    </div>
+                  ) : (
+                  <>
                   <div className="flex justify-between w-full items-end">
                     <div>
                       <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Resale</div>
@@ -103,6 +113,8 @@ export function ModuleGrid({ categorySlug, title, description }: { categorySlug:
                         )}
                       </div>
                     </div>
+                  )}
+                  </>
                   )}
                 </CardFooter>
               </Card>

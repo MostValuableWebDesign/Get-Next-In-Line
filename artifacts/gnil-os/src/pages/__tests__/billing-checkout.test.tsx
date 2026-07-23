@@ -38,10 +38,24 @@ const summary = {
 
 const mutateMock = vi.fn();
 
+// Module list backing partner classification. Mutable so tests can simulate
+// "pricing loaded, modules still loading" — Billing must not render pricing
+// figures until partner status is known.
+const moduleList = [
+  { id: 1, name: 'Smart Booking System', category: 'Operations', categorySlug: 'operations', description: '', isActive: true, wholesalePrice: 149 },
+  { id: 2, name: 'AI Receptionist', category: 'Communications', categorySlug: 'communications', description: '', isActive: true, wholesalePrice: 99 },
+  { id: 3, name: 'Group Health Insurance Hub', category: 'Partners', categorySlug: 'partners', description: '', isActive: true, wholesalePrice: 0 },
+];
+let modulesState: { data: typeof moduleList | undefined; isLoading: boolean } = {
+  data: moduleList,
+  isLoading: false,
+};
+
 vi.mock('@workspace/api-client-react', () => ({
   useGetBillingSummary: () => ({ data: summary, isLoading: false }),
   useGetModulesPricing: () => ({ data: pricing, isLoading: false }),
   useListTenants: () => ({ data: tenants, isLoading: false }),
+  useListModules: () => modulesState,
   useSimulateCheckout: () => ({ mutate: mutateMock, isPending: false }),
   getListTenantsQueryKey: () => ['tenants'],
   getGetModuleTenantCountsQueryKey: () => ['tenant-counts'],
@@ -93,6 +107,24 @@ async function pickTenant(name: string) {
 describe('Billing checkout simulation', () => {
   beforeEach(() => {
     mutateMock.mockReset();
+    modulesState = { data: moduleList, isLoading: false };
+  });
+
+  it('shows pass-through instead of cost figures for partner modules in the pricing matrix', () => {
+    renderBilling();
+
+    expect(screen.getByTestId('pricing-passthrough-3')).toHaveTextContent('Pass-through · 0% markup');
+    // Non-partner rows keep their figures (formatCurrency rounds to 0 digits)
+    expect(screen.getByText('$224')).toBeInTheDocument();
+    expect(screen.getAllByText('$149').length).toBeGreaterThan(0);
+  });
+
+  it('keeps the loading skeleton until the module list resolves so partner rows never flash costs', () => {
+    modulesState = { data: undefined, isLoading: true };
+    renderBilling();
+
+    expect(screen.queryByText('Module Pricing Matrix')).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/\$\d/);
   });
 
   it('renders the pricing matrix and MRR summary', () => {

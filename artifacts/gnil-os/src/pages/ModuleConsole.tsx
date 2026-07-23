@@ -236,7 +236,7 @@ export default function ModuleConsole() {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Current Revenue Share Margin</span>
                 <span className="text-sm font-bold text-primary" data-testid="text-markup-percent">
-                  +{markupPercent}% Agency Markup
+                  {isPartner ? 'Pass-through · 0% markup' : `+${markupPercent}% Agency Markup`}
                 </span>
               </div>
             </div>
@@ -428,14 +428,22 @@ function AdminConnectorSection({
             </div>
           </div>
           <div>
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Wholesale / Resale</div>
-            <div className="text-sm font-mono" data-testid="text-mapping-pricing">
-              {formatCurrency(detail.wholesalePrice)} → {formatCurrency(detail.resalePrice)}/mo
-              <span className="text-muted-foreground font-sans"> ({detail.markupPercent}% markup)</span>
-              {detail.resalePriceBiweekly != null && (
-                <span className="text-muted-foreground"> · {formatCurrency(detail.resalePriceBiweekly)}/2wk</span>
-              )}
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
+              {mapping.categorySlug === 'partners' ? 'Pricing' : 'Wholesale / Resale'}
             </div>
+            {mapping.categorySlug === 'partners' ? (
+              <div className="text-sm text-muted-foreground" data-testid="text-mapping-pricing">
+                Pass-through · 0% markup
+              </div>
+            ) : (
+              <div className="text-sm font-mono" data-testid="text-mapping-pricing">
+                {formatCurrency(detail.wholesalePrice)} → {formatCurrency(detail.resalePrice)}/mo
+                <span className="text-muted-foreground font-sans"> ({detail.markupPercent}% markup)</span>
+                {detail.resalePriceBiweekly != null && (
+                  <span className="text-muted-foreground"> · {formatCurrency(detail.resalePriceBiweekly)}/2wk</span>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Status</div>

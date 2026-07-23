@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   useListTenants,
+  useListModules,
   useGetModulesPricing,
   useSimulateCheckout,
   getListTenantsQueryKey,
@@ -52,6 +53,7 @@ export function CheckoutSimulationDialog({
   lockedModuleId,
 }: CheckoutSimulationDialogProps) {
   const { data: tenants } = useListTenants();
+  const { data: modules } = useListModules();
   const { data: pricing } = useGetModulesPricing();
   const simulateCheckout = useSimulateCheckout();
   const queryClient = useQueryClient();
@@ -114,10 +116,24 @@ export function CheckoutSimulationDialog({
     );
   };
 
+  // Partner classification needs the module list. Until it resolves, treat
+  // partner status as unknown and render no cost figures at all — a partner
+  // module must never flash wholesale/resale numbers while loading.
+  const modulesReady = modules != null;
+  const partnerIds = new Set(
+    (modules ?? []).filter(m => m.categorySlug === 'partners').map(m => m.id),
+  );
+  const isPartnerModule = (id: number) => partnerIds.has(id);
+
   const visiblePricing = (lockedModuleId != null
     ? pricing?.filter(p => p.id === lockedModuleId)
     : pricing) || [];
   const selectedPricing = visiblePricing.filter(p => selectedModules.includes(p.id));
+  // Partner Integrations are pure pass-throughs at 0% markup — no wholesale
+  // cost, resale, or markup applies. When everything in view is a partner
+  // module, hide all cost figures and the markup toggle entirely.
+  const allVisiblePartner = visiblePricing.length > 0 && visiblePricing.every(p => isPartnerModule(p.id));
+  const allSelectedPartner = selectedPricing.length > 0 && selectedPricing.every(p => isPartnerModule(p.id));
   const cadenceOf = (p: NonNullable<typeof pricing>[number]) =>
     cadences[p.id] === 'biweekly' && p.resalePriceBiweekly != null ? 'biweekly' : 'monthly';
   const wholesaleFor = (p: NonNullable<typeof pricing>[number]) =>
@@ -159,10 +175,16 @@ export function CheckoutSimulationDialog({
             <div className="space-y-2">
               <label className="text-sm font-medium flex justify-between items-center">
                 <span>{lockedModuleId != null ? '2. Module' : '2. Select Modules'}</span>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="markup" checked={applyMarkup} onCheckedChange={(c) => setApplyMarkup(!!c)} />
-                  <label htmlFor="markup" className="text-xs font-normal cursor-pointer text-muted-foreground">Apply Agency Markup</label>
-                </div>
+                {allVisiblePartner ? (
+                  <span className="text-xs font-normal text-muted-foreground" data-testid="text-passthrough-markup">
+                    Pass-through · 0% markup
+                  </span>
+                ) : !modulesReady ? null : (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="markup" checked={applyMarkup} onCheckedChange={(c) => setApplyMarkup(!!c)} />
+                    <label htmlFor="markup" className="text-xs font-normal cursor-pointer text-muted-foreground">Apply Agency Markup</label>
+                  </div>
+                )}
               </label>
               <div className="border rounded-md h-[240px] overflow-y-auto p-2 space-y-1">
                 {visiblePricing.map(p => {
@@ -182,9 +204,13 @@ export function CheckoutSimulationDialog({
                         />
                         <div className="flex-1 flex justify-between items-center text-sm">
                           <span>{p.name}</span>
-                          <span className="font-mono text-muted-foreground">
-                            {formatCurrency(chargeFor(p))}{hasBiweekly && cadence === 'biweekly' ? '/2wk' : ''}
-                          </span>
+                          {!modulesReady ? null : isPartnerModule(p.id) ? (
+                            <span className="text-xs text-muted-foreground">Pass-through</span>
+                          ) : (
+                            <span className="font-mono text-muted-foreground">
+                              {formatCurrency(chargeFor(p))}{hasBiweekly && cadence === 'biweekly' ? '/2wk' : ''}
+                            </span>
+                          )}
                         </div>
                       </div>
                       {isSelected && hasBiweekly && (
@@ -225,10 +251,14 @@ export function CheckoutSimulationDialog({
                         <Badge variant="outline" className="ml-2 text-[9px] uppercase align-middle">Bi-Weekly</Badge>
                       )}
                     </span>
-                    <span className="font-mono shrink-0">
-                      {formatCurrency(chargeFor(p))}
-                      <span className="text-muted-foreground text-xs">{cadenceOf(p) === 'biweekly' ? '/2wk' : '/mo'}</span>
-                    </span>
+                    {!modulesReady ? null : isPartnerModule(p.id) ? (
+                      <span className="text-xs text-muted-foreground shrink-0">Pass-through</span>
+                    ) : (
+                      <span className="font-mono shrink-0">
+                        {formatCurrency(chargeFor(p))}
+                        <span className="text-muted-foreground text-xs">{cadenceOf(p) === 'biweekly' ? '/2wk' : '/mo'}</span>
+                      </span>
+                    )}
                   </div>
                 ))}
                 {selectedPricing.length === 0 && (
@@ -238,18 +268,30 @@ export function CheckoutSimulationDialog({
             </div>
 
             <div className="pt-4 border-t mt-4 space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">Wholesale Cost (Agency pays)</span>
-                <span className="font-mono">{formatCurrency(totalWholesale)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-emerald-600">Agency Profit Margin</span>
-                <span className="font-mono text-emerald-600">+{formatCurrency(totalMargin)}</span>
-              </div>
-              <div className="flex justify-between items-center pt-2">
-                <span className="font-bold text-lg">Total Charge</span>
-                <span className="font-mono font-bold text-2xl">{formatCurrency(totalResale)}</span>
-              </div>
+              {!modulesReady ? null : allSelectedPartner ? (
+                <div className="space-y-1" data-testid="summary-passthrough">
+                  <div className="font-bold">Pass-through · 0% markup</div>
+                  <div className="text-xs text-muted-foreground">
+                    Partner integrations are activated at no cost to the agency — the partner bills
+                    the tenant directly.
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Wholesale Cost (Agency pays)</span>
+                    <span className="font-mono">{formatCurrency(totalWholesale)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-emerald-600">Agency Profit Margin</span>
+                    <span className="font-mono text-emerald-600">+{formatCurrency(totalMargin)}</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="font-bold text-lg">Total Charge</span>
+                    <span className="font-mono font-bold text-2xl">{formatCurrency(totalResale)}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

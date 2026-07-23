@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGetBillingSummary, useGetModulesPricing } from '@workspace/api-client-react';
+import { useGetBillingSummary, useGetModulesPricing, useListModules } from '@workspace/api-client-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -12,8 +12,17 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Billing() {
   const { data: summary, isLoading: isLoadingSummary } = useGetBillingSummary();
   const { data: pricing, isLoading: isLoadingPricing } = useGetModulesPricing();
+  const { data: modules, isLoading: isLoadingModules } = useListModules();
+  // Partner Integrations are 0%-markup pass-throughs — cost figures are
+  // meaningless for them and are hidden in the pricing matrix.
+  const partnerIds = new Set(
+    (modules ?? []).filter((m) => m.categorySlug === 'partners').map((m) => m.id),
+  );
   
-  if (isLoadingSummary || isLoadingPricing) {
+  // Wait for the module list too — partner classification depends on it, and
+  // rendering the pricing matrix before it resolves would briefly show
+  // wholesale/resale figures on partner pass-through rows.
+  if (isLoadingSummary || isLoadingPricing || isLoadingModules || !modules) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-10 w-48" />
@@ -61,10 +70,18 @@ export default function Billing() {
                       <TableCell>
                         <Badge variant="outline" className="text-[10px] uppercase">{p.category}</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-muted-foreground">{formatCurrency(p.wholesalePrice)}</TableCell>
-                      <TableCell className="text-right font-mono">{p.markupPercent}%</TableCell>
-                      <TableCell className="text-right font-mono font-bold">{formatCurrency(p.resalePrice)}</TableCell>
-                      <TableCell className="text-right font-mono text-emerald-600 font-medium">+{formatCurrency(p.margin)}</TableCell>
+                      {partnerIds.has(p.id) ? (
+                        <TableCell colSpan={4} className="text-right text-muted-foreground" data-testid={`pricing-passthrough-${p.id}`}>
+                          Pass-through · 0% markup
+                        </TableCell>
+                      ) : (
+                        <>
+                          <TableCell className="text-right font-mono text-muted-foreground">{formatCurrency(p.wholesalePrice)}</TableCell>
+                          <TableCell className="text-right font-mono">{p.markupPercent}%</TableCell>
+                          <TableCell className="text-right font-mono font-bold">{formatCurrency(p.resalePrice)}</TableCell>
+                          <TableCell className="text-right font-mono text-emerald-600 font-medium">+{formatCurrency(p.margin)}</TableCell>
+                        </>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
