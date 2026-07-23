@@ -118,4 +118,26 @@ if (report.ok) {
   process.exitCode = 1;
 }
 
+// Bookkeeping check: drizzle.__drizzle_migrations must account for every
+// migration in lib/db/migrations (and contain no unknown hashes).
+const { compareBookkeeping, fetchAppliedMigrations, loadMigrations } =
+  await import("./migration-state");
+try {
+  const bookkeeping = compareBookkeeping(
+    loadMigrations(path.join(packageDir, "migrations")),
+    await fetchAppliedMigrations(pool),
+  );
+  if (bookkeeping.ok) {
+    console.log(bookkeeping.summary);
+  } else {
+    console.error(bookkeeping.summary);
+    process.exitCode = 1;
+  }
+} catch (error) {
+  console.error(
+    `Migration bookkeeping check failed to run: ${error instanceof Error ? error.message : String(error)}`,
+  );
+  process.exitCode = 1;
+}
+
 await pool.end();

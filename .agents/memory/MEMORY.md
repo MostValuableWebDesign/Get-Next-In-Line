@@ -9,7 +9,7 @@
 - [Dev DB drift behind Drizzle schema](dev-db-drift.md) — on missing-column query errors, diff information_schema vs schema and push additive DDL.
 - [SOS tenant scoping](sos-tenant-scoping.md) — `x-tenant-id` header carries tenant context; NULL tenant_id = legacy rows; strict NULL-vs-tenant matching in broadcasts.
 - messages.origin ('operational'|'concierge') now classifies message surface; tenant_id is stamped on operational sends too — never use tenant_id NULL/NOT NULL as the concierge marker again.
-- [Drizzle silent migrate failures](drizzle-migrations.md) — migrate can exit 1 silently; verify tables, apply SQL manually, stamp hash/`when` into drizzle.__drizzle_migrations. Hash = sha256 of the migration .sql contents.
+- [Drizzle silent migrate failures](drizzle-migrations.md) — fixed: db:push uses a custom loud migrator; recover out-of-band DDL via `migrate -- --mark-applied <file>`, never hand-stamp hashes.
 - api-zod schemas come from a different zod instance than api-server's; `instanceof ZodError` fails across them — duck-type on `err.name === "ZodError"` in error middleware.
 - [Validation gates](validation-gates.md) — api-server-test now runs the full suite (exclude removed); fix red suites at root cause (often DB drift) instead of excluding.
 - orval: an operation with both path and query params generates a zod `<Op>Params` and a TS type `<Op>Params` that collide on re-export; avoid query params on parameterized paths or rename.

@@ -9,9 +9,9 @@
   },
   "scripts": {
     "generate": "drizzle-kit generate --config ./drizzle.config.ts",
-    "migrate": "drizzle-kit migrate --config ./drizzle.config.ts",
-    "push": "drizzle-kit generate --config ./drizzle.config.ts && drizzle-kit migrate --config ./drizzle.config.ts",
-    "push-force": "drizzle-kit generate --config ./drizzle.config.ts && drizzle-kit migrate --config ./drizzle.config.ts",
+    "migrate": "tsx ./scripts/migrate.ts",
+    "push": "drizzle-kit generate --config ./drizzle.config.ts && tsx ./scripts/migrate.ts",
+    "push-force": "drizzle-kit generate --config ./drizzle.config.ts && tsx ./scripts/migrate.ts",
     "check-drift": "tsx ./scripts/check-drift.ts",
     "test": "vitest run"
   },

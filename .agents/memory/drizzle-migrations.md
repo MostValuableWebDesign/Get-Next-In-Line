@@ -4,7 +4,9 @@ description: How schema changes are applied in this project and the known drizzl
 ---
 
 ## Rule
-Use `drizzle-kit push` (not `generate && migrate`) for non-interactive schema sync — but when the diff includes new tables/renames, `push` also opens an interactive prompt and dies without a TTY. In that case fall back to the manual apply + stamp recovery below.
+`pnpm run db:push` now runs `drizzle-kit generate` + a custom loud migrator (`lib/db/scripts/migrate.ts`) instead of `drizzle-kit migrate`. It logs per-migration progress, prints the failing file/statement/SQL error, runs each migration in its own transaction, and stays drizzle-bookkeeping-compatible. `db:check-drift` also verifies `drizzle.__drizzle_migrations` accounts for every migration file. For DDL applied out-of-band, recover with `pnpm --filter @workspace/db run migrate -- --mark-applied <file.sql>` (verify DDL exists first) — no more manual hash-stamping.
+
+Post-merge script still uses `drizzle-kit push` (live-diff, TTY-safe); note it can open an interactive prompt on new tables/renames without a TTY.
 
 **Why:** `drizzle-kit push` compares the live DB against the Drizzle schema and applies only the diff — no migration-file tracking required, exits cleanly with no TTY (stdin closed in post-merge context).
 
