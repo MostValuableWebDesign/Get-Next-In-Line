@@ -117,11 +117,16 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
   let totalWholesale = 0;
   let totalResale = 0;
   let mrrDelta = 0;
+  const chargedById = new Map<number, { wholesale: number; resale: number }>();
   for (const mod of modulesToProvision) {
     const cadence = cadenceById.get(mod.id) ?? "monthly";
     const wholesale =
       cadence === "biweekly" ? parseFloat(mod.wholesalePriceBiweekly!) : parseFloat(mod.wholesalePrice);
     const resale = applyMarkup !== false ? wholesale * (1 + markup / 100) : wholesale;
+    chargedById.set(mod.id, {
+      wholesale: Math.round(wholesale * 100) / 100,
+      resale: Math.round(resale * 100) / 100,
+    });
     totalWholesale += wholesale;
     totalResale += resale;
     mrrDelta += cadence === "biweekly" ? resale * BIWEEKLY_TO_MONTHLY : resale;
@@ -143,6 +148,10 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
           tenantId,
           moduleId: m.id,
           billingCadence: cadenceById.get(m.id) ?? "monthly",
+          // Persist realized per-charge pricing so profit reporting reflects
+          // what was actually charged (e.g. zero margin when markup was off).
+          chargedWholesale: String(chargedById.get(m.id)!.wholesale),
+          chargedResale: String(chargedById.get(m.id)!.resale),
         }))
       )
       .onConflictDoNothing();

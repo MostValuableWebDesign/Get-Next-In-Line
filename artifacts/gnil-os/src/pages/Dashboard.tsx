@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { formatCurrency, formatPercent } from '@/lib/format';
-import { Activity, DollarSign, Users, Target, Clock } from 'lucide-react';
+import { Activity, DollarSign, Users, Target, Clock, TrendingUp } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -107,6 +107,29 @@ function DashboardTab() {
         </div>
         <GlobalMarkupSlider initialMarkup={settings.markupPercent} />
       </div>
+
+      {/* Revenue summary — monthly profit and retail markup earnings */}
+      <Card className="border-none shadow-md bg-emerald-600 text-white" data-testid="card-revenue-summary">
+        <CardContent className="p-6 flex flex-col md:flex-row md:items-center gap-6">
+          <div className="p-3 bg-white/15 rounded-xl self-start">
+            <TrendingUp className="w-8 h-8" />
+          </div>
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <div className="text-sm uppercase tracking-wider text-white/80 font-medium">Monthly Profit</div>
+              <div className="text-4xl font-bold font-mono tracking-tight" data-testid="text-monthly-profit">
+                {formatCurrency(dashboard.monthlyProfit)}
+              </div>
+            </div>
+            <div>
+              <div className="text-sm uppercase tracking-wider text-white/80 font-medium">Earnings from Retail Markups</div>
+              <div className="text-4xl font-bold font-mono tracking-tight" data-testid="text-markup-earnings">
+                {formatCurrency(dashboard.markupEarnings)}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Total MRR" value={formatCurrency(dashboard.totalMrr)} icon={DollarSign} trend={dashboard.mrrGrowthPercent > 0 ? `+${dashboard.mrrGrowthPercent}%` : `${dashboard.mrrGrowthPercent}%`} />

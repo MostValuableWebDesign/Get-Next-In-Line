@@ -255,7 +255,7 @@ export default function OperationsHub() {
           <ModuleGrid
             categorySlug="media"
             title="Media & Assets"
-            description="High-margin white-label media buying, ads, and streaming networks."
+            description="Media buying, ads, and streaming networks."
           />
         </TabsContent>
         <TabsContent value="partners" className="mt-4 space-y-8">

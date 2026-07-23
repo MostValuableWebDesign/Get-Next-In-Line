@@ -5,6 +5,7 @@ import {
   tenantsTable,
   tenantActivitiesTable,
   modulesTable,
+  tenantModulesTable,
 } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import {
@@ -39,8 +40,39 @@ router.get("/agency/dashboard", async (req, res): Promise<void> => {
     mrr: Math.round(mrr * 100) / 100,
   }));
 
+  // Monthly profit from retail markups: for every provisioned module, profit
+  // = realized resale − wholesale as captured at checkout time
+  // (monthly-equivalent for bi-weekly cadences). A checkout made with markup
+  // disabled recorded chargedResale === chargedWholesale and contributes $0.
+  // Legacy rows provisioned before realized pricing was persisted fall back
+  // to wholesale × current markup%. Partner modules carry a $0 wholesale
+  // price, so they contribute nothing either way.
+  // Bi-weekly charges recur 26 times/year → ×26/12 monthly-equivalent.
+  const BIWEEKLY_TO_MONTHLY = 26 / 12;
+  const moduleById = new Map(modules.map((m) => [m.id, m]));
+  const assignments = await db.select().from(tenantModulesTable);
+  let markupEarnings = 0;
+  for (const a of assignments) {
+    const mod = moduleById.get(a.moduleId);
+    if (!mod) continue;
+    const biweekly = a.billingCadence === "biweekly" && mod.wholesalePriceBiweekly != null;
+    let marginPerCharge: number;
+    if (a.chargedResale != null && a.chargedWholesale != null) {
+      marginPerCharge = parseFloat(a.chargedResale) - parseFloat(a.chargedWholesale);
+    } else {
+      const wholesale = biweekly
+        ? parseFloat(mod.wholesalePriceBiweekly!)
+        : parseFloat(mod.wholesalePrice);
+      marginPerCharge = wholesale * (markup / 100);
+    }
+    markupEarnings += biweekly ? marginPerCharge * BIWEEKLY_TO_MONTHLY : marginPerCharge;
+  }
+  markupEarnings = Math.round(markupEarnings * 100) / 100;
+
   const dashboard = GetAgencyDashboardResponse.parse({
     totalMrr: Math.round(totalMrr * 100) / 100,
+    monthlyProfit: markupEarnings,
+    markupEarnings,
     activeTenants,
     suspendedTenants,
     totalTenants: tenants.length,

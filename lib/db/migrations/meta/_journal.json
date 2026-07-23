@@ -134,6 +134,13 @@
       "when": 1784774775677,
       "tag": "0018_brief_morlun",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1784776555374,
+      "tag": "0019_mixed_red_ghost",
+      "breakpoints": true
     }
   ]
 }

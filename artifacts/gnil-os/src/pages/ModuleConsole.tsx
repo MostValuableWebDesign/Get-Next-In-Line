@@ -167,19 +167,27 @@ export default function ModuleConsole() {
                 className="border-sky-500/40 text-sky-600 bg-sky-500/5 px-3 py-1"
                 data-testid="badge-partner-direct"
               >
-                Partner Direct (0% Markup)
+                Partner Direct
               </Badge>
             ) : (
               <div className="text-right mr-2">
-                <div className="text-xs text-muted-foreground">Resale Price w/ {markupPercent}% Markup</div>
+                <div className="text-xs text-muted-foreground">Retail Price</div>
                 <div className="text-xl font-extrabold font-mono text-emerald-600" data-testid="text-resale-price">
-                  {formatCurrency(priceInfo?.resalePrice ?? module.wholesalePrice)}
+                  {formatCurrency(priceInfo?.resalePrice ?? 0)}
                   <span className="text-xs text-muted-foreground font-normal font-sans">/mo</span>
                 </div>
                 {priceInfo?.resalePriceBiweekly != null && (
                   <div className="text-xs font-mono text-muted-foreground mt-0.5" data-testid="text-resale-price-biweekly">
                     or {formatCurrency(priceInfo.resalePriceBiweekly)}
                     <span className="font-sans">/2wk</span>
+                  </div>
+                )}
+                {priceInfo != null && priceInfo.margin > 0 && (
+                  <div className="text-xs font-mono text-emerald-600 mt-0.5" data-testid="text-profit-margin">
+                    +{formatCurrency(priceInfo.margin)}/mo profit
+                    {priceInfo.resalePrice > 0 && (
+                      <span className="font-sans"> ({Math.round((priceInfo.margin / priceInfo.resalePrice) * 100)}%)</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -195,7 +203,7 @@ export default function ModuleConsole() {
                     ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                 }
               >
-                <ShieldAlert className="w-4 h-4" /> Connector View
+                <ShieldAlert className="w-4 h-4" /> Admin View
               </Button>
             )}
             <Button asChild variant="outline" className="gap-2" data-testid="link-module-settings">
@@ -213,7 +221,7 @@ export default function ModuleConsole() {
         <Card className="lg:col-span-2 border-none shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-primary" /> Operational & Marketing Proxy Console
+              <Sliders className="w-5 h-5 text-primary" /> Module Console
             </CardTitle>
             <span className="text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-md border">
               Unified Ecosystem Active
@@ -234,9 +242,9 @@ export default function ModuleConsole() {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Current Revenue Share Margin</span>
+                <span className="text-sm font-medium">Profit Margin</span>
                 <span className="text-sm font-bold text-primary" data-testid="text-markup-percent">
-                  {isPartner ? 'Pass-through · 0% markup' : `+${markupPercent}% Agency Markup`}
+                  {isPartner ? 'Partner Direct' : `+${markupPercent}% Profit Margin`}
                 </span>
               </div>
             </div>
@@ -381,7 +389,7 @@ function AdminConnectorSection({
     <div className="space-y-6 scroll-mt-6" id="admin-connector-section" data-testid="section-admin-connector">
       <Card data-testid="card-connector-mapping">
         <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base font-semibold">Connector Mapping</CardTitle>
+          <CardTitle className="text-base font-semibold">Product Details</CardTitle>
           <div className="flex items-center gap-3">
             <Badge variant="destructive" className="shrink-0 gap-1.5 uppercase tracking-wider font-mono">
               <ShieldAlert className="size-3.5" />
@@ -400,45 +408,17 @@ function AdminConnectorSection({
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           <div>
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Slug</div>
-            {mapping.slug ? (
-              <code className="text-sm font-mono bg-muted px-1.5 py-0.5 rounded" data-testid="text-mapping-slug">{mapping.slug}</code>
-            ) : (
-              <span className="text-sm text-muted-foreground italic">no slug</span>
-            )}
-          </div>
-          <div>
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Upstream Vendor</div>
-            <div className="text-sm" data-testid="text-mapping-vendor">
-              {mapping.upstreamVendor ?? <span className="text-muted-foreground italic">—</span>}
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Hidden Connector</div>
-            <div className="text-sm" data-testid="text-mapping-connector">
-              {mapping.hiddenConnector ?? (
-                <span className="text-muted-foreground italic">Internal — no external connector mapped</span>
-              )}
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Proxy Notes</div>
-            <div className="text-sm" data-testid="text-mapping-notes">
-              {mapping.proxyNotes ?? <span className="text-muted-foreground italic">—</span>}
-            </div>
-          </div>
-          <div>
             <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-              {mapping.categorySlug === 'partners' ? 'Pricing' : 'Wholesale / Resale'}
+              {mapping.categorySlug === 'partners' ? 'Pricing' : 'Retail Price / Margin'}
             </div>
             {mapping.categorySlug === 'partners' ? (
               <div className="text-sm text-muted-foreground" data-testid="text-mapping-pricing">
-                Pass-through · 0% markup
+                Partner billed
               </div>
             ) : (
               <div className="text-sm font-mono" data-testid="text-mapping-pricing">
-                {formatCurrency(detail.wholesalePrice)} → {formatCurrency(detail.resalePrice)}/mo
-                <span className="text-muted-foreground font-sans"> ({detail.markupPercent}% markup)</span>
+                {formatCurrency(detail.resalePrice)}/mo
+                <span className="text-emerald-600"> · +{formatCurrency(detail.resalePrice - detail.wholesalePrice)} margin</span>
                 {detail.resalePriceBiweekly != null && (
                   <span className="text-muted-foreground"> · {formatCurrency(detail.resalePriceBiweekly)}/2wk</span>
                 )}

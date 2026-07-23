@@ -1,12 +1,13 @@
 /**
- * Partner Integrations show no pricing wording at all — no resale or wholesale
- * cost figures may appear anywhere they're priced:
+ * Partner Integrations show no pricing wording at all — no cost figures or
+ * backend pricing mechanics may appear anywhere they're priced:
  *  - partner module cards show no pricing block, no pass-through text, and no
  *    0% Markup badge;
  *  - the checkout dialog locked to a partner module shows no markup toggle,
- *    no wholesale/margin/total lines, and no dollar amounts — it reads as a
- *    pass-through activation;
- *  - non-partner modules keep their full pricing display unchanged.
+ *    no margin/total lines, and no dollar amounts — it reads as a partner
+ *    activation;
+ *  - non-partner modules keep their retail price + profit margin display, and
+ *    never render wholesale costs or pass-through wording.
  */
 import { render, screen, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -107,45 +108,47 @@ describe('partner module cards — no pricing wording', () => {
     expect(card.textContent).not.toMatch(/\$\d/);
   });
 
-  it('keeps full pricing on non-partner cards', () => {
+  it('keeps retail price and profit margin on non-partner cards, without wholesale figures', () => {
     renderWithRouter(
       <ModuleGrid categorySlug="operations" title="Core Operations" description="desc" />,
     );
 
     const card = screen.getByTestId('link-module-console-1');
-    expect(within(card).getByText('Resale')).toBeInTheDocument();
-    expect(within(card).getByText('Wholesale Cost')).toBeInTheDocument();
+    expect(within(card).getByText('Retail Price')).toBeInTheDocument();
+    expect(within(card).getByText('Profit Margin')).toBeInTheDocument();
     expect(within(card).getByText('$150')).toBeInTheDocument();
-    expect(within(card).getByText('$100/mo')).toBeInTheDocument();
+    expect(within(card).getByTestId('margin-1')).toHaveTextContent('+$50/mo (33%)');
+    expect(within(card).queryByText('Wholesale Cost')).not.toBeInTheDocument();
+    expect(within(card).queryByText('$100/mo')).not.toBeInTheDocument();
     expect(within(card).queryByText(/Pass-through/)).not.toBeInTheDocument();
   });
 });
 
-describe('checkout dialog locked to a partner module — pass-through activation', () => {
-  it('hides the markup toggle and all cost figures', () => {
+describe('checkout dialog locked to a partner module — partner activation', () => {
+  it('hides the markup toggle and all cost figures, with no pass-through wording', () => {
     renderDialog(20, 'Activate Partner Module');
 
-    // No markup toggle — a pass-through label instead
-    expect(screen.queryByLabelText('Apply Agency Markup')).not.toBeInTheDocument();
-    expect(screen.getByTestId('text-passthrough-markup')).toHaveTextContent(
-      'Pass-through · 0% markup',
-    );
+    // No markup toggle — a partner-activation label instead
+    expect(screen.queryByLabelText('Apply Retail Pricing')).not.toBeInTheDocument();
+    expect(screen.getByTestId('text-partner-activation')).toHaveTextContent('Partner activation');
 
-    // No wholesale/margin/total lines, no dollar amounts anywhere
-    expect(screen.queryByText('Wholesale Cost (Agency pays)')).not.toBeInTheDocument();
-    expect(screen.queryByText('Agency Profit Margin')).not.toBeInTheDocument();
+    // No margin/total lines, no dollar amounts, no backend wording anywhere
+    expect(screen.queryByText('Profit Margin')).not.toBeInTheDocument();
     expect(screen.queryByText('Total Charge')).not.toBeInTheDocument();
-    expect(screen.getByTestId('summary-passthrough')).toHaveTextContent('Pass-through · 0% markup');
+    expect(screen.getByTestId('summary-passthrough')).toHaveTextContent(
+      'Partner activation — no charge',
+    );
     expect(document.body.textContent).not.toMatch(/\$\d/);
+    expect(document.body.textContent).not.toMatch(/Pass-through|0% markup|[Ww]holesale/);
   });
 
-  it('keeps the markup toggle and cost lines for a non-partner module', () => {
+  it('keeps the retail toggle, margin, and total for a non-partner module — without wholesale lines', () => {
     renderDialog(1, 'Provision Module');
 
-    expect(screen.getByLabelText('Apply Agency Markup')).toBeInTheDocument();
-    expect(screen.getByText('Wholesale Cost (Agency pays)')).toBeInTheDocument();
-    expect(screen.getByText('Agency Profit Margin')).toBeInTheDocument();
+    expect(screen.getByLabelText('Apply Retail Pricing')).toBeInTheDocument();
+    expect(screen.getByText('Profit Margin')).toBeInTheDocument();
     expect(screen.getByText('Total Charge')).toBeInTheDocument();
+    expect(screen.queryByText(/[Ww]holesale/)).not.toBeInTheDocument();
     expect(screen.queryByTestId('summary-passthrough')).not.toBeInTheDocument();
   });
 
@@ -155,9 +158,8 @@ describe('checkout dialog locked to a partner module — pass-through activation
     modulesState = { data: undefined, isLoading: true };
     renderDialog(20, 'Activate Partner Module');
 
-    expect(screen.queryByLabelText('Apply Agency Markup')).not.toBeInTheDocument();
-    expect(screen.queryByText('Wholesale Cost (Agency pays)')).not.toBeInTheDocument();
-    expect(screen.queryByText('Agency Profit Margin')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Apply Retail Pricing')).not.toBeInTheDocument();
+    expect(screen.queryByText('Profit Margin')).not.toBeInTheDocument();
     expect(screen.queryByText('Total Charge')).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/\$\d/);
   });

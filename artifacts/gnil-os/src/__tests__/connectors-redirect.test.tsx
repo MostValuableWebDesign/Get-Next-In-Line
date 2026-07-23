@@ -31,6 +31,7 @@ vi.mock('@workspace/api-client-react', async (importOriginal) => {
       isLoading: false,
     }),
     useUpdateSosSettings: () => ({ mutate: () => {}, isPending: false }),
+    useGetModulesPricing: () => ({ data: [], isLoading: false }),
     useGetConnectorRegistry: () => ({
       data: [
         {
@@ -64,7 +65,7 @@ describe('legacy /connectors redirect', () => {
     const page = await screen.findByTestId('page-settings');
     const section = within(page).getByTestId('section-connectors');
     expect(
-      within(section).getByRole('heading', { name: /Connector Registry/ }),
+      within(section).getByRole('heading', { name: /Product Catalog/ }),
     ).toBeInTheDocument();
     // ...including the actual registry rows.
     expect(within(section).getByTestId('row-module-1')).toBeInTheDocument();

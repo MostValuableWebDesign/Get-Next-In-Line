@@ -933,6 +933,10 @@ export interface CategoryRevenue {
 
 export interface AgencyDashboard {
   totalMrr: number;
+  /** Total monthly profit across all provisioned modules (retail minus cost, monthly-equivalent). */
+  monthlyProfit: number;
+  /** Monthly earnings attributable to retail markups on provisioned modules. */
+  markupEarnings: number;
   activeTenants: number;
   suspendedTenants: number;
   totalTenants: number;

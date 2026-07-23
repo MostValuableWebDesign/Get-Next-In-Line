@@ -74,6 +74,8 @@ vi.mock('@workspace/api-client-react', () => ({
       suspendedTenants: 0,
       totalModulesProvisioned: 6,
       revenueByCategory: [],
+      monthlyProfit: 350,
+      markupEarnings: 350,
     },
     isLoading: false,
   }),
@@ -108,6 +110,17 @@ function renderDashboard() {
 function renderedFeedCount() {
   return screen.getAllByText(/^Event \d+$/).length;
 }
+
+describe('Dashboard revenue summary widget', () => {
+  it('shows total monthly profit and retail markup earnings from the dashboard API', () => {
+    renderDashboard();
+    const widget = screen.getByTestId('card-revenue-summary');
+    expect(widget).toHaveTextContent('Monthly Profit');
+    expect(widget).toHaveTextContent('Earnings from Retail Markups');
+    expect(screen.getByTestId('text-monthly-profit')).toHaveTextContent('$350');
+    expect(screen.getByTestId('text-markup-earnings')).toHaveTextContent('$350');
+  });
+});
 
 describe('Dashboard activity feed pagination', () => {
   beforeEach(() => {

@@ -2355,10 +2355,16 @@ components:
 
     AgencyDashboard:
       type: object
-      required: [totalMrr, activeTenants, suspendedTenants, totalTenants, mrrGrowthPercent, totalModulesProvisioned, revenueByCategory]
+      required: [totalMrr, activeTenants, suspendedTenants, totalTenants, mrrGrowthPercent, totalModulesProvisioned, revenueByCategory, monthlyProfit, markupEarnings]
       properties:
         totalMrr:
           type: number
+        monthlyProfit:
+          type: number
+          description: Total monthly profit across all provisioned modules (retail minus cost, monthly-equivalent).
+        markupEarnings:
+          type: number
+          description: Monthly earnings attributable to retail markups on provisioned modules.
         activeTenants:
           type: integer
         suspendedTenants:

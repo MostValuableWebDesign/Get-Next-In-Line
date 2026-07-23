@@ -70,36 +70,31 @@ export function ModuleGrid({ categorySlug, title, description }: { categorySlug:
                 <CardFooter className="border-t bg-muted/20 p-4 flex flex-col items-start gap-1">
                   <div className="flex justify-between w-full items-end">
                     <div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Resale</div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Retail Price</div>
                       <div className="text-2xl font-mono font-bold text-foreground">
-                        {formatCurrency(priceInfo?.resalePrice || module.wholesalePrice)}<span className="text-sm font-sans font-normal text-muted-foreground">/mo</span>
+                        {formatCurrency(priceInfo?.resalePrice ?? 0)}<span className="text-sm font-sans font-normal text-muted-foreground">/mo</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Wholesale Cost</div>
-                      <div className="text-sm font-mono text-muted-foreground">
-                        {formatCurrency(module.wholesalePrice)}/mo
+                    {priceInfo && (
+                      <div className="text-right">
+                        <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Profit Margin</div>
+                        <div className="text-sm font-mono font-bold text-emerald-600" data-testid={`margin-${module.id}`}>
+                          +{formatCurrency(priceInfo.margin)}/mo
+                          {priceInfo.resalePrice > 0 && (
+                            <span className="font-normal text-emerald-600/80"> ({Math.round((priceInfo.margin / priceInfo.resalePrice) * 100)}%)</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
-                  
-                  {!isPartner && priceInfo && (
-                    <div className="w-full mt-3 pt-3 border-t border-border/50 flex justify-between items-center text-xs">
-                      <span className="text-muted-foreground">Agency Margin</span>
-                      <span className="font-mono font-bold text-emerald-600">
-                        {formatCurrency(priceInfo.margin)}/mo
-                      </span>
-                    </div>
-                  )}
 
                   {priceInfo?.resalePriceBiweekly != null && (
                     <div className="w-full mt-2 pt-2 border-t border-dashed border-border/50 space-y-1" data-testid={`biweekly-pricing-${module.id}`}>
                       <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Bi-Weekly Option</div>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="font-mono font-bold">{formatCurrency(priceInfo.resalePriceBiweekly)}<span className="font-sans font-normal text-muted-foreground">/2wk resale</span></span>
-                        <span className="font-mono text-muted-foreground">{formatCurrency(priceInfo.wholesalePriceBiweekly ?? 0)} cost</span>
+                        <span className="font-mono font-bold">{formatCurrency(priceInfo.resalePriceBiweekly)}<span className="font-sans font-normal text-muted-foreground">/2wk</span></span>
                         {priceInfo.marginBiweekly != null && (
-                          <span className="font-mono font-bold text-emerald-600">+{formatCurrency(priceInfo.marginBiweekly)}</span>
+                          <span className="font-mono font-bold text-emerald-600">+{formatCurrency(priceInfo.marginBiweekly)} margin</span>
                         )}
                       </div>
                     </div>

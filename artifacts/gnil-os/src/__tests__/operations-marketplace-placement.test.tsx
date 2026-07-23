@@ -75,7 +75,7 @@ import OperationsHub from '@/pages/OperationsHub';
 import { Shell } from '@/components/layout/Shell';
 
 describe('Operations hub — Core Operations grid placement', () => {
-  it('shows all five service modules under "Core Operations" with wholesale and resale pricing', () => {
+  it('shows all five service modules under "Core Operations" with retail price and profit margin (no wholesale)', () => {
     const { hook } = memoryLocation({ path: '/operations' });
     render(
       <Router hook={hook}>
@@ -88,10 +88,12 @@ describe('Operations hub — Core Operations grid placement', () => {
     for (const mod of modules.filter((m) => m.categorySlug === 'operations')) {
       const card = screen.getByTestId(`link-module-console-${mod.id}`);
       expect(within(card).getByText(mod.name)).toBeInTheDocument();
-      // Wholesale cost and computed resale (wholesale × markup) both visible
-      expect(within(card).getByText(`$${mod.wholesalePrice}/mo`)).toBeInTheDocument();
-      const resale = pricing.find((p) => p.id === mod.id)!.resalePrice;
-      expect(within(card).getByText(`$${resale}`)).toBeInTheDocument();
+      // Retail price and profit margin visible; wholesale cost never rendered
+      const price = pricing.find((p) => p.id === mod.id)!;
+      expect(within(card).getByText(`$${price.resalePrice}`)).toBeInTheDocument();
+      expect(within(card).getByTestId(`margin-${mod.id}`)).toHaveTextContent(`+$${price.margin}/mo`);
+      expect(within(card).queryByText('Wholesale Cost')).not.toBeInTheDocument();
+      expect(within(card).queryByText(`$${mod.wholesalePrice}/mo`)).not.toBeInTheDocument();
     }
 
     // Non-operations modules stay out of the Core Operations grid

@@ -2,23 +2,27 @@ import { useState } from 'react';
 import { Link } from 'wouter';
 import {
   useGetConnectorRegistry,
+  useGetModulesPricing,
   type ConnectorRegistryEntry,
 } from '@workspace/api-client-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EditConnectorDialog } from '@/components/EditConnectorDialog';
-import { ShieldAlert, Cable, Pencil, PanelsTopLeft } from 'lucide-react';
+import { formatCurrency } from '@/lib/format';
+import { ShieldAlert, Package, Pencil, PanelsTopLeft } from 'lucide-react';
 
 const CATEGORY_ORDER = ['marketing', 'operations', 'partners', 'media'];
 
 /**
- * Connector Registry, rendered as a section of the Configuration page
+ * Product Catalog, rendered as a section of the Configuration page
  * (/settings#connectors). The former standalone /connectors route
- * redirects there.
+ * redirects there. Presents a clean retail catalog — product names,
+ * retail prices, and profit margins only.
  */
 export function ConnectorRegistrySection() {
   const { data: entries, isLoading } = useGetConnectorRegistry();
+  const { data: pricing } = useGetModulesPricing();
   const [editing, setEditing] = useState<ConnectorRegistryEntry | null>(null);
 
   if (isLoading) {
@@ -45,12 +49,11 @@ export function ConnectorRegistrySection() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Cable className="size-6 text-primary" />
-            Connector Registry
+            <Package className="size-6 text-primary" />
+            Product Catalog
           </h2>
           <p className="text-muted-foreground mt-1 max-w-2xl">
-            The full white-label proxy map — every module and the upstream vendor connector it
-            runs through. Tenants and clients never see any of this.
+            Every product by category with its retail price and profit margin.
           </p>
         </div>
         <Badge variant="destructive" className="shrink-0 gap-1.5 uppercase tracking-wider font-mono">
@@ -67,71 +70,68 @@ export function ConnectorRegistrySection() {
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 {group.category}
                 <span className="text-xs font-mono font-normal text-muted-foreground">
-                  {group.items.length} module{group.items.length === 1 ? '' : 's'}
+                  {group.items.length} product{group.items.length === 1 ? '' : 's'}
                 </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
-                {group.items.map((m) => (
-                  <div
-                    key={m.id}
-                    className="px-6 py-4 grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_auto] gap-x-8 gap-y-1.5 items-start"
-                    data-testid={`row-module-${m.id}`}
-                  >
-                    <div className="min-w-0">
-                      <div className="font-medium">{m.name}</div>
-                      {m.slug ? (
-                        <code className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded" data-testid={`text-slug-${m.id}`}>
-                          {m.slug}
-                        </code>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">no slug</span>
-                      )}
+                {group.items.map((m) => {
+                  const price = pricing?.find((p) => p.id === m.id);
+                  const isPartner = m.categorySlug === 'partners';
+                  return (
+                    <div
+                      key={m.id}
+                      className="px-6 py-4 grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_auto] gap-x-8 gap-y-1.5 items-center"
+                      data-testid={`row-module-${m.id}`}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium">{m.name}</div>
+                      </div>
+                      <div className="min-w-0">
+                        {isPartner ? (
+                          <span className="text-sm text-muted-foreground" data-testid={`text-pricing-${m.id}`}>
+                            Partner billed
+                          </span>
+                        ) : price ? (
+                          <span className="text-sm font-mono" data-testid={`text-pricing-${m.id}`}>
+                            {formatCurrency(price.resalePrice)}/mo
+                            <span className="text-emerald-600">
+                              {' '}· +{formatCurrency(price.margin)} margin
+                              {price.resalePrice > 0
+                                ? ` (${Math.round((price.margin / price.resalePrice) * 100)}%)`
+                                : ''}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground italic">—</span>
+                        )}
+                      </div>
+                      <div className="flex md:justify-end gap-1">
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Open ${m.name} module console`}
+                          data-testid={`link-module-console-${m.id}`}
+                        >
+                          <Link href={`/modules/${m.id}`}>
+                            <PanelsTopLeft className="size-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setEditing(m)}
+                          aria-label={`Edit ${m.name}`}
+                          data-testid={`button-edit-${m.id}`}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      {m.hiddenConnector ? (
-                        <>
-                          <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-                            Hidden Connector{m.upstreamVendor ? ` — ${m.upstreamVendor}` : ''}
-                          </div>
-                          <div className="text-sm" data-testid={`text-connector-${m.id}`}>
-                            {m.hiddenConnector}
-                          </div>
-                          {m.proxyNotes && (
-                            <div className="text-xs text-muted-foreground mt-0.5">{m.proxyNotes}</div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="text-sm text-muted-foreground italic">
-                          Internal — no external connector mapped
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex md:justify-end gap-1">
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Open ${m.name} module console`}
-                        data-testid={`link-module-console-${m.id}`}
-                      >
-                        <Link href={`/modules/${m.id}`}>
-                          <PanelsTopLeft className="size-4" />
-                        </Link>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setEditing(m)}
-                        aria-label={`Edit ${m.name} connector`}
-                        data-testid={`button-edit-${m.id}`}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

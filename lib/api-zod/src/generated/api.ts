@@ -21,6 +21,8 @@ export const HealthCheckResponse = zod.object({
  */
 export const GetAgencyDashboardResponse = zod.object({
   "totalMrr": zod.number(),
+  "monthlyProfit": zod.number().describe('Total monthly profit across all provisioned modules (retail minus cost, monthly-equivalent).'),
+  "markupEarnings": zod.number().describe('Monthly earnings attributable to retail markups on provisioned modules.'),
   "activeTenants": zod.number(),
   "suspendedTenants": zod.number(),
   "totalTenants": zod.number(),

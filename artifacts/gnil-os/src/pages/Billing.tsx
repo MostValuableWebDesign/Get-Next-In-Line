@@ -13,15 +13,15 @@ export default function Billing() {
   const { data: summary, isLoading: isLoadingSummary } = useGetBillingSummary();
   const { data: pricing, isLoading: isLoadingPricing } = useGetModulesPricing();
   const { data: modules, isLoading: isLoadingModules } = useListModules();
-  // Partner Integrations are 0%-markup pass-throughs — cost figures are
-  // meaningless for them and are hidden in the pricing matrix.
+  // Partner products are billed directly by the partner — no retail price or
+  // margin figures apply, so their rows show no pricing.
   const partnerIds = new Set(
     (modules ?? []).filter((m) => m.categorySlug === 'partners').map((m) => m.id),
   );
   
   // Wait for the module list too — partner classification depends on it, and
   // rendering the pricing matrix before it resolves would briefly show
-  // wholesale/resale figures on partner pass-through rows.
+  // pricing figures on partner rows.
   if (isLoadingSummary || isLoadingPricing || isLoadingModules || !modules) {
     return (
       <div className="space-y-6">
@@ -48,7 +48,7 @@ export default function Billing() {
         <Card className="md:col-span-2 border-none shadow-md">
           <CardHeader>
             <CardTitle>Module Pricing Matrix</CardTitle>
-            <CardDescription>Current wholesale vs. resale pricing across all modules</CardDescription>
+            <CardDescription>Retail pricing and profit margin across all modules</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border border-border overflow-hidden">
@@ -57,10 +57,8 @@ export default function Billing() {
                   <TableRow>
                     <TableHead>Module Name</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Wholesale</TableHead>
-                    <TableHead className="text-right">Markup</TableHead>
-                    <TableHead className="text-right font-bold">Resale</TableHead>
-                    <TableHead className="text-right text-emerald-600">Margin</TableHead>
+                    <TableHead className="text-right font-bold">Retail Price</TableHead>
+                    <TableHead className="text-right text-emerald-600">Profit Margin</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -71,15 +69,18 @@ export default function Billing() {
                         <Badge variant="outline" className="text-[10px] uppercase">{p.category}</Badge>
                       </TableCell>
                       {partnerIds.has(p.id) ? (
-                        <TableCell colSpan={4} className="text-right text-muted-foreground" data-testid={`pricing-passthrough-${p.id}`}>
-                          Pass-through · 0% markup
+                        <TableCell colSpan={2} className="text-right text-muted-foreground" data-testid={`pricing-partner-${p.id}`}>
+                          Partner billed
                         </TableCell>
                       ) : (
                         <>
-                          <TableCell className="text-right font-mono text-muted-foreground">{formatCurrency(p.wholesalePrice)}</TableCell>
-                          <TableCell className="text-right font-mono">{p.markupPercent}%</TableCell>
                           <TableCell className="text-right font-mono font-bold">{formatCurrency(p.resalePrice)}</TableCell>
-                          <TableCell className="text-right font-mono text-emerald-600 font-medium">+{formatCurrency(p.margin)}</TableCell>
+                          <TableCell className="text-right font-mono text-emerald-600 font-medium" data-testid={`pricing-margin-${p.id}`}>
+                            +{formatCurrency(p.margin)}
+                            {p.resalePrice > 0 && (
+                              <span className="text-xs text-emerald-600/80"> ({Math.round((p.margin / p.resalePrice) * 100)}%)</span>
+                            )}
+                          </TableCell>
                         </>
                       )}
                     </TableRow>

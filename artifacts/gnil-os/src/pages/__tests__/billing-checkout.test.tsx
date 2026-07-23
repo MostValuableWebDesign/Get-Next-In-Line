@@ -110,13 +110,15 @@ describe('Billing checkout simulation', () => {
     modulesState = { data: moduleList, isLoading: false };
   });
 
-  it('shows pass-through instead of cost figures for partner modules in the pricing matrix', () => {
+  it('shows partner-billed rows without cost figures, and retail price + margin for the rest', () => {
     renderBilling();
 
-    expect(screen.getByTestId('pricing-passthrough-3')).toHaveTextContent('Pass-through · 0% markup');
-    // Non-partner rows keep their figures (formatCurrency rounds to 0 digits)
+    expect(screen.getByTestId('pricing-partner-3')).toHaveTextContent('Partner billed');
+    // Non-partner rows show retail price + profit margin (formatCurrency rounds to 0 digits)
     expect(screen.getByText('$224')).toBeInTheDocument();
-    expect(screen.getAllByText('$149').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('pricing-margin-1')).toHaveTextContent('+$75 (33%)');
+    // Wholesale columns and pass-through wording never render
+    expect(document.body.textContent).not.toMatch(/Pass-through|0% markup|[Ww]holesale/);
   });
 
   it('keeps the loading skeleton until the module list resolves so partner rows never flash costs', () => {
@@ -158,10 +160,12 @@ describe('Billing checkout simulation', () => {
     pickModule(dialog, 'Smart Booking System');
     pickModule(dialog, 'AI Receptionist');
 
-    // Resale total: 223.50 + 148.50 = 372, margin 74.50 + 49.50 = 124, wholesale 248
+    // Retail total: 223.50 + 148.50 = 372, margin 74.50 + 49.50 = 124
     expect(within(dialog).getByText('$372')).toBeInTheDocument();
     expect(within(dialog).getByText('+$124')).toBeInTheDocument();
-    expect(within(dialog).getByText('$248')).toBeInTheDocument();
+    // Wholesale cost line no longer renders
+    expect(within(dialog).queryByText(/[Ww]holesale/)).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('$248')).not.toBeInTheDocument();
   });
 
   it('charges wholesale prices and zero margin when markup is unchecked', () => {
@@ -171,9 +175,9 @@ describe('Billing checkout simulation', () => {
     pickModule(dialog, 'Smart Booking System');
     pickModule(dialog, 'AI Receptionist');
 
-    fireEvent.click(within(dialog).getByLabelText('Apply Agency Markup'));
+    fireEvent.click(within(dialog).getByLabelText('Apply Retail Pricing'));
 
-    // Total charge = wholesale 149 + 99 = 248, margin 0
+    // Total charge = base cost 149 + 99 = 248, margin 0
     const totalRow = within(dialog).getByText('Total Charge').parentElement as HTMLElement;
     expect(within(totalRow).getByText('$248')).toBeInTheDocument();
     expect(within(dialog).getByText('+$0')).toBeInTheDocument();
@@ -228,7 +232,7 @@ describe('Billing checkout simulation', () => {
     const dialog = openDialog();
 
     pickModule(dialog, 'Smart Booking System');
-    fireEvent.click(within(dialog).getByLabelText('Apply Agency Markup'));
+    fireEvent.click(within(dialog).getByLabelText('Apply Retail Pricing'));
     await pickTenant('Metro Clinics');
 
     fireEvent.click(screen.getByTestId('button-run-transaction'));

@@ -90,6 +90,12 @@ export const tenantModulesTable = pgTable(
       .references(() => modulesTable.id, { onDelete: "cascade" }),
     // monthly | biweekly — cadence chosen at checkout time.
     billingCadence: text("billing_cadence").notNull().default("monthly"),
+    // Realized per-charge pricing captured at checkout time (cadence-specific
+    // amounts). Used for profit reporting so a checkout with markup disabled
+    // is never reported as profitable. Null on legacy rows provisioned before
+    // these columns existed — reporting falls back to the current markup.
+    chargedWholesale: numeric("charged_wholesale", { precision: 10, scale: 2 }),
+    chargedResale: numeric("charged_resale", { precision: 10, scale: 2 }),
     provisionedAt: timestamp("provisioned_at").notNull().defaultNow(),
   },
   (t) => [unique("tenant_modules_tenant_module_unique").on(t.tenantId, t.moduleId)]

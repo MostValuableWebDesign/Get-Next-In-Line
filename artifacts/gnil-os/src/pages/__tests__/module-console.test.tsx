@@ -1,8 +1,8 @@
 /**
  * Module console page:
- *  - renders name, description, category badge, and markup-based resale price
- *    for regular modules;
- *  - shows the "Partner Direct (0% Markup)" badge (no price / no provision
+ *  - renders name, description, category badge, retail price, and profit
+ *    margin for regular modules (wholesale figures never rendered);
+ *  - shows the "Partner Direct" badge (no price / no provision
  *    button) for partner modules;
  *  - single-module provisioning flow (shared CheckoutSimulationDialog): pick a
  *    tenant, run, checkout is called with just this module, and a success
@@ -158,12 +158,15 @@ describe('ModuleConsole', () => {
     expect(screen.getByTestId('text-module-name')).toHaveTextContent('Smart Booking System');
     expect(screen.getByTestId('text-module-description')).toHaveTextContent('Intelligent customer scheduling engine.');
     expect(screen.getByText('Operations')).toBeInTheDocument();
-    // resale = 149 * 1.5 = 223.50, driven by live markup
+    // retail = 149 * 1.5 = 223.50, driven by live markup
     expect(screen.getByTestId('text-resale-price')).toHaveTextContent('$224');
-    expect(screen.getByText(/Resale Price w\/ 50% Markup/)).toBeInTheDocument();
+    expect(screen.getByText('Retail Price')).toBeInTheDocument();
+    // profit margin shown; wholesale figures never rendered
+    expect(screen.getByTestId('text-profit-margin')).toHaveTextContent('+$75/mo profit (33%)');
+    expect(screen.queryByText(/[Ww]holesale/)).not.toBeInTheDocument();
     // status panel
     expect(screen.getByTestId('text-active-tenants')).toHaveTextContent('1 Active Subdomains');
-    expect(screen.getByTestId('text-markup-percent')).toHaveTextContent('+50% Agency Markup');
+    expect(screen.getByTestId('text-markup-percent')).toHaveTextContent('+50% Profit Margin');
     expect(screen.getByTestId('button-provision-module')).toBeInTheDocument();
     expect(screen.queryByTestId('badge-partner-direct')).not.toBeInTheDocument();
   });
@@ -172,7 +175,8 @@ describe('ModuleConsole', () => {
     renderConsole('/modules/2');
 
     expect(screen.getByTestId('text-module-name')).toHaveTextContent('Group Health Insurance Hub');
-    expect(screen.getByTestId('badge-partner-direct')).toHaveTextContent('Partner Direct (0% Markup)');
+    expect(screen.getByTestId('badge-partner-direct')).toHaveTextContent('Partner Direct');
+    expect(screen.queryByText(/0% Markup|Pass-through/)).not.toBeInTheDocument();
     expect(screen.queryByTestId('text-resale-price')).not.toBeInTheDocument();
     expect(screen.queryByTestId('button-provision-module')).not.toBeInTheDocument();
   });

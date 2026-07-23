@@ -20,4 +20,5 @@
 - Tenant-facing /api/modules intentionally omits `slug` (white-label contract) — frontend module lookups must match on `name`; never add slug back to that response. Sole exception: `partnerBrand`, exposed only for categorySlug "partners" (partners are deliberately presented by brand); it must stay null for every other category.
 - Integration tests that seed fixed phone numbers (e.g. customer-link) break if a crashed run leaves its test tenant behind — duplicate phones make auto-link ambiguous; delete stale `CustLink %` tenants (cascade removes profiles) to recover.
 - [Stripe deposit holds](stripe-deposits.md) — connector key is `settings.secret` not `secret_key`; stripe-replit-sync must be esbuild-external or its migrations silently no-op.
+- [Realized margin reporting](realized-margin-reporting.md) — profit figures must come from charged_wholesale/charged_resale persisted at checkout, never wholesale × current markup% (except legacy NULL rows).
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.
