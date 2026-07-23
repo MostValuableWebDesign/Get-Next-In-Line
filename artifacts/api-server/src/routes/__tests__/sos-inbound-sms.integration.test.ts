@@ -8,6 +8,7 @@ import {
   messagesTable,
   sosAppointmentsTable,
   tenantsTable,
+  sosSettingsTable,
 } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { claimWaitlistSlot } from "../../lib/waitlistClaim";
@@ -40,11 +41,13 @@ const PHONE_A = `+1555${uniq}`;
 const PHONE_B = `+1556${uniq}`;
 const PHONE_UNKNOWN = `+1557${uniq}`;
 const PHONE_SHARED = `+1558${uniq}`; // same number in legacy + a tenant scope
+const PHONE_TENANT_LINE = `+1559${uniq}`; // the tenant's own Twilio number
 
 let custA: { id: number };
 let custB: { id: number };
 let tenantId: number;
 let legacyShared: { id: number };
+let tenantShared: { id: number };
 
 function signedPost(params: Record<string, string>) {
   const signature = twilio.getExpectedTwilioSignature(AUTH_TOKEN, URL, params);
@@ -105,9 +108,17 @@ beforeAll(async () => {
     .returning({ id: sosCustomersTable.id });
   legacyShared = shared;
   customerIds.push(shared.id);
-  await db
+  const [sharedTenant] = await db
     .insert(sosCustomersTable)
-    .values([{ name: `Shared Tenant ${RUN}`, phone: PHONE_SHARED, smsOptIn: true, tenantId }]);
+    .values([{ name: `Shared Tenant ${RUN}`, phone: PHONE_SHARED, smsOptIn: true, tenantId }])
+    .returning({ id: sosCustomersTable.id });
+  tenantShared = sharedTenant;
+  customerIds.push(sharedTenant.id);
+
+  // Give the tenant its own Twilio number so texts sent TO it resolve scope.
+  await db
+    .insert(sosSettingsTable)
+    .values({ tenantId, businessName: `Inbound ${RUN}`, smsFromNumber: PHONE_TENANT_LINE });
 });
 
 afterAll(async () => {
@@ -200,6 +211,65 @@ describe("inbound logging and customer matching", () => {
     const row = await latestInbound(PHONE_A);
     expect(row.customerId).toBe(custA.id);
     expect(row.kind).toBe("inbound");
+  });
+});
+
+describe("per-tenant Twilio numbers (tenant scope from the To number)", () => {
+  it("a shared phone texting the tenant's own number matches that tenant's customer", async () => {
+    const res = await signedPost({
+      From: PHONE_SHARED,
+      To: PHONE_TENANT_LINE,
+      Body: "hello from a shared phone",
+      MessageSid: `SMscoped${uniq}`,
+    });
+    expect(res.status).toBe(200);
+    const row = await latestInbound(PHONE_SHARED);
+    expect(row.customerId).toBe(tenantShared.id);
+    expect(row.tenantId).toBe(tenantId);
+  });
+
+  it("STOP to the tenant's number flips only the in-scope SOS customer", async () => {
+    await signedPost({ From: PHONE_SHARED, To: PHONE_TENANT_LINE, Body: " Stop " });
+    const [tenantCust] = await db
+      .select()
+      .from(sosCustomersTable)
+      .where(eq(sosCustomersTable.id, tenantShared.id));
+    expect(tenantCust.smsOptIn).toBe(false);
+    // The legacy scope's customer with the same phone is untouched (its
+    // opt-out would only apply if they text the shared/legacy line).
+    const [legacyCust] = await db
+      .select()
+      .from(sosCustomersTable)
+      .where(eq(sosCustomersTable.id, legacyShared.id));
+    expect(legacyCust.smsOptIn).toBe(true);
+    // Restore for other tests.
+    await signedPost({ From: PHONE_SHARED, To: PHONE_TENANT_LINE, Body: "START" });
+  });
+
+  it("an unknown sender texting the tenant's number is logged with that tenant's scope", async () => {
+    const res = await signedPost({
+      From: PHONE_UNKNOWN,
+      To: PHONE_TENANT_LINE,
+      Body: "who dis",
+      MessageSid: `SMscopedunk${uniq}`,
+    });
+    expect(res.status).toBe(200);
+    const row = await latestInbound(PHONE_UNKNOWN);
+    expect(row.customerId).toBeNull();
+    expect(row.tenantId).toBe(tenantId);
+  });
+
+  it("a text to an unassigned number keeps the ambiguous-match fail-safe", async () => {
+    const res = await signedPost({
+      From: PHONE_SHARED,
+      To: `+1550${uniq}`,
+      Body: "hi",
+      MessageSid: `SMunscoped${uniq}`,
+    });
+    expect(res.status).toBe(200);
+    const row = await latestInbound(PHONE_SHARED);
+    expect(row.customerId).toBeNull();
+    expect(row.tenantId).toBeNull();
   });
 });
 

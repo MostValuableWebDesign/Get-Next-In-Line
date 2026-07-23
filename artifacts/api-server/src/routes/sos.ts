@@ -1508,22 +1508,66 @@ router.post("/sos/messages", async (req, res): Promise<void> => {
 
 // ── Twilio inbound SMS webhook ───────────────────────────────────────────────
 
-/** Find a customer whose phone matches the (normalized) inbound From number. */
 /**
- * Resolve the inbound sender to an SOS customer. The webhook has no tenant
- * context (per-tenant Twilio numbers are a separate effort), so a phone number
- * that matches customers in more than one tenant scope is ambiguous: we fail
- * safe and return null (log-only, no opt-in change or claim) rather than
- * mutate the wrong tenant's customer.
+ * Tenant scope resolved from the Twilio number an inbound text was sent TO.
+ *
+ * Each tenant can be assigned its own Twilio "from" number via
+ * sos_settings.sms_from_number; inbound replies to that number arrive with it
+ * as the To param, which identifies the business unambiguously. `resolved`
+ * is true only when exactly one settings row claims the number — a number
+ * shared by several settings rows (misconfiguration) or claimed by none (the
+ * shared/legacy connector line) stays unresolved and keeps the historical
+ * fail-safe behavior.
  */
-async function findCustomerByPhone(from: string | null) {
+type InboundTenantScope =
+  | { resolved: true; tenantId: number | null }
+  | { resolved: false };
+
+async function resolveTenantScopeFromToNumber(
+  to: string | null,
+): Promise<InboundTenantScope> {
+  if (!to) return { resolved: false };
+  const rows = await db
+    .select({
+      tenantId: sosSettingsTable.tenantId,
+      smsFromNumber: sosSettingsTable.smsFromNumber,
+    })
+    .from(sosSettingsTable)
+    .where(sql`${sosSettingsTable.smsFromNumber} is not null`);
+  const matches = rows.filter((r) => normalizeToE164(r.smsFromNumber) === to);
+  if (matches.length !== 1) return { resolved: false };
+  return { resolved: true, tenantId: matches[0].tenantId };
+}
+
+/**
+ * Resolve the inbound sender to an SOS customer.
+ *
+ * With a resolved tenant scope (the text arrived on a number assigned to
+ * exactly one settings row), matching is scoped strictly to that tenant
+ * (or the legacy NULL-tenant scope) — a phone shared across businesses is no
+ * longer ambiguous because the To number tells us which business was texted.
+ *
+ * Without tenant scope (shared/legacy number), the historical fail-safe
+ * stands: a phone number that matches customers in more than one tenant
+ * scope is ambiguous and we return null (log-only, no opt-in change or
+ * claim) rather than mutate the wrong tenant's customer.
+ */
+async function findCustomerByPhone(from: string | null, scope: InboundTenantScope) {
   if (!from) return null;
   const candidates = await db
     .select()
     .from(sosCustomersTable)
-    .where(sql`${sosCustomersTable.phone} is not null`);
+    .where(
+      scope.resolved
+        ? and(
+            sql`${sosCustomersTable.phone} is not null`,
+            tenantMatch(sosCustomersTable.tenantId, scope.tenantId),
+          )
+        : sql`${sosCustomersTable.phone} is not null`,
+    );
   const matches = candidates.filter((c) => normalizeToE164(c.phone) === from);
   if (matches.length === 0) return null;
+  if (scope.resolved) return matches[0];
   const scopes = new Set(matches.map((c) => c.tenantId ?? "legacy"));
   return scopes.size === 1 ? matches[0] : null;
 }
@@ -1600,12 +1644,16 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
 
   const fromNumber = normalizeToE164(params.From) ?? params.From ?? null;
   const body = typeof params.Body === "string" ? params.Body : "";
-  const customer = await findCustomerByPhone(normalizeToE164(params.From));
+  // Per-tenant Twilio numbers: the number the text was sent TO identifies
+  // the business, letting customer matching act unambiguously in that scope.
+  const scope = await resolveTenantScopeFromToNumber(normalizeToE164(params.To));
+  const customer = await findCustomerByPhone(normalizeToE164(params.From), scope);
 
   // Every inbound text is recorded in the unified messages table, matched to
-  // a customer when possible.
+  // a customer when possible; when the To number resolved a tenant, unknown
+  // senders are still stamped with that tenant's scope.
   await recordInboundMessage({
-    tenantId: customer?.tenantId ?? null,
+    tenantId: customer?.tenantId ?? (scope.resolved ? scope.tenantId : null),
     customerId: customer?.id ?? null,
     clientProfileId: customer?.clientProfileId ?? null,
     fromNumber, // the sender — shown as the counterparty in the log
