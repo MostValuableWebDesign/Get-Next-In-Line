@@ -1,0 +1,43 @@
+You are acting as an expert Full-Stack Software Architect and UI/UX Engineer. We need to implement two critical updates: re-applying our Partner Integrations overhaul from git history and fixing a critical dashboard crash.
+
+### Part 1: Partner Integrations Overhaul
+Re-apply the Partner Integrations architecture referenced in commits `0d218d1`, `67b196a`, `98118e0`, and `3e2d65e` with the following strict requirements:
+1. **Hide All Partner Costs:** Completely strip any visible pricing, wholesale rates, or cost breakdowns associated with partner services across all UI components and views.
+2. **Remove Pass-Through Wording:** Eliminate any terminology mentioning "pass-through pricing," "wholesale costs," or third-party margin transparency from user-facing copy, tooltips, and documentation.
+3. **Open Partner Display:** Display all eight partner-direct and white-label resale engines openly by their official brand names within the Partners category.
+4. **Backend Abstraction:** Ensure backend mechanics, margin calculations (such as automated 25% markups), and API keys remain strictly hidden from the tenant-facing API and frontend payload.
+
+#### Service Catalog Architecture Reference:
+
+**1. Public Core Service Modules (Automated 25% Markup)**
+* Complete Payroll & Tax Suite (`complete_payroll_suite`)
+* Smart Booking System (`smart_booking`)
+* No-Show Shield & Deposits (`no_show_shield`)
+* Commission & Split Tracker (`commission_ledger`)
+* Service Payroll Hub (`payroll_hub`)
+
+**2. Partner-Direct Integrations**
+* The Hartford Insurance (`the_hartford`)
+* Vestwell Retirement Plan (`vestwell`)
+* Simply Insured (`simply_insured`)
+* Gusto Payroll (`gusto`)
+* QuickBooks Ledger (`quickbooks`)
+
+**3. Hidden White-Label Resale Engines (Automated 25% Markup)**
+* Qujam Live Stream Engine (`qujam`)
+* vibe.co Connected TV (CTV) (`vibe_co`)
+* AdRoll Omnichannel Ads (`adroll`)
+* Audiogo Digital Audio Ads (`audiogo`)
+* Wondercraft.ai Audio Studio (`wondercraft_ai`)
+* Creatify.ai Video Studio (`creatify_ai`)
+* Metricool Analytics & Scheduler (`metricool`)
+
+---
+
+### Part 2: Dashboard Crash & Error Resilience Fix
+The main dashboard is currently throwing a **"Failed to load dashboard"** error state because an unhandled API failure or database query rejection on page load is crashing the component tree.
+
+**Action Items:**
+1. **Inspect Data-Fetching:** Review the dashboard frontend components and associated data-fetching hooks (e.g., `useEffect`, React Query, or direct API service calls).
+2. **Implement Defensive Error Handling:** Wrap all asynchronous data requests and database queries in robust `try/catch` blocks and React Error Boundaries.
+3. **Safe Fallback State:** Implement a graceful degradation / fallback UI state (such as skeleton loaders or partial data rendering with a non-blocking notification banner) so that the dashboard renders successfully even if a single backend module or partner integration query fails.
