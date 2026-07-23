@@ -401,4 +401,76 @@ describe("scoped reads", () => {
     // Two tenant-B calls were placed earlier in this suite.
     expect(dashB.body.callsHandledToday).toBe(2);
   });
+
+  it("keeps one tenant's operational texts out of another tenant's message log, timeline, and dashboard count", async () => {
+    // Tenant B already has its own operational texts (AI receptionist
+    // follow-ups from earlier tests); its count must not move when A sends.
+    const dashBBefore = await agent.get("/api/sos/dashboard").set(asTenant(tenantB)).expect(200);
+    const dashABefore = await agent.get("/api/sos/dashboard").set(asTenant(tenantA)).expect(200);
+
+    // Tenant A: an opted-in customer receives a manual staff text.
+    const custA = await agent
+      .post("/api/sos/customers")
+      .set(asTenant(tenantA))
+      .send({ name: `Texter A ${RUN}`, phone: "+15550100021", smsOptIn: true })
+      .expect(201);
+    await agent
+      .post("/api/sos/messages")
+      .set(asTenant(tenantA))
+      .send({ customerId: custA.body.id, body: `Hello from A ${RUN}` })
+      .expect(201);
+
+    // Tenant A sees its message; tenant B and the legacy view do not.
+    const [logA, logB, logLegacy] = await Promise.all([
+      agent.get("/api/sos/messages").set(asTenant(tenantA)).expect(200),
+      agent.get("/api/sos/messages").set(asTenant(tenantB)).expect(200),
+      agent.get("/api/sos/messages").expect(200),
+    ]);
+    const bodyMatch = (m: { body: string }) => m.body === `Hello from A ${RUN}`;
+    expect(logA.body.some(bodyMatch)).toBe(true);
+    expect(logB.body.some(bodyMatch)).toBe(false);
+    expect(logLegacy.body.some(bodyMatch)).toBe(false);
+
+    // Dashboard message count is scoped by the message's own tenant stamp:
+    // A's send increments only A's count, never B's.
+    const dashB = await agent.get("/api/sos/dashboard").set(asTenant(tenantB)).expect(200);
+    expect(dashB.body.messagesSentToday).toBe(dashBBefore.body.messagesSentToday);
+    const dashA = await agent.get("/api/sos/dashboard").set(asTenant(tenantA)).expect(200);
+    expect(dashA.body.messagesSentToday).toBe(dashABefore.body.messagesSentToday + 1);
+
+    // Timeline: a tenant-B customer sharing the same phone number never sees
+    // tenant A's texts (to-number matching stays inside the tenant scope).
+    const custB = await agent
+      .post("/api/sos/customers")
+      .set(asTenant(tenantB))
+      .send({ name: `Texter B ${RUN}`, phone: "+15550100021", smsOptIn: true })
+      .expect(201);
+    const [tlA, tlB] = await Promise.all([
+      agent.get(`/api/sos/customers/${custA.body.id}/timeline`).set(asTenant(tenantA)).expect(200),
+      agent.get(`/api/sos/customers/${custB.body.id}/timeline`).set(asTenant(tenantB)).expect(200),
+    ]);
+    expect(tlA.body.some((e: { body: string | null }) => e.body === `Hello from A ${RUN}`)).toBe(true);
+    expect(tlB.body.some((e: { body: string | null }) => e.body === `Hello from A ${RUN}`)).toBe(false);
+  });
+
+  it("legacy (headerless) message log keeps showing NULL-tenant messages", async () => {
+    // A legacy customer (no tenant header) receives a manual staff text.
+    const legacyCust = await agent
+      .post("/api/sos/customers")
+      .send({ name: `Legacy texter ${RUN}`, phone: "+15550100022", smsOptIn: true })
+      .expect(201);
+    await agent
+      .post("/api/sos/messages")
+      .send({ customerId: legacyCust.body.id, body: `Legacy hello ${RUN}` })
+      .expect(201);
+
+    const [logLegacy, logA] = await Promise.all([
+      agent.get("/api/sos/messages").expect(200),
+      agent.get("/api/sos/messages").set(asTenant(tenantA)).expect(200),
+    ]);
+    const bodyMatch = (m: { body: string }) => m.body === `Legacy hello ${RUN}`;
+    expect(logLegacy.body.some(bodyMatch)).toBe(true);
+    // Legacy messages never leak into a tenant's scoped view either.
+    expect(logA.body.some(bodyMatch)).toBe(false);
+  });
 });

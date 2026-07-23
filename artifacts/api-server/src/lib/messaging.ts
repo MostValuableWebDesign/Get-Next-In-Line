@@ -26,9 +26,16 @@ export type OutboundMessageKind =
   | "send_reminder"
   | "rebooking_nudge";
 
+export type MessageOrigin = "operational" | "concierge";
+
 export interface SendMessageOptions {
   /** Tenant scope; null/omitted for legacy single-tenant SOS operational sends. */
   tenantId?: number | null;
+  /**
+   * What surface the message belongs to. Defaults to "operational" (SOS
+   * texts); concierge automation sends must pass "concierge".
+   */
+  origin?: MessageOrigin;
   /** Operational (SOS) customer this message is for, when known. */
   customerId?: number | null;
   /** Marketing (concierge) client profile this message is for, when known. */
@@ -139,6 +146,7 @@ export async function sendMessage(opts: SendMessageOptions): Promise<Message> {
     .insert(messagesTable)
     .values({
       tenantId: opts.tenantId ?? null,
+      origin: opts.origin ?? "operational",
       customerId: opts.customerId ?? null,
       clientProfileId: opts.clientProfileId ?? null,
       ruleId: opts.ruleId ?? null,
@@ -273,6 +281,8 @@ export async function applyDeliveryStatus(
 }
 
 export interface RecordInboundOptions {
+  /** Tenant scope of the matched sender; null for legacy/unknown senders. */
+  tenantId?: number | null;
   customerId?: number | null;
   clientProfileId?: number | null;
   /** The sender — shown as the counterparty in the log. */
@@ -288,6 +298,8 @@ export async function recordInboundMessage(
   const [row] = await db
     .insert(messagesTable)
     .values({
+      tenantId: opts.tenantId ?? null,
+      origin: "operational",
       customerId: opts.customerId ?? null,
       clientProfileId: opts.clientProfileId ?? null,
       direction: "inbound",

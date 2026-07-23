@@ -279,6 +279,7 @@ async function broadcastOpenSlot(
       // Safe send: an SMS/infra failure must not abort the broadcast loop —
       // the entry is already marked notified and the outcome is recorded.
       await sendMessageSafe({
+        tenantId,
         customerId: customer.id,
         toNumber: customer.phone,
         kind: "slot_open",
@@ -324,38 +325,18 @@ router.get("/sos/dashboard", async (req, res): Promise<void> => {
             scope(sosAppointmentsTable.tenantId),
           ),
         ),
-      // Operational messages (messages.tenant_id IS NULL distinguishes them
-      // from concierge automation sends); attributed to a tenant through the
-      // customer the message was sent to.
-      tenantId == null
-        ? db
-            .select({ n: sql<number>`count(*)::int` })
-            .from(messagesTable)
-            .leftJoin(
-              sosCustomersTable,
-              eq(messagesTable.customerId, sosCustomersTable.id),
-            )
-            .where(
-              and(
-                gte(messagesTable.createdAt, startOfDay),
-                isNull(messagesTable.tenantId),
-                isNull(sosCustomersTable.tenantId),
-              ),
-            )
-        : db
-            .select({ n: sql<number>`count(*)::int` })
-            .from(messagesTable)
-            .innerJoin(
-              sosCustomersTable,
-              eq(messagesTable.customerId, sosCustomersTable.id),
-            )
-            .where(
-              and(
-                gte(messagesTable.createdAt, startOfDay),
-                isNull(messagesTable.tenantId),
-                eq(sosCustomersTable.tenantId, tenantId),
-              ),
-            ),
+      // Operational messages only (origin distinguishes them from concierge
+      // automation sends), scoped strictly by the message's own tenant stamp.
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(messagesTable)
+        .where(
+          and(
+            gte(messagesTable.createdAt, startOfDay),
+            eq(messagesTable.origin, "operational"),
+            scope(messagesTable.tenantId),
+          ),
+        ),
       db
         .select({ n: sql<number>`count(*)::int` })
         .from(sosCallsTable)
@@ -628,13 +609,19 @@ router.get("/sos/customers/:id/timeline", async (req, res): Promise<void> => {
       : Promise.resolve([] as (typeof sosCallsTable.$inferSelect)[]),
     // Unified messages table holds both SOS SMS and concierge automation
     // sends: linked by customer id, linked concierge profile, or to-number.
+    // sends: linked by customer id, linked concierge profile, or to-number —
+    // always within the customer's own tenant scope so one business's texts
+    // never surface on another business's timeline.
     db
       .select()
       .from(messagesTable)
       .where(
-        sql`${messagesTable.customerId} = ${id}
-          or ${customer.clientProfileId != null ? sql`${messagesTable.clientProfileId} = ${customer.clientProfileId}` : sql`false`}
-          or ${phone ? sql`${messagesTable.toNumber} is not null` : sql`false`}`,
+        and(
+          tenantMatch(messagesTable.tenantId, customer.tenantId),
+          sql`(${messagesTable.customerId} = ${id}
+            or ${customer.clientProfileId != null ? sql`${messagesTable.clientProfileId} = ${customer.clientProfileId}` : sql`false`}
+            or ${phone ? sql`${messagesTable.toNumber} is not null` : sql`false`})`,
+        ),
       )
       .orderBy(desc(messagesTable.createdAt)),
   ]);
@@ -661,9 +648,7 @@ router.get("/sos/customers/:id/timeline", async (req, res): Promise<void> => {
         m.clientProfileId === customer.clientProfileId) ||
       (phone != null && normalizeToE164(m.toNumber) === phone);
     if (!matches) continue;
-    // Tenant-scoped rows are concierge automation sends; the rest are
-    // operational SOS texts.
-    const isConcierge = m.tenantId != null;
+    const isConcierge = m.origin === "concierge";
     entries.push({
       id: isConcierge ? `concierge-${m.id}` : `sms-${m.id}`,
       channel: isConcierge ? "concierge" : "sms",
@@ -1072,6 +1057,7 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     // Safe send: a Twilio/infra failure is recorded on the message row but
     // must never block the visit's queue transition below.
     await sendMessageSafe({
+      tenantId: customer.tenantId,
       customerId: customer.id,
       toNumber: customer.phone,
       kind: "you_are_next",
@@ -1423,10 +1409,10 @@ function serializeSosMessage(msg: MessageRow, customerName: string | null) {
 
 router.get("/sos/messages", async (req, res): Promise<void> => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
-  // Operational (SOS) messages only: concierge automation sends are
-  // tenant-scoped and surfaced by the automation report instead. Operational
-  // rows keep messages.tenant_id NULL, so tenant scope comes from the
-  // customer the message belongs to (strict NULL-vs-tenant semantics).
+  // Operational (SOS) messages only: concierge automation sends are surfaced
+  // by the automation report instead. Origin classifies the surface; the
+  // message's own tenant stamp scopes it (strict NULL-vs-tenant semantics —
+  // legacy NULL-tenant messages only appear in the legacy view).
   const tenantId = tenantIdFrom(req);
   const rows = await db
     .select({ msg: messagesTable, customerName: sosCustomersTable.name })
@@ -1434,10 +1420,8 @@ router.get("/sos/messages", async (req, res): Promise<void> => {
     .leftJoin(sosCustomersTable, eq(messagesTable.customerId, sosCustomersTable.id))
     .where(
       and(
-        isNull(messagesTable.tenantId),
-        tenantId == null
-          ? sql`${sosCustomersTable.tenantId} is null`
-          : eq(sosCustomersTable.tenantId, tenantId),
+        eq(messagesTable.origin, "operational"),
+        tenantMatch(messagesTable.tenantId, tenantId),
       ),
     )
     .orderBy(desc(messagesTable.createdAt))
@@ -1466,6 +1450,7 @@ router.post("/sos/messages", async (req, res): Promise<void> => {
     return;
   }
   const msg = await sendMessage({
+    tenantId: customer.tenantId,
     customerId: customer.id,
     toNumber: customer.phone,
     kind: body.kind ?? "manual",
@@ -1564,6 +1549,7 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
   // Every inbound text is recorded in the unified messages table, matched to
   // a customer when possible.
   await recordInboundMessage({
+    tenantId: customer?.tenantId ?? null,
     customerId: customer?.id ?? null,
     clientProfileId: customer?.clientProfileId ?? null,
     fromNumber, // the sender — shown as the counterparty in the log
@@ -1628,6 +1614,7 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
           minute: "2-digit",
         });
         await sendMessage({
+          tenantId: customer.tenantId,
           customerId: customer.id,
           toNumber: customer.phone,
           kind: "claim_confirmation",
@@ -1635,6 +1622,7 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
         });
       } else {
         await sendMessage({
+          tenantId: customer.tenantId,
           customerId: customer.id,
           toNumber: customer.phone,
           kind: "claim_confirmation",
@@ -1656,6 +1644,7 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
         .limit(1);
       if (waiting) {
         await sendMessage({
+          tenantId: customer.tenantId,
           customerId: customer.id,
           toNumber: customer.phone,
           kind: "claim_confirmation",
@@ -1837,6 +1826,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
       // No-Show Shield applies to AI-receptionist bookings too.
       await placeDepositHoldIfActive(appt.id);
       await sendMessageSafe({
+        tenantId,
         customerId: customer.id,
         toNumber: body.fromNumber,
         kind: "ai_followup",
@@ -1845,6 +1835,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
     } else {
       outcome = "followup_sms";
       await sendMessageSafe({
+        tenantId,
         customerId: customer.id,
         toNumber: body.fromNumber,
         kind: "ai_followup",
@@ -1854,6 +1845,7 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
   } else if (parsed.intent === "question" || parsed.intent === "reschedule") {
     outcome = "followup_sms";
     await sendMessageSafe({
+      tenantId,
       customerId: customer.id,
       toNumber: body.fromNumber,
       kind: "ai_followup",
@@ -1936,7 +1928,7 @@ router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
           count: sql<number>`count(*)::int`,
         })
         .from(messagesTable)
-        .where(and(gte(messagesTable.createdAt, since), isNotNull(messagesTable.tenantId)))
+        .where(and(gte(messagesTable.createdAt, since), eq(messagesTable.origin, "concierge")))
         .groupBy(messagesTable.kind, messagesTable.status),
       db
         .select({
@@ -1944,7 +1936,7 @@ router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
           count: sql<number>`count(*)::int`,
         })
         .from(messagesTable)
-        .where(and(gte(messagesTable.createdAt, since), isNotNull(messagesTable.tenantId)))
+        .where(and(gte(messagesTable.createdAt, since), eq(messagesTable.origin, "concierge")))
         .groupBy(sql`1`)
         .orderBy(sql`1`),
     ]);

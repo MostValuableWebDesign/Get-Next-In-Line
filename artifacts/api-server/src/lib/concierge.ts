@@ -94,6 +94,7 @@ export async function dispatchToProfile(opts: DispatchOptions): Promise<Message>
   const { tenantId, profile, body, jobType } = opts;
   return sendMessage({
     tenantId,
+    origin: "concierge",
     clientProfileId: profile.id,
     ruleId: opts.ruleId ?? null,
     toNumber: profile.phone,

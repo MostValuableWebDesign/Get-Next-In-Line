@@ -41,6 +41,13 @@ export const messagesTable = pgTable(
     ruleId: integer("rule_id").references(() => engagementRulesTable.id, {
       onDelete: "set null",
     }),
+    // What surface the message belongs to:
+    //   operational — SOS operational texts (queue, waitlist, receptionist,
+    //     manual sends, inbound replies)
+    //   concierge   — concierge automation sends (reminders, nudges)
+    // Classification lives here so tenant_id can be stamped on operational
+    // sends too (it used to be NULL as the operational marker).
+    origin: text("origin").notNull().default("operational"),
     // outbound | inbound
     direction: text("direction").notNull().default("outbound"),
     // What produced the message:
