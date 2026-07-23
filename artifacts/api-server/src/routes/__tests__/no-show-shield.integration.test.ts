@@ -308,6 +308,127 @@ describe("policy active → holds on every booking source", () => {
   });
 });
 
+describe("tenant-scoped bookings use the owning tenant's own policy", () => {
+  let scopedCustomerId: number;
+
+  beforeAll(async () => {
+    // The provisioned test tenant gets its own settings row with DIFFERENT
+    // policy terms than the legacy record; both are enabled.
+    await setPolicy({
+      noShowShieldEnabled: true,
+      noShowDepositAmount: 30,
+      noShowCancellationWindowHours: 24,
+      noShowFee: 20,
+    });
+    await agent
+      .patch(`/api/tenants/${tenantId}/settings`)
+      .send({
+        noShowShieldEnabled: true,
+        noShowDepositAmount: 55,
+        noShowCancellationWindowHours: 48,
+        noShowFee: 45,
+      })
+      .expect(200);
+    const [customer] = await db
+      .insert(sosCustomersTable)
+      .values({ name: `NSS Scoped ${RUN}`, tenantId, smsOptIn: false })
+      .returning();
+    scopedCustomerId = customer.id;
+  });
+
+  afterAll(async () => {
+    const appts = await db
+      .select({ id: sosAppointmentsTable.id })
+      .from(sosAppointmentsTable)
+      .where(eq(sosAppointmentsTable.customerId, scopedCustomerId));
+    if (appts.length > 0) {
+      await db
+        .delete(sosAppointmentsTable)
+        .where(inArray(sosAppointmentsTable.id, appts.map((a) => a.id)));
+    }
+    await db.delete(sosCustomersTable).where(eq(sosCustomersTable.id, scopedCustomerId));
+  });
+
+  it("snapshots the tenant's own terms on the hold, not the legacy ones", async () => {
+    const startsAt = new Date(Date.now() + 72 * 3600_000);
+    const res = await agent
+      .post("/api/sos/appointments")
+      .set("x-tenant-id", String(tenantId))
+      .send({
+        customerId: scopedCustomerId,
+        serviceType: `svc-scoped-${RUN}`,
+        startsAt: startsAt.toISOString(),
+        endsAt: new Date(startsAt.getTime() + 3600_000).toISOString(),
+        source: "staff",
+      })
+      .expect(201);
+    createdAppointmentIds.push(res.body.id);
+    expect(res.body.deposit).not.toBeNull();
+    expect(res.body.deposit.depositAmount).toBe(55);
+    expect(res.body.deposit.feeAmount).toBe(45);
+    expect(res.body.deposit.cancellationWindowHours).toBe(48);
+  });
+
+  it("places no hold when the tenant's own toggle is off, even though legacy is on", async () => {
+    await agent
+      .patch(`/api/tenants/${tenantId}/settings`)
+      .send({ noShowShieldEnabled: false })
+      .expect(200);
+    const startsAt = new Date(Date.now() + 72 * 3600_000);
+    const res = await agent
+      .post("/api/sos/appointments")
+      .set("x-tenant-id", String(tenantId))
+      .send({
+        customerId: scopedCustomerId,
+        serviceType: `svc-scoped-off-${RUN}`,
+        startsAt: startsAt.toISOString(),
+        endsAt: new Date(startsAt.getTime() + 3600_000).toISOString(),
+        source: "staff",
+      })
+      .expect(201);
+    createdAppointmentIds.push(res.body.id);
+    expect(res.body.deposit).toBeNull();
+    await agent
+      .patch(`/api/tenants/${tenantId}/settings`)
+      .send({ noShowShieldEnabled: true })
+      .expect(200);
+  });
+
+  it("requires the tenant's OWN module subscription, not someone else's", async () => {
+    // A second tenant with shield enabled but no no_show_shield subscription.
+    const [other] = await db
+      .insert(tenantsTable)
+      .values({ brandName: `NSS Other ${RUN}`, subdomain: `${RUN}-o`, status: "active" })
+      .returning({ id: tenantsTable.id });
+    try {
+      await agent
+        .patch(`/api/tenants/${other.id}/settings`)
+        .send({ noShowShieldEnabled: true })
+        .expect(200);
+      const [otherCustomer] = await db
+        .insert(sosCustomersTable)
+        .values({ name: `NSS Other Cust ${RUN}`, tenantId: other.id, smsOptIn: false })
+        .returning();
+      const startsAt = new Date(Date.now() + 72 * 3600_000);
+      const res = await agent
+        .post("/api/sos/appointments")
+        .set("x-tenant-id", String(other.id))
+        .send({
+          customerId: otherCustomer.id,
+          serviceType: `svc-other-${RUN}`,
+          startsAt: startsAt.toISOString(),
+          endsAt: new Date(startsAt.getTime() + 3600_000).toISOString(),
+          source: "staff",
+        })
+        .expect(201);
+      expect(res.body.deposit).toBeNull();
+    } finally {
+      // Cascades settings, customers, appointments.
+      await db.delete(tenantsTable).where(eq(tenantsTable.id, other.id));
+    }
+  });
+});
+
 describe("cancellation & no-show enforcement", () => {
   beforeAll(async () => {
     await setPolicy({

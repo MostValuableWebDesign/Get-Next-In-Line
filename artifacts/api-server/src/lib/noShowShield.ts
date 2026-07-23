@@ -3,9 +3,10 @@ import {
   modulesTable,
   tenantModulesTable,
   sosDepositHoldsTable,
+  sosAppointmentsTable,
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
-import { getLegacySettings, type SosSettingsRow } from "./settings";
+import { getLegacySettings, resolveSettings, type SosSettingsRow } from "./settings";
 import { logger } from "./logger";
 
 export const NO_SHOW_SHIELD_SLUG = "no_show_shield";
@@ -13,18 +14,24 @@ export const NO_SHOW_SHIELD_SLUG = "no_show_shield";
 export type DepositHoldRow = typeof sosDepositHoldsTable.$inferSelect;
 
 /**
- * Whether the No-Show Shield module has been provisioned.
- *
- * SOS operational tables are not tenant-scoped yet (legacy single-business
- * record), so the module counts as provisioned when any tenant subscription
- * for the no_show_shield module exists.
+ * Whether the No-Show Shield module has been provisioned for the given
+ * tenant scope. Under tenant context only that tenant's subscription counts;
+ * for the legacy (NULL-tenant) scope, any subscription counts — that record
+ * pre-dates per-tenant provisioning.
  */
-export async function isNoShowShieldProvisioned(): Promise<boolean> {
+export async function isNoShowShieldProvisioned(
+  tenantId?: number | null,
+): Promise<boolean> {
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(tenantModulesTable)
     .innerJoin(modulesTable, eq(tenantModulesTable.moduleId, modulesTable.id))
-    .where(eq(modulesTable.slug, NO_SHOW_SHIELD_SLUG));
+    .where(
+      and(
+        eq(modulesTable.slug, NO_SHOW_SHIELD_SLUG),
+        tenantId == null ? undefined : eq(tenantModulesTable.tenantId, tenantId),
+      ),
+    );
   return (row?.n ?? 0) > 0;
 }
 
@@ -34,7 +41,7 @@ export async function isNoShowShieldActive(
 ): Promise<boolean> {
   const s = settings ?? (await getLegacySettings());
   if (!s.noShowShieldEnabled) return false;
-  return isNoShowShieldProvisioned();
+  return isNoShowShieldProvisioned(s.tenantId);
 }
 
 /**
@@ -48,7 +55,13 @@ export async function placeDepositHoldIfActive(
   appointmentId: number,
 ): Promise<DepositHoldRow | null> {
   try {
-    const settings = await getLegacySettings();
+    // Policy terms come from the settings of the tenant that owns the
+    // appointment (legacy global record for NULL-tenant bookings).
+    const [appt] = await db
+      .select({ tenantId: sosAppointmentsTable.tenantId })
+      .from(sosAppointmentsTable)
+      .where(eq(sosAppointmentsTable.id, appointmentId));
+    const settings = await resolveSettings(appt?.tenantId ?? null);
     if (!(await isNoShowShieldActive(settings))) return null;
     const [hold] = await db
       .insert(sosDepositHoldsTable)

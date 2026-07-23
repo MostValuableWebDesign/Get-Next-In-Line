@@ -100,7 +100,7 @@ export async function serializeSettings(s: SosSettingsRow) {
   const { isNoShowShieldProvisioned } = await import("./noShowShield");
   const [sms, noShowShieldProvisioned] = await Promise.all([
     getSmsStatus(s.tenantId),
-    isNoShowShieldProvisioned(),
+    isNoShowShieldProvisioned(s.tenantId),
   ]);
   return {
     id: s.id,
