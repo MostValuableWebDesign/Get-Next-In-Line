@@ -125,7 +125,24 @@ const PARTNER_ORDER = [
  * sections.
  */
 function PartnerSections() {
-  const { data: modules, isLoading } = useListModules();
+  const { data: modules, isLoading, isError, refetch } = useListModules();
+
+  if (isError) {
+    return (
+      <div
+        className="max-w-4xl mx-auto text-center py-16 space-y-4"
+        data-testid="partner-services-error"
+      >
+        <h2 className="text-xl font-semibold">Couldn&apos;t load partner integrations</h2>
+        <p className="text-muted-foreground text-sm">
+          Something went wrong while loading the partner list. Please try again.
+        </p>
+        <Button variant="outline" onClick={() => refetch()} data-testid="button-retry-partners">
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
