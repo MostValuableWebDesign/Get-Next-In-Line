@@ -64,6 +64,10 @@ export const modulesTable = pgTable("modules", {
   isActive: boolean("is_active").notNull().default(true),
   // Unique machine slug for the module (e.g. "ghl_crm_pipelines", "gusto").
   slug: text("slug").unique(),
+  // Customer-facing partner brand name — ONLY populated for partner-category
+  // modules (deliberate, narrow exception to the white-label contract).
+  // Null for all white-labeled modules; never derive from upstreamVendor.
+  partnerBrand: text("partner_brand"),
   // ── Hidden connector fields — ADMIN ONLY, never expose via tenant-facing APIs ──
   upstreamVendor: text("upstream_vendor"),
   hiddenConnector: text("hidden_connector"),
