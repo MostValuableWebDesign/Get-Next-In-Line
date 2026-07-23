@@ -1498,6 +1498,17 @@ async function findClientProfileIdsByPhone(from: string | null): Promise<number[
  * customer record, its linked concierge profile, and any other concierge
  * profiles with the same phone number all change together, so opt-out covers
  * concierge automations too — not just SOS texts.
+ *
+ * DECISION (multi-tenant phone matches): the profile update intentionally
+ * spans ALL tenants whose concierge profiles share the sender's phone number,
+ * even when the SOS customer match was ambiguous (multiple tenant scopes) and
+ * therefore skipped. STOP is a consent revocation attached to the phone
+ * number itself — TCPA/carrier compliance requires that no tenant on this
+ * platform keeps texting that number from our shared inbound line. Unlike
+ * other webhook actions this is safe cross-tenant because it only ever
+ * silences future sends (smsOptIn flag); it never reads, exposes, or mutates
+ * one tenant's data on behalf of another. START symmetrically re-enables all
+ * phone-matched profiles, restoring the pre-STOP state.
  */
 async function applyOptInChange(
   customer: { id: number; clientProfileId: number | null } | null,
