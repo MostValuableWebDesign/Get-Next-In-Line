@@ -17,4 +17,6 @@ export const SosMessageKind = {
   inbound: 'inbound',
   claim_confirmation: 'claim_confirmation',
   deposit_update: 'deposit_update',
+  send_reminder: 'send_reminder',
+  rebooking_nudge: 'rebooking_nudge',
 } as const;
