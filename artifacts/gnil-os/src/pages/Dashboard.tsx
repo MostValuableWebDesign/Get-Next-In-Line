@@ -10,7 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/shared/StatCard';
 import { ActivityFeed } from '@/components/shared/ActivityFeed';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, Component, type ReactNode } from 'react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -64,7 +65,9 @@ export default function CommandCenter() {
           <TabsTrigger value="settings" data-testid="tab-agency-settings">Agency Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard" className="mt-4">
-          <DashboardTab />
+          <DashboardErrorBoundary>
+            <DashboardTab />
+          </DashboardErrorBoundary>
         </TabsContent>
         <TabsContent value="tenants" className="mt-4">
           <Tenants />
@@ -80,10 +83,90 @@ export default function CommandCenter() {
   );
 }
 
+/**
+ * Inline per-section error card: shown in place of a section whose query
+ * failed, while the rest of the dashboard keeps rendering.
+ */
+function SectionErrorCard({
+  title,
+  onRetry,
+  testId,
+  className,
+}: {
+  title: string;
+  onRetry: () => void;
+  testId: string;
+  className?: string;
+}) {
+  return (
+    <Card className={`border-dashed border-destructive/40 shadow-none ${className ?? ''}`} data-testid={testId}>
+      <CardContent className="p-6 flex flex-col items-center justify-center text-center gap-3">
+        <AlertTriangle className="w-6 h-6 text-destructive" />
+        <div>
+          <div className="font-medium">{title}</div>
+          <p className="text-sm text-muted-foreground mt-1">This section couldn't load. The rest of the dashboard is unaffected.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={onRetry} data-testid={`${testId}-retry`}>
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Retry
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Catches render-time crashes anywhere inside the dashboard tab (e.g. an
+ * unexpected data shape) and shows a recoverable fallback instead of a
+ * white screen. "Try again" re-mounts the children.
+ */
+class DashboardErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card className="border-dashed border-destructive/40 shadow-none" data-testid="dashboard-error-boundary">
+          <CardContent className="p-10 flex flex-col items-center justify-center text-center gap-4">
+            <AlertTriangle className="w-8 h-8 text-destructive" />
+            <div>
+              <div className="text-lg font-semibold">Something went wrong</div>
+              <p className="text-sm text-muted-foreground mt-1">
+                The dashboard hit an unexpected error while rendering.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => this.setState({ hasError: false })}
+              data-testid="dashboard-error-boundary-retry"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function DashboardTab() {
-  const { data: dashboard, isLoading: isLoadingDashboard } = useGetAgencyDashboard();
-  const { data: settings, isLoading: isLoadingSettings } = useGetAgencySettings();
-  
+  const {
+    data: dashboard,
+    isLoading: isLoadingDashboard,
+    refetch: refetchDashboard,
+  } = useGetAgencyDashboard();
+  const {
+    data: settings,
+    isLoading: isLoadingSettings,
+    refetch: refetchSettings,
+  } = useGetAgencySettings();
+
   if (isLoadingDashboard || isLoadingSettings) {
     return (
       <div className="space-y-6">
@@ -96,7 +179,33 @@ function DashboardTab() {
     );
   }
 
-  if (!dashboard || !settings) return <div>Failed to load dashboard</div>;
+  // Both page-load queries failed: friendly full-page fallback with a Retry
+  // that refetches both.
+  if (!dashboard && !settings) {
+    return (
+      <Card className="border-dashed border-destructive/40 shadow-none" data-testid="dashboard-full-error">
+        <CardContent className="p-12 flex flex-col items-center justify-center text-center gap-4">
+          <AlertTriangle className="w-10 h-10 text-destructive" />
+          <div>
+            <div className="text-xl font-semibold">Couldn't load the dashboard</div>
+            <p className="text-sm text-muted-foreground mt-1">
+              We couldn't reach the server. Check your connection and try again.
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              refetchDashboard();
+              refetchSettings();
+            }}
+            data-testid="dashboard-full-error-retry"
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -105,86 +214,109 @@ function DashboardTab() {
           <h1 className="text-3xl font-bold tracking-tight">Command Center</h1>
           <p className="text-muted-foreground mt-1">Agency performance and global settings.</p>
         </div>
-        <GlobalMarkupSlider initialMarkup={settings.markupPercent} />
+        {settings ? (
+          <GlobalMarkupSlider initialMarkup={settings.markupPercent} />
+        ) : (
+          <SectionErrorCard
+            title="Global settings unavailable"
+            onRetry={() => refetchSettings()}
+            testId="error-agency-settings"
+            className="w-full md:w-[400px]"
+          />
+        )}
       </div>
 
-      {/* Revenue summary — monthly profit and retail markup earnings */}
-      <Card className="border-none shadow-md bg-emerald-600 text-white" data-testid="card-revenue-summary">
-        <CardContent className="p-6 flex flex-col md:flex-row md:items-center gap-6">
-          <div className="p-3 bg-white/15 rounded-xl self-start">
-            <TrendingUp className="w-8 h-8" />
-          </div>
-          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div>
-              <div className="text-sm uppercase tracking-wider text-white/80 font-medium">Monthly Profit</div>
-              <div className="text-4xl font-bold font-mono tracking-tight" data-testid="text-monthly-profit">
-                {formatCurrency(dashboard.monthlyProfit)}
+      {dashboard ? (
+        <>
+          {/* Revenue summary — monthly profit and retail markup earnings */}
+          <Card className="border-none shadow-md bg-emerald-600 text-white" data-testid="card-revenue-summary">
+            <CardContent className="p-6 flex flex-col md:flex-row md:items-center gap-6">
+              <div className="p-3 bg-white/15 rounded-xl self-start">
+                <TrendingUp className="w-8 h-8" />
               </div>
-            </div>
-            <div>
-              <div className="text-sm uppercase tracking-wider text-white/80 font-medium">Earnings from Retail Markups</div>
-              <div className="text-4xl font-bold font-mono tracking-tight" data-testid="text-markup-earnings">
-                {formatCurrency(dashboard.markupEarnings)}
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <div className="text-sm uppercase tracking-wider text-white/80 font-medium">Monthly Profit</div>
+                  <div className="text-4xl font-bold font-mono tracking-tight" data-testid="text-monthly-profit">
+                    {formatCurrency(dashboard.monthlyProfit)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm uppercase tracking-wider text-white/80 font-medium">Earnings from Retail Markups</div>
+                  <div className="text-4xl font-bold font-mono tracking-tight" data-testid="text-markup-earnings">
+                    {formatCurrency(dashboard.markupEarnings)}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total MRR" value={formatCurrency(dashboard.totalMrr)} icon={DollarSign} trend={dashboard.mrrGrowthPercent > 0 ? `+${dashboard.mrrGrowthPercent}%` : `${dashboard.mrrGrowthPercent}%`} />
-        <StatCard title="Active Tenants" value={dashboard.activeTenants.toString()} icon={Users} subtitle={`Out of ${dashboard.totalTenants} total`} />
-        <StatCard title="Suspended" value={dashboard.suspendedTenants.toString()} icon={Activity} subtitle="Requires attention" />
-        <StatCard title="Modules Provisioned" value={dashboard.totalModulesProvisioned.toString()} icon={Target} subtitle="Across all tenants" />
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StatCard title="Total MRR" value={formatCurrency(dashboard.totalMrr)} icon={DollarSign} trend={dashboard.mrrGrowthPercent > 0 ? `+${dashboard.mrrGrowthPercent}%` : `${dashboard.mrrGrowthPercent}%`} />
+            <StatCard title="Active Tenants" value={dashboard.activeTenants.toString()} icon={Users} subtitle={`Out of ${dashboard.totalTenants} total`} />
+            <StatCard title="Suspended" value={dashboard.suspendedTenants.toString()} icon={Activity} subtitle="Requires attention" />
+            <StatCard title="Modules Provisioned" value={dashboard.totalModulesProvisioned.toString()} icon={Target} subtitle="Across all tenants" />
+          </div>
+        </>
+      ) : (
+        <SectionErrorCard
+          title="Agency performance unavailable"
+          onRetry={() => refetchDashboard()}
+          testId="error-agency-dashboard"
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 border-none shadow-md">
-          <CardHeader>
-            <CardTitle>Revenue by Category</CardTitle>
-            <CardDescription>MRR breakdown across service modules</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dashboard.revenueByCategory}>
-                <XAxis dataKey="category" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis 
-                  fontSize={12} 
-                  tickLine={false} 
-                  axisLine={false} 
-                  tickFormatter={(val) => `$${val}`}
-                />
-                <Tooltip 
-                  formatter={(value: number) => [formatCurrency(value), 'MRR']}
-                  contentStyle={{ fontFamily: 'var(--font-sans)', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  itemStyle={{ fontFamily: 'var(--font-mono)' }}
-                />
-                <Bar dataKey="mrr" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {dashboard && (
+          <Card className="lg:col-span-2 border-none shadow-md">
+            <CardHeader>
+              <CardTitle>Revenue by Category</CardTitle>
+              <CardDescription>MRR breakdown across service modules</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dashboard.revenueByCategory}>
+                  <XAxis dataKey="category" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis 
+                    fontSize={12} 
+                    tickLine={false} 
+                    axisLine={false} 
+                    tickFormatter={(val) => `$${val}`}
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => [formatCurrency(value), 'MRR']}
+                    contentStyle={{ fontFamily: 'var(--font-sans)', borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    itemStyle={{ fontFamily: 'var(--font-mono)' }}
+                  />
+                  <Bar dataKey="mrr" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
 
-        <Card className="border-none shadow-md">
-          <CardHeader>
-            <CardTitle>System Information</CardTitle>
-            <CardDescription>Global deployment configuration</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <span className="text-sm text-muted-foreground">Platform Name</span>
-              <div className="font-mono font-medium">{settings.platformName}</div>
-            </div>
-            <div className="space-y-1">
-              <span className="text-sm text-muted-foreground">Deployment Mode</span>
-              <div className="font-mono font-medium uppercase text-emerald-600">{settings.deploymentMode}</div>
-            </div>
-            <div className="space-y-1">
-              <span className="text-sm text-muted-foreground">Last Updated</span>
-              <div className="font-mono font-medium text-sm">{new Date(settings.updatedAt).toLocaleString()}</div>
-            </div>
-          </CardContent>
-        </Card>
+        {settings && (
+          <Card className="border-none shadow-md">
+            <CardHeader>
+              <CardTitle>System Information</CardTitle>
+              <CardDescription>Global deployment configuration</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-1">
+                <span className="text-sm text-muted-foreground">Platform Name</span>
+                <div className="font-mono font-medium">{settings.platformName}</div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-sm text-muted-foreground">Deployment Mode</span>
+                <div className="font-mono font-medium uppercase text-emerald-600">{settings.deploymentMode}</div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-sm text-muted-foreground">Last Updated</span>
+                <div className="font-mono font-medium text-sm">{new Date(settings.updatedAt).toLocaleString()}</div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <GlobalActivityFeed />
       </div>
@@ -202,7 +334,7 @@ function DashboardTab() {
 const FEED_PAGE_SIZE = 20;
 
 function GlobalActivityFeed() {
-  const { data: activityPage, isLoading } = useGetTenantActivity(
+  const { data: activityPage, isLoading, refetch } = useGetTenantActivity(
     { limit: FEED_PAGE_SIZE },
     { query: { queryKey: getGetTenantActivityQueryKey({ limit: FEED_PAGE_SIZE }) } }
   );
@@ -250,6 +382,15 @@ function GlobalActivityFeed() {
       <CardContent>
         {isLoading ? (
           <Skeleton className="h-32 w-full" />
+        ) : !activityPage ? (
+          <div className="flex flex-col items-center justify-center text-center gap-3 py-8" data-testid="error-activity-feed">
+            <AlertTriangle className="w-6 h-6 text-destructive" />
+            <p className="text-sm text-muted-foreground">Couldn't load recent activity.</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="error-activity-feed-retry">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </div>
         ) : (
           <ActivityFeed
             variant="dots"
