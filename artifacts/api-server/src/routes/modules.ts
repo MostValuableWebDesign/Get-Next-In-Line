@@ -16,8 +16,8 @@ router.get("/modules", async (_req, res): Promise<void> => {
   try {
     modules = await db.select().from(modulesTable).orderBy(modulesTable.categorySlug, modulesTable.name);
   } catch (err) {
-    console.error("GET /modules: modules query failed, returning empty list", err instanceof Error ? err.stack : err);
-    res.json(ListModulesResponse.parse([]));
+    console.error("GET /modules: modules query failed", err instanceof Error ? err.stack : err);
+    res.status(500).json({ error: "Failed to load modules" });
     return;
   }
 
@@ -58,8 +58,8 @@ router.get("/modules/tenant-counts", async (_req, res): Promise<void> => {
       .where(eq(tenantsTable.status, "active"))
       .groupBy(tenantModulesTable.moduleId);
   } catch (err) {
-    console.error("GET /modules/tenant-counts: query failed, returning empty list", err instanceof Error ? err.stack : err);
-    res.json(GetModuleTenantCountsResponse.parse([]));
+    console.error("GET /modules/tenant-counts: query failed", err instanceof Error ? err.stack : err);
+    res.status(500).json({ error: "Failed to load module tenant counts" });
     return;
   }
 
@@ -123,8 +123,8 @@ router.get("/modules/pricing", async (_req, res): Promise<void> => {
     [settings] = await db.select().from(agencySettingsTable).limit(1);
     modules = await db.select().from(modulesTable).orderBy(modulesTable.categorySlug, modulesTable.name);
   } catch (err) {
-    console.error("GET /modules/pricing: query failed, returning empty list", err instanceof Error ? err.stack : err);
-    res.json(GetModulesPricingResponse.parse([]));
+    console.error("GET /modules/pricing: query failed", err instanceof Error ? err.stack : err);
+    res.status(500).json({ error: "Failed to load module pricing" });
     return;
   }
   const markup = parseFloat(settings?.markupPercent ?? "35");

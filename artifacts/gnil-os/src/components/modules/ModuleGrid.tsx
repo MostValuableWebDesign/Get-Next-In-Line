@@ -1,14 +1,44 @@
 import { useListModules, useGetModulesPricing } from '@workspace/api-client-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
 import { Server, ShieldCheck } from 'lucide-react';
 import { Link } from 'wouter';
 
 export function ModuleGrid({ categorySlug, title, description }: { categorySlug: string, title: string, description: string }) {
-  const { data: modules, isLoading: isLoadingModules } = useListModules();
-  const { data: pricing, isLoading: isLoadingPricing } = useGetModulesPricing();
+  const { data: modules, isLoading: isLoadingModules, isError: isModulesError, refetch: refetchModules } = useListModules();
+  const { data: pricing, isLoading: isLoadingPricing, isError: isPricingError, refetch: refetchPricing } = useGetModulesPricing();
+
+  if (isModulesError || isPricingError) {
+    return (
+      <div className="space-y-6 animate-in fade-in">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+          <p className="text-muted-foreground mt-1">{description}</p>
+        </div>
+        <Card className="border-dashed bg-transparent shadow-none" data-testid="module-grid-error">
+          <CardContent className="p-12 text-center space-y-4">
+            <div className="font-semibold">Couldn&apos;t load modules</div>
+            <p className="text-muted-foreground text-sm">
+              Something went wrong while loading this category. Please try again.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (isModulesError) refetchModules();
+                if (isPricingError) refetchPricing();
+              }}
+              data-testid="button-retry-modules"
+            >
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoadingModules || isLoadingPricing) {
     return (
