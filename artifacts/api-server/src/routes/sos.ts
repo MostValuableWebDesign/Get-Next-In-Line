@@ -470,12 +470,42 @@ router.patch("/sos/resources/:id", async (req, res): Promise<void> => {
 
 router.delete("/sos/resources/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
+  const tenantId = tenantIdFrom(req);
+  // Refuse to delete a resource that still has a customer in it: an occupied
+  // status or an active visit assignment means deleting would orphan the
+  // visit's resource assignment mid-service.
+  const [existing] = await db
+    .select()
+    .from(sosResourcesTable)
+    .where(and(eq(sosResourcesTable.id, id), tenantMatch(sosResourcesTable.tenantId, tenantId)));
+  if (!existing) {
+    res.status(404).json({ message: "Resource not found" });
+    return;
+  }
+  if (existing.status === "occupied" || existing.currentVisitId != null) {
+    res.status(409).json({
+      message: `${existing.name} is currently occupied. Finish or reassign the active visit before deleting it.`,
+    });
+    return;
+  }
   const [row] = await db
     .delete(sosResourcesTable)
-    .where(and(eq(sosResourcesTable.id, id), tenantMatch(sosResourcesTable.tenantId, tenantIdFrom(req))))
+    .where(
+      and(
+        eq(sosResourcesTable.id, id),
+        tenantMatch(sosResourcesTable.tenantId, tenantId),
+        // Concurrency guard: re-check occupancy inside the delete itself so a
+        // visit assigned between the read and the delete still blocks it.
+        ne(sosResourcesTable.status, "occupied"),
+        isNull(sosResourcesTable.currentVisitId),
+      ),
+    )
     .returning({ id: sosResourcesTable.id });
   if (!row) {
-    res.status(404).json({ message: "Resource not found" });
+    // Lost the race with a concurrent assignment/occupancy change.
+    res.status(409).json({
+      message: `${existing.name} is currently occupied. Finish or reassign the active visit before deleting it.`,
+    });
     return;
   }
   res.status(204).send();
