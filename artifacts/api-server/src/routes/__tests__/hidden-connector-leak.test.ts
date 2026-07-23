@@ -19,6 +19,9 @@ const fakeModules = [
     upstreamVendor: "SecretVendor Inc",
     hiddenConnector: "secretvendor-connector",
     proxyNotes: "Internal proxy notes — never show tenants",
+    // A non-partners row with a partnerBrand set in the DB — the route must
+    // null it (white-label contract; partnerBrand is partners-only).
+    partnerBrand: "LeakyBrand LLC",
   },
   {
     id: 2,
@@ -98,6 +101,16 @@ describe("tenant-facing module endpoints never leak hidden connector fields", ()
     for (const value of HIDDEN_VALUES) {
       expect(raw).not.toContain(value);
     }
+  });
+
+  it("GET /api/modules nulls partnerBrand for non-partners categories even when the DB row has one", async () => {
+    const agent = await loggedInAgent();
+    const res = await agent.get("/api/modules");
+    expect(res.status).toBe(200);
+    for (const item of res.body) {
+      expect(item.partnerBrand).toBeNull();
+    }
+    expect(JSON.stringify(res.body)).not.toContain("LeakyBrand");
   });
 
   it("GET /api/modules/pricing contains none of the hidden connector fields", async () => {
