@@ -620,9 +620,11 @@ export type SosDepositHoldStatus = typeof SosDepositHoldStatus[keyof typeof SosD
 
 
 export const SosDepositHoldStatus = {
+  pending_authorization: 'pending_authorization',
   held: 'held',
   released: 'released',
   captured: 'captured',
+  failed: 'failed',
 } as const;
 
 export interface SosDepositHold {
@@ -633,6 +635,8 @@ export interface SosDepositHold {
   cancellationWindowHours: number;
   /** @nullable */
   outcomeReason: string | null;
+  /** @nullable */
+  checkoutUrl: string | null;
   createdAt: string;
   /** @nullable */
   resolvedAt: string | null;

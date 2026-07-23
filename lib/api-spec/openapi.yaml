@@ -2062,13 +2062,13 @@ components:
 
     SosDepositHold:
       type: object
-      required: [id, status, depositAmount, feeAmount, cancellationWindowHours, outcomeReason, createdAt, resolvedAt]
+      required: [id, status, depositAmount, feeAmount, cancellationWindowHours, outcomeReason, checkoutUrl, createdAt, resolvedAt]
       properties:
         id:
           type: integer
         status:
           type: string
-          enum: [held, released, captured]
+          enum: [pending_authorization, held, released, captured, failed]
         depositAmount:
           type: number
         feeAmount:
@@ -2076,6 +2076,8 @@ components:
         cancellationWindowHours:
           type: integer
         outcomeReason:
+          type: ["string", "null"]
+        checkoutUrl:
           type: ["string", "null"]
         createdAt:
           type: string

@@ -10,7 +10,9 @@ export type SosDepositHoldStatus = typeof SosDepositHoldStatus[keyof typeof SosD
 
 
 export const SosDepositHoldStatus = {
+  pending_authorization: 'pending_authorization',
   held: 'held',
   released: 'released',
   captured: 'captured',
+  failed: 'failed',
 } as const;

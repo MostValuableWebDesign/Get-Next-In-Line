@@ -1,5 +1,53 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import request from "supertest";
+
+// ── Stripe mock ──────────────────────────────────────────────────────────────
+// Deposit holds are backed by real Stripe Checkout authorizations; tests run
+// against a fake Stripe client that records calls.
+const stripeCalls = {
+  sessionsCreated: [] as Array<Record<string, unknown>>,
+  captures: [] as Array<{ id: string; amount_to_capture: number }>,
+  cancels: [] as string[],
+  expired: [] as string[],
+};
+let sessionCounter = 0;
+let failNextSessionCreate: string | null = null;
+vi.mock("../../lib/stripeClient", () => ({
+  isStripeConfigured: () => true,
+  getUncachableStripeClient: async () => ({
+    checkout: {
+      sessions: {
+        create: async (params: Record<string, unknown>) => {
+          if (failNextSessionCreate) {
+            const msg = failNextSessionCreate;
+            failNextSessionCreate = null;
+            throw new Error(msg);
+          }
+          stripeCalls.sessionsCreated.push(params);
+          const id = `cs_test_${++sessionCounter}_${Date.now()}`;
+          return { id, url: `https://checkout.stripe.test/${id}`, payment_intent: null };
+        },
+        expire: async (id: string) => {
+          stripeCalls.expired.push(id);
+          return { id, status: "expired" };
+        },
+      },
+    },
+    paymentIntents: {
+      capture: async (id: string, opts: { amount_to_capture: number }) => {
+        stripeCalls.captures.push({ id, amount_to_capture: opts.amount_to_capture });
+        return { id, status: "succeeded" };
+      },
+      cancel: async (id: string) => {
+        stripeCalls.cancels.push(id);
+        return { id, status: "canceled" };
+      },
+    },
+  }),
+  getStripeSync: async () => {
+    throw new Error("not used in tests");
+  },
+}));
 import {
   db,
   tenantsTable,
@@ -80,6 +128,24 @@ async function holdForAppointment(appointmentId: number) {
     .from(sosDepositHoldsTable)
     .where(eq(sosDepositHoldsTable.appointmentId, appointmentId));
   return hold ?? null;
+}
+
+/**
+ * Simulate the customer completing the Stripe Checkout session: apply the
+ * (signature-verified in prod) checkout.session.completed webhook event,
+ * which flips the hold from pending_authorization to held.
+ */
+async function authorizeHold(appointmentId: number) {
+  const { applyStripeDepositEvent } = await import("../../lib/noShowShield");
+  const hold = await holdForAppointment(appointmentId);
+  if (!hold?.stripeCheckoutSessionId) throw new Error("hold has no checkout session");
+  await applyStripeDepositEvent({
+    type: "checkout.session.completed",
+    data: {
+      object: { id: hold.stripeCheckoutSessionId, payment_intent: `pi_test_${hold.id}` },
+    },
+  });
+  return (await holdForAppointment(appointmentId))!;
 }
 
 beforeAll(async () => {
@@ -254,19 +320,42 @@ describe("policy active → holds on every booking source", () => {
     expect(res.body.noShowFee).toBe(20);
   });
 
-  it("staff booking records the agreement and places a hold with snapshotted terms", async () => {
+  it("staff booking creates a real Stripe authorization with snapshotted terms", async () => {
     const appt = await bookAppointment(new Date(Date.now() + 72 * 3600_000));
     expect(appt.deposit).not.toBeNull();
-    expect(appt.deposit.status).toBe("held");
+    expect(appt.deposit.status).toBe("pending_authorization");
+    expect(appt.deposit.checkoutUrl).toContain("https://checkout.stripe.test/");
     expect(appt.deposit.depositAmount).toBe(30);
     expect(appt.deposit.feeAmount).toBe(20);
     expect(appt.deposit.cancellationWindowHours).toBe(24);
-    expect(appt.deposit.outcomeReason).toContain("No-Show Shield");
+    expect(appt.deposit.outcomeReason).toContain("card authorization");
+
+    // The Checkout session is a manual-capture card authorization for the
+    // deposit amount in cents.
+    const session = stripeCalls.sessionsCreated.at(-1) as any;
+    expect(session.mode).toBe("payment");
+    expect(session.payment_intent_data.capture_method).toBe("manual");
+    expect(session.line_items[0].price_data.unit_amount).toBe(3000);
+
+    // The customer completing checkout (webhook) flips the hold to held.
+    const held = await authorizeHold(appt.id);
+    expect(held.status).toBe("held");
+    expect(held.stripePaymentIntentId).toBe(`pi_test_${held.id}`);
 
     // Visible on the appointments list too.
     const list = await agent.get("/api/sos/appointments").expect(200);
     const found = list.body.find((a: { id: number }) => a.id === appt.id);
     expect(found.deposit.status).toBe("held");
+  });
+
+  it("surfaces a Stripe authorization failure instead of recording a paper hold", async () => {
+    failNextSessionCreate = "card network unreachable";
+    const appt = await bookAppointment(new Date(Date.now() + 72 * 3600_000));
+    expect(appt.deposit).not.toBeNull();
+    expect(appt.deposit.status).toBe("failed");
+    expect(appt.deposit.outcomeReason).toContain("FAILED");
+    expect(appt.deposit.outcomeReason).toContain("card network unreachable");
+    expect(appt.deposit.checkoutUrl).toBeNull();
   });
 
   it("AI receptionist booking places a hold", async () => {
@@ -282,7 +371,8 @@ describe("policy active → holds on every booking source", () => {
     expect(res.body.appointmentId).not.toBeNull();
     createdAppointmentIds.push(res.body.appointmentId);
     const hold = await holdForAppointment(res.body.appointmentId);
-    expect(hold?.status).toBe("held");
+    expect(hold?.status).toBe("pending_authorization");
+    expect(hold?.checkoutUrl).toContain("https://checkout.stripe.test/");
   });
 
   it("waitlist fill places a hold", async () => {
@@ -302,9 +392,10 @@ describe("policy active → holds on every booking source", () => {
     const res = await agent.post(`/api/sos/waitlist/${entry.id}/claim`).expect(200);
     createdAppointmentIds.push(res.body.id);
     expect(res.body.source).toBe("waitlist_fill");
-    expect(res.body.deposit?.status).toBe("held");
+    expect(res.body.deposit?.status).toBe("pending_authorization");
     const hold = await holdForAppointment(res.body.id);
-    expect(hold?.status).toBe("held");
+    expect(hold?.status).toBe("pending_authorization");
+    expect(hold?.checkoutUrl).toContain("https://checkout.stripe.test/");
   });
 });
 
@@ -484,29 +575,36 @@ describe("deposit notification texts", () => {
     await db.delete(sosCustomersTable).where(eq(sosCustomersTable.id, smsCustomerId));
   });
 
-  it("texts the deposit terms when a hold is placed at booking", async () => {
+  it("texts the deposit terms once the customer authorizes the card", async () => {
     const appt = await bookForSmsCustomer(new Date(Date.now() + 72 * 3600_000));
-    expect(appt.deposit.status).toBe("held");
+    // No text yet at booking: no money is held until the card is authorized.
+    expect(appt.deposit.status).toBe("pending_authorization");
+    expect(
+      (await depositMessages()).filter((m) => m.kind === "deposit_update"),
+    ).toHaveLength(0);
+    const held = await authorizeHold(appt.id);
+    expect(held.status).toBe("held");
     const msgs = await depositMessages();
-    const held = msgs.filter((m) => m.kind === "deposit_update");
-    expect(held).toHaveLength(1);
-    expect(held[0].body).toContain("$30.00 deposit hold");
-    expect(held[0].body).toContain("24h");
-    expect(held[0].body).toContain("$20.00 fee");
-    expect(held[0].origin).toBe("operational");
-    expect(["simulated", "sent", "delivered"]).toContain(held[0].status);
+    const heldMsgs = msgs.filter((m) => m.kind === "deposit_update");
+    expect(heldMsgs).toHaveLength(1);
+    expect(heldMsgs[0].body).toContain("$30.00 deposit hold");
+    expect(heldMsgs[0].body).toContain("24h");
+    expect(heldMsgs[0].body).toContain("$20.00 fee");
+    expect(heldMsgs[0].origin).toBe("operational");
+    expect(["simulated", "sent", "delivered"]).toContain(heldMsgs[0].status);
     // Visible in the SOS comms log.
     const log = await agent.get("/api/sos/messages").expect(200);
     expect(
       log.body.some(
         (m: { id: number; kind: string }) =>
-          m.id === held[0].id && m.kind === "deposit_update",
+          m.id === heldMsgs[0].id && m.kind === "deposit_update",
       ),
     ).toBe(true);
   });
 
   it("texts a release outcome when cancelling outside the window", async () => {
     const appt = await bookForSmsCustomer(new Date(Date.now() + 72 * 3600_000));
+    await authorizeHold(appt.id);
     await agent.post(`/api/sos/appointments/${appt.id}/cancel`).expect(200);
     const msgs = await depositMessages();
     const released = msgs.filter((m) => m.body.includes("fully released"));
@@ -517,6 +615,7 @@ describe("deposit notification texts", () => {
 
   it("texts the fee outcome when cancelling inside the window", async () => {
     const appt = await bookForSmsCustomer(new Date(Date.now() + 2 * 3600_000));
+    await authorizeHold(appt.id);
     await agent.post(`/api/sos/appointments/${appt.id}/cancel`).expect(200);
     const msgs = await depositMessages();
     const captured = msgs.filter((m) => m.body.includes("late-cancellation fee"));
@@ -526,6 +625,7 @@ describe("deposit notification texts", () => {
 
   it("texts the no-show fee outcome when a no-show is captured", async () => {
     const appt = await bookForSmsCustomer(new Date(Date.now() - 3600_000));
+    await authorizeHold(appt.id);
     await agent.post(`/api/sos/appointments/${appt.id}/no-show`).expect(200);
     const msgs = await depositMessages();
     const noShow = msgs.filter((m) => m.body.includes("no-show fee"));
@@ -540,7 +640,7 @@ describe("deposit notification texts", () => {
       .from(messagesTable)
       .where(eq(messagesTable.customerId, customerId));
     const appt = await bookAppointment(new Date(Date.now() + 72 * 3600_000));
-    expect(appt.deposit.status).toBe("held");
+    await authorizeHold(appt.id);
     await agent.post(`/api/sos/appointments/${appt.id}/cancel`).expect(200);
     const after = await db
       .select()
@@ -563,24 +663,67 @@ describe("cancellation & no-show enforcement", () => {
     });
   });
 
-  it("cancelling outside the window releases the hold", async () => {
+  it("cancelling outside the window voids the Stripe authorization", async () => {
     const appt = await bookAppointment(new Date(Date.now() + 72 * 3600_000));
+    const held = await authorizeHold(appt.id);
     const res = await agent.post(`/api/sos/appointments/${appt.id}/cancel`).expect(200);
     expect(res.body.appointment.status).toBe("cancelled");
     expect(res.body.appointment.deposit.status).toBe("released");
     expect(res.body.appointment.deposit.outcomeReason).toContain("released");
+    expect(stripeCalls.cancels).toContain(held.stripePaymentIntentId);
   });
 
-  it("cancelling inside the window captures the fee", async () => {
+  it("cancelling inside the window captures the fee from the authorization", async () => {
     const appt = await bookAppointment(new Date(Date.now() + 2 * 3600_000));
+    const held = await authorizeHold(appt.id);
     const res = await agent.post(`/api/sos/appointments/${appt.id}/cancel`).expect(200);
     expect(res.body.appointment.deposit.status).toBe("captured");
     expect(res.body.appointment.deposit.feeAmount).toBe(20);
     expect(res.body.appointment.deposit.outcomeReason).toContain("fee");
+    expect(stripeCalls.captures).toContainEqual({
+      id: held.stripePaymentIntentId,
+      amount_to_capture: 2000,
+    });
+  });
+
+  it("cancelling inside the window with an unauthorized card surfaces the failure", async () => {
+    const appt = await bookAppointment(new Date(Date.now() + 2 * 3600_000));
+    const pending = await holdForAppointment(appt.id);
+    // Customer never completes checkout: no money exists to capture.
+    const res = await agent.post(`/api/sos/appointments/${appt.id}/cancel`).expect(200);
+    expect(res.body.appointment.deposit.status).toBe("failed");
+    expect(res.body.appointment.deposit.outcomeReason).toContain("could NOT be charged");
+    // The payment link is expired so it can't be completed after the fact.
+    expect(stripeCalls.expired).toContain(pending!.stripeCheckoutSessionId);
+  });
+
+  it("voids an orphan authorization when checkout completes after settlement", async () => {
+    const { applyStripeDepositEvent } = await import("../../lib/noShowShield");
+    const appt = await bookAppointment(new Date(Date.now() + 2 * 3600_000));
+    const pending = await holdForAppointment(appt.id);
+    // Settle first (late cancel with an unauthorized card → failed)...
+    await agent.post(`/api/sos/appointments/${appt.id}/cancel`).expect(200);
+    // ...then the customer completes the (already-expired) checkout anyway.
+    await applyStripeDepositEvent({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: pending!.stripeCheckoutSessionId!,
+          payment_intent: `pi_orphan_${pending!.id}`,
+        },
+      },
+    });
+    const after = await holdForAppointment(appt.id);
+    // Hold stays settled — no untracked "held" money — and the orphan
+    // authorization was voided on Stripe.
+    expect(after!.status).toBe("failed");
+    expect(stripeCalls.cancels).toContain(`pi_orphan_${pending!.id}`);
+    expect(after!.outcomeReason).toContain("automatically voided");
   });
 
   it("enforces the terms agreed at booking time, not current settings", async () => {
     const appt = await bookAppointment(new Date(Date.now() + 72 * 3600_000));
+    await authorizeHold(appt.id);
     // Tighten the window drastically after booking; 72h out is still outside
     // the 24h window snapshotted on the hold.
     await setPolicy({ noShowCancellationWindowHours: 1000 });
@@ -591,10 +734,15 @@ describe("cancellation & no-show enforcement", () => {
 
   it("marking a no-show captures the held deposit as a penalty fee", async () => {
     const appt = await bookAppointment(new Date(Date.now() - 3600_000));
+    const held = await authorizeHold(appt.id);
     const res = await agent.post(`/api/sos/appointments/${appt.id}/no-show`).expect(200);
     expect(res.body.status).toBe("no_show");
     expect(res.body.deposit.status).toBe("captured");
     expect(res.body.deposit.outcomeReason).toContain("no-show");
+    expect(stripeCalls.captures).toContainEqual({
+      id: held.stripePaymentIntentId,
+      amount_to_capture: 2000,
+    });
 
     // Already resolved appointments can't be marked again.
     await agent.post(`/api/sos/appointments/${appt.id}/no-show`).expect(409);

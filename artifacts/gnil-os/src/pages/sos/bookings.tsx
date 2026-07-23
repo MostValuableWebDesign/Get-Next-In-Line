@@ -526,18 +526,24 @@ function JumpLinkCard({
 }
 
 const DEPOSIT_BADGE_STYLES: Record<string, string> = {
+  pending_authorization: 'border-violet-500/40 text-violet-600 bg-violet-500/5',
   held: 'border-sky-500/40 text-sky-600 bg-sky-500/5',
   released: 'border-emerald-500/40 text-emerald-600 bg-emerald-500/5',
   captured: 'border-amber-500/40 text-amber-600 bg-amber-500/5',
+  failed: 'border-red-500/40 text-red-600 bg-red-500/5',
 };
 
 function DepositBadge({ deposit }: { deposit: NonNullable<SosAppointment['deposit']> }) {
   const label =
-    deposit.status === 'held'
-      ? `$${deposit.depositAmount.toFixed(2)} held`
-      : deposit.status === 'released'
-        ? 'Deposit released'
-        : `$${deposit.feeAmount.toFixed(2)} fee captured`;
+    deposit.status === 'pending_authorization'
+      ? `$${deposit.depositAmount.toFixed(2)} awaiting card`
+      : deposit.status === 'held'
+        ? `$${deposit.depositAmount.toFixed(2)} held`
+        : deposit.status === 'released'
+          ? 'Deposit released'
+          : deposit.status === 'failed'
+            ? 'Deposit failed'
+            : `$${deposit.feeAmount.toFixed(2)} fee captured`;
   return (
     <Badge
       variant="outline"
@@ -613,6 +619,17 @@ function AppointmentLine({ apt, muted = false }: { apt: SosAppointment; muted?: 
       {apt.deposit && (
         <div className="flex items-center gap-2 pl-[4.5rem]">
           <DepositBadge deposit={apt.deposit} />
+          {apt.deposit.status === 'pending_authorization' && apt.deposit.checkoutUrl && (
+            <a
+              href={apt.deposit.checkoutUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[11px] text-primary underline shrink-0"
+              data-testid="link-deposit-checkout"
+            >
+              Payment link
+            </a>
+          )}
           {apt.deposit.outcomeReason && (
             <span className="text-[11px] text-muted-foreground truncate" data-testid="text-deposit-reason">
               {apt.deposit.outcomeReason}

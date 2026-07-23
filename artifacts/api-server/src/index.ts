@@ -45,6 +45,35 @@ backfillCustomerLinks().catch((err) => {
   logger.error({ err }, "Customer link backfill failed");
 });
 
+// Stripe (No-Show Shield deposit holds): create the stripe schema, register
+// the managed webhook, and backfill existing data. Failure-tolerant so a
+// Stripe outage never blocks the API from serving; deposit authorization
+// attempts surface their own errors per booking.
+async function initStripe() {
+  const { isStripeConfigured, getStripeSync } = await import("./lib/stripeClient");
+  if (!isStripeConfigured()) {
+    logger.warn(
+      "Stripe connector not configured — No-Show Shield deposit holds cannot create real card authorizations",
+    );
+    return;
+  }
+  const { runMigrations } = await import("stripe-replit-sync");
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error("DATABASE_URL required for Stripe integration");
+  await runMigrations({ databaseUrl });
+  const stripeSync = await getStripeSync();
+  const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
+  await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
+  stripeSync
+    .syncBackfill()
+    .then(() => logger.info("Stripe data synced"))
+    .catch((err) => logger.error({ err }, "Stripe data backfill failed"));
+  logger.info("Stripe initialized (webhook + schema ready)");
+}
+initStripe().catch((err) => {
+  logger.error({ err }, "Stripe initialization failed");
+});
+
 // Concierge background worker (reminders + rebooking nudges). BullMQ when
 // REDIS_URL is set; in-process interval scheduler otherwise.
 let conciergeWorker: ConciergeWorkerHandle | null = null;

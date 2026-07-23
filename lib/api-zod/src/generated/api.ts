@@ -823,11 +823,12 @@ export const ListSosAppointmentsResponseItem = zod.object({
   "notes": zod.string().nullish(),
   "deposit": zod.union([zod.object({
   "id": zod.number(),
-  "status": zod.enum(['held', 'released', 'captured']),
+  "status": zod.enum(['pending_authorization', 'held', 'released', 'captured', 'failed']),
   "depositAmount": zod.number(),
   "feeAmount": zod.number(),
   "cancellationWindowHours": zod.number(),
   "outcomeReason": zod.string().nullable(),
+  "checkoutUrl": zod.string().nullable(),
   "createdAt": zod.string(),
   "resolvedAt": zod.string().nullable()
 }),zod.null()]).optional().describe('No-Show Shield deposit hold for this appointment, when a policy was active at booking time.'),
@@ -865,11 +866,12 @@ export const CreateSosAppointmentResponse = zod.object({
   "notes": zod.string().nullish(),
   "deposit": zod.union([zod.object({
   "id": zod.number(),
-  "status": zod.enum(['held', 'released', 'captured']),
+  "status": zod.enum(['pending_authorization', 'held', 'released', 'captured', 'failed']),
   "depositAmount": zod.number(),
   "feeAmount": zod.number(),
   "cancellationWindowHours": zod.number(),
   "outcomeReason": zod.string().nullable(),
+  "checkoutUrl": zod.string().nullable(),
   "createdAt": zod.string(),
   "resolvedAt": zod.string().nullable()
 }),zod.null()]).optional().describe('No-Show Shield deposit hold for this appointment, when a policy was active at booking time.'),
@@ -898,11 +900,12 @@ export const CancelSosAppointmentResponse = zod.object({
   "notes": zod.string().nullish(),
   "deposit": zod.union([zod.object({
   "id": zod.number(),
-  "status": zod.enum(['held', 'released', 'captured']),
+  "status": zod.enum(['pending_authorization', 'held', 'released', 'captured', 'failed']),
   "depositAmount": zod.number(),
   "feeAmount": zod.number(),
   "cancellationWindowHours": zod.number(),
   "outcomeReason": zod.string().nullable(),
+  "checkoutUrl": zod.string().nullable(),
   "createdAt": zod.string(),
   "resolvedAt": zod.string().nullable()
 }),zod.null()]).optional().describe('No-Show Shield deposit hold for this appointment, when a policy was active at booking time.'),
@@ -933,11 +936,12 @@ export const MarkSosAppointmentNoShowResponse = zod.object({
   "notes": zod.string().nullish(),
   "deposit": zod.union([zod.object({
   "id": zod.number(),
-  "status": zod.enum(['held', 'released', 'captured']),
+  "status": zod.enum(['pending_authorization', 'held', 'released', 'captured', 'failed']),
   "depositAmount": zod.number(),
   "feeAmount": zod.number(),
   "cancellationWindowHours": zod.number(),
   "outcomeReason": zod.string().nullable(),
+  "checkoutUrl": zod.string().nullable(),
   "createdAt": zod.string(),
   "resolvedAt": zod.string().nullable()
 }),zod.null()]).optional().describe('No-Show Shield deposit hold for this appointment, when a policy was active at booking time.'),
@@ -1008,11 +1012,12 @@ export const ClaimSosWaitlistSlotResponse = zod.object({
   "notes": zod.string().nullish(),
   "deposit": zod.union([zod.object({
   "id": zod.number(),
-  "status": zod.enum(['held', 'released', 'captured']),
+  "status": zod.enum(['pending_authorization', 'held', 'released', 'captured', 'failed']),
   "depositAmount": zod.number(),
   "feeAmount": zod.number(),
   "cancellationWindowHours": zod.number(),
   "outcomeReason": zod.string().nullable(),
+  "checkoutUrl": zod.string().nullable(),
   "createdAt": zod.string(),
   "resolvedAt": zod.string().nullable()
 }),zod.null()]).optional().describe('No-Show Shield deposit hold for this appointment, when a policy was active at booking time.'),

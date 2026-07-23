@@ -15,6 +15,8 @@ export interface SosDepositHold {
   cancellationWindowHours: number;
   /** @nullable */
   outcomeReason: string | null;
+  /** @nullable */
+  checkoutUrl: string | null;
   createdAt: string;
   /** @nullable */
   resolvedAt: string | null;

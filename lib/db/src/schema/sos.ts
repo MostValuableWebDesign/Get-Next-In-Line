@@ -165,9 +165,10 @@ export const sosWaitlistTable = pgTable(
   (t) => [index("sos_waitlist_entries_tenant_id_idx").on(t.tenantId)],
 );
 
-// Internal simulated card-on-file deposit holds (No-Show Shield module).
-// One hold per appointment; policy terms are snapshotted at booking time so
-// later enforcement uses the terms in force when the slot was reserved.
+// Card-on-file deposit holds (No-Show Shield module), backed by real Stripe
+// authorizations. One hold per appointment; policy terms are snapshotted at
+// booking time so later enforcement uses the terms in force when the slot
+// was reserved.
 export const sosDepositHoldsTable = pgTable("sos_deposit_holds", {
   id: serial("id").primaryKey(),
   appointmentId: integer("appointment_id")
@@ -177,8 +178,22 @@ export const sosDepositHoldsTable = pgTable("sos_deposit_holds", {
   depositAmount: numeric("deposit_amount", { precision: 10, scale: 2 }).notNull(),
   feeAmount: numeric("fee_amount", { precision: 10, scale: 2 }).notNull(),
   cancellationWindowHours: integer("cancellation_window_hours").notNull(),
-  // held | released | captured
-  status: text("status").notNull().default("held"),
+  // pending_authorization | held | released | captured | failed
+  //  - pending_authorization: Stripe Checkout link created, waiting for the
+  //    customer to enter their card (no money held yet)
+  //  - held: card authorized on Stripe (manual-capture PaymentIntent)
+  //  - released: authorization voided (timely cancellation)
+  //  - captured: fee captured from the authorization (late cancel / no-show)
+  //  - failed: authorization never happened or a Stripe operation failed —
+  //    surfaced to staff via outcomeReason instead of pretending money is held
+  status: text("status").notNull().default("pending_authorization"),
+  // Stripe manual-capture PaymentIntent backing this hold (set once the
+  // customer completes the Checkout session). NULL for legacy paper holds.
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  // Stripe Checkout session used to collect the card authorization.
+  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  // Hosted payment page the customer must complete to authorize the deposit.
+  checkoutUrl: text("checkout_url"),
   // Human-readable reason for the outcome (why a fee was / wasn't charged).
   outcomeReason: text("outcome_reason"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
