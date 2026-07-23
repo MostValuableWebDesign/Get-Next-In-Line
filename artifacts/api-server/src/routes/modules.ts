@@ -12,7 +12,14 @@ import { eq, sql } from "drizzle-orm";
 const router: IRouter = Router();
 
 router.get("/modules", async (_req, res): Promise<void> => {
-  const modules = await db.select().from(modulesTable).orderBy(modulesTable.categorySlug, modulesTable.name);
+  let modules;
+  try {
+    modules = await db.select().from(modulesTable).orderBy(modulesTable.categorySlug, modulesTable.name);
+  } catch (err) {
+    console.error("GET /modules: modules query failed, returning empty list", err instanceof Error ? err.stack : err);
+    res.json(ListModulesResponse.parse([]));
+    return;
+  }
 
   res.json(
     ListModulesResponse.parse(
@@ -36,17 +43,25 @@ router.get("/modules", async (_req, res): Promise<void> => {
 });
 
 router.get("/modules/tenant-counts", async (_req, res): Promise<void> => {
-  const modules = await db.select({ id: modulesTable.id }).from(modulesTable);
+  let modules;
+  let counts;
+  try {
+    modules = await db.select({ id: modulesTable.id }).from(modulesTable);
 
-  const counts = await db
-    .select({
-      moduleId: tenantModulesTable.moduleId,
-      activeTenantCount: sql<number>`count(*)::int`,
-    })
-    .from(tenantModulesTable)
-    .innerJoin(tenantsTable, eq(tenantModulesTable.tenantId, tenantsTable.id))
-    .where(eq(tenantsTable.status, "active"))
-    .groupBy(tenantModulesTable.moduleId);
+    counts = await db
+      .select({
+        moduleId: tenantModulesTable.moduleId,
+        activeTenantCount: sql<number>`count(*)::int`,
+      })
+      .from(tenantModulesTable)
+      .innerJoin(tenantsTable, eq(tenantModulesTable.tenantId, tenantsTable.id))
+      .where(eq(tenantsTable.status, "active"))
+      .groupBy(tenantModulesTable.moduleId);
+  } catch (err) {
+    console.error("GET /modules/tenant-counts: query failed, returning empty list", err instanceof Error ? err.stack : err);
+    res.json(GetModuleTenantCountsResponse.parse([]));
+    return;
+  }
 
   const countMap = new Map(counts.map((c) => [c.moduleId, c.activeTenantCount]));
 
@@ -102,10 +117,17 @@ router.get("/modules/:id/tenants", async (req, res): Promise<void> => {
 });
 
 router.get("/modules/pricing", async (_req, res): Promise<void> => {
-  const [settings] = await db.select().from(agencySettingsTable).limit(1);
+  let settings;
+  let modules;
+  try {
+    [settings] = await db.select().from(agencySettingsTable).limit(1);
+    modules = await db.select().from(modulesTable).orderBy(modulesTable.categorySlug, modulesTable.name);
+  } catch (err) {
+    console.error("GET /modules/pricing: query failed, returning empty list", err instanceof Error ? err.stack : err);
+    res.json(GetModulesPricingResponse.parse([]));
+    return;
+  }
   const markup = parseFloat(settings?.markupPercent ?? "35");
-
-  const modules = await db.select().from(modulesTable).orderBy(modulesTable.categorySlug, modulesTable.name);
 
   res.json(
     GetModulesPricingResponse.parse(
