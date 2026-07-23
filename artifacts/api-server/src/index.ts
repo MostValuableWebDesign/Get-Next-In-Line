@@ -67,6 +67,16 @@ async function ensureDatabaseReady(): Promise<void> {
     logger.error({ err }, "Schema drift check/self-heal failed");
   }
 
+  // Idempotent: remove tenants stranded by crashed integration-test runs
+  // (structural subdomain match + age guard, so real tenants and live test
+  // runs are never touched).
+  try {
+    const { sweepStaleTestTenants } = await import("./lib/testTenantSweep");
+    await sweepStaleTestTenants();
+  } catch (err) {
+    logger.error({ err }, "Stale test-tenant sweep failed");
+  }
+
   // Idempotent: upsert the hidden connector mapping so the admin Connector
   // Registry (8 partner brands, hidden resale connectors, markup overrides)
   // is always complete, in every environment — runs AFTER schema repair so
