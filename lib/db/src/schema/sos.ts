@@ -188,8 +188,14 @@ export const sosDepositHoldsTable = pgTable("sos_deposit_holds", {
 // ── memberships, packages & credit passes ───────────────────────────────────
 
 // Plan catalog definitions a shop sells to its customers.
-export const sosPlansTable = pgTable("sos_plans", {
+export const sosPlansTable = pgTable(
+  "sos_plans",
+  {
   id: serial("id").primaryKey(),
+  // Tenant scope. NULL identifies legacy single-tenant rows.
+  tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+    onDelete: "cascade",
+  }),
   name: text("name").notNull(),
   // membership (recurring discount) | package (one-time bundle of credits) |
   // pass (credit-based loyalty pass)
@@ -204,7 +210,9 @@ export const sosPlansTable = pgTable("sos_plans", {
   creditCount: integer("credit_count"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  },
+  (t) => [index("sos_plans_tenant_id_idx").on(t.tenantId)],
+);
 
 // A customer's enrollment in a plan (purchased at POS).
 export const sosCustomerPlansTable = pgTable("sos_customer_plans", {

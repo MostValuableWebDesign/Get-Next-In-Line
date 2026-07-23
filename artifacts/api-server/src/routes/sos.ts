@@ -739,8 +739,14 @@ function nextRenewalDate(interval: string | null, from: Date): Date {
   return d;
 }
 
-router.get("/sos/plans", async (_req, res): Promise<void> => {
-  const rows = await db.select().from(sosPlansTable).orderBy(sosPlansTable.id);
+router.get("/sos/plans", async (req, res): Promise<void> => {
+  // Strict business scope: the tenant's own plan catalog under tenant
+  // context, legacy (NULL-tenant) plans otherwise.
+  const rows = await db
+    .select()
+    .from(sosPlansTable)
+    .where(tenantMatch(sosPlansTable.tenantId, tenantIdFrom(req)))
+    .orderBy(sosPlansTable.id);
   res.json(ListSosPlansResponse.parse(rows.map(serializePlan)));
 });
 
@@ -757,6 +763,7 @@ router.post("/sos/plans", async (req, res): Promise<void> => {
   const [row] = await db
     .insert(sosPlansTable)
     .values({
+      tenantId: tenantIdFrom(req),
       name: body.name,
       planType: body.planType,
       description: body.description ?? null,
@@ -784,7 +791,7 @@ router.patch("/sos/plans/:id", async (req, res): Promise<void> => {
   const [row] = await db
     .update(sosPlansTable)
     .set(updates)
-    .where(eq(sosPlansTable.id, id))
+    .where(and(eq(sosPlansTable.id, id), tenantMatch(sosPlansTable.tenantId, tenantIdFrom(req))))
     .returning();
   if (!row) {
     res.status(404).json({ message: "Plan not found" });
@@ -852,7 +859,15 @@ router.post("/sos/customer-plans", async (req, res): Promise<void> => {
           tenantMatch(sosCustomersTable.tenantId, tenantIdFrom(req)),
         ),
       ),
-    db.select().from(sosPlansTable).where(eq(sosPlansTable.id, body.planId)),
+    db
+      .select()
+      .from(sosPlansTable)
+      .where(
+        and(
+          eq(sosPlansTable.id, body.planId),
+          tenantMatch(sosPlansTable.tenantId, tenantIdFrom(req)),
+        ),
+      ),
   ]);
   if (!customer) {
     res.status(404).json({ message: "Customer not found" });

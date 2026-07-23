@@ -195,12 +195,14 @@ describe("selling plans", () => {
   beforeAll(async () => {
     const pkg = await agent
       .post("/api/sos/plans")
+      .set(asTenant())
       .send({ name: `5-Pack ${RUN}`, planType: "package", price: 200, creditCount: 5 })
       .expect(201);
     packagePlan = pkg.body.id;
     planIds.push(packagePlan);
     const mem = await agent
       .post("/api/sos/plans")
+      .set(asTenant())
       .send({
         name: `Silver ${RUN}`,
         planType: "membership",
@@ -251,10 +253,11 @@ describe("selling plans", () => {
     const customerId = await createCustomer("Inactive Buyer");
     const inactive = await agent
       .post("/api/sos/plans")
+      .set(asTenant())
       .send({ name: `Retired ${RUN}`, planType: "package", price: 10, creditCount: 1 })
       .expect(201);
     planIds.push(inactive.body.id);
-    await agent.patch(`/api/sos/plans/${inactive.body.id}`).send({ isActive: false }).expect(200);
+    await agent.patch(`/api/sos/plans/${inactive.body.id}`).set(asTenant()).send({ isActive: false }).expect(200);
     await agent
       .post("/api/sos/customer-plans")
       .set(asTenant())
@@ -276,6 +279,7 @@ describe("renewing and cancelling", () => {
   beforeAll(async () => {
     const mem = await agent
       .post("/api/sos/plans")
+      .set(asTenant())
       .send({
         name: `Renewable ${RUN}`,
         planType: "membership",
@@ -350,6 +354,7 @@ describe("renewing and cancelling", () => {
   it("packages are not renewable", async () => {
     const pkg = await agent
       .post("/api/sos/plans")
+      .set(asTenant())
       .send({ name: `NoRenew ${RUN}`, planType: "package", price: 50, creditCount: 2 })
       .expect(201);
     planIds.push(pkg.body.id);
@@ -369,12 +374,14 @@ describe("plan benefits at POS checkout", () => {
   beforeAll(async () => {
     const pkg = await agent
       .post("/api/sos/plans")
+      .set(asTenant())
       .send({ name: `POS Pack ${RUN}`, planType: "package", price: 90, creditCount: 2 })
       .expect(201);
     packagePlan = pkg.body.id;
     planIds.push(packagePlan);
     const mem = await agent
       .post("/api/sos/plans")
+      .set(asTenant())
       .send({ name: `POS Mem ${RUN}`, planType: "membership", price: 45, discountPercent: 25 })
       .expect(201);
     membershipPlan = mem.body.id;
@@ -465,6 +472,7 @@ describe("plan benefits at POS checkout", () => {
     // A 1-credit pass and two visits in service at once.
     const onePack = await agent
       .post("/api/sos/plans")
+      .set(asTenant())
       .send({ name: `1-Pack ${RUN}`, planType: "package", price: 40, creditCount: 1 })
       .expect(201);
     planIds.push(onePack.body.id);
