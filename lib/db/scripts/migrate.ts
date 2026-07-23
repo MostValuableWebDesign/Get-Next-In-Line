@@ -23,6 +23,14 @@
  *     Explicit recovery tool for migrations whose DDL was applied out-of-band
  *     (e.g. manually) but never stamped. Use only after verifying the DDL is
  *     already in effect.
+ *   pnpm --filter @workspace/db run migrate -- --reconcile
+ *     Recovery mode for unstamped-but-(partially-)applied migrations: replays
+ *     each pending migration statement-by-statement inside a transaction,
+ *     skipping ONLY benign "already exists" errors (duplicate column/table/
+ *     index/constraint) via savepoints, then stamps the migration. Any other
+ *     SQL error still fails loudly and rolls back. Always follow with
+ *     `pnpm run db:check-drift` (db:reconcile does this) so the live schema is
+ *     verified against the code schema after stamping.
  */
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -49,6 +57,21 @@ function splitStatements(sql: string): string[] {
 }
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+
+/**
+ * Postgres error codes that mean "this DDL already took effect" — safe to skip
+ * during --reconcile because the statement's outcome is already in place:
+ *   42701 duplicate_column, 42P07 duplicate_table (also indexes),
+ *   42710 duplicate_object (constraints, types), 42723 duplicate_function,
+ *   42P06 duplicate_schema.
+ */
+const ALREADY_EXISTS_CODES = new Set(["42701", "42P07", "42710", "42723", "42P06"]);
+
+function pgErrorCode(error: unknown): string | undefined {
+  return typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code)
+    : undefined;
+}
 
 let exitCode = 0;
 try {
@@ -80,6 +103,8 @@ try {
     process.exit(0);
   }
 
+  const reconcile = process.argv.includes("--reconcile");
+
   if (report.unknownHashes.length > 0) {
     console.error(report.summary);
     console.error(
@@ -101,25 +126,43 @@ try {
     for (const migration of report.pending) {
       const statements = splitStatements(migration.sql);
       console.log(
-        `Applying ${migration.file} (${statements.length} statement(s))...`,
+        `Applying ${migration.file} (${statements.length} statement(s))${reconcile ? " [reconcile mode]" : ""}...`,
       );
       const client = await pool.connect();
       try {
         await client.query("BEGIN");
+        let skipped = 0;
         for (const statement of statements) {
+          if (reconcile) await client.query("SAVEPOINT reconcile_stmt");
           try {
             await client.query(statement);
           } catch (error) {
+            const code = pgErrorCode(error);
+            if (reconcile && code !== undefined && ALREADY_EXISTS_CODES.has(code)) {
+              await client.query("ROLLBACK TO SAVEPOINT reconcile_stmt");
+              skipped += 1;
+              console.log(
+                `  skipped (already applied, ${code}): ${statement.split("\n")[0].slice(0, 100)}`,
+              );
+              continue;
+            }
             const message =
               error instanceof Error ? error.message : String(error);
             console.error(`\nMIGRATE FAILED in ${migration.file}`);
             console.error(`SQL error: ${message}`);
             console.error(`Offending statement:\n${statement}\n`);
             console.error(
-              "The failed migration was rolled back; no partial changes or bookkeeping were recorded.",
+              reconcile
+                ? "This error is not a benign \"already exists\" — reconcile refuses to skip it. The migration was rolled back; nothing was recorded."
+                : "The failed migration was rolled back; no partial changes or bookkeeping were recorded.\nIf this failed because the DDL already exists (migration applied out-of-band but never stamped), run `pnpm run db:reconcile` to replay pending migrations, skipping already-applied statements, and stamp them.",
             );
             throw new Error(`migration ${migration.file} failed`);
           }
+        }
+        if (skipped > 0) {
+          console.log(
+            `  ${migration.file}: ${skipped}/${statements.length} statement(s) were already in effect and skipped.`,
+          );
         }
         await client.query(
           `INSERT INTO "drizzle"."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,

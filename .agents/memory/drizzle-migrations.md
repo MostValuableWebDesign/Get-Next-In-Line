@@ -36,5 +36,5 @@ ON CONFLICT DO NOTHING;
 **Mixed-state recovery:** if a manual migration apply fails mid-file ("column already exists"), re-apply statement-by-statement tolerating pg codes 42701/42P07/42710/42P06/42723, then stamp the hash. Verify with lib/db check-drift afterwards.
 
 ## Recovering partially out-of-band-applied migrations
-When many pending migrations fail with "already exists" but drift-check also reports missing objects (mixed state): apply each pending migration statement-by-statement via psql, skipping "already exists"/"duplicate column" errors, then `pnpm run migrate -- --mark-applied <file>` per migration. Finish with `pnpm run db:check-drift` to confirm convergence.
-**Why:** `db:push` aborts the whole migration on the first duplicate, so mixed states can't be fixed by rerunning it.
+Run `pnpm run db:reconcile` (root script). It replays every pending migration statement-by-statement inside a transaction, skipping ONLY benign duplicate errors (pg codes 42701/42P07/42710/42P06/42723) via savepoints, stamps the migration, then runs check-drift to verify the live schema matches the code schema. Any non-duplicate error still fails loudly and rolls back. Strict `db:push` failures now print a pointer to this command.
+**Why:** `db:push` aborts the whole migration on the first duplicate, so mixed states can't be fixed by rerunning it; manual psql + per-file `--mark-applied` was error-prone and kept recurring.
