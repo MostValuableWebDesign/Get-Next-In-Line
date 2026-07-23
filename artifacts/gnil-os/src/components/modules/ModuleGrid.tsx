@@ -61,23 +61,13 @@ export function ModuleGrid({ categorySlug, title, description }: { categorySlug:
                     <Badge variant={module.isActive ? "default" : "secondary"} className="uppercase text-[10px] tracking-wider">
                       {module.isActive ? 'Available' : 'Coming Soon'}
                     </Badge>
-                    {isPartner && <Badge variant="outline" className="border-primary text-primary bg-primary/5 uppercase text-[10px]">0% Markup</Badge>}
                   </div>
                   <CardTitle className="leading-tight">{module.name}</CardTitle>
                   <CardDescription className="line-clamp-2 mt-2">{module.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1" />
+                {!isPartner && (
                 <CardFooter className="border-t bg-muted/20 p-4 flex flex-col items-start gap-1">
-                  {isPartner ? (
-                    <div className="w-full" data-testid={`passthrough-pricing-${module.id}`}>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Pricing</div>
-                      <div className="text-lg font-bold text-foreground">Pass-through · 0% markup</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Billed directly to tenants by the partner — no agency cost or resale.
-                      </div>
-                    </div>
-                  ) : (
-                  <>
                   <div className="flex justify-between w-full items-end">
                     <div>
                       <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Resale</div>
@@ -114,9 +104,8 @@ export function ModuleGrid({ categorySlug, title, description }: { categorySlug:
                       </div>
                     </div>
                   )}
-                  </>
-                  )}
                 </CardFooter>
+                )}
               </Card>
               </Link>
             );

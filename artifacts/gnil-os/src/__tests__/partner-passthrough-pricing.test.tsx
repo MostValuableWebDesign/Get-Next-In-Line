@@ -1,8 +1,8 @@
 /**
- * Partner Integrations are 0%-markup pass-throughs — no resale or wholesale
+ * Partner Integrations show no pricing wording at all — no resale or wholesale
  * cost figures may appear anywhere they're priced:
- *  - partner module cards show "Pass-through · 0% markup" instead of the
- *    Resale/Wholesale price block (the 0% Markup badge stays);
+ *  - partner module cards show no pricing block, no pass-through text, and no
+ *    0% Markup badge;
  *  - the checkout dialog locked to a partner module shows no markup toggle,
  *    no wholesale/margin/total lines, and no dollar amounts — it reads as a
  *    pass-through activation;
@@ -91,17 +91,17 @@ beforeEach(() => {
   modulesState = { data: modules, isLoading: false };
 });
 
-describe('partner module cards — pass-through pricing', () => {
-  it('shows pass-through messaging and no resale/wholesale figures', () => {
+describe('partner module cards — no pricing wording', () => {
+  it('shows no pricing block, no pass-through text, and no cost figures', () => {
     renderWithRouter(
       <ModuleGrid categorySlug="partners" title="Partner Integrations" description="desc" />,
     );
 
     const card = screen.getByTestId('link-module-console-20');
-    expect(within(card).getByText('0% Markup')).toBeInTheDocument();
-    expect(within(card).getByTestId('passthrough-pricing-20')).toHaveTextContent(
-      'Pass-through · 0% markup',
-    );
+    expect(within(card).queryByText('0% Markup')).not.toBeInTheDocument();
+    expect(within(card).queryByTestId('passthrough-pricing-20')).not.toBeInTheDocument();
+    expect(within(card).queryByText(/Pass-through/)).not.toBeInTheDocument();
+    expect(within(card).queryByText('Pricing')).not.toBeInTheDocument();
     expect(within(card).queryByText('Resale')).not.toBeInTheDocument();
     expect(within(card).queryByText('Wholesale Cost')).not.toBeInTheDocument();
     expect(card.textContent).not.toMatch(/\$\d/);

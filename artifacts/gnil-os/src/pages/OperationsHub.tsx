@@ -156,7 +156,7 @@ export default function OperationsHub() {
           <ModuleGrid
             categorySlug="partners"
             title="Partner Integrations"
-            description="High-value integrations passed through to tenants at 0% markup."
+            description="High-value integrations available to your tenants."
           />
           <div className="space-y-2" data-testid="partner-services">
             <div className="text-center pt-4">
