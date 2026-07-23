@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 
 export const agencySettingsTable = pgTable("agency_settings", {
   id: serial("id").primaryKey(),
-  markupPercent: numeric("markup_percent", { precision: 5, scale: 2 }).notNull().default("35"),
+  markupPercent: numeric("markup_percent", { precision: 5, scale: 2 }).notNull().default("25"),
   platformName: text("platform_name").notNull().default("Get Next In Line"),
   deploymentMode: text("deployment_mode").notNull().default("Full-Stack Agency Mode"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

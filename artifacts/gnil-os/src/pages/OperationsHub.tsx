@@ -168,7 +168,7 @@ function PartnerSections() {
   return (
     <div className="space-y-2" data-testid="partner-services">
       <div className="text-center pt-4">
-        <h1 className="text-3xl font-bold tracking-tight">Partner Integrations</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Partner-Direct Integrations</h1>
         <p className="text-muted-foreground text-sm mt-1">
           HR, payroll, insurance, benefits, and accounting offerings from our partners.
         </p>
@@ -245,7 +245,7 @@ export default function OperationsHub() {
         <TabsContent value="modules" className="mt-4">
           <ModuleGrid
             categorySlug="operations"
-            title="Core Operations"
+            title="Public Core Service Modules"
             description="Service modules for payroll, booking, tracking, and backend operations."
           />
         </TabsContent>
@@ -274,7 +274,7 @@ export default function OperationsHub() {
               now a tab. /media deep links select this tab. */}
           <ModuleGrid
             categorySlug="media"
-            title="Media & Assets"
+            title="White-Label Resale Engines"
             description="Media buying, ads, and streaming networks."
           />
         </TabsContent>

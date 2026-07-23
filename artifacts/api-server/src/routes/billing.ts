@@ -23,7 +23,7 @@ router.get("/billing/summary", async (_req, res): Promise<void> => {
 
   const modules = await db.select().from(modulesTable);
   const [settings] = await db.select().from(agencySettingsTable).limit(1);
-  const markup = parseFloat(settings?.markupPercent ?? "35");
+  const markup = parseFloat(settings?.markupPercent ?? "25");
 
   const categoryMap: Record<string, number> = {};
   for (const mod of modules) {
@@ -72,7 +72,7 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
   }
 
   const [settings] = await db.select().from(agencySettingsTable).limit(1);
-  const markup = parseFloat(settings?.markupPercent ?? "35");
+  const markup = parseFloat(settings?.markupPercent ?? "25");
 
   const selectedModules = await db
     .select()

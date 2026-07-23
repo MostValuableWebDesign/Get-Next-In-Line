@@ -115,7 +115,7 @@ router.get("/admin/modules/:id", async (req, res): Promise<void> => {
   }
 
   const [settings] = await db.select().from(agencySettingsTable).limit(1);
-  const markup = parseFloat(settings?.markupPercent ?? "35");
+  const markup = parseFloat(settings?.markupPercent ?? "25");
   const wholesale = parseFloat(m.wholesalePrice);
   const round2 = (n: number) => Math.round(n * 100) / 100;
   const resale = round2(wholesale * (1 + markup / 100));

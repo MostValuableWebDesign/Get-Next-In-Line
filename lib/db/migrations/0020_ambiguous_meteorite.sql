@@ -1,0 +1,1 @@
+ALTER TABLE "agency_settings" ALTER COLUMN "markup_percent" SET DEFAULT '25';

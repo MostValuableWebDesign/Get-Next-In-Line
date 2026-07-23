@@ -86,7 +86,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   {
     slug: "complete_payroll_suite",
     name: "Complete Payroll & Tax Suite",
-    category: "Core Service Modules",
+    category: "Public Core Service Modules",
     categorySlug: "operations",
     description:
       "End-to-end multi-state tax filing, automated wage calculations, and direct deposit infrastructure.",
@@ -98,7 +98,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   {
     slug: "smart_booking",
     name: "Smart Booking System",
-    category: "Core Service Modules",
+    category: "Public Core Service Modules",
     categorySlug: "operations",
     description:
       "Intelligent customer scheduling engine with automated calendar sync and SMS reminders.",
@@ -110,7 +110,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   {
     slug: "no_show_shield",
     name: "No-Show Shield & Deposits",
-    category: "Core Service Modules",
+    category: "Public Core Service Modules",
     categorySlug: "operations",
     description:
       "Secure card-on-file authorization holding automated penalty deposits for missed appointments.",
@@ -122,7 +122,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   {
     slug: "commission_ledger",
     name: "Commission & Split Tracker",
-    category: "Core Service Modules",
+    category: "Public Core Service Modules",
     categorySlug: "operations",
     description:
       "Real-time complex staff commission splits, tiered bonuses, and performance ledgering.",
@@ -134,7 +134,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   {
     slug: "payroll_hub",
     name: "Service Payroll Hub",
-    category: "Core Service Modules",
+    category: "Public Core Service Modules",
     categorySlug: "operations",
     description:
       "Specialized hourly & tip reporting command center optimized for service-based businesses.",
@@ -148,7 +148,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     slug: "the_hartford",
     partnerBrand: "The Hartford",
     name: "Commercial Liability & Workers Comp",
-    category: "Partner Integrations",
+    category: "Partner-Direct Integrations",
     categorySlug: "partners",
     description: "Commercial liability and workers compensation coverage for clients.",
     wholesalePrice: "0.00",
@@ -160,7 +160,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     slug: "vestwell",
     partnerBrand: "Vestwell",
     name: "Automated Retirement & 401(k)",
-    category: "Partner Integrations",
+    category: "Partner-Direct Integrations",
     categorySlug: "partners",
     description: "Automated retirement plans and 401(k) administration.",
     wholesalePrice: "0.00",
@@ -172,7 +172,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     slug: "simply_insured",
     partnerBrand: "SimplyInsured",
     name: "Group Health Insurance Hub",
-    category: "Partner Integrations",
+    category: "Partner-Direct Integrations",
     categorySlug: "partners",
     description: "Group health insurance quoting and benefits administration.",
     wholesalePrice: "0.00",
@@ -184,7 +184,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     slug: "gusto",
     partnerBrand: "Gusto",
     name: "Integrated W-2 & Contractor Payroll",
-    category: "Partner Integrations",
+    category: "Partner-Direct Integrations",
     categorySlug: "partners",
     description: "Full-service payroll for W-2 employees and 1099 contractors.",
     wholesalePrice: "0.00",
@@ -196,7 +196,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     slug: "deel",
     partnerBrand: "Deel",
     name: "Global Team & HR Management",
-    category: "Partner Integrations",
+    category: "Partner-Direct Integrations",
     categorySlug: "partners",
     description:
       "Workforce onboarding, time & attendance, shift scheduling, and HR compliance.",
@@ -209,7 +209,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     slug: "next_insurance",
     partnerBrand: "Next Insurance",
     name: "Small Business Insurance & COI",
-    category: "Partner Integrations",
+    category: "Partner-Direct Integrations",
     categorySlug: "partners",
     description:
       "General & professional liability, workers' comp, and instant COI generation.",
@@ -222,7 +222,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     slug: "guideline",
     partnerBrand: "Guideline",
     name: "401(k) & Employee Benefits",
-    category: "Partner Integrations",
+    category: "Partner-Direct Integrations",
     categorySlug: "partners",
     description:
       "Zero-fee 401(k) administration and payroll-integrated employee benefits.",
@@ -235,7 +235,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     slug: "quickbooks",
     partnerBrand: "QuickBooks",
     name: "General Ledger & Financial Sync",
-    category: "Partner Integrations",
+    category: "Partner-Direct Integrations",
     categorySlug: "partners",
     description: "Two-way accounting sync with the general ledger.",
     wholesalePrice: "0.00",

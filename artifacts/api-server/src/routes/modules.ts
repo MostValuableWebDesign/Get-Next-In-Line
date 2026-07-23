@@ -127,7 +127,7 @@ router.get("/modules/pricing", async (_req, res): Promise<void> => {
     res.status(500).json({ error: "Failed to load module pricing" });
     return;
   }
-  const markup = parseFloat(settings?.markupPercent ?? "35");
+  const markup = parseFloat(settings?.markupPercent ?? "25");
 
   res.json(
     GetModulesPricingResponse.parse(

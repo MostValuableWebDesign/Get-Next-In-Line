@@ -60,7 +60,7 @@ describe('merged Partners tab in the Operations hub', () => {
 
     // The Partner Integrations heading renders...
     expect(
-      screen.getByRole('heading', { name: 'Partner Integrations' }),
+      screen.getByRole('heading', { name: 'Partner-Direct Integrations' }),
     ).toBeInTheDocument();
 
     // ...with all eight partners visible by brand name.

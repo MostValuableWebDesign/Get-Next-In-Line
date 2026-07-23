@@ -19,7 +19,7 @@ const router: IRouter = Router();
 
 router.get("/agency/dashboard", async (req, res): Promise<void> => {
   const [settings] = await db.select().from(agencySettingsTable).limit(1);
-  const markup = parseFloat(settings?.markupPercent ?? "35");
+  const markup = parseFloat(settings?.markupPercent ?? "25");
 
   const tenants = await db.select().from(tenantsTable);
   const activeTenants = tenants.filter((t) => t.status === "active").length;

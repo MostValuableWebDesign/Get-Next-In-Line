@@ -168,7 +168,7 @@ beforeAll(async () => {
       .insert(modulesTable)
       .values({
         name: "No-Show Shield & Deposits",
-        category: "Core Service Modules",
+        category: "Public Core Service Modules",
         categorySlug: "operations",
         description: "test",
         wholesalePrice: "49.00",

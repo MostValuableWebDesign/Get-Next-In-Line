@@ -63,7 +63,7 @@ beforeAll(async () => {
   app = (await import("../../app")).default;
 
   const [settings] = await db.select().from(agencySettingsTable).limit(1);
-  markupPercent = parseFloat(settings?.markupPercent ?? "35");
+  markupPercent = parseFloat(settings?.markupPercent ?? "25");
 
   const mods = await db
     .insert(modulesTable)

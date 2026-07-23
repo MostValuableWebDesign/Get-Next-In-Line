@@ -26,7 +26,7 @@ const OPERATIONS_MODULES = [
 const modules = OPERATIONS_MODULES.map((name, i) => ({
   id: i + 1,
   name,
-  category: 'Core Service Modules',
+  category: 'Public Core Service Modules',
   categorySlug: 'operations',
   description: `${name} description`,
   isActive: true,
@@ -83,7 +83,7 @@ describe('Operations hub — Core Operations grid placement', () => {
       </Router>,
     );
 
-    expect(screen.getByRole('heading', { name: 'Core Operations' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Public Core Service Modules' })).toBeInTheDocument();
 
     for (const mod of modules.filter((m) => m.categorySlug === 'operations')) {
       const card = screen.getByTestId(`link-module-console-${mod.id}`);
