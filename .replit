@@ -52,7 +52,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pnpm --filter @workspace/api-server exec vitest run"
+args = "pnpm --filter @workspace/api-server test"
 
 [[workflows.workflow]]
 name = "gnil-os-test"
