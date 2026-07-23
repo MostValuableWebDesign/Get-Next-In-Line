@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 // Only the hooks used by the components actually rendered on this route
 // (Shell + TenantDetail + concierge tabs) need deterministic results.
@@ -70,5 +71,23 @@ describe('legacy /tenants/:id/concierge redirect', () => {
     // The URL must be rewritten (replace, not push) to the tab deep link.
     expect(window.location.pathname).toBe('/tenants/5');
     expect(window.location.search).toBe('?tab=rules');
+  });
+});
+
+describe('tenant detail tab selection persists in URL', () => {
+  it('writes ?tab= to the URL (replace) when a tab is clicked', async () => {
+    window.history.replaceState(null, '', '/tenants/5');
+    render(<App />);
+
+    expect(await screen.findByTestId('text-tenant-brand')).toHaveTextContent('Luxe Salon');
+    const historyLength = window.history.length;
+
+    await userEvent.click(screen.getByTestId('tab-rules'));
+
+    expect(screen.getByTestId('tab-rules')).toHaveAttribute('data-state', 'active');
+    expect(window.location.pathname).toBe('/tenants/5');
+    expect(window.location.search).toBe('?tab=rules');
+    // Replace, not push: no new history entry.
+    expect(window.history.length).toBe(historyLength);
   });
 });

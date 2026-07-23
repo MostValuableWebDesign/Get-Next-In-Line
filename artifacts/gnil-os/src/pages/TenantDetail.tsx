@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getTenantActivity, type TenantActivity } from '@workspace/api-client-react';
-import { Link, useParams, useSearch } from 'wouter';
+import { Link, useLocation, useParams, useSearch } from 'wouter';
 import {
   useGetTenant,
   useGetTenantModules,
@@ -51,6 +51,15 @@ export default function TenantDetail() {
     ? (requestedTab as TabValue)
     : 'overview';
   const [tab, setTab] = useState<TabValue>(initialTab);
+  const [, navigate] = useLocation();
+
+  // Keep the URL in sync when the user switches tabs so a refresh or a
+  // shared link restores the same tab. Replace (not push) so tab flips
+  // don't pollute browser history.
+  const selectTab = (v: TabValue) => {
+    setTab(v);
+    navigate(`/tenants/${tenantId}?tab=${v}`, { replace: true });
+  };
   useEffect(() => {
     setTab(initialTab);
     // Re-sync only when the URL-requested tab or tenant changes.
@@ -192,7 +201,7 @@ export default function TenantDetail() {
         </CardContent>
       </Card>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
+      <Tabs value={tab} onValueChange={(v) => selectTab(v as TabValue)}>
         <TabsList data-testid="tabs-tenant-detail">
           <TabsTrigger value="overview" data-testid="tab-overview">
             <LayoutDashboard className="w-4 h-4 mr-1.5" /> Overview
