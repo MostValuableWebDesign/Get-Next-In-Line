@@ -10,8 +10,8 @@
   "scripts": {
     "generate": "drizzle-kit generate --config ./drizzle.config.ts",
     "migrate": "tsx ./scripts/migrate.ts",
-    "push": "drizzle-kit generate --config ./drizzle.config.ts && tsx ./scripts/migrate.ts",
-    "push-force": "drizzle-kit generate --config ./drizzle.config.ts && tsx ./scripts/migrate.ts",
+    "push": "drizzle-kit generate --config ./drizzle.config.ts && tsx ./scripts/migrate.ts && tsx ./scripts/check-drift.ts",
+    "push-force": "drizzle-kit generate --config ./drizzle.config.ts && tsx ./scripts/migrate.ts && tsx ./scripts/check-drift.ts",
     "check-drift": "tsx ./scripts/check-drift.ts",
     "test": "vitest run"
   },
