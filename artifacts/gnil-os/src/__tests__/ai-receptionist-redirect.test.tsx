@@ -40,6 +40,31 @@ vi.mock('@workspace/api-client-react', async (importOriginal) => {
     useListSosMessages: () => ({ data: [] }),
     useSimulateSosCall: () => ({ mutate: () => {}, isPending: false }),
     useSendSosMessage: () => ({ mutate: () => {}, isPending: false }),
+    // Tenant-scoped variants used when the redirect carries ?tenant=<id>.
+    useListTenants: () => ({
+      data: [{ id: 7, brandName: 'Glow Salon' }],
+      isLoading: false,
+    }),
+    useGetTenant: () => ({ data: { id: 7, brandName: 'Glow Salon' }, isLoading: false }),
+    useGetTenantSettings: () => ({
+      data: {
+        id: 2,
+        businessName: 'Glow Salon',
+        industryType: 'Salon',
+        resourceLabel: 'Chair',
+        aiReceptionistEnabled: false,
+        serviceNames: 'haircut',
+        waitlistAutoFillEnabled: false,
+        smsFromNumber: '',
+        smsMode: 'simulated',
+        smsActiveFromNumber: null,
+        smsInboundWebhookUrl: null,
+        smsInboundReady: false,
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      isLoading: false,
+    }),
+    useUpdateTenantSettings: () => ({ mutate: () => {}, isPending: false }),
   };
 });
 
@@ -78,6 +103,25 @@ describe('AI Receptionist folded into Business Bookings', () => {
   it('redirects the old /sos/marketing page to the Business Bookings tab', async () => {
     window.history.replaceState(null, '', '/sos/marketing');
     await expectLandsOnAiReceptionistTab();
+  });
+
+  it('preserves the business scope (?tenant=) when redirecting old Marketing & Comms links', async () => {
+    window.history.replaceState(null, '', '/sos/marketing?tenant=7');
+    render(<App />);
+
+    await screen.findByTestId('page-ai-receptionist');
+    // The redirect must carry the tenant context so the call/SMS logs and
+    // banners are scoped to that business, not the global lists.
+    expect(window.location.pathname).toBe('/sos/bookings');
+    expect(new URLSearchParams(window.location.search).get('tab')).toBe('ai-receptionist');
+    expect(new URLSearchParams(window.location.search).get('tenant')).toBe('7');
+
+    // Banners reflect the tenant's own settings record (AI disabled +
+    // simulated SMS in the mocked tenant settings above).
+    expect(screen.getByTestId('banner-ai-disabled')).toBeInTheDocument();
+    expect(screen.getByTestId('banner-sms-simulated')).toBeInTheDocument();
+    // The scoped view announces which business is selected.
+    expect(screen.getByTestId('text-sos-business-scope')).toHaveTextContent('Glow Salon');
   });
 
   it('deep link /sos/bookings?tab=ai-receptionist selects the tab directly', async () => {
