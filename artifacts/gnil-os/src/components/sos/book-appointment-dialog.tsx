@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ServiceTypeInput } from '@/components/sos/service-type-input';
 import { useToast } from '@/hooks/use-toast';
 import { CustomerPlanBadges } from '@/components/sos/plan-benefits';
 import { Plus } from 'lucide-react';
@@ -95,7 +96,7 @@ export function BookAppointmentDialog({
           </div>
           <div className="space-y-2">
             <Label>Service Type</Label>
-            <Input value={serviceType} onChange={e => setServiceType(e.target.value)} data-testid="input-service-type" />
+            <ServiceTypeInput value={serviceType} onChange={setServiceType} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

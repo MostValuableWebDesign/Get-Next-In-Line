@@ -9,6 +9,7 @@ import {
   type SosCustomer
 } from '@workspace/api-client-react';
 import { CustomerPicker } from '@/components/sos/customer-picker';
+import { ServiceTypeInput } from '@/components/sos/service-type-input';
 import { Link } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -412,7 +413,7 @@ function CheckInDialog() {
           </div>
           <div className="space-y-2">
             <Label>Service Type</Label>
-            <Input value={serviceType} onChange={e => setServiceType(e.target.value)} placeholder="e.g. Consultation, Appointment" />
+            <ServiceTypeInput value={serviceType} onChange={setServiceType} />
           </div>
           <div className="space-y-2">
             <Label>Party Size</Label>
