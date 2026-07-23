@@ -14,7 +14,10 @@ import { StaticPlaceholderPage } from '@/components/static-page';
  * category (a deliberate, narrow exception to the white-label contract; no
  * slugs or connector internals appear here).
  */
-const PARTNER_OFFERINGS: Record<string, { title: string; description: string; features: string[] }> = {
+export const PARTNER_OFFERINGS: Record<
+  string,
+  { title: string; description: string; features: string[] }
+> = {
   Deel: {
     title: 'Team Management',
     description:
