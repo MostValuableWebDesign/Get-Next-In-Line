@@ -34,3 +34,7 @@ ON CONFLICT DO NOTHING;
 **Keeping push and migrate consistent:** schema changes applied via `drizzle-kit push` must also be captured with `pnpm run generate` and the new migration stamped into `drizzle.__drizzle_migrations` (hash = sha256 of the .sql file, created_at = journal `when`), otherwise a later `migrate` run fails on already-applied DDL.
 
 **Mixed-state recovery:** if a manual migration apply fails mid-file ("column already exists"), re-apply statement-by-statement tolerating pg codes 42701/42P07/42710/42P06/42723, then stamp the hash. Verify with lib/db check-drift afterwards.
+
+## Recovering partially out-of-band-applied migrations
+When many pending migrations fail with "already exists" but drift-check also reports missing objects (mixed state): apply each pending migration statement-by-statement via psql, skipping "already exists"/"duplicate column" errors, then `pnpm run migrate -- --mark-applied <file>` per migration. Finish with `pnpm run db:check-drift` to confirm convergence.
+**Why:** `db:push` aborts the whole migration on the first duplicate, so mixed states can't be fixed by rerunning it.
