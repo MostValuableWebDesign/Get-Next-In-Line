@@ -1871,10 +1871,20 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
 
 // ── reports ──────────────────────────────────────────────────────────────────
 
-router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
+router.get("/sos/reports/summary", async (req, res): Promise<void> => {
   const since = new Date();
   since.setDate(since.getDate() - 13);
   since.setHours(0, 0, 0, 0);
+
+  // Strict business scope, same semantics as the dashboard: with tenant
+  // context only that tenant's operational rows; otherwise legacy
+  // (NULL-tenant) rows only. Concierge automation messages always belong to
+  // a tenant, so the automation section filters by tenant when scoped and
+  // stays agency-wide on the legacy view.
+  const tenantId = tenantIdFrom(req);
+  const scope = (col: PgColumn) => tenantMatch(col, tenantId);
+  const automationScope =
+    tenantId == null ? undefined : eq(messagesTable.tenantId, tenantId);
 
   const [
     visitsByDay,
@@ -1892,7 +1902,7 @@ router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
           count: sql<number>`count(*)::int`,
         })
         .from(sosVisitsTable)
-        .where(gte(sosVisitsTable.checkedInAt, since))
+        .where(and(gte(sosVisitsTable.checkedInAt, since), scope(sosVisitsTable.tenantId)))
         .groupBy(sql`1`)
         .orderBy(sql`1`),
       db
@@ -1900,27 +1910,29 @@ router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
           avg: sql<string>`coalesce(avg(extract(epoch from (${sosVisitsTable.serviceStartedAt} - ${sosVisitsTable.checkedInAt})) / 60), 0)`,
         })
         .from(sosVisitsTable)
-        .where(sql`${sosVisitsTable.serviceStartedAt} is not null`),
+        .where(and(sql`${sosVisitsTable.serviceStartedAt} is not null`, scope(sosVisitsTable.tenantId))),
       db
         .select({ n: sql<number>`count(*)::int` })
         .from(sosAppointmentsTable)
-        .where(eq(sosAppointmentsTable.source, "waitlist_fill")),
+        .where(and(eq(sosAppointmentsTable.source, "waitlist_fill"), scope(sosAppointmentsTable.tenantId))),
       db
         .select({ n: sql<number>`count(*)::int` })
         .from(sosAppointmentsTable)
-        .where(eq(sosAppointmentsTable.status, "cancelled")),
+        .where(and(eq(sosAppointmentsTable.status, "cancelled"), scope(sosAppointmentsTable.tenantId))),
       db
         .select({
           outcome: sosCallsTable.outcome,
           count: sql<number>`count(*)::int`,
         })
         .from(sosCallsTable)
+        .where(scope(sosCallsTable.tenantId))
         .groupBy(sosCallsTable.outcome),
       db
         .select({
           total: sql<string>`coalesce(sum(${sosVisitsTable.paymentAmount}), 0)`,
         })
-        .from(sosVisitsTable),
+        .from(sosVisitsTable)
+        .where(scope(sosVisitsTable.tenantId)),
       db
         .select({
           jobType: messagesTable.kind,
@@ -1928,7 +1940,7 @@ router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
           count: sql<number>`count(*)::int`,
         })
         .from(messagesTable)
-        .where(and(gte(messagesTable.createdAt, since), eq(messagesTable.origin, "concierge")))
+        .where(and(gte(messagesTable.createdAt, since), eq(messagesTable.origin, "concierge"), automationScope))
         .groupBy(messagesTable.kind, messagesTable.status),
       db
         .select({
@@ -1936,7 +1948,7 @@ router.get("/sos/reports/summary", async (_req, res): Promise<void> => {
           count: sql<number>`count(*)::int`,
         })
         .from(messagesTable)
-        .where(and(gte(messagesTable.createdAt, since), eq(messagesTable.origin, "concierge")))
+        .where(and(gte(messagesTable.createdAt, since), eq(messagesTable.origin, "concierge"), automationScope))
         .groupBy(sql`1`)
         .orderBy(sql`1`),
     ]);

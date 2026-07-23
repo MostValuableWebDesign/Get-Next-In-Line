@@ -286,7 +286,9 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
             <Link
               href={
                 isTenantScoped
-                  ? `/tenants/${tenantId}?tab=ai-receptionist`
+                  ? // Carry the tenant context into the SOS console so the
+                    // call/SMS logs and banners there show this business only.
+                    `/sos/bookings?tab=ai-receptionist&tenant=${tenantId}`
                   : '/sos/bookings?tab=ai-receptionist'
               }
             >

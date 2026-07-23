@@ -474,3 +474,34 @@ describe("scoped reads", () => {
     expect(logA.body.some(bodyMatch)).toBe(false);
   });
 });
+
+describe("reports summary is scoped to the requesting tenant", () => {
+  it("keeps each tenant's report to its own rows, with legacy still served", async () => {
+    // By this point in the suite: tenant B has AI calls; tenant A has
+    // waitlist-fill bookings (claims) and cancellations but no calls.
+    const forA = await agent
+      .get("/api/sos/reports/summary")
+      .set(asTenant(tenantA))
+      .expect(200);
+    const forB = await agent
+      .get("/api/sos/reports/summary")
+      .set(asTenant(tenantB))
+      .expect(200);
+
+    const totalCalls = (r: { callOutcomes: { count: number }[] }) =>
+      r.callOutcomes.reduce((n, o) => n + o.count, 0);
+    expect(totalCalls(forB.body)).toBeGreaterThanOrEqual(1);
+    expect(totalCalls(forA.body)).toBe(0);
+
+    expect(forA.body.slotsFilled).toBeGreaterThanOrEqual(1);
+    expect(forB.body.slotsFilled).toBe(0);
+
+    // No visits were checked in for either tenant, so scoped revenue and
+    // visit history stay empty instead of leaking agency-wide numbers.
+    expect(forA.body.visitsByDay).toEqual([]);
+    expect(forB.body.totalRevenue).toBe(0);
+
+    // The legacy combined view still answers without tenant context.
+    await agent.get("/api/sos/reports/summary").expect(200);
+  });
+});

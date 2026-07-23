@@ -3,9 +3,10 @@ import { Link, useLocation, useSearch } from 'wouter';
 import {
   useListSosAppointments, getListSosAppointmentsQueryKey,
   useListSosVisits, useMarkSosAppointmentNoShow, useCancelSosAppointment,
-  useGetSosDashboard,
+  useGetSosDashboard, useListTenants,
   type SosAppointment,
 } from '@workspace/api-client-react';
+import { parseTenantParam } from '@/lib/sos-tenant';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,22 @@ export function BookingsPage() {
   const rawTab = new URLSearchParams(searchString).get('tab');
   const activeTab = (BOOKINGS_TABS as readonly string[]).includes(rawTab ?? '') ? rawTab! : 'list';
 
+  // Selected business scope — lives in the URL (?tenant=<id>) so refreshes,
+  // deep links, and Configuration cross-links carry it. The SosTenantSync
+  // component reads the same param and attaches x-tenant-id to every
+  // /api/sos/* request; with no selection the legacy combined view loads.
+  const selectedTenant = parseTenantParam(searchString);
+  const { data: tenants } = useListTenants();
+  const selectedTenantName = tenants?.find(t => t.id === selectedTenant)?.brandName;
+
+  const buildUrl = (tab: string, tenant: number | null) => {
+    const p = new URLSearchParams();
+    if (tab !== 'list') p.set('tab', tab);
+    if (tenant != null) p.set('tenant', String(tenant));
+    const q = p.toString();
+    return q ? `/sos/bookings?${q}` : '/sos/bookings';
+  };
+
   // Deep links from the dashboard / old Customers page:
   // /sos/bookings?tab=customers&customer=<id> auto-opens the detail dialog.
   const initialCustomerId = React.useMemo(() => {
@@ -75,10 +92,40 @@ export function BookingsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Business Bookings</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Appointments and checkout activity in one place.
+            {selectedTenant != null ? (
+              <>
+                Showing{' '}
+                <span className="font-medium" data-testid="text-sos-business-scope">
+                  {selectedTenantName ?? `business #${selectedTenant}`}
+                </span>{' '}
+                only.
+              </>
+            ) : (
+              'Appointments and checkout activity in one place.'
+            )}
           </p>
         </div>
-        <BookAppointmentDialog />
+        <div className="flex items-center gap-3">
+          <Select
+            value={selectedTenant != null ? String(selectedTenant) : 'all'}
+            onValueChange={(v) =>
+              setLocation(buildUrl(activeTab, v === 'all' ? null : Number(v)), { replace: true })
+            }
+          >
+            <SelectTrigger className="w-[220px]" data-testid="select-sos-business">
+              <SelectValue placeholder="All businesses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All businesses (legacy)</SelectItem>
+              {tenants?.map(t => (
+                <SelectItem key={t.id} value={String(t.id)} data-testid={`option-sos-business-${t.id}`}>
+                  {t.brandName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <BookAppointmentDialog />
+        </div>
       </div>
 
       {/* Live business KPIs — folded in from the retired standalone SOS Dashboard */}
@@ -111,13 +158,13 @@ export function BookingsPage() {
       {/* Jump links to the other tabs on this page */}
       <div className="grid sm:grid-cols-2 gap-4">
         <JumpLinkCard
-          href="/sos/bookings?tab=customers"
+          href={buildUrl('customers', selectedTenant)}
           icon={Users}
           title="Customers"
           description="Manage client records, preferences, and timelines"
         />
         <JumpLinkCard
-          href="/sos/bookings?tab=plans"
+          href={buildUrl('plans', selectedTenant)}
           icon={Crown}
           title="Membership Plans"
           description="Manage plans, packages, and loyalty credit passes"
@@ -130,8 +177,9 @@ export function BookingsPage() {
       <Tabs
         value={activeTab}
         onValueChange={(tab) => {
-          // Keep the URL in sync so refresh/back and deep links stay correct
-          setLocation(tab === 'list' ? '/sos/bookings' : `/sos/bookings?tab=${tab}`, { replace: true });
+          // Keep the URL in sync (tab + business scope) so refresh/back and
+          // deep links stay correct
+          setLocation(buildUrl(tab, selectedTenant), { replace: true });
         }}
         className="space-y-4"
       >
@@ -207,7 +255,7 @@ export function BookingsPage() {
           {/* Former standalone /sos/ai-receptionist page — config, call logs,
               inbound simulator, and SMS broadcast history, now a tab here.
               The old URL redirects to this tab. */}
-          <AiReceptionistPage embedded />
+          <AiReceptionistPage embedded tenantId={selectedTenant} key={selectedTenant ?? 'legacy'} />
         </TabsContent>
       </Tabs>
     </div>
@@ -460,8 +508,9 @@ function JumpLinkCard({
   title: string;
   description: string;
 }) {
+  const testId = `link-jump-${title.toLowerCase().replace(/\s+/g, '-')}`;
   return (
-    <Link href={href} className="group">
+    <Link href={href} className="group" data-testid={testId}>
       <Card className="hover:border-primary/40 transition-colors cursor-pointer h-full">
         <CardContent className="p-4 flex items-center gap-3">
           <Icon className="h-5 w-5 text-primary shrink-0" />

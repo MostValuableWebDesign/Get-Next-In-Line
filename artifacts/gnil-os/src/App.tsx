@@ -14,6 +14,7 @@ import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
+import { SosTenantSync } from "@/lib/sos-tenant";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,8 +37,24 @@ function RedirectSosCustomers() {
   const params = new URLSearchParams(useSearch());
   const tab = params.get('tab') === 'plans' ? 'plans' : 'customers';
   const customer = params.get('customer');
-  const to = `/sos/bookings?tab=${tab}${customer ? `&customer=${encodeURIComponent(customer)}` : ''}`;
+  const tenant = params.get('tenant');
+  const to = `/sos/bookings?tab=${tab}${customer ? `&customer=${encodeURIComponent(customer)}` : ''}${tenant ? `&tenant=${encodeURIComponent(tenant)}` : ''}`;
   return <Redirect to={to} replace />;
+}
+
+/**
+ * Redirect an old standalone SOS page into Business Bookings, preserving the
+ * selected-business context (?tenant=<id>) so links from a tenant's
+ * Configuration page land on that business's scoped view.
+ */
+function RedirectSosBookings({ tab }: { tab?: string }) {
+  const params = new URLSearchParams(useSearch());
+  const out = new URLSearchParams();
+  if (tab) out.set('tab', tab);
+  const tenant = params.get('tenant');
+  if (tenant) out.set('tenant', tenant);
+  const q = out.toString();
+  return <Redirect to={q ? `/sos/bookings?${q}` : '/sos/bookings'} replace />;
 }
 
 /** Wraps all protected pages — redirects to /login until session is confirmed. */
@@ -106,7 +123,7 @@ function ProtectedApp() {
         {/* SOS Operations section — the old standalone SOS Dashboard is folded
             into Business Bookings (its KPI stats now render there) */}
         <Route path="/sos">
-          <Redirect to="/sos/bookings" replace />
+          <RedirectSosBookings />
         </Route>
         {/* Live Operations now lives on the Command Center landing page */}
         <Route path="/sos/operations">
@@ -114,7 +131,7 @@ function ProtectedApp() {
         </Route>
         {/* Calendar is now a view inside Business Bookings */}
         <Route path="/sos/calendar">
-          <Redirect to="/sos/bookings" replace />
+          <RedirectSosBookings />
         </Route>
         {/* Customers (and its Plans tab) is now folded into Business Bookings —
             preserve tab + customer-id deep links from old URLs. */}
@@ -123,27 +140,27 @@ function ProtectedApp() {
         </Route>
         {/* Point of Sale is folded into Business Bookings (tickets + in-service) */}
         <Route path="/sos/pos">
-          <Redirect to="/sos/bookings" replace />
+          <RedirectSosBookings />
         </Route>
         {/* Reports is now a tab inside Business Bookings */}
         <Route path="/sos/reports">
-          <Redirect to="/sos/bookings?tab=reports" replace />
+          <RedirectSosBookings tab="reports" />
         </Route>
         <Route path="/sos/bookings" component={SosBookings} />
         {/* Membership plan management is now a tab inside Business Bookings */}
         <Route path="/sos/memberships">
-          <Redirect to="/sos/bookings?tab=plans" replace />
+          <RedirectSosBookings tab="plans" />
         </Route>
         {/* The AI Receptionist console is now a tab inside Business Bookings.
             The tenant-scoped embed (/tenants/:id?tab=ai-receptionist) is
             unaffected. */}
         <Route path="/sos/ai-receptionist">
-          <Redirect to="/sos/bookings?tab=ai-receptionist" replace />
+          <RedirectSosBookings tab="ai-receptionist" />
         </Route>
         {/* Old Marketing & Comms page — its receptionist and SMS tabs are now
             part of the AI Receptionist tab in Business Bookings. */}
         <Route path="/sos/marketing">
-          <Redirect to="/sos/bookings?tab=ai-receptionist" replace />
+          <RedirectSosBookings tab="ai-receptionist" />
         </Route>
         {/* Old standalone SOS settings page — folded into the unified Configuration screen */}
         <Route path="/sos/settings">
@@ -187,6 +204,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          {/* Keeps the x-tenant-id scope on /api/sos/* requests in sync with
+              the ?tenant= param on SOS pages (legacy view elsewhere). */}
+          <SosTenantSync />
           <Router />
         </WouterRouter>
         <Toaster />

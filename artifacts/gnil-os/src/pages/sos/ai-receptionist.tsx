@@ -41,10 +41,24 @@ import { SmsConversations } from '@/components/sms-conversations';
  * This page is the single editing home for AI Receptionist settings — the
  * Configuration page only shows read-only status linking here.
  */
-export function AiReceptionistPage({ embedded = false }: { embedded?: boolean }) {
+export function AiReceptionistPage({
+  embedded = false,
+  tenantId: tenantIdProp = null,
+}: {
+  embedded?: boolean;
+  /** Business scope from the SOS business selector (?tenant=) — when set,
+   *  settings load from that tenant's record and the call/SMS logs are
+   *  scoped to it via the x-tenant-id header. */
+  tenantId?: number | null;
+}) {
   const params = useParams<{ id?: string }>();
-  const tenantId = params.id != null ? Number(params.id) : null;
+  const routeTenantId = params.id != null ? Number(params.id) : null;
+  const tenantId = tenantIdProp ?? routeTenantId;
   const isTenantScoped = tenantId != null && Number.isInteger(tenantId);
+  // Logs render on the global console and on the business-scoped console
+  // (where the x-tenant-id header filters them); the Tenant Detail embed
+  // links to its Communications tab instead of duplicating them.
+  const showLogs = !isTenantScoped || tenantIdProp != null;
 
   const globalQuery = useGetSosSettings({
     query: { queryKey: getGetSosSettingsQueryKey(), enabled: !isTenantScoped },
@@ -224,7 +238,7 @@ export function AiReceptionistPage({ embedded = false }: { embedded?: boolean })
 
       {/* Per-tenant, the call and SMS logs live on the unified
           Communications tab — link there instead of duplicating them. */}
-      {isTenantScoped && (
+      {isTenantScoped && !showLogs && (
         <div
           className="flex items-center justify-between gap-3 rounded-lg border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground"
           data-testid="banner-comms-link"
@@ -238,9 +252,9 @@ export function AiReceptionistPage({ embedded = false }: { embedded?: boolean })
         </div>
       )}
 
-      {/* Call logs, the simulator, and SMS history are business-wide views —
-          only rendered on the global page, not per-tenant. */}
-      {!isTenantScoped && (
+      {/* Call logs, the simulator, and SMS history — business-wide on the
+          global page, scoped by x-tenant-id when a business is selected. */}
+      {showLogs && (
         <>
       {/* ── Call log ──────────────────────────────────────────────────── */}
       <div className="space-y-4" data-testid="section-call-logs">
@@ -260,7 +274,9 @@ export function AiReceptionistPage({ embedded = false }: { embedded?: boolean })
           >
             <span>SMS is in simulated mode — messages are logged but not actually sent.</span>
             <Button asChild variant="outline" size="sm" className="shrink-0">
-              <Link href="/settings#sms">Go live in Configuration</Link>
+              <Link href={isTenantScoped ? `/tenants/${tenantId}?tab=settings` : '/settings#sms'}>
+                Go live in Configuration
+              </Link>
             </Button>
           </div>
         )}
