@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGetBillingSummary, useGetModulesPricing, useListModules } from '@workspace/api-client-react';
+import { useGetBillingSummary, useGetModulesPricing } from '@workspace/api-client-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -12,17 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function Billing() {
   const { data: summary, isLoading: isLoadingSummary } = useGetBillingSummary();
   const { data: pricing, isLoading: isLoadingPricing } = useGetModulesPricing();
-  const { data: modules, isLoading: isLoadingModules } = useListModules();
-  // Partner products are billed directly by the partner — no retail price or
-  // margin figures apply, so their rows show no pricing.
-  const partnerIds = new Set(
-    (modules ?? []).filter((m) => m.categorySlug === 'partners').map((m) => m.id),
-  );
-  
-  // Wait for the module list too — partner classification depends on it, and
-  // rendering the pricing matrix before it resolves would briefly show
-  // pricing figures on partner rows.
-  if (isLoadingSummary || isLoadingPricing || isLoadingModules || !modules) {
+
+  if (isLoadingSummary || isLoadingPricing) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-10 w-48" />
@@ -68,21 +59,13 @@ export default function Billing() {
                       <TableCell>
                         <Badge variant="outline" className="text-[10px] uppercase">{p.category}</Badge>
                       </TableCell>
-                      {partnerIds.has(p.id) ? (
-                        <TableCell colSpan={2} className="text-right text-muted-foreground" data-testid={`pricing-partner-${p.id}`}>
-                          Partner billed
-                        </TableCell>
-                      ) : (
-                        <>
-                          <TableCell className="text-right font-mono font-bold">{formatCurrency(p.resalePrice)}</TableCell>
-                          <TableCell className="text-right font-mono text-emerald-600 font-medium" data-testid={`pricing-margin-${p.id}`}>
-                            +{formatCurrency(p.margin)}
-                            {p.resalePrice > 0 && (
-                              <span className="text-xs text-emerald-600/80"> ({Math.round((p.margin / p.resalePrice) * 100)}%)</span>
-                            )}
-                          </TableCell>
-                        </>
-                      )}
+                      <TableCell className="text-right font-mono font-bold">{formatCurrency(p.resalePrice)}</TableCell>
+                      <TableCell className="text-right font-mono text-emerald-600 font-medium" data-testid={`pricing-margin-${p.id}`}>
+                        +{formatCurrency(p.margin)}
+                        {p.resalePrice > 0 && (
+                          <span className="text-xs text-emerald-600/80"> ({Math.round((p.margin / p.resalePrice) * 100)}%)</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

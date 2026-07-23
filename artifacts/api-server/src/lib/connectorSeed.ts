@@ -20,12 +20,6 @@ interface ConnectorMappingEntry {
   wholesalePriceBiweekly?: string;
   /** Null for internal (GNIL-native) modules with no external upstream. */
   upstreamVendor: string | null;
-  /**
-   * Customer-facing partner brand — ONLY for partner-category modules
-   * (deliberate, narrow exception to the white-label contract). Omit/undefined
-   * for every white-labeled module.
-   */
-  partnerBrand?: string;
   hiddenConnector: string | null;
   proxyNotes: string | null;
 }
@@ -146,7 +140,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   // ── Category 2: Partner Integrations (0% Markup) ─────────────────────────
   {
     slug: "the_hartford",
-    partnerBrand: "The Hartford",
     name: "Commercial Liability & Workers Comp",
     category: "Partner Integrations",
     categorySlug: "partners",
@@ -158,7 +151,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "vestwell",
-    partnerBrand: "Vestwell",
     name: "Automated Retirement & 401(k)",
     category: "Partner Integrations",
     categorySlug: "partners",
@@ -170,7 +162,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "simply_insured",
-    partnerBrand: "SimplyInsured",
     name: "Group Health Insurance Hub",
     category: "Partner Integrations",
     categorySlug: "partners",
@@ -182,7 +173,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "gusto",
-    partnerBrand: "Gusto",
     name: "Integrated W-2 & Contractor Payroll",
     category: "Partner Integrations",
     categorySlug: "partners",
@@ -194,7 +184,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "deel",
-    partnerBrand: "Deel",
     name: "Global Team & HR Management",
     category: "Partner Integrations",
     categorySlug: "partners",
@@ -207,7 +196,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "next_insurance",
-    partnerBrand: "Next Insurance",
     name: "Small Business Insurance & COI",
     category: "Partner Integrations",
     categorySlug: "partners",
@@ -220,7 +208,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "guideline",
-    partnerBrand: "Guideline",
     name: "401(k) & Employee Benefits",
     category: "Partner Integrations",
     categorySlug: "partners",
@@ -233,7 +220,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "quickbooks",
-    partnerBrand: "QuickBooks",
     name: "General Ledger & Financial Sync",
     category: "Partner Integrations",
     categorySlug: "partners",
@@ -355,7 +341,9 @@ export async function seedConnectorMapping(): Promise<void> {
           upstreamVendor: entry.upstreamVendor,
           hiddenConnector: entry.hiddenConnector,
           proxyNotes: entry.proxyNotes,
-          partnerBrand: entry.partnerBrand ?? null,
+          // White-label contract: partner brands are never exposed; scrub any
+          // previously seeded value.
+          partnerBrand: null,
           wholesalePriceBiweekly: entry.wholesalePriceBiweekly ?? null,
         })
         .where(eq(modulesTable.id, match.id));
@@ -373,7 +361,6 @@ export async function seedConnectorMapping(): Promise<void> {
         upstreamVendor: entry.upstreamVendor,
         hiddenConnector: entry.hiddenConnector,
         proxyNotes: entry.proxyNotes,
-        partnerBrand: entry.partnerBrand ?? null,
       });
       inserted++;
     }

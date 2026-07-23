@@ -1,22 +1,17 @@
 import { Link, useLocation } from 'wouter';
-import { useListModules } from '@workspace/api-client-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Settings } from 'lucide-react';
 import { ModuleGrid } from '@/components/modules/ModuleGrid';
 import { StaticPlaceholderPage } from '@/components/static-page';
 
-/**
- * Curated offerings content per partner brand — title + feature list in the
- * style of the original four Partner Services cards. Keyed by the
- * customer-facing `partnerBrand` that /api/modules exposes for the partners
- * category (a deliberate, narrow exception to the white-label contract; no
- * slugs or connector internals appear here).
- */
-const PARTNER_OFFERINGS: Record<string, { title: string; description: string; features: string[] }> = {
-  Deel: {
+// Partner placeholder tabs (former SOS static pages) — pure content, rendered
+// through the shared StaticPlaceholderPage component.
+const PARTNER_PLACEHOLDERS = {
+  employees: {
     title: 'Team Management',
+    partner: 'Deel',
+    moduleName: 'Global Team & HR Management',
     description:
       'Manage your entire workforce from a single dashboard. Onboard new staff, track hours, and manage schedules with automated compliance.',
     features: [
@@ -26,8 +21,10 @@ const PARTNER_OFFERINGS: Record<string, { title: string; description: string; fe
       'Performance Reviews',
     ],
   },
-  Gusto: {
+  payroll: {
     title: 'Payroll & Compliance',
+    partner: 'Gusto',
+    moduleName: 'Integrated W-2 & Contractor Payroll',
     description:
       'Run payroll in minutes. We handle tax filings, W-2s, and 1099s automatically so you can focus on running your business.',
     features: [
@@ -37,8 +34,10 @@ const PARTNER_OFFERINGS: Record<string, { title: string; description: string; fe
       'Time Tracking Sync',
     ],
   },
-  'Next Insurance': {
+  protection: {
     title: 'Business Protection',
+    partner: 'Next Insurance',
+    moduleName: 'Small Business Insurance & COI',
     description:
       'Comprehensive coverage tailored to your industry. Get insured in minutes and manage your certificates of insurance directly from SOS.',
     features: [
@@ -48,8 +47,10 @@ const PARTNER_OFFERINGS: Record<string, { title: string; description: string; fe
       'Instant COI Generation',
     ],
   },
-  Guideline: {
+  benefits: {
     title: 'Employee Benefits',
+    partner: 'Guideline',
+    moduleName: '401(k) & Employee Benefits',
     description:
       'Offer Fortune 500 benefits to your team. 401(k), health, dental, and vision plans fully integrated with your payroll.',
     features: [
@@ -59,118 +60,7 @@ const PARTNER_OFFERINGS: Record<string, { title: string; description: string; fe
       'Automated Payroll Deductions',
     ],
   },
-  'The Hartford': {
-    title: 'Commercial Coverage',
-    description:
-      'Protect your business with commercial liability and workers compensation coverage from one of the most trusted names in business insurance.',
-    features: [
-      'Commercial General Liability',
-      "Workers' Compensation",
-      'Certificate Management',
-      'Dedicated Claims Support',
-    ],
-  },
-  Vestwell: {
-    title: 'Retirement Plans',
-    description:
-      'Give your team a modern retirement plan. Automated 401(k) administration that syncs directly with payroll and keeps you compliant with state mandates.',
-    features: [
-      'Automated 401(k) Administration',
-      'Payroll Deduction Sync',
-      'State Mandate Compliance',
-      'Employee Enrollment Portal',
-    ],
-  },
-  SimplyInsured: {
-    title: 'Group Health Insurance',
-    description:
-      'Compare and manage group health plans in minutes. Instant quotes across major carriers with benefits administration built in.',
-    features: [
-      'Instant Group Health Quotes',
-      'Medical, Dental & Vision Plans',
-      'Benefits Administration',
-      'Employee Enrollment Support',
-    ],
-  },
-  QuickBooks: {
-    title: 'Accounting Sync',
-    description:
-      'Keep your books accurate automatically. Two-way sync pushes bookings, payments, and payouts straight into your general ledger.',
-    features: [
-      'Two-Way General Ledger Sync',
-      'Automated Invoice & Payment Sync',
-      'Expense Categorization',
-      'Financial Reporting',
-    ],
-  },
 };
-
-/** Display order for the branded partner sections. Unknown brands sort last. */
-const PARTNER_ORDER = [
-  'Deel',
-  'Gusto',
-  'Next Insurance',
-  'Guideline',
-  'The Hartford',
-  'Vestwell',
-  'SimplyInsured',
-  'QuickBooks',
-];
-
-/**
- * Unified branded presentation of every partner-category module: each partner
- * renders as a full section with brand name, description, and offerings list.
- * Availability (Available / Coming Soon) stays driven by the module's active
- * state. Replaces the old anonymous partner card grid + four hardcoded
- * sections.
- */
-function PartnerSections() {
-  const { data: modules, isLoading } = useListModules();
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6" data-testid="partner-services">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-64 rounded-xl max-w-4xl mx-auto" />
-        ))}
-      </div>
-    );
-  }
-
-  const partners = (modules ?? [])
-    .filter((m) => m.categorySlug === 'partners')
-    .sort((a, b) => {
-      const ai = PARTNER_ORDER.indexOf(a.partnerBrand ?? '');
-      const bi = PARTNER_ORDER.indexOf(b.partnerBrand ?? '');
-      return (ai === -1 ? PARTNER_ORDER.length : ai) - (bi === -1 ? PARTNER_ORDER.length : bi);
-    });
-
-  return (
-    <div className="space-y-2" data-testid="partner-services">
-      <div className="text-center pt-4">
-        <h1 className="text-3xl font-bold tracking-tight">Partner Integrations</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          HR, payroll, insurance, benefits, and accounting offerings from our partners.
-        </p>
-      </div>
-      {partners.map((module) => {
-        const brand = module.partnerBrand ?? 'Partner';
-        const content = PARTNER_OFFERINGS[brand];
-        return (
-          <StaticPlaceholderPage
-            key={module.id}
-            title={content?.title ?? module.name}
-            partner={brand}
-            moduleName={module.name}
-            description={content?.description ?? module.description}
-            features={content?.features ?? []}
-            available={module.isActive}
-          />
-        );
-      })}
-    </div>
-  );
-}
 
 /**
  * Unified Operations hub.
@@ -259,11 +149,27 @@ export default function OperationsHub() {
           />
         </TabsContent>
         <TabsContent value="partners" className="mt-4 space-y-8">
-          {/* Single merged Partners tab: every partner-category module renders
-              as a branded section (brand name, description, offerings). Old
-              URLs (/sos/partner-services and the per-partner pages) redirect
-              to /partners. */}
-          <PartnerSections />
+          {/* Single merged Partners tab: the 0%-markup partner integrations
+              grid plus the former Partner Services details (Deel, Gusto,
+              Next Insurance, Guideline). Old URLs (/sos/partner-services and
+              the per-partner pages) redirect to /partners. */}
+          <ModuleGrid
+            categorySlug="partners"
+            title="Partner Integrations"
+            description="High-value integrations passed through to tenants at 0% markup."
+          />
+          <div className="space-y-2" data-testid="partner-services">
+            <div className="text-center pt-4">
+              <h2 className="text-2xl font-bold tracking-tight">Partner Services</h2>
+              <p className="text-muted-foreground text-sm mt-1">
+                HR, payroll, insurance, and benefits offerings from our partners.
+              </p>
+            </div>
+            <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.employees} />
+            <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.payroll} />
+            <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.protection} />
+            <StaticPlaceholderPage {...PARTNER_PLACEHOLDERS.benefits} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

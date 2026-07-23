@@ -167,7 +167,7 @@ export default function ModuleConsole() {
                 className="border-sky-500/40 text-sky-600 bg-sky-500/5 px-3 py-1"
                 data-testid="badge-partner-direct"
               >
-                Partner Direct
+                Partner Direct (0% Markup)
               </Badge>
             ) : (
               <div className="text-right mr-2">
@@ -244,7 +244,7 @@ export default function ModuleConsole() {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Profit Margin</span>
                 <span className="text-sm font-bold text-primary" data-testid="text-markup-percent">
-                  {isPartner ? 'Partner Direct' : `+${markupPercent}% Profit Margin`}
+                  {isPartner ? 'Pass-through · 0% markup' : `+${markupPercent}% Profit Margin`}
                 </span>
               </div>
             </div>
@@ -408,22 +408,14 @@ function AdminConnectorSection({
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
           <div>
-            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">
-              {mapping.categorySlug === 'partners' ? 'Pricing' : 'Retail Price / Margin'}
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Retail Price / Margin</div>
+            <div className="text-sm font-mono" data-testid="text-mapping-pricing">
+              {formatCurrency(detail.resalePrice)}/mo
+              <span className="text-emerald-600"> · +{formatCurrency(detail.resalePrice - detail.wholesalePrice)} margin</span>
+              {detail.resalePriceBiweekly != null && (
+                <span className="text-muted-foreground"> · {formatCurrency(detail.resalePriceBiweekly)}/2wk</span>
+              )}
             </div>
-            {mapping.categorySlug === 'partners' ? (
-              <div className="text-sm text-muted-foreground" data-testid="text-mapping-pricing">
-                Partner billed
-              </div>
-            ) : (
-              <div className="text-sm font-mono" data-testid="text-mapping-pricing">
-                {formatCurrency(detail.resalePrice)}/mo
-                <span className="text-emerald-600"> · +{formatCurrency(detail.resalePrice - detail.wholesalePrice)} margin</span>
-                {detail.resalePriceBiweekly != null && (
-                  <span className="text-muted-foreground"> · {formatCurrency(detail.resalePriceBiweekly)}/2wk</span>
-                )}
-              </div>
-            )}
           </div>
           <div>
             <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Status</div>
