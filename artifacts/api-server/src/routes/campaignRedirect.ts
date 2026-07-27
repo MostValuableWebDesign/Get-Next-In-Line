@@ -1,0 +1,60 @@
+import { Router, type IRouter } from "express";
+import { db, campaignsTable, attributionEventsTable, tenantsTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
+import { logger } from "../lib/logger";
+
+// ── Public campaign redirect links ───────────────────────────────────────────
+// GET /r/:code — trackable marketing links. Looks up the active campaign the
+// code belongs to, records an inbound-click attribution event, and 302s to
+// the owning tenant's public landing page with a ?ref= marker.
+//
+// Deliberately unauthenticated (ad clicks and crawlers hit it without a
+// session), read-mostly, and resilient: a failure to log the click must never
+// block the redirect itself.
+
+const router: IRouter = Router();
+
+// Same character class as tenant slugs; 2–64 chars, no leading/trailing dash.
+export const CAMPAIGN_CODE_RE = /^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/;
+
+router.get("/r/:code", async (req, res): Promise<void> => {
+  const code = String(req.params.code || "").toLowerCase();
+  if (!CAMPAIGN_CODE_RE.test(code)) {
+    res.status(404).type("text/plain").send("Not found");
+    return;
+  }
+
+  const [row] = await db
+    .select({
+      campaignId: campaignsTable.id,
+      tenantId: tenantsTable.id,
+      subdomain: tenantsTable.subdomain,
+    })
+    .from(campaignsTable)
+    .innerJoin(tenantsTable, eq(campaignsTable.tenantId, tenantsTable.id))
+    .where(and(eq(campaignsTable.code, code), eq(campaignsTable.isActive, true)));
+
+  if (!row) {
+    // Unknown, expired, or deactivated code — friendly 404.
+    res.status(404).type("text/plain").send("This link is no longer active.");
+    return;
+  }
+
+  // Attribution logging is best-effort: never block the visitor's redirect.
+  try {
+    await db.insert(attributionEventsTable).values({
+      tenantId: row.tenantId,
+      campaignCode: code,
+      eventType: "click",
+    });
+  } catch (err) {
+    logger.error({ err, code }, "Failed to record campaign attribution event");
+  }
+
+  res.redirect(
+    302,
+    `/api/public/landing/${encodeURIComponent(row.subdomain)}?ref=${encodeURIComponent(code)}`,
+  );
+});
+
+export default router;

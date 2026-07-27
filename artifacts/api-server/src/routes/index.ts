@@ -12,6 +12,7 @@ import conciergeRouter from "./concierge";
 import partnersRouter from "./partners";
 import publicBookingRouter from "./publicBooking";
 import landingRouter from "./landing";
+import campaignRedirectRouter from "./campaignRedirect";
 import reviewsRouter from "./reviews";
 
 const router: IRouter = Router();
@@ -28,6 +29,10 @@ router.use(publicBookingRouter);
 // that crawlers can read without executing the app. Read-only, slug-scoped,
 // and renders only published data (profile, active services, visible reviews).
 router.use(landingRouter);
+// Campaign redirect links (/r/:code) — deliberately unauthenticated: ad
+// clicks and crawlers hit them without a session. Logs an attribution event
+// and 302s to the tenant's public landing page.
+router.use(campaignRedirectRouter);
 
 // ── Protected routes ─────────────────────────────────────────────────────────
 // All routes below this middleware require a valid session — except the

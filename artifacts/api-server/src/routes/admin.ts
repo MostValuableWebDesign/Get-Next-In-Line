@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { desc, eq } from "drizzle-orm";
+import { count, desc, eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   modulesTable,
@@ -7,13 +7,21 @@ import {
   tenantsTable,
   tenantModulesTable,
   tenantActivitiesTable,
+  campaignsTable,
+  attributionEventsTable,
 } from "@workspace/db";
 import {
   GetConnectorRegistryResponse,
   UpdateConnectorRegistryEntryBody,
   UpdateConnectorRegistryEntryResponse,
   GetAdminModuleDetailResponse,
+  ListAdminCampaignsResponse,
+  CreateAdminCampaignBody,
+  CreateAdminCampaignResponse,
+  UpdateAdminCampaignBody,
+  UpdateAdminCampaignResponse,
 } from "@workspace/api-zod";
+import { CAMPAIGN_CODE_RE } from "./campaignRedirect";
 
 import { effectiveMarkupPercent } from "../lib/pricing";
 
@@ -200,6 +208,155 @@ router.get("/admin/modules/:id", async (req, res): Promise<void> => {
         timestamp: a.timestamp.toISOString(),
       })),
     })
+  );
+});
+
+// ── Campaign redirect links ─────────────────────────────────────────────────
+// Admin CRUD for the trackable /r/:code marketing links plus click counts
+// pulled from the attribution-events log.
+
+function serializeCampaign(
+  c: typeof campaignsTable.$inferSelect,
+  tenantName: string,
+  clickCount: number,
+) {
+  return {
+    id: c.id,
+    code: c.code,
+    tenantId: c.tenantId,
+    tenantName,
+    name: c.name,
+    isActive: c.isActive,
+    clickCount,
+    createdAt: c.createdAt.toISOString(),
+  };
+}
+
+router.get("/admin/campaigns", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({
+      campaign: campaignsTable,
+      tenantName: tenantsTable.brandName,
+      clickCount: count(attributionEventsTable.id),
+    })
+    .from(campaignsTable)
+    .innerJoin(tenantsTable, eq(campaignsTable.tenantId, tenantsTable.id))
+    .leftJoin(
+      attributionEventsTable,
+      eq(attributionEventsTable.campaignCode, campaignsTable.code),
+    )
+    .groupBy(campaignsTable.id, tenantsTable.brandName)
+    .orderBy(desc(campaignsTable.createdAt), desc(campaignsTable.id));
+
+  res.json(
+    ListAdminCampaignsResponse.parse(
+      rows.map((r) => serializeCampaign(r.campaign, r.tenantName, Number(r.clickCount))),
+    ),
+  );
+});
+
+/** Derive a URL-safe campaign code from a human-readable name. */
+function slugifyCode(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+}
+
+router.post("/admin/campaigns", async (req, res): Promise<void> => {
+  const parsed = CreateAdminCampaignBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const { tenantId, name } = parsed.data;
+
+  const [tenant] = await db
+    .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, tenantId));
+  if (!tenant) {
+    res.status(404).json({ message: "Tenant not found" });
+    return;
+  }
+
+  let code = parsed.data.code ?? "";
+  if (!code) {
+    const base = slugifyCode(name) || `campaign-${tenantId}`;
+    code = base;
+    // Suffix until unique (bounded — collisions are rare).
+    for (let i = 2; i < 50; i++) {
+      const [existing] = await db
+        .select({ id: campaignsTable.id })
+        .from(campaignsTable)
+        .where(eq(campaignsTable.code, code));
+      if (!existing) break;
+      code = `${base}-${i}`;
+    }
+  }
+  if (!CAMPAIGN_CODE_RE.test(code)) {
+    res.status(400).json({ message: "Invalid campaign code" });
+    return;
+  }
+
+  try {
+    const [created] = await db
+      .insert(campaignsTable)
+      .values({ code, tenantId, name })
+      .returning();
+    res
+      .status(201)
+      .json(CreateAdminCampaignResponse.parse(serializeCampaign(created, tenant.brandName, 0)));
+  } catch (err) {
+    // Unique-code violation from an explicit duplicate code. Drizzle may wrap
+    // the pg error, so check both the error and its cause.
+    const pgCode =
+      (err as { code?: string }).code ??
+      ((err as { cause?: { code?: string } }).cause?.code);
+    if (pgCode === "23505") {
+      res.status(400).json({ message: "Campaign code already in use" });
+      return;
+    }
+    throw err;
+  }
+});
+
+router.patch("/admin/campaigns/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const parsed = UpdateAdminCampaignBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+
+  const [updated] = await db
+    .update(campaignsTable)
+    .set({ isActive: parsed.data.isActive, updatedAt: sql`now()` })
+    .where(eq(campaignsTable.id, id))
+    .returning();
+  if (!updated) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+
+  const [tenant] = await db
+    .select({ brandName: tenantsTable.brandName })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, updated.tenantId));
+  const [clicks] = await db
+    .select({ n: count() })
+    .from(attributionEventsTable)
+    .where(eq(attributionEventsTable.campaignCode, updated.code));
+
+  res.json(
+    UpdateAdminCampaignResponse.parse(
+      serializeCampaign(updated, tenant?.brandName ?? "", Number(clicks?.n ?? 0)),
+    ),
   );
 });
 

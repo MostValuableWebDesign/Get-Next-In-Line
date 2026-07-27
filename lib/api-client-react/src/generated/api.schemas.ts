@@ -5,6 +5,32 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+export interface AdminCampaign {
+  id: number;
+  code: string;
+  tenantId: number;
+  tenantName: string;
+  name: string;
+  isActive: boolean;
+  clickCount: number;
+  createdAt: string;
+}
+
+export interface AdminCampaignCreate {
+  tenantId: number;
+  /** @minLength 1 */
+  name: string;
+  /**
+     * Optional explicit code; generated from the name when omitted.
+     * @pattern ^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$
+     */
+  code?: string;
+}
+
+export interface AdminCampaignUpdate {
+  isActive: boolean;
+}
+
 export interface PublicBookingService {
   id: number;
   name: string;

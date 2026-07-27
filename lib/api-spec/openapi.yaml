@@ -373,6 +373,69 @@ paths:
         "404":
           description: Module not found
 
+  /admin/campaigns:
+    get:
+      operationId: listAdminCampaigns
+      tags: [admin]
+      summary: Admin-only — list campaign redirect links with click counts
+      responses:
+        "200":
+          description: Campaigns with click counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminCampaign"
+    post:
+      operationId: createAdminCampaign
+      tags: [admin]
+      summary: Admin-only — create a campaign redirect code for a tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCampaignCreate"
+      responses:
+        "201":
+          description: Created campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCampaign"
+        "400":
+          description: Invalid body or duplicate code
+        "404":
+          description: Tenant not found
+
+  /admin/campaigns/{id}:
+    patch:
+      operationId: updateAdminCampaign
+      tags: [admin]
+      summary: Admin-only — activate or deactivate a campaign redirect code
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCampaignUpdate"
+      responses:
+        "200":
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCampaign"
+        "404":
+          description: Not found
+
   /billing/summary:
     get:
       operationId: getBillingSummary
@@ -1874,6 +1937,48 @@ paths:
 
 components:
   schemas:
+    AdminCampaign:
+      type: object
+      required: [id, code, tenantId, tenantName, name, isActive, clickCount, createdAt]
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        name:
+          type: string
+        isActive:
+          type: boolean
+        clickCount:
+          type: integer
+        createdAt:
+          type: string
+
+    AdminCampaignCreate:
+      type: object
+      required: [tenantId, name]
+      properties:
+        tenantId:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+        code:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$"
+          description: Optional explicit code; generated from the name when omitted.
+
+    AdminCampaignUpdate:
+      type: object
+      required: [isActive]
+      properties:
+        isActive:
+          type: boolean
+
     PublicBookingService:
       type: object
       required: [id, name, category, description, price, durationMinutes]

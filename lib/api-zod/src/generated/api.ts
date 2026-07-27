@@ -365,6 +365,70 @@ export const GetAdminModuleDetailResponse = zod.object({
 
 
 /**
+ * @summary Admin-only — list campaign redirect links with click counts
+ */
+export const ListAdminCampaignsResponseItem = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "clickCount": zod.number(),
+  "createdAt": zod.string()
+})
+export const ListAdminCampaignsResponse = zod.array(ListAdminCampaignsResponseItem)
+
+
+/**
+ * @summary Admin-only — create a campaign redirect code for a tenant
+ */
+
+export const createAdminCampaignBodyCodeRegExp = new RegExp('^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$');
+
+
+export const CreateAdminCampaignBody = zod.object({
+  "tenantId": zod.number(),
+  "name": zod.string().min(1),
+  "code": zod.string().regex(createAdminCampaignBodyCodeRegExp).optional().describe('Optional explicit code; generated from the name when omitted.')
+})
+
+export const CreateAdminCampaignResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "clickCount": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Admin-only — activate or deactivate a campaign redirect code
+ */
+export const UpdateAdminCampaignParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAdminCampaignBody = zod.object({
+  "isActive": zod.boolean()
+})
+
+export const UpdateAdminCampaignResponse = zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "clickCount": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Get billing summary — total MRR breakdown by category
  */
 export const GetBillingSummaryResponse = zod.object({

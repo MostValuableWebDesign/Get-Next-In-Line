@@ -105,6 +105,59 @@ export const tenantModulesTable = pgTable(
   (t) => [unique("tenant_modules_tenant_module_unique").on(t.tenantId, t.moduleId)]
 );
 
+// ── Marketing campaign redirect links ────────────────────────────────────────
+// Trackable /r/:code links: each campaign belongs to a tenant; visiting the
+// public redirect logs an attribution event and forwards to the tenant's
+// public landing page.
+export const campaignsTable = pgTable("campaigns", {
+  id: serial("id").primaryKey(),
+  // Unique short code used in /r/:code URLs (lowercase [a-z0-9-]).
+  code: text("code").notNull().unique(),
+  tenantId: integer("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id, { onDelete: "cascade" }),
+  // Human-readable label, e.g. "Google Ads — Spring 2026".
+  name: text("name").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertCampaignSchema = createInsertSchema(campaignsTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+export type Campaign = typeof campaignsTable.$inferSelect;
+
+export const attributionEventsTable = pgTable(
+  "attribution_events",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // Denormalized campaign code so events survive campaign edits and stay
+    // queryable by the exact inbound URL.
+    campaignCode: text("campaign_code").notNull(),
+    eventType: text("event_type").notNull().default("click"),
+    occurredAt: timestamp("occurred_at").notNull().defaultNow(),
+  },
+  (t) => [
+    // Supports per-campaign click counts and recency queries.
+    index("attribution_events_code_occurred_idx").on(t.campaignCode, t.occurredAt.desc()),
+    index("attribution_events_tenant_idx").on(t.tenantId),
+  ],
+);
+
+export const insertAttributionEventSchema = createInsertSchema(attributionEventsTable).omit({
+  id: true,
+  occurredAt: true,
+});
+export type InsertAttributionEvent = z.infer<typeof insertAttributionEventSchema>;
+export type AttributionEvent = typeof attributionEventsTable.$inferSelect;
+
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,
   provisionedAt: true,

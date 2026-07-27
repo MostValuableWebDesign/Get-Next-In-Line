@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './adminCampaign';
+export * from './adminCampaignCreate';
+export * from './adminCampaignUpdate';
 export * from './adminModuleDetail';
 export * from './adminModuleTenantAssignment';
 export * from './adminModuleTenantAssignmentCadence';
