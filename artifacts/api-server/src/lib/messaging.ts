@@ -27,7 +27,8 @@ export type OutboundMessageKind =
   | "rebooking_nudge"
   | "deposit_update"
   | "wallet_login_code"
-  | "perk_expiry_reminder";
+  | "perk_expiry_reminder"
+  | "coop_monthly_report";
 
 export type MessageOrigin = "operational" | "concierge";
 

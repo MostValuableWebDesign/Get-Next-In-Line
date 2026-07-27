@@ -105,6 +105,7 @@ import {
   syncLinkedProfile,
 } from "../lib/customerLink";
 import { logger } from "../lib/logger";
+import { attachRevenueToRecentCrossoverSafe } from "../lib/coopEvents";
 import {
   getLegacySettings,
   resolveSettings,
@@ -1596,6 +1597,16 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
 
   if (body.action === "check_out") {
     updates.checkedOutAt = new Date();
+    // Co-op analytics: if a partner's customer recently scanned a perk pass
+    // here (a cross-over event), attribute this checkout's revenue to it for
+    // the revenue-influenced estimate. Best-effort; never blocks checkout.
+    const effectivePayment =
+      body.paymentAmount != null
+        ? body.paymentAmount
+        : visit.paymentAmount != null
+          ? parseFloat(visit.paymentAmount)
+          : null;
+    await attachRevenueToRecentCrossoverSafe(tenantIdFrom(req), effectivePayment);
     if (visit.resourceId) {
       await db
         .update(sosResourcesTable)

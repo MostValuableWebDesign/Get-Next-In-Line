@@ -21,4 +21,5 @@ export const SosMessageKind = {
   rebooking_nudge: 'rebooking_nudge',
   wallet_login_code: 'wallet_login_code',
   perk_expiry_reminder: 'perk_expiry_reminder',
+  coop_monthly_report: 'coop_monthly_report',
 } as const;

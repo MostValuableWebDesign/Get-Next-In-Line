@@ -228,6 +228,35 @@ export interface CoopPerkRedeemResult {
   redeemedAt: string | null;
 }
 
+export interface CoopPartnerPerformance {
+  partnershipId: number;
+  partnerTenantId: number;
+  partnerName: string;
+  perkTitle: string;
+  isActive: boolean;
+  /** Perk blocks shown to this business's customers (checkout, receipts, passes, public landing). */
+  impressions: number;
+  /** Redemption codes validated/redeemed at this business. */
+  claims: number;
+  /** Cross-over visits recorded at the partner (customers this business sent). */
+  clientsSent: number;
+  /** Cross-over visits recorded at this business (customers the partner sent). */
+  clientsReceived: number;
+  /** Estimated checkout revenue attributed to cross-over visits at this business. */
+  revenueInfluenced: number;
+}
+
+export interface CoopMonthlyReport {
+  id: number;
+  /** Calendar month key, e.g. "2026-06". */
+  month: string;
+  impressions: number;
+  claims: number;
+  crossoverVisits: number;
+  revenueInfluenced: number;
+  createdAt: string;
+}
+
 export interface CoopPartnershipCreate {
   hostTenantId: number;
   partnerTenantId: number;
@@ -1581,6 +1610,7 @@ export const SosMessageKind = {
   rebooking_nudge: 'rebooking_nudge',
   wallet_login_code: 'wallet_login_code',
   perk_expiry_reminder: 'perk_expiry_reminder',
+  coop_monthly_report: 'coop_monthly_report',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];
@@ -2084,6 +2114,11 @@ export type ListCoopDirectoryParams = {
 search?: string;
 city?: string;
 category?: string;
+};
+
+export type ListCoopPartnerPerformanceParams = {
+from?: string;
+to?: string;
 };
 
 export type ListSosCustomersParams = {

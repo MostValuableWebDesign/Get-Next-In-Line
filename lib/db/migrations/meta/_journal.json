@@ -246,6 +246,13 @@
       "when": 1785125467544,
       "tag": "0034_workable_kinsey_walden",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1785125615204,
+      "tag": "0035_stiff_mandrill",
+      "breakpoints": true
     }
   ]
 }

@@ -44,6 +44,8 @@ import type {
   CoopIndustryBarrierError,
   CoopInviteCreate,
   CoopInviteRespond,
+  CoopMonthlyReport,
+  CoopPartnerPerformance,
   CoopPartnership,
   CoopPartnershipCreate,
   CoopPartnershipUpdate,
@@ -58,6 +60,7 @@ import type {
   GetTenantActivityParams,
   HealthStatus,
   ListCoopDirectoryParams,
+  ListCoopPartnerPerformanceParams,
   ListCoopPartnershipsParams,
   ListSosAppointmentsParams,
   ListSosCustomersParams,
@@ -2204,6 +2207,167 @@ export const useRedeemCoopPerk = <TError = ErrorType<void>,
       > => {
       return useMutation(getRedeemCoopPerkMutationOptions(options));
     }
+
+export const getListCoopPartnerPerformanceUrl = (params?: ListCoopPartnerPerformanceParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/coop/analytics/partners?${stringifiedParams}` : `/api/coop/analytics/partners`
+}
+
+/**
+ * @summary Merchant-facing — per-partner co-op performance breakdown (impressions, claims, clients sent/received, revenue influenced); tenant scope via x-tenant-id
+ */
+export const listCoopPartnerPerformance = async (params?: ListCoopPartnerPerformanceParams, options?: RequestInit): Promise<CoopPartnerPerformance[]> => {
+
+  return customFetch<CoopPartnerPerformance[]>(getListCoopPartnerPerformanceUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopPartnerPerformanceQueryKey = (params?: ListCoopPartnerPerformanceParams,) => {
+    return [
+    `/api/coop/analytics/partners`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCoopPartnerPerformanceQueryOptions = <TData = Awaited<ReturnType<typeof listCoopPartnerPerformance>>, TError = ErrorType<void>>(params?: ListCoopPartnerPerformanceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnerPerformance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopPartnerPerformanceQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopPartnerPerformance>>> = ({ signal }) => listCoopPartnerPerformance(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnerPerformance>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopPartnerPerformanceQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopPartnerPerformance>>>
+export type ListCoopPartnerPerformanceQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — per-partner co-op performance breakdown (impressions, claims, clients sent/received, revenue influenced); tenant scope via x-tenant-id
+ */
+
+export function useListCoopPartnerPerformance<TData = Awaited<ReturnType<typeof listCoopPartnerPerformance>>, TError = ErrorType<void>>(
+ params?: ListCoopPartnerPerformanceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnerPerformance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopPartnerPerformanceQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCoopMonthlyReportsUrl = () => {
+
+
+
+
+  return `/api/coop/reports/monthly`
+}
+
+/**
+ * @summary Merchant-facing — generated monthly co-op impact reports, newest first; tenant scope via x-tenant-id
+ */
+export const listCoopMonthlyReports = async ( options?: RequestInit): Promise<CoopMonthlyReport[]> => {
+
+  return customFetch<CoopMonthlyReport[]>(getListCoopMonthlyReportsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopMonthlyReportsQueryKey = () => {
+    return [
+    `/api/coop/reports/monthly`
+    ] as const;
+    }
+
+
+export const getListCoopMonthlyReportsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopMonthlyReports>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopMonthlyReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopMonthlyReportsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopMonthlyReports>>> = ({ signal }) => listCoopMonthlyReports({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopMonthlyReports>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopMonthlyReportsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopMonthlyReports>>>
+export type ListCoopMonthlyReportsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — generated monthly co-op impact reports, newest first; tenant scope via x-tenant-id
+ */
+
+export function useListCoopMonthlyReports<TData = Awaited<ReturnType<typeof listCoopMonthlyReports>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopMonthlyReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopMonthlyReportsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListPlatformInvitesUrl = () => {
 

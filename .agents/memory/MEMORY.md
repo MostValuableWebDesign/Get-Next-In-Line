@@ -28,4 +28,5 @@
 - [Co-op partnership lifecycle](coop-network.md) — perks render only from /api/coop/perks (accepted+active); guardrail message text is contractual; add new tenant-scoped URL families to sos-tenant.tsx.
 - New OutboundMessageKind values must also be added to the message `kind` enum in the OpenAPI spec — the messages list response is zod-parsed, so an unknown kind turns GET /sos/messages into a 400.
 - Co-op category firewall: sub-category derivation must ignore the sos_settings industryType schema default ("salon") — untouched rows are unclassified, or every fresh tenant blocks every other's perks/directory.
+- [Migration conflicts on rebase](migration-rebase-conflicts.md) — keep main's migration meta, regenerate yours as next number, delete the stale DB hash row, then reconcile; never hand-merge snapshots.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.

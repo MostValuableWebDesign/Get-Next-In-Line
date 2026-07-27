@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   useListCoopDirectory, getListCoopDirectoryQueryKey,
   useListCoopPartnerships, getListCoopPartnershipsQueryKey,
@@ -7,8 +7,12 @@ import {
   useRedeemCoopPerk,
   useListPlatformInvites, getListPlatformInvitesQueryKey,
   useCreatePlatformInvite,
+  useListCoopPartnerPerformance, getListCoopPartnerPerformanceQueryKey,
+  useListCoopMonthlyReports, getListCoopMonthlyReportsQueryKey,
   type CoopDirectoryEntry, type CoopPartnership, type CoopPerkRedeemResult,
   type PlatformInvite,
+  type CoopPartnerPerformance, type CoopMonthlyReport,
+  type ListCoopPartnerPerformanceParams,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,8 +30,9 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
-  AlertTriangle, ArrowLeftRight, Bell, CalendarClock, Check, Copy, Handshake, Keyboard,
-  Link2, MapPin, ScanLine, Search, Send, Store, Ticket, UserPlus, X, XCircle,
+  AlertTriangle, ArrowLeftRight, ArrowUpDown, BarChart3, Bell, CalendarClock, Check, Copy,
+  DollarSign, Eye, Handshake, Keyboard, Link2, MapPin, ScanLine, Search, Send, Store,
+  Ticket, TrendingUp, UserPlus, Users, X, XCircle,
 } from 'lucide-react';
 
 const SAME_INDUSTRY_MESSAGE = 'Same-industry pairings are restricted by platform guidelines.';
@@ -136,7 +141,200 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
           <Directory tenantId={tenantId} partneredTenantIds={partneredTenantIds} />
         </div>
       )}
+
+      <PartnerPerformanceTable />
+      <MonthlyImpactReport />
     </div>
+  );
+}
+
+// ── Partner performance breakdown ────────────────────────────────────────────
+
+type PerfRange = '30d' | '90d' | 'all';
+type PerfSortKey = 'impressions' | 'claims' | 'clientsSent' | 'clientsReceived' | 'revenueInfluenced';
+
+function perfParams(range: PerfRange): ListCoopPartnerPerformanceParams | undefined {
+  if (range === 'all') return undefined;
+  const days = range === '30d' ? 30 : 90;
+  return { from: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString() };
+}
+
+function PartnerPerformanceTable() {
+  const [range, setRange] = useState<PerfRange>('all');
+  const [sortKey, setSortKey] = useState<PerfSortKey>('revenueInfluenced');
+  const [sortDesc, setSortDesc] = useState(true);
+  const params = perfParams(range);
+  const { data: rows, isLoading } = useListCoopPartnerPerformance(params, {
+    query: { queryKey: getListCoopPartnerPerformanceQueryKey(params) },
+  });
+
+  const sorted = useMemo(() => {
+    const list = [...(rows ?? [])];
+    list.sort((a, b) => (sortDesc ? b[sortKey] - a[sortKey] : a[sortKey] - b[sortKey]));
+    return list;
+  }, [rows, sortKey, sortDesc]);
+
+  const toggleSort = (key: PerfSortKey) => {
+    if (key === sortKey) setSortDesc(d => !d);
+    else { setSortKey(key); setSortDesc(true); }
+  };
+
+  const SortHeader = ({ label, k }: { label: string; k: PerfSortKey }) => (
+    <th className="py-2 px-3 text-right font-medium">
+      <button
+        className={`inline-flex items-center gap-1 hover:text-foreground ${sortKey === k ? 'text-foreground' : 'text-muted-foreground'}`}
+        onClick={() => toggleSort(k)}
+        data-testid={`button-sort-${k}`}
+      >
+        {label} <ArrowUpDown className="w-3 h-3" />
+      </button>
+    </th>
+  );
+
+  return (
+    <Card data-testid="card-coop-partner-performance">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-primary" /> Partner Performance
+            </CardTitle>
+            <CardDescription>
+              What each collaboration is doing for you — impressions, perks claimed, clients
+              exchanged, and estimated revenue influenced.
+            </CardDescription>
+          </div>
+          <Select value={range} onValueChange={v => setRange(v as PerfRange)}>
+            <SelectTrigger className="w-36" data-testid="select-perf-range">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="90d">Last 90 days</SelectItem>
+              <SelectItem value="all">All time</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-24 w-full rounded-lg" />
+        ) : sorted.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-testid="text-no-perf-data">
+            No partnerships to report on yet. Once you have accepted partnerships, their
+            impressions, claims, and cross-over visits show up here.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" data-testid="table-partner-performance">
+              <thead>
+                <tr className="border-b text-xs text-muted-foreground">
+                  <th className="py-2 px-3 text-left font-medium">Partner</th>
+                  <SortHeader label="Impressions" k="impressions" />
+                  <SortHeader label="Claimed" k="claims" />
+                  <SortHeader label="Sent" k="clientsSent" />
+                  <SortHeader label="Received" k="clientsReceived" />
+                  <SortHeader label="Revenue" k="revenueInfluenced" />
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((r: CoopPartnerPerformance) => (
+                  <tr key={r.partnershipId} className="border-b last:border-0" data-testid={`row-perf-${r.partnershipId}`}>
+                    <td className="py-2 px-3">
+                      <div className="font-medium">{r.partnerName}</div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        {r.perkTitle}
+                        {!r.isActive && <Badge variant="outline" className="text-[9px] px-1 py-0">Inactive</Badge>}
+                      </div>
+                    </td>
+                    <td className="py-2 px-3 text-right tabular-nums" data-testid={`cell-impressions-${r.partnershipId}`}>{r.impressions}</td>
+                    <td className="py-2 px-3 text-right tabular-nums" data-testid={`cell-claims-${r.partnershipId}`}>{r.claims}</td>
+                    <td className="py-2 px-3 text-right tabular-nums" data-testid={`cell-sent-${r.partnershipId}`}>{r.clientsSent}</td>
+                    <td className="py-2 px-3 text-right tabular-nums" data-testid={`cell-received-${r.partnershipId}`}>{r.clientsReceived}</td>
+                    <td className="py-2 px-3 text-right tabular-nums font-medium" data-testid={`cell-revenue-${r.partnershipId}`}>
+                      ${r.revenueInfluenced.toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Monthly impact report ────────────────────────────────────────────────────
+
+function monthLabel(month: string): string {
+  return new Date(`${month}-01T00:00:00Z`).toLocaleString('en-US', {
+    month: 'long', year: 'numeric', timeZone: 'UTC',
+  });
+}
+
+function MonthlyImpactReport() {
+  const { data: reports, isLoading } = useListCoopMonthlyReports({
+    query: { queryKey: getListCoopMonthlyReportsQueryKey() },
+  });
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const report: CoopMonthlyReport | undefined =
+    (reports ?? []).find(r => r.month === selectedMonth) ?? (reports ?? [])[0];
+
+  const stat = (
+    icon: ReactNode, label: string, value: string, testid: string,
+  ) => (
+    <div className="border rounded-lg p-4" data-testid={testid}>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">{icon} {label}</div>
+      <div className="text-2xl font-bold tabular-nums mt-1">{value}</div>
+    </div>
+  );
+
+  return (
+    <Card data-testid="card-coop-monthly-report">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-primary" /> Monthly Impact Report
+            </CardTitle>
+            <CardDescription>
+              Your automated co-op summary — generated after each month closes and sent to you as a
+              notification.
+            </CardDescription>
+          </div>
+          {(reports ?? []).length > 0 && (
+            <Select value={report?.month ?? ''} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-44" data-testid="select-report-month">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(reports ?? []).map(r => (
+                  <SelectItem key={r.month} value={r.month}>{monthLabel(r.month)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-24 w-full rounded-lg" />
+        ) : !report ? (
+          <p className="text-sm text-muted-foreground" data-testid="text-no-monthly-report">
+            No monthly report yet — your first co-op impact summary arrives after the first full
+            month of tracked activity.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-testid={`report-month-${report.month}`}>
+            {stat(<Eye className="w-3.5 h-3.5" />, 'Perk impressions', String(report.impressions), 'stat-report-impressions')}
+            {stat(<Ticket className="w-3.5 h-3.5" />, 'Perks claimed', String(report.claims), 'stat-report-claims')}
+            {stat(<Users className="w-3.5 h-3.5" />, 'Cross-over visits', String(report.crossoverVisits), 'stat-report-crossover')}
+            {stat(<DollarSign className="w-3.5 h-3.5" />, 'Revenue influenced', `$${report.revenueInfluenced.toFixed(2)}`, 'stat-report-revenue')}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

@@ -10,6 +10,7 @@ import { and, desc, eq, or } from "drizzle-orm";
 import { getSettingsForTenant } from "../lib/settings";
 import { COOP_PERK_DISCLAIMER, perkWindowOpen } from "../lib/coopPerks";
 import { filterPartnershipsForConsumerSurface } from "../lib/coopFirewall";
+import { recordCoopEventsSafe } from "../lib/coopEvents";
 import { listServicesForScope } from "../lib/serviceCatalog";
 import { parseServiceNames } from "../lib/receptionist";
 
@@ -50,6 +51,10 @@ export interface PublicCoopPerk {
   perkTitle: string;
   perkDescription: string | null;
   partnerBusinessName: string;
+  /** Internal only — used for impression analytics; never serialized. */
+  partnershipId: number;
+  /** Internal only — used for impression analytics; never serialized. */
+  partnerTenantId: number;
 }
 
 export async function getPublicCoopPerks(
@@ -59,6 +64,8 @@ export async function getPublicCoopPerks(
   const partnerTenant = alias(tenantsTable, "landing_partner_tenant");
   const allRows = await db
     .select({
+      partnershipId: merchantCoopPartnershipsTable.id,
+      partnerTenantIdRaw: merchantCoopPartnershipsTable.partnerTenantId,
       perkTitle: merchantCoopPartnershipsTable.perkTitle,
       perkDescription: merchantCoopPartnershipsTable.perkDescription,
       hostTenantId: merchantCoopPartnershipsTable.hostTenantId,
@@ -91,7 +98,34 @@ export async function getPublicCoopPerks(
     perkDescription: r.perkDescription,
     partnerBusinessName:
       r.hostTenantId === tenantId ? r.partnerTenantName : r.hostTenantName,
+    partnershipId: r.partnershipId,
+    partnerTenantId:
+      r.hostTenantId === tenantId ? r.partnerTenantIdRaw : r.hostTenantId,
   }));
+}
+
+/** Record one impression per perk served on a public landing surface. */
+async function recordLandingPerkImpressions(
+  tenantId: number,
+  perks: PublicCoopPerk[],
+): Promise<void> {
+  await recordCoopEventsSafe(
+    perks.map((p) => ({
+      tenantId,
+      partnershipId: p.partnershipId,
+      partnerTenantId: p.partnerTenantId,
+      eventType: "impression" as const,
+    })),
+  );
+}
+
+/** Public shape: strips the internal analytics ids before serialization. */
+function toPublicPerk(p: PublicCoopPerk) {
+  return {
+    perkTitle: p.perkTitle,
+    perkDescription: p.perkDescription,
+    partnerBusinessName: p.partnerBusinessName,
+  };
 }
 
 function starRow(rating: number): string {
@@ -117,7 +151,8 @@ router.get("/public/landing/:slug/perks", async (req, res): Promise<void> => {
     return;
   }
   const perks = await getPublicCoopPerks(tenant.id);
-  res.json({ perks, disclaimer: COOP_PERK_DISCLAIMER });
+  await recordLandingPerkImpressions(tenant.id, perks);
+  res.json({ perks: perks.map(toPublicPerk), disclaimer: COOP_PERK_DISCLAIMER });
 });
 
 router.get("/public/landing/:slug", async (req, res): Promise<void> => {
@@ -153,6 +188,7 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
         }));
 
   const perks = await getPublicCoopPerks(tenant.id);
+  await recordLandingPerkImpressions(tenant.id, perks);
 
   const reviews = await db
     .select()

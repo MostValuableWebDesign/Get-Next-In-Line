@@ -20,6 +20,7 @@ import {
 } from "../lib/concierge";
 import { logger } from "../lib/logger";
 import { resolveSettings } from "../lib/settings";
+import { generateCoopMonthlyReports } from "../lib/coopEvents";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -338,6 +339,8 @@ export interface ConciergeTickResult {
   nudges: number;
   expiredPerks: number;
   perkReminders: number;
+  /** Co-op monthly impact reports created this tick (usually 0). */
+  coopReports: number;
 }
 
 /**
@@ -355,14 +358,18 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
     const expiredPerks = await sweepExpiredCoopPerks(now);
     const perkReminders = await sweepPerkExpiryReminders(now);
+    // Monthly co-op impact reports: idempotent per tenant-month (unique
+    // constraint), so running on every tick only ever creates each report —
+    // and sends each owner notification — once, right after a month closes.
+    const coopReports = (await generateCoopMonthlyReports(now)).created;
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
-    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders };
+    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports };
   });
 }
 
@@ -400,6 +407,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       await reapStalePendingMessages();
       await sweepExpiredCoopPerks();
       await sweepPerkExpiryReminders();
+      await generateCoopMonthlyReports();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;
@@ -426,10 +434,10 @@ function startIntervalWorker(): ConciergeWorkerHandle {
     if (running) return; // don't overlap slow ticks
     running = true;
     try {
-      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders } = await runConciergeTick();
-      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders > 0) {
+      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports } = await runConciergeTick();
+      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports > 0) {
         logger.info(
-          { reaped, reminders, nudges, expiredPerks, perkReminders },
+          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports },
           "Concierge interval tick dispatched messages",
         );
       }

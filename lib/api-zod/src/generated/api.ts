@@ -627,6 +627,44 @@ export const RedeemCoopPerkResponse = zod.object({
 
 
 /**
+ * @summary Merchant-facing — per-partner co-op performance breakdown (impressions, claims, clients sent/received, revenue influenced); tenant scope via x-tenant-id
+ */
+export const ListCoopPartnerPerformanceQueryParams = zod.object({
+  "from": zod.coerce.date().optional(),
+  "to": zod.coerce.date().optional()
+})
+
+export const ListCoopPartnerPerformanceResponseItem = zod.object({
+  "partnershipId": zod.number(),
+  "partnerTenantId": zod.number(),
+  "partnerName": zod.string(),
+  "perkTitle": zod.string(),
+  "isActive": zod.boolean(),
+  "impressions": zod.number().describe('Perk blocks shown to this business\'s customers (checkout, receipts, passes, public landing).'),
+  "claims": zod.number().describe('Redemption codes validated\/redeemed at this business.'),
+  "clientsSent": zod.number().describe('Cross-over visits recorded at the partner (customers this business sent).'),
+  "clientsReceived": zod.number().describe('Cross-over visits recorded at this business (customers the partner sent).'),
+  "revenueInfluenced": zod.number().describe('Estimated checkout revenue attributed to cross-over visits at this business.')
+})
+export const ListCoopPartnerPerformanceResponse = zod.array(ListCoopPartnerPerformanceResponseItem)
+
+
+/**
+ * @summary Merchant-facing — generated monthly co-op impact reports, newest first; tenant scope via x-tenant-id
+ */
+export const ListCoopMonthlyReportsResponseItem = zod.object({
+  "id": zod.number(),
+  "month": zod.string().describe('Calendar month key, e.g. \"2026-06\".'),
+  "impressions": zod.number(),
+  "claims": zod.number(),
+  "crossoverVisits": zod.number(),
+  "revenueInfluenced": zod.number(),
+  "createdAt": zod.string()
+})
+export const ListCoopMonthlyReportsResponse = zod.array(ListCoopMonthlyReportsResponseItem)
+
+
+/**
  * @summary Merchant-facing — invites this business sent to off-platform businesses, with tracking status; tenant scope via x-tenant-id
  */
 export const ListPlatformInvitesResponseItem = zod.object({
@@ -1548,7 +1586,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -1577,7 +1615,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

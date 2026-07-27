@@ -21,6 +21,12 @@ import {
   validatePerkWindow,
 } from "../lib/coopPerks";
 import {
+  recordCoopEventsSafe,
+  recordPerkImpressionsSafe,
+  partnerPerformanceForTenant,
+} from "../lib/coopEvents";
+import { coopMonthlyReportsTable } from "@workspace/db";
+import {
   ListCoopPartnershipsResponse,
   CreateCoopPartnershipBody,
   CreateCoopPartnershipResponse,
@@ -39,6 +45,8 @@ import {
   CreatePlatformInviteResponse,
   ListPlatformInvitesResponse,
   GetCoopTaxonomyResponse,
+  ListCoopPartnerPerformanceResponse,
+  ListCoopMonthlyReportsResponse,
 } from "@workspace/api-zod";
 import { platformInvitesTable } from "@workspace/db";
 import {
@@ -761,6 +769,14 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
   );
   const visibleIds = new Set(visible.map((p) => p.id));
   const rows = allRows.filter((r) => visibleIds.has(r.partnership.id));
+  // Analytics: each perk served to this business's customer surfaces
+  // (checkout ticket, receipt, pass) counts as one impression. Best-effort.
+  // Recorded only for perks that passed the firewall filter — never-rendered
+  // perks must not count as impressions.
+  await recordPerkImpressionsSafe(
+    tenantId,
+    rows.map((r) => r.partnership),
+  );
   res.json(
     ListCoopActivePerksResponse.parse({
       disclaimer: COOP_PERK_DISCLAIMER,
@@ -836,6 +852,27 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
     );
     return;
   }
+  // Analytics: a successful code check at checkout is a perk claim, recorded
+  // at the business validating it (header scope when it's a participant,
+  // else the perk's host business).
+  const validatingTenantId = tenantIdFrom(req);
+  const claimTenantId =
+    validatingTenantId != null &&
+    (validatingTenantId === row.partnership.hostTenantId ||
+      validatingTenantId === row.partnership.partnerTenantId)
+      ? validatingTenantId
+      : row.partnership.hostTenantId;
+  await recordCoopEventsSafe([
+    {
+      tenantId: claimTenantId,
+      partnershipId: row.partnership.id,
+      partnerTenantId:
+        claimTenantId === row.partnership.hostTenantId
+          ? row.partnership.partnerTenantId
+          : row.partnership.hostTenantId,
+      eventType: "claim",
+    },
+  ]);
   res.json(
     ValidateCoopRedemptionCodeResponse.parse({
       valid: true,
@@ -984,6 +1021,32 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
     fail("This pass was already redeemed", row, existing?.redeemedAt ?? null);
     return;
   }
+  // Analytics: a redeemed pass is both a claim and a cross-over visit — the
+  // partner's customer physically showed up at the redeeming business. The
+  // crossover's revenue is attributed later, when the visit checks out.
+  if (
+    tenantId === row.partnership.hostTenantId ||
+    tenantId === row.partnership.partnerTenantId
+  ) {
+    const otherTenantId =
+      tenantId === row.partnership.hostTenantId
+        ? row.partnership.partnerTenantId
+        : row.partnership.hostTenantId;
+    await recordCoopEventsSafe([
+      {
+        tenantId,
+        partnershipId: row.partnership.id,
+        partnerTenantId: otherTenantId,
+        eventType: "claim",
+      },
+      {
+        tenantId,
+        partnershipId: row.partnership.id,
+        partnerTenantId: otherTenantId,
+        eventType: "crossover",
+      },
+    ]);
+  }
   res.json(
     RedeemCoopPerkResponse.parse({
       valid: true,
@@ -991,6 +1054,62 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
       partnership: serialize(row.partnership, row.hostTenantName, row.partnerTenantName),
       redeemedAt: redemption.redeemedAt.toISOString(),
     })
+  );
+});
+
+// ── GET /coop/analytics/partners — per-partner performance breakdown ────────
+// Tenant-scoped (x-tenant-id): for each accepted partnership this business
+// participates in, the recorded impressions, claims, clients sent vs.
+// received, and estimated revenue influenced, over an optional date range.
+// Legacy partnerships with no recorded events return zeros.
+router.get("/coop/analytics/partners", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parseDate = (v: unknown): Date | undefined => {
+    if (typeof v !== "string" || !v) return undefined;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  };
+  const from = parseDate(req.query.from);
+  const to = parseDate(req.query.to);
+  if ((req.query.from && !from) || (req.query.to && !to)) {
+    res.status(400).json({ message: "Invalid date range" });
+    return;
+  }
+  const rows = await partnerPerformanceForTenant(tenantId, { from, to });
+  res.json(ListCoopPartnerPerformanceResponse.parse(rows));
+});
+
+// ── GET /coop/reports/monthly — persisted monthly impact reports ────────────
+// Tenant-scoped (x-tenant-id): the business's generated monthly co-op impact
+// reports, newest month first. Months with no report simply aren't listed —
+// the hub renders an empty state.
+router.get("/coop/reports/monthly", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const rows = await db
+    .select()
+    .from(coopMonthlyReportsTable)
+    .where(eq(coopMonthlyReportsTable.tenantId, tenantId))
+    .orderBy(desc(coopMonthlyReportsTable.month));
+  res.json(
+    ListCoopMonthlyReportsResponse.parse(
+      rows.map((r) => ({
+        id: r.id,
+        month: r.month,
+        impressions: r.impressions,
+        claims: r.claims,
+        crossoverVisits: r.crossoverVisits,
+        revenueInfluenced: parseFloat(r.revenueInfluenced),
+        createdAt: r.createdAt.toISOString(),
+      }))
+    )
   );
 });
 

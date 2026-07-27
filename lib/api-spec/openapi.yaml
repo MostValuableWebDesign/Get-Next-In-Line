@@ -590,6 +590,53 @@ paths:
         "400":
           description: Missing x-tenant-id header or invalid body
 
+  /coop/analytics/partners:
+    get:
+      operationId: listCoopPartnerPerformance
+      tags: [coop]
+      summary: Merchant-facing — per-partner co-op performance breakdown (impressions, claims, clients sent/received, revenue influenced); tenant scope via x-tenant-id
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Performance rows, one per accepted partnership (zeros when no events recorded)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopPartnerPerformance"
+        "400":
+          description: Missing x-tenant-id header or invalid date range
+
+  /coop/reports/monthly:
+    get:
+      operationId: listCoopMonthlyReports
+      tags: [coop]
+      summary: Merchant-facing — generated monthly co-op impact reports, newest first; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Monthly impact reports (empty when none generated yet)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopMonthlyReport"
+        "400":
+          description: Missing x-tenant-id header
+
   /coop/platform-invites:
     get:
       operationId: listPlatformInvites
@@ -2651,6 +2698,57 @@ components:
           type: ["string", "null"]
           description: When this pass instance was redeemed; set on success and on already-redeemed rejections.
 
+    CoopPartnerPerformance:
+      type: object
+      required:
+        [partnershipId, partnerTenantId, partnerName, perkTitle, isActive, impressions, claims, clientsSent, clientsReceived, revenueInfluenced]
+      properties:
+        partnershipId:
+          type: integer
+        partnerTenantId:
+          type: integer
+        partnerName:
+          type: string
+        perkTitle:
+          type: string
+        isActive:
+          type: boolean
+        impressions:
+          type: integer
+          description: Perk blocks shown to this business's customers (checkout, receipts, passes, public landing).
+        claims:
+          type: integer
+          description: Redemption codes validated/redeemed at this business.
+        clientsSent:
+          type: integer
+          description: Cross-over visits recorded at the partner (customers this business sent).
+        clientsReceived:
+          type: integer
+          description: Cross-over visits recorded at this business (customers the partner sent).
+        revenueInfluenced:
+          type: number
+          description: Estimated checkout revenue attributed to cross-over visits at this business.
+
+    CoopMonthlyReport:
+      type: object
+      required: [id, month, impressions, claims, crossoverVisits, revenueInfluenced, createdAt]
+      properties:
+        id:
+          type: integer
+        month:
+          type: string
+          description: Calendar month key, e.g. "2026-06".
+        impressions:
+          type: integer
+        claims:
+          type: integer
+        crossoverVisits:
+          type: integer
+        revenueInfluenced:
+          type: number
+        createdAt:
+          type: string
+
     CoopPartnershipCreate:
       type: object
       required: [hostTenantId, partnerTenantId, perkTitle]
@@ -4175,7 +4273,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]
