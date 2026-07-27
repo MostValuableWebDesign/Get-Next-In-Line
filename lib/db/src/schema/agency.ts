@@ -444,6 +444,54 @@ export const insertCoopDisputeSchema = createInsertSchema(coopDisputesTable).omi
 export type InsertCoopDispute = z.infer<typeof insertCoopDisputeSchema>;
 export type CoopDispute = typeof coopDisputesTable.$inferSelect;
 
+// ── Platform compliance ledger ───────────────────────────────────────────────
+// Append-only ledger of every money-relevant platform event: module
+// subscription charges (realized wholesale/resale captured at checkout),
+// visit checkouts, plan purchases/renewals, and deposit-hold outcomes.
+// Rows are NEVER updated or deleted (a DB trigger enforces this) so
+// compliance figures are reproducible instead of recomputed per screen.
+// The unique (source, source_ref) pair makes capture + backfill idempotent.
+export const platformLedgerEntriesTable = pgTable(
+  "platform_ledger_entries",
+  {
+    id: serial("id").primaryKey(),
+    // Event family: module_subscription | visit_checkout | plan_purchase |
+    // plan_renewal | deposit_captured | deposit_released | deposit_failed
+    source: text("source").notNull(),
+    // Stable reference to the originating row, e.g. "tenant_modules:12".
+    sourceRef: text("source_ref").notNull(),
+    // NULL = legacy (pre-tenant) SOS rows; kept nullable so those still land.
+    tenantId: integer("tenant_id").references(() => tenantsTable.id, { onDelete: "set null" }),
+    // Reporting bucket: module category for subscriptions; "Visits",
+    // "Plans", "Deposits" for operational money events.
+    category: text("category").notNull(),
+    description: text("description"),
+    // Money moved by the event (resale charge, visit payment, captured fee).
+    // 0.00 for outcome-only events (released/failed deposits).
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    // Realized wholesale cost for module subscription charges; NULL elsewhere.
+    wholesaleAmount: numeric("wholesale_amount", { precision: 12, scale: 2 }),
+    // Platform's realized margin on the event. Always 0 for partner
+    // pass-through subscriptions and tenant-revenue events.
+    platformMargin: numeric("platform_margin", { precision: 12, scale: 2 }).notNull().default("0"),
+    // When the underlying money event happened (checkout, resolution, etc.).
+    occurredAt: timestamp("occurred_at").notNull(),
+    recordedAt: timestamp("recorded_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("platform_ledger_source_ref_uq").on(t.source, t.sourceRef),
+    index("platform_ledger_occurred_idx").on(t.occurredAt.desc()),
+    index("platform_ledger_tenant_idx").on(t.tenantId),
+  ],
+);
+
+export const insertPlatformLedgerEntrySchema = createInsertSchema(platformLedgerEntriesTable).omit({
+  id: true,
+  recordedAt: true,
+});
+export type InsertPlatformLedgerEntry = z.infer<typeof insertPlatformLedgerEntrySchema>;
+export type PlatformLedgerEntry = typeof platformLedgerEntriesTable.$inferSelect;
+
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,
   provisionedAt: true,

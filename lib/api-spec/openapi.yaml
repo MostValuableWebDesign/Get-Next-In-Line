@@ -1265,6 +1265,62 @@ paths:
         "404":
           description: Not found
 
+  /admin/compliance/summary:
+    get:
+      operationId: getAdminComplianceSummary
+      tags: [admin]
+      summary: Admin-only — platform-wide compliance/revenue aggregates over a period, computed from the append-only platform ledger
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Period start (ISO date/datetime, inclusive)
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: true
+          description: Period end (ISO date/datetime, exclusive)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Aggregated compliance summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminComplianceSummary"
+        "400":
+          description: Invalid period
+
+  /admin/compliance/export:
+    get:
+      operationId: exportAdminComplianceReport
+      tags: [admin]
+      summary: Admin-only — period-scoped compliance report (CSV) generated server-side from the platform ledger (the canonical export)
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Period start (ISO date/datetime, inclusive)
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: true
+          description: Period end (ISO date/datetime, exclusive)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: CSV compliance report
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          description: Invalid period
+
   /billing/summary:
     get:
       operationId: getBillingSummary
@@ -3472,6 +3528,84 @@ components:
           oneOf:
             - $ref: "#/components/schemas/CoopPartnership"
             - type: "null"
+
+    AdminComplianceSummary:
+      type: object
+      required: [from, to, totals, mrrByCategory, bySource, depositOutcomes, tenantContributions]
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        totals:
+          type: object
+          required: [entryCount, grossAmount, platformMargin]
+          properties:
+            entryCount:
+              type: integer
+              description: Number of ledger entries in the period.
+            grossAmount:
+              type: number
+              description: Sum of all money moved in the period (subscription charges, visit payments, plan sales, captured deposit fees).
+            platformMargin:
+              type: number
+              description: Platform's realized margin in the period (resale minus wholesale on subscription charges; partner pass-through contributes zero).
+        mrrByCategory:
+          type: array
+          description: Current monthly-equivalent module MRR by category, from realized charged amounts (legacy rows fall back to current markup; partner category is pass-through with zero margin).
+          items:
+            type: object
+            required: [category, mrr, platformMargin]
+            properties:
+              category:
+                type: string
+              mrr:
+                type: number
+              platformMargin:
+                type: number
+        bySource:
+          type: array
+          description: Period transaction volume broken down by ledger source.
+          items:
+            type: object
+            required: [source, entryCount, amount]
+            properties:
+              source:
+                type: string
+              entryCount:
+                type: integer
+              amount:
+                type: number
+        depositOutcomes:
+          type: object
+          required: [captured, released, failed, capturedFees]
+          properties:
+            captured:
+              type: integer
+            released:
+              type: integer
+            failed:
+              type: integer
+            capturedFees:
+              type: number
+        tenantContributions:
+          type: array
+          description: Per-tenant revenue contribution over the period, largest first. tenantId null = legacy pre-tenant activity.
+          items:
+            type: object
+            required: [tenantId, brandName, entryCount, amount, platformMargin]
+            properties:
+              tenantId:
+                type: integer
+                nullable: true
+              brandName:
+                type: string
+              entryCount:
+                type: integer
+              amount:
+                type: number
+              platformMargin:
+                type: number
 
     AdminCampaign:
       type: object

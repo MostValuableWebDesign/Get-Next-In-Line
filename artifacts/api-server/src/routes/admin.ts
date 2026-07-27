@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   modulesTable,
@@ -11,9 +11,11 @@ import {
   attributionEventsTable,
   coopDisputesTable,
   merchantCoopPartnershipsTable,
+  platformLedgerEntriesTable,
 } from "@workspace/db";
 import { disputeRows, serializeDispute } from "./coop";
 import {
+  GetAdminComplianceSummaryResponse,
   GetConnectorRegistryResponse,
   UpdateConnectorRegistryEntryBody,
   UpdateConnectorRegistryEntryResponse,
@@ -217,6 +219,217 @@ router.get("/admin/modules/:id", async (req, res): Promise<void> => {
       })),
     })
   );
+});
+
+// ── Platform compliance ledger ──────────────────────────────────────────────
+// Admin-only aggregates + CSV export over the append-only platform_ledger
+// table. Figures come from persisted realized amounts (never recomputed from
+// current markup), partner-category subscriptions always carry zero margin,
+// and no supplier/wholesale-connector details are exposed beyond amounts.
+
+const BIWEEKLY_TO_MONTHLY = 26 / 12;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+function parsePeriod(req: { query: Record<string, unknown> }): { from: Date; to: Date } | null {
+  const from = typeof req.query.from === "string" ? new Date(req.query.from) : null;
+  const to = typeof req.query.to === "string" ? new Date(req.query.to) : null;
+  if (!from || !to || isNaN(from.getTime()) || isNaN(to.getTime()) || from >= to) return null;
+  return { from, to };
+}
+
+/** Ledger rows in [from, to), joined with tenant names, oldest first. */
+async function ledgerEntriesForPeriod(from: Date, to: Date) {
+  return db
+    .select({
+      entry: platformLedgerEntriesTable,
+      brandName: tenantsTable.brandName,
+    })
+    .from(platformLedgerEntriesTable)
+    .leftJoin(tenantsTable, eq(platformLedgerEntriesTable.tenantId, tenantsTable.id))
+    .where(
+      and(
+        gte(platformLedgerEntriesTable.occurredAt, from),
+        lt(platformLedgerEntriesTable.occurredAt, to),
+      ),
+    )
+    .orderBy(platformLedgerEntriesTable.occurredAt, platformLedgerEntriesTable.id);
+}
+
+/**
+ * Current monthly-equivalent module MRR by category from realized charged
+ * amounts (bi-weekly ×26/12). Legacy rows without persisted charges fall back
+ * to wholesale × current effective markup — the same rule as the agency
+ * dashboard. Partner-category modules are pass-through: margin is always 0.
+ */
+async function mrrByCategoryFromAssignments() {
+  const [settings] = await db.select().from(agencySettingsTable).limit(1);
+  const agencyMarkup = parseFloat(settings?.markupPercent ?? "25");
+  const modules = await db.select().from(modulesTable);
+  const moduleById = new Map(modules.map((m) => [m.id, m]));
+  const assignments = await db.select().from(tenantModulesTable);
+
+  const byCategory = new Map<string, { mrr: number; margin: number }>();
+  for (const a of assignments) {
+    const mod = moduleById.get(a.moduleId);
+    if (!mod) continue;
+    const biweekly = a.billingCadence === "biweekly" && mod.wholesalePriceBiweekly != null;
+    let resale: number;
+    let wholesale: number;
+    if (a.chargedResale != null && a.chargedWholesale != null) {
+      resale = parseFloat(a.chargedResale);
+      wholesale = parseFloat(a.chargedWholesale);
+    } else {
+      wholesale = biweekly ? parseFloat(mod.wholesalePriceBiweekly!) : parseFloat(mod.wholesalePrice);
+      resale = wholesale * (1 + effectiveMarkupPercent(mod, agencyMarkup) / 100);
+    }
+    const factor = biweekly ? BIWEEKLY_TO_MONTHLY : 1;
+    const bucket = byCategory.get(mod.category) ?? { mrr: 0, margin: 0 };
+    bucket.mrr += resale * factor;
+    // Partner pass-through is enforced structurally (charged resale ===
+    // wholesale), but clamp anyway so the contract can never drift here.
+    bucket.margin += mod.categorySlug === "partners" ? 0 : (resale - wholesale) * factor;
+    byCategory.set(mod.category, bucket);
+  }
+  return [...byCategory.entries()]
+    .map(([category, b]) => ({ category, mrr: round2(b.mrr), platformMargin: round2(b.margin) }))
+    .sort((x, y) => y.mrr - x.mrr);
+}
+
+router.get("/admin/compliance/summary", async (req, res): Promise<void> => {
+  const period = parsePeriod(req);
+  if (!period) {
+    res.status(400).json({ message: "Invalid period: 'from' and 'to' must be valid dates with from < to" });
+    return;
+  }
+
+  const rows = await ledgerEntriesForPeriod(period.from, period.to);
+
+  let grossAmount = 0;
+  let platformMargin = 0;
+  const bySource = new Map<string, { entryCount: number; amount: number }>();
+  const deposits = { captured: 0, released: 0, failed: 0, capturedFees: 0 };
+  const byTenant = new Map<
+    number | null,
+    { brandName: string; entryCount: number; amount: number; platformMargin: number }
+  >();
+
+  for (const { entry, brandName } of rows) {
+    const amount = parseFloat(entry.amount);
+    const margin = parseFloat(entry.platformMargin);
+    grossAmount += amount;
+    platformMargin += margin;
+
+    const src = bySource.get(entry.source) ?? { entryCount: 0, amount: 0 };
+    src.entryCount += 1;
+    src.amount += amount;
+    bySource.set(entry.source, src);
+
+    if (entry.source === "deposit_captured") {
+      deposits.captured += 1;
+      deposits.capturedFees += amount;
+    } else if (entry.source === "deposit_released") deposits.released += 1;
+    else if (entry.source === "deposit_failed") deposits.failed += 1;
+
+    const tenant = byTenant.get(entry.tenantId) ?? {
+      brandName: brandName ?? "Legacy (pre-tenant)",
+      entryCount: 0,
+      amount: 0,
+      platformMargin: 0,
+    };
+    tenant.entryCount += 1;
+    tenant.amount += amount;
+    tenant.platformMargin += margin;
+    byTenant.set(entry.tenantId, tenant);
+  }
+
+  res.json(
+    GetAdminComplianceSummaryResponse.parse({
+      from: period.from.toISOString(),
+      to: period.to.toISOString(),
+      totals: {
+        entryCount: rows.length,
+        grossAmount: round2(grossAmount),
+        platformMargin: round2(platformMargin),
+      },
+      mrrByCategory: await mrrByCategoryFromAssignments(),
+      bySource: [...bySource.entries()].map(([source, s]) => ({
+        source,
+        entryCount: s.entryCount,
+        amount: round2(s.amount),
+      })),
+      depositOutcomes: { ...deposits, capturedFees: round2(deposits.capturedFees) },
+      tenantContributions: [...byTenant.entries()]
+        .map(([tenantId, t]) => ({
+          tenantId,
+          brandName: t.brandName,
+          entryCount: t.entryCount,
+          amount: round2(t.amount),
+          platformMargin: round2(t.platformMargin),
+        }))
+        .sort((a, b) => b.amount - a.amount),
+    }),
+  );
+});
+
+function csvEscape(value: string): string {
+  return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+/**
+ * Server-side CSV compliance report — the canonical, auditable export.
+ * One row per immutable ledger entry in the period.
+ */
+router.get("/admin/compliance/export", async (req, res): Promise<void> => {
+  const period = parsePeriod(req);
+  if (!period) {
+    res.status(400).json({ message: "Invalid period: 'from' and 'to' must be valid dates with from < to" });
+    return;
+  }
+
+  const rows = await ledgerEntriesForPeriod(period.from, period.to);
+  const header = [
+    "Entry ID",
+    "Source",
+    "Reference",
+    "Tenant ID",
+    "Tenant",
+    "Category",
+    "Description",
+    "Amount",
+    "Wholesale Amount",
+    "Platform Margin",
+    "Occurred At",
+    "Recorded At",
+  ];
+  const lines = [header.join(",")];
+  for (const { entry, brandName } of rows) {
+    lines.push(
+      [
+        String(entry.id),
+        csvEscape(entry.source),
+        csvEscape(entry.sourceRef),
+        entry.tenantId != null ? String(entry.tenantId) : "",
+        csvEscape(brandName ?? (entry.tenantId != null ? "" : "Legacy (pre-tenant)")),
+        csvEscape(entry.category),
+        csvEscape(entry.description ?? ""),
+        parseFloat(entry.amount).toFixed(2),
+        entry.wholesaleAmount != null ? parseFloat(entry.wholesaleAmount).toFixed(2) : "",
+        parseFloat(entry.platformMargin).toFixed(2),
+        entry.occurredAt.toISOString(),
+        entry.recordedAt.toISOString(),
+      ].join(","),
+    );
+  }
+
+  const stamp = (d: Date) => d.toISOString().slice(0, 10);
+  res
+    .status(200)
+    .setHeader("Content-Type", "text/csv; charset=utf-8")
+    .setHeader(
+      "Content-Disposition",
+      `attachment; filename="compliance-report-${stamp(period.from)}-to-${stamp(period.to)}.csv"`,
+    )
+    .send(lines.join("\r\n") + "\r\n");
 });
 
 // ── Campaign redirect links ─────────────────────────────────────────────────

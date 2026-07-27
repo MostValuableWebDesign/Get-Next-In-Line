@@ -470,6 +470,55 @@ export interface CoopRedemptionValidation {
   partnership: CoopPartnership | null;
 }
 
+export type AdminComplianceSummaryTotals = {
+  /** Number of ledger entries in the period. */
+  entryCount: number;
+  /** Sum of all money moved in the period (subscription charges, visit payments, plan sales, captured deposit fees). */
+  grossAmount: number;
+  /** Platform's realized margin in the period (resale minus wholesale on subscription charges; partner pass-through contributes zero). */
+  platformMargin: number;
+};
+
+export type AdminComplianceSummaryMrrByCategoryItem = {
+  category: string;
+  mrr: number;
+  platformMargin: number;
+};
+
+export type AdminComplianceSummaryBySourceItem = {
+  source: string;
+  entryCount: number;
+  amount: number;
+};
+
+export type AdminComplianceSummaryDepositOutcomes = {
+  captured: number;
+  released: number;
+  failed: number;
+  capturedFees: number;
+};
+
+export type AdminComplianceSummaryTenantContributionsItem = {
+  tenantId: number | null;
+  brandName: string;
+  entryCount: number;
+  amount: number;
+  platformMargin: number;
+};
+
+export interface AdminComplianceSummary {
+  from: string;
+  to: string;
+  totals: AdminComplianceSummaryTotals;
+  /** Current monthly-equivalent module MRR by category, from realized charged amounts (legacy rows fall back to current markup; partner category is pass-through with zero margin). */
+  mrrByCategory: AdminComplianceSummaryMrrByCategoryItem[];
+  /** Period transaction volume broken down by ledger source. */
+  bySource: AdminComplianceSummaryBySourceItem[];
+  depositOutcomes: AdminComplianceSummaryDepositOutcomes;
+  /** Per-tenant revenue contribution over the period, largest first. tenantId null = legacy pre-tenant activity. */
+  tenantContributions: AdminComplianceSummaryTenantContributionsItem[];
+}
+
 export interface AdminCampaign {
   id: number;
   code: string;
@@ -2432,6 +2481,28 @@ export const ListAdminCoopDisputesStatus = {
   withdrawn: 'withdrawn',
   banned: 'banned',
 } as const;
+
+export type GetAdminComplianceSummaryParams = {
+/**
+ * Period start (ISO date/datetime, inclusive)
+ */
+from: string;
+/**
+ * Period end (ISO date/datetime, exclusive)
+ */
+to: string;
+};
+
+export type ExportAdminComplianceReportParams = {
+/**
+ * Period start (ISO date/datetime, inclusive)
+ */
+from: string;
+/**
+ * Period end (ISO date/datetime, exclusive)
+ */
+to: string;
+};
 
 export type ListSosCustomersParams = {
 search?: string;

@@ -15,6 +15,7 @@ import {
 } from "@workspace/api-zod";
 import { randomUUID } from "crypto";
 import { effectiveMarkupPercent } from "../lib/pricing";
+import { recordLedgerEventsSafe } from "../lib/platformLedger";
 
 const router: IRouter = Router();
 
@@ -145,7 +146,7 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
 
   // Record per-tenant module assignments with their billing cadence
   if (modulesToProvision.length > 0) {
-    await db
+    const created = await db
       .insert(tenantModulesTable)
       .values(
         modulesToProvision.map((m) => ({
@@ -158,7 +159,30 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
           chargedResale: String(chargedById.get(m.id)!.resale),
         }))
       )
-      .onConflictDoNothing();
+      .onConflictDoNothing()
+      .returning();
+
+    // Compliance ledger: one immutable entry per provisioned charge, carrying
+    // the realized wholesale/resale so reports never re-derive pricing.
+    const moduleById = new Map(modulesToProvision.map((m) => [m.id, m]));
+    await recordLedgerEventsSafe(
+      created.flatMap((row) => {
+        const mod = moduleById.get(row.moduleId);
+        const charged = chargedById.get(row.moduleId);
+        if (!mod || !charged) return [];
+        return [{
+          source: "module_subscription" as const,
+          sourceRef: `tenant_modules:${row.id}`,
+          tenantId,
+          category: mod.category,
+          description: `${mod.name} (${row.billingCadence})`,
+          amount: charged.resale.toFixed(2),
+          wholesaleAmount: charged.wholesale.toFixed(2),
+          platformMargin: (Math.round((charged.resale - charged.wholesale) * 100) / 100).toFixed(2),
+          occurredAt: row.provisionedAt,
+        }];
+      }),
+    );
   }
 
   // Derive modulesEnabled from the join table so the two can never drift apart.

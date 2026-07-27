@@ -23,6 +23,7 @@ import type {
   AdminCampaign,
   AdminCampaignCreate,
   AdminCampaignUpdate,
+  AdminComplianceSummary,
   AdminModuleDetail,
   AgencyDashboard,
   AgencySettings,
@@ -59,6 +60,8 @@ import type {
   EngagementRule,
   EngagementRuleInput,
   EngagementRuleUpdate,
+  ExportAdminComplianceReportParams,
+  GetAdminComplianceSummaryParams,
   GetSosStaffEarningsParams,
   GetTenantActivityParams,
   HealthStatus,
@@ -4514,6 +4517,174 @@ export const useUpdateAdminCampaign = <TError = ErrorType<void>,
       > => {
       return useMutation(getUpdateAdminCampaignMutationOptions(options));
     }
+
+export const getGetAdminComplianceSummaryUrl = (params: GetAdminComplianceSummaryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/compliance/summary?${stringifiedParams}` : `/api/admin/compliance/summary`
+}
+
+/**
+ * @summary Admin-only — platform-wide compliance/revenue aggregates over a period, computed from the append-only platform ledger
+ */
+export const getAdminComplianceSummary = async (params: GetAdminComplianceSummaryParams, options?: RequestInit): Promise<AdminComplianceSummary> => {
+
+  return customFetch<AdminComplianceSummary>(getGetAdminComplianceSummaryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminComplianceSummaryQueryKey = (params?: GetAdminComplianceSummaryParams,) => {
+    return [
+    `/api/admin/compliance/summary`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAdminComplianceSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getAdminComplianceSummary>>, TError = ErrorType<void>>(params: GetAdminComplianceSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminComplianceSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminComplianceSummaryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminComplianceSummary>>> = ({ signal }) => getAdminComplianceSummary(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminComplianceSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminComplianceSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminComplianceSummary>>>
+export type GetAdminComplianceSummaryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Admin-only — platform-wide compliance/revenue aggregates over a period, computed from the append-only platform ledger
+ */
+
+export function useGetAdminComplianceSummary<TData = Awaited<ReturnType<typeof getAdminComplianceSummary>>, TError = ErrorType<void>>(
+ params: GetAdminComplianceSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminComplianceSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminComplianceSummaryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getExportAdminComplianceReportUrl = (params: ExportAdminComplianceReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/compliance/export?${stringifiedParams}` : `/api/admin/compliance/export`
+}
+
+/**
+ * @summary Admin-only — period-scoped compliance report (CSV) generated server-side from the platform ledger (the canonical export)
+ */
+export const exportAdminComplianceReport = async (params: ExportAdminComplianceReportParams, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getExportAdminComplianceReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getExportAdminComplianceReportQueryKey = (params?: ExportAdminComplianceReportParams,) => {
+    return [
+    `/api/admin/compliance/export`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getExportAdminComplianceReportQueryOptions = <TData = Awaited<ReturnType<typeof exportAdminComplianceReport>>, TError = ErrorType<void>>(params: ExportAdminComplianceReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportAdminComplianceReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getExportAdminComplianceReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportAdminComplianceReport>>> = ({ signal }) => exportAdminComplianceReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportAdminComplianceReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ExportAdminComplianceReportQueryResult = NonNullable<Awaited<ReturnType<typeof exportAdminComplianceReport>>>
+export type ExportAdminComplianceReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary Admin-only — period-scoped compliance report (CSV) generated server-side from the platform ledger (the canonical export)
+ */
+
+export function useExportAdminComplianceReport<TData = Awaited<ReturnType<typeof exportAdminComplianceReport>>, TError = ErrorType<void>>(
+ params: ExportAdminComplianceReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportAdminComplianceReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getExportAdminComplianceReportQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetBillingSummaryUrl = () => {
 

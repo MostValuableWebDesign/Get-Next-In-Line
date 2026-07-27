@@ -281,6 +281,13 @@
       "when": 1785126251987,
       "tag": "0039_easy_fixer",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1785126545473,
+      "tag": "0040_stiff_husk",
+      "breakpoints": true
     }
   ]
 }

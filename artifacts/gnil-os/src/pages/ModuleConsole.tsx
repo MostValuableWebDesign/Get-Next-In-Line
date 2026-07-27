@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { downloadModuleLedgerCsv } from '@/lib/moduleLedgerExport';
 import { Link, useLocation, useParams } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -259,45 +258,13 @@ export default function ModuleConsole() {
               >
                 <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} /> {isSyncing ? 'Syncing…' : 'Force Sync Gateway'}
               </Button>
-              <Button
-                variant="secondary"
-                className="gap-2"
-                data-testid="button-export-ledger"
-                onClick={() => {
-                  // Prefer the admin module-detail data (includes MRR
-                  // contribution); fall back to the public subscriber list.
-                  const rows = adminDetail
-                    ? adminDetail.tenants.map((t) => ({
-                        tenantId: t.tenantId,
-                        brandName: t.brandName,
-                        subdomain: t.subdomain,
-                        status: t.status,
-                        provisionedAt: t.provisionedAt,
-                        cadence: t.cadence,
-                        mrrContribution: t.mrrContribution,
-                      }))
-                    : (subscribers ?? []).map((s) => ({
-                        tenantId: s.tenantId,
-                        brandName: s.brandName,
-                        subdomain: s.subdomain,
-                        status: s.status,
-                        provisionedAt: s.provisionedAt,
-                        cadence: s.billingCadence === 'biweekly' ? 'biweekly' : 'monthly',
-                        mrrContribution: null,
-                      }));
-                  if (rows.length === 0) {
-                    toast({
-                      title: 'Nothing to Export',
-                      description: `No tenants are subscribed to ${module.name} yet.`,
-                    });
-                    return;
-                  }
-                  const filename = downloadModuleLedgerCsv(module.name, rows);
-                  toast({ title: 'Export Downloaded', description: `Saved ${rows.length} ledger row${rows.length === 1 ? '' : 's'} to ${filename}` });
-                }}
-              >
-                <FileText className="w-4 h-4" /> Export Ledger Data
-              </Button>
+              {/* Ledger exports moved to the server-side compliance report —
+                  the canonical, auditable source (Command Center → Compliance). */}
+              <Link href="/compliance">
+                <Button variant="secondary" className="gap-2" data-testid="button-export-ledger">
+                  <FileText className="w-4 h-4" /> Ledger Export (Compliance)
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>

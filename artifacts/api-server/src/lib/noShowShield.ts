@@ -11,6 +11,7 @@ import { getLegacySettings, resolveSettings, type SosSettingsRow } from "./setti
 import { sendMessageSafe } from "./messaging";
 import { getUncachableStripeClient, isStripeConfigured } from "./stripeClient";
 import { logger } from "./logger";
+import { recordDepositOutcomeSafe } from "./platformLedger";
 
 export const NO_SHOW_SHIELD_SLUG = "no_show_shield";
 
@@ -229,6 +230,8 @@ export async function placeDepositHoldIfActive(
     // The "deposit held" text is sent when the customer actually completes
     // the card authorization (checkout.session.completed webhook) — at this
     // point no money is held yet.
+    // Holds born failed (Stripe unreachable) are already terminal — ledger them.
+    if (hold && hold.status === "failed") await recordDepositOutcomeSafe(hold);
     return hold ?? null;
   } catch (err) {
     logger.error({ err, appointmentId }, "Failed to place No-Show Shield deposit hold");
@@ -300,6 +303,9 @@ async function settleHold(
       ),
     )
     .returning();
+  // Compliance ledger: terminal outcomes (captured/released/failed) land as
+  // immutable entries. Only the call that performed the transition records.
+  if (settled) await recordDepositOutcomeSafe(settled);
   return settled ?? null;
 }
 
@@ -525,7 +531,7 @@ export async function applyStripeDepositEvent(
   }
 
   if (event.type === "checkout.session.expired") {
-    await db
+    const failedRows = await db
       .update(sosDepositHoldsTable)
       .set({
         status: "failed",
@@ -538,12 +544,14 @@ export async function applyStripeDepositEvent(
           eq(sosDepositHoldsTable.stripeCheckoutSessionId, obj.id),
           eq(sosDepositHoldsTable.status, "pending_authorization"),
         ),
-      );
+      )
+      .returning();
+    for (const row of failedRows) await recordDepositOutcomeSafe(row);
     return;
   }
 
   if (event.type === "payment_intent.canceled") {
-    await db
+    const releasedRows = await db
       .update(sosDepositHoldsTable)
       .set({
         status: "released",
@@ -556,7 +564,9 @@ export async function applyStripeDepositEvent(
           eq(sosDepositHoldsTable.stripePaymentIntentId, obj.id),
           eq(sosDepositHoldsTable.status, "held"),
         ),
-      );
+      )
+      .returning();
+    for (const row of releasedRows) await recordDepositOutcomeSafe(row);
   }
 }
 

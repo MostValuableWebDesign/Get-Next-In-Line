@@ -1374,6 +1374,59 @@ export const UpdateAdminCampaignResponse = zod.object({
 
 
 /**
+ * @summary Admin-only — platform-wide compliance/revenue aggregates over a period, computed from the append-only platform ledger
+ */
+export const GetAdminComplianceSummaryQueryParams = zod.object({
+  "from": zod.coerce.string().describe('Period start (ISO date\/datetime, inclusive)'),
+  "to": zod.coerce.string().describe('Period end (ISO date\/datetime, exclusive)')
+})
+
+export const GetAdminComplianceSummaryResponse = zod.object({
+  "from": zod.string(),
+  "to": zod.string(),
+  "totals": zod.object({
+  "entryCount": zod.number().describe('Number of ledger entries in the period.'),
+  "grossAmount": zod.number().describe('Sum of all money moved in the period (subscription charges, visit payments, plan sales, captured deposit fees).'),
+  "platformMargin": zod.number().describe('Platform\'s realized margin in the period (resale minus wholesale on subscription charges; partner pass-through contributes zero).')
+}),
+  "mrrByCategory": zod.array(zod.object({
+  "category": zod.string(),
+  "mrr": zod.number(),
+  "platformMargin": zod.number()
+})).describe('Current monthly-equivalent module MRR by category, from realized charged amounts (legacy rows fall back to current markup; partner category is pass-through with zero margin).'),
+  "bySource": zod.array(zod.object({
+  "source": zod.string(),
+  "entryCount": zod.number(),
+  "amount": zod.number()
+})).describe('Period transaction volume broken down by ledger source.'),
+  "depositOutcomes": zod.object({
+  "captured": zod.number(),
+  "released": zod.number(),
+  "failed": zod.number(),
+  "capturedFees": zod.number()
+}),
+  "tenantContributions": zod.array(zod.object({
+  "tenantId": zod.number().nullable(),
+  "brandName": zod.string(),
+  "entryCount": zod.number(),
+  "amount": zod.number(),
+  "platformMargin": zod.number()
+})).describe('Per-tenant revenue contribution over the period, largest first. tenantId null = legacy pre-tenant activity.')
+})
+
+
+/**
+ * @summary Admin-only — period-scoped compliance report (CSV) generated server-side from the platform ledger (the canonical export)
+ */
+export const ExportAdminComplianceReportQueryParams = zod.object({
+  "from": zod.coerce.string().describe('Period start (ISO date\/datetime, inclusive)'),
+  "to": zod.coerce.string().describe('Period end (ISO date\/datetime, exclusive)')
+})
+
+export const ExportAdminComplianceReportResponse = zod.unknown()
+
+
+/**
  * @summary Get billing summary — total MRR breakdown by category
  */
 export const GetBillingSummaryResponse = zod.object({

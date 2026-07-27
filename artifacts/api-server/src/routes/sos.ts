@@ -90,6 +90,7 @@ import {
   recordInboundMessage,
   applyDeliveryStatus,
 } from "../lib/messaging";
+import { recordLedgerEventsSafe } from "../lib/platformLedger";
 import { parseCallIntent } from "../lib/receptionist";
 import {
   listServicesForScope,
@@ -1064,14 +1065,23 @@ router.post("/sos/customer-plans", async (req, res): Promise<void> => {
           : null,
     })
     .returning();
-  await db.insert(sosPlanTransactionsTable).values({
+  const [purchaseTxn] = await db.insert(sosPlanTransactionsTable).values({
     customerPlanId: cp.id,
     customerId: customer.id,
     transactionType: "purchase",
     amount: plan.price,
     creditsDelta: plan.planType === "membership" ? null : plan.creditCount,
     note: `Purchased ${plan.name}`,
-  });
+  }).returning();
+  await recordLedgerEventsSafe([{
+    source: "plan_purchase",
+    sourceRef: `sos_plan_transactions:${purchaseTxn.id}`,
+    tenantId: customer.tenantId,
+    category: "Plans",
+    description: `Purchased ${plan.name}`,
+    amount: plan.price,
+    occurredAt: purchaseTxn.createdAt,
+  }]);
   res.status(201).json(SellSosPlanResponse.parse(serializeCustomerPlan(cp, plan)));
 });
 
@@ -1115,13 +1125,22 @@ router.post("/sos/customer-plans/:id/renew", async (req, res): Promise<void> => 
     .set({ status: "active", renewsAt: nextRenewalDate(plan.billingInterval, base) })
     .where(eq(sosCustomerPlansTable.id, id))
     .returning();
-  await db.insert(sosPlanTransactionsTable).values({
+  const [renewalTxn] = await db.insert(sosPlanTransactionsTable).values({
     customerPlanId: cp.id,
     customerId: cp.customerId,
     transactionType: "renewal",
     amount: plan.price,
     note: `Renewed ${plan.name}`,
-  });
+  }).returning();
+  await recordLedgerEventsSafe([{
+    source: "plan_renewal",
+    sourceRef: `sos_plan_transactions:${renewalTxn.id}`,
+    tenantId: tenantIdFrom(req),
+    category: "Plans",
+    description: `Renewed ${plan.name}`,
+    amount: plan.price,
+    occurredAt: renewalTxn.createdAt,
+  }]);
   res.json(RenewSosCustomerPlanResponse.parse(serializeCustomerPlan(updated, plan)));
 });
 
@@ -1622,6 +1641,19 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     .returning();
 
   if (body.action === "check_out") {
+    // Compliance ledger: record the checkout payment (idempotent on the
+    // visit reference — a re-emitted checkout can never double-count).
+    if (updated.paymentAmount != null && parseFloat(updated.paymentAmount) > 0) {
+      await recordLedgerEventsSafe([{
+        source: "visit_checkout",
+        sourceRef: `sos_visits:${updated.id}`,
+        tenantId: updated.tenantId,
+        category: "Visits",
+        description: `Visit checkout — ${updated.serviceType}`,
+        amount: updated.paymentAmount,
+        occurredAt: updated.checkedOutAt ?? new Date(),
+      }]);
+    }
     // Keep the operational last-visit stamp on the customer fresh, then
     // recompute the linked concierge profile's cadence (last visit + average
     // cycle) from real completed-visit history so the rebooking automation
