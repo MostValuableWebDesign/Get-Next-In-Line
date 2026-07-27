@@ -37,6 +37,13 @@ export interface CoopPartnership {
      * @nullable
      */
   perkEndsAt: string | null;
+  /** True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it. */
+  disputeSuspended: boolean;
+  /**
+     * Set when a platform admin permanently banned the partnership.
+     * @nullable
+     */
+  bannedAt: string | null;
   isActive: boolean;
   createdAt: string;
 }

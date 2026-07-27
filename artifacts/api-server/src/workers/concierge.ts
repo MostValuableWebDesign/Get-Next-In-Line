@@ -6,10 +6,11 @@ import {
   merchantCoopPartnershipsTable,
   perkPassesTable,
   tenantsTable,
+  coopDisputesTable,
   type ClientProfile,
   type EngagementRule,
 } from "@workspace/db";
-import { aliasedTable, and, desc, eq, gt, gte, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
+import { aliasedTable, and, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { sendMessageSafe } from "../lib/messaging";
 import { redeemAtSide } from "../lib/perkPasses";
 import {
@@ -331,6 +332,42 @@ export async function sweepPerkExpiryReminders(now: Date = new Date()): Promise<
   return sent;
 }
 
+/**
+ * Escalate co-op disputes whose 7-business-day grace deadline has passed with
+ * no resolution: the dispute flips to "escalated" and the shared perk is
+ * paused (partnership suspended, hidden from perks/redemption/discovery)
+ * until a platform admin reinstates or bans it. Runs on every worker tick so
+ * it fires even without traffic. Idempotent.
+ */
+export async function escalateExpiredCoopDisputes(now: Date = new Date()): Promise<number> {
+  const escalated = await db
+    .update(coopDisputesTable)
+    .set({ status: "escalated", escalatedAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(coopDisputesTable.status, "open"),
+        lte(coopDisputesTable.graceDeadlineAt, now),
+      ),
+    )
+    .returning({ id: coopDisputesTable.id, partnershipId: coopDisputesTable.partnershipId });
+  if (escalated.length > 0) {
+    await db
+      .update(merchantCoopPartnershipsTable)
+      .set({ disputeSuspended: true, updatedAt: now })
+      .where(
+        inArray(
+          merchantCoopPartnershipsTable.id,
+          escalated.map((d) => d.partnershipId),
+        ),
+      );
+    logger.warn(
+      { count: escalated.length, ids: escalated.map((d) => d.id) },
+      "Escalated overdue co-op disputes — partnerships suspended",
+    );
+  }
+  return escalated.length;
+}
+
 export interface ConciergeTickResult {
   /** False when another instance held the advisory lock and this tick was skipped. */
   ran: boolean;
@@ -341,6 +378,7 @@ export interface ConciergeTickResult {
   perkReminders: number;
   /** Co-op monthly impact reports created this tick (usually 0). */
   coopReports: number;
+  escalatedDisputes: number;
 }
 
 /**
@@ -358,7 +396,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
     const expiredPerks = await sweepExpiredCoopPerks(now);
@@ -367,9 +405,10 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     // constraint), so running on every tick only ever creates each report —
     // and sends each owner notification — once, right after a month closes.
     const coopReports = (await generateCoopMonthlyReports(now)).created;
+    const escalatedDisputes = await escalateExpiredCoopDisputes(now);
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
-    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports };
+    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes };
   });
 }
 
@@ -408,6 +447,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       await sweepExpiredCoopPerks();
       await sweepPerkExpiryReminders();
       await generateCoopMonthlyReports();
+      await escalateExpiredCoopDisputes();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;
@@ -434,10 +474,10 @@ function startIntervalWorker(): ConciergeWorkerHandle {
     if (running) return; // don't overlap slow ticks
     running = true;
     try {
-      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports } = await runConciergeTick();
-      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports > 0) {
+      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes } = await runConciergeTick();
+      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes > 0) {
         logger.info(
-          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports },
+          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes },
           "Concierge interval tick dispatched messages",
         );
       }

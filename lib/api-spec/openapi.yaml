@@ -1038,6 +1038,170 @@ paths:
         "404":
           description: Not found
 
+  /coop/disputes:
+    get:
+      operationId: listCoopDisputes
+      tags: [coop]
+      summary: Merchant-facing — disputes on the scoped tenant's partnerships (as reporter or reported party); tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Disputes involving the scoped tenant, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopDispute"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createCoopDispute
+      tags: [coop]
+      summary: Merchant-facing — report a partner issue on an active partnership, starting a 7-business-day grace period; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopDisputeCreate"
+      responses:
+        "201":
+          description: Dispute filed; the reported business owner is alerted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopDispute"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+        "403":
+          description: The reporter is not a party to this partnership
+        "404":
+          description: Partnership not found
+        "409":
+          description: Partnership is not an active accepted partnership, or already has an open dispute
+
+  /coop/disputes/{id}/withdraw:
+    post:
+      operationId: withdrawCoopDispute
+      tags: [coop]
+      summary: Merchant-facing — the reporter withdraws their own open dispute before escalation, restoring the partnership immediately; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Withdrawn dispute
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopDispute"
+        "403":
+          description: Only the reporting business can withdraw its dispute
+        "404":
+          description: Not found
+        "409":
+          description: Dispute already escalated or closed
+
+  /admin/coop/disputes:
+    get:
+      operationId: listAdminCoopDisputes
+      tags: [admin]
+      summary: Admin-only — dispute escalation queue, optionally filtered by status
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, escalated, resolved, withdrawn, banned]
+      responses:
+        "200":
+          description: Disputes, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopDispute"
+
+  /admin/coop/disputes/{id}/reinstate:
+    post:
+      operationId: reinstateCoopDispute
+      tags: [admin]
+      summary: Admin-only — resolve the dispute and reinstate the partnership (perk reactivated, directory visibility restored)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resolved dispute
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopDispute"
+        "404":
+          description: Not found
+        "409":
+          description: Dispute already closed
+
+  /admin/coop/disputes/{id}/ban:
+    post:
+      operationId: banCoopDisputePartnership
+      tags: [admin]
+      summary: Admin-only — permanently ban the partnership behind the dispute
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dispute closed as banned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopDispute"
+        "404":
+          description: Not found
+        "409":
+          description: Dispute already closed
+
+  /admin/coop/disputes/{id}/mediation-notes:
+    post:
+      operationId: addCoopDisputeMediationNote
+      tags: [admin]
+      summary: Admin-only — record a timestamped mediation note while keeping the dispute open
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopDisputeMediationNote"
+      responses:
+        "200":
+          description: Dispute with the appended note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopDispute"
+        "400":
+          description: Invalid body
+        "404":
+          description: Not found
+
   /admin/campaigns:
     get:
       operationId: listAdminCampaigns
@@ -2704,6 +2868,8 @@ components:
           mutualRewardTerms,
           perkStartsAt,
           perkEndsAt,
+          disputeSuspended,
+          bannedAt,
           isActive,
           createdAt,
         ]
@@ -2741,10 +2907,104 @@ components:
         perkEndsAt:
           type: ["string", "null"]
           description: ISO timestamp the perk expires; null = never expires.
+        disputeSuspended:
+          type: boolean
+          description: True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.
+        bannedAt:
+          type: ["string", "null"]
+          description: Set when a platform admin permanently banned the partnership.
         isActive:
           type: boolean
         createdAt:
           type: string
+
+    CoopDispute:
+      type: object
+      required:
+        [
+          id,
+          partnershipId,
+          perkTitle,
+          reportingTenantId,
+          reportingTenantName,
+          reportedTenantId,
+          reportedTenantName,
+          category,
+          details,
+          status,
+          graceDeadlineAt,
+          escalatedAt,
+          resolvedAt,
+          withdrawnAt,
+          mediationNotes,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id:
+          type: integer
+        partnershipId:
+          type: integer
+        perkTitle:
+          type: string
+        reportingTenantId:
+          type: integer
+        reportingTenantName:
+          type: string
+        reportedTenantId:
+          type: integer
+        reportedTenantName:
+          type: string
+        category:
+          type: string
+          enum:
+            - Partner refusing valid digital perk
+            - Inappropriate business conduct
+            - Closed storefront/unresponsive
+        details:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [open, escalated, resolved, withdrawn, banned]
+        graceDeadlineAt:
+          type: string
+          description: End of the 7-business-day resolution window computed at filing time.
+        escalatedAt:
+          type: ["string", "null"]
+        resolvedAt:
+          type: ["string", "null"]
+        withdrawnAt:
+          type: ["string", "null"]
+        mediationNotes:
+          type: ["string", "null"]
+          description: Append-only timestamped mediation log kept by platform admins.
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    CoopDisputeCreate:
+      type: object
+      required: [partnershipId, category]
+      properties:
+        partnershipId:
+          type: integer
+        category:
+          type: string
+          enum:
+            - Partner refusing valid digital perk
+            - Inappropriate business conduct
+            - Closed storefront/unresponsive
+        details:
+          type: string
+
+    CoopDisputeMediationNote:
+      type: object
+      required: [note]
+      properties:
+        note:
+          type: string
+          minLength: 1
 
     CoopDirectoryEntry:
       type: object
@@ -4563,7 +4823,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

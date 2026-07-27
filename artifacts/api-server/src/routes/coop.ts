@@ -7,13 +7,16 @@ import {
   tenantModulesTable,
   merchantCoopPartnershipsTable,
   coopPerkRedemptionsTable,
+  coopDisputesTable,
   sosSettingsTable,
   type MerchantCoopPartnership,
+  type CoopDispute,
 } from "@workspace/db";
 import { perkPassesTable } from "@workspace/db";
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { isWalletPassToken, findWalletPass, type WalletPassRow } from "../lib/perkPasses";
+import { sendMessageSafe } from "../lib/messaging";
 import {
   COOP_PERK_DISCLAIMER,
   perkWindowOpen,
@@ -47,6 +50,10 @@ import {
   GetCoopTaxonomyResponse,
   ListCoopPartnerPerformanceResponse,
   ListCoopMonthlyReportsResponse,
+  ListCoopDisputesResponse,
+  CreateCoopDisputeBody,
+  CreateCoopDisputeResponse,
+  WithdrawCoopDisputeResponse,
 } from "@workspace/api-zod";
 import { platformInvitesTable } from "@workspace/db";
 import {
@@ -112,10 +119,83 @@ function serialize(
     mutualRewardTerms: p.mutualRewardTerms,
     perkStartsAt: p.perkStartsAt ? p.perkStartsAt.toISOString() : null,
     perkEndsAt: p.perkEndsAt ? p.perkEndsAt.toISOString() : null,
+    disputeSuspended: p.disputeSuspended,
+    bannedAt: p.bannedAt ? p.bannedAt.toISOString() : null,
     isActive: p.isActive,
     createdAt: p.createdAt.toISOString(),
   };
 }
+
+/** Serialize a dispute row joined with both party names + the perk title. */
+export function serializeDispute(
+  d: CoopDispute,
+  reportingTenantName: string,
+  reportedTenantName: string,
+  perkTitle: string
+) {
+  return {
+    id: d.id,
+    partnershipId: d.partnershipId,
+    perkTitle,
+    reportingTenantId: d.reportingTenantId,
+    reportingTenantName,
+    reportedTenantId: d.reportedTenantId,
+    reportedTenantName,
+    category: d.category,
+    details: d.details,
+    status: d.status,
+    graceDeadlineAt: d.graceDeadlineAt.toISOString(),
+    escalatedAt: d.escalatedAt ? d.escalatedAt.toISOString() : null,
+    resolvedAt: d.resolvedAt ? d.resolvedAt.toISOString() : null,
+    withdrawnAt: d.withdrawnAt ? d.withdrawnAt.toISOString() : null,
+    mediationNotes: d.mediationNotes,
+    createdAt: d.createdAt.toISOString(),
+    updatedAt: d.updatedAt.toISOString(),
+  };
+}
+
+/** Shared join for dispute reads: dispute + both party names + perk title. */
+export function disputeRows() {
+  const reportingTenant = alias(tenantsTable, "dispute_reporting_tenant");
+  const reportedTenant = alias(tenantsTable, "dispute_reported_tenant");
+  return db
+    .select({
+      dispute: coopDisputesTable,
+      reportingTenantName: reportingTenant.brandName,
+      reportedTenantName: reportedTenant.brandName,
+      perkTitle: merchantCoopPartnershipsTable.perkTitle,
+    })
+    .from(coopDisputesTable)
+    .innerJoin(reportingTenant, eq(coopDisputesTable.reportingTenantId, reportingTenant.id))
+    .innerJoin(reportedTenant, eq(coopDisputesTable.reportedTenantId, reportedTenant.id))
+    .innerJoin(
+      merchantCoopPartnershipsTable,
+      eq(coopDisputesTable.partnershipId, merchantCoopPartnershipsTable.id)
+    );
+}
+
+/**
+ * `deadline = now + N business days` (Mon–Fri; weekends don't count toward
+ * the resolution window). Same time of day, N business days later.
+ */
+export function addBusinessDays(from: Date, businessDays: number): Date {
+  const d = new Date(from.getTime());
+  let remaining = businessDays;
+  while (remaining > 0) {
+    d.setDate(d.getDate() + 1);
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) remaining--;
+  }
+  return d;
+}
+
+export const DISPUTE_GRACE_BUSINESS_DAYS = 7;
+
+export const COOP_DISPUTE_CATEGORIES = [
+  "Partner refusing valid digital perk",
+  "Inappropriate business conduct",
+  "Closed storefront/unresponsive",
+] as const;
 
 /** Tenant scope from the x-tenant-id header (same convention as /api/sos). */
 function tenantIdFrom(req: Request): number | null {
@@ -750,6 +830,9 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
       and(
         eq(merchantCoopPartnershipsTable.status, "accepted"),
         eq(merchantCoopPartnershipsTable.isActive, true),
+        // Dispute-suspended and banned partnerships never serve their perk.
+        eq(merchantCoopPartnershipsTable.disputeSuspended, false),
+        isNull(merchantCoopPartnershipsTable.bannedAt),
         // Perks outside their optional date window never reach any surface.
         perkWindowOpen(),
         or(
@@ -828,7 +911,12 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
     );
     return;
   }
-  if (!row.partnership.isActive || row.partnership.status !== "accepted") {
+  if (
+    !row.partnership.isActive ||
+    row.partnership.status !== "accepted" ||
+    row.partnership.disputeSuspended ||
+    row.partnership.bannedAt != null
+  ) {
     res.json(
       ValidateCoopRedemptionCodeResponse.parse({
         valid: false,
@@ -987,7 +1075,12 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
     fail("Unknown redemption code");
     return;
   }
-  if (!row.partnership.isActive || row.partnership.status !== "accepted") {
+  if (
+    !row.partnership.isActive ||
+    row.partnership.status !== "accepted" ||
+    row.partnership.disputeSuspended ||
+    row.partnership.bannedAt != null
+  ) {
     fail("This partnership is no longer active", row);
     return;
   }
@@ -1109,6 +1202,186 @@ router.get("/coop/reports/monthly", async (req, res): Promise<void> => {
         revenueInfluenced: parseFloat(r.revenueInfluenced),
         createdAt: r.createdAt.toISOString(),
       }))
+    )
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Dispute resolution — merchants flag problem partners; the platform mediates
+// with a 7-business-day grace window before auto-suspending the shared perk.
+// ---------------------------------------------------------------------------
+
+// ── GET /coop/disputes — disputes involving the scoped tenant ───────────────
+router.get("/coop/disputes", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const rows = await disputeRows()
+    .where(
+      or(
+        eq(coopDisputesTable.reportingTenantId, tenantId),
+        eq(coopDisputesTable.reportedTenantId, tenantId)
+      )
+    )
+    .orderBy(desc(coopDisputesTable.createdAt), desc(coopDisputesTable.id));
+  res.json(
+    ListCoopDisputesResponse.parse(
+      rows.map((r) =>
+        serializeDispute(r.dispute, r.reportingTenantName, r.reportedTenantName, r.perkTitle)
+      )
+    )
+  );
+});
+
+// ── POST /coop/disputes — file a dispute against an active partnership ──────
+// Starts the 7-business-day grace window and alerts the reported business
+// owner through the unified messaging pipeline (SMS, respecting opt-in).
+router.post("/coop/disputes", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = CreateCoopDisputeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const { partnershipId, category } = parsed.data;
+  const [partnership] = await db
+    .select()
+    .from(merchantCoopPartnershipsTable)
+    .where(eq(merchantCoopPartnershipsTable.id, partnershipId));
+  if (!partnership) {
+    res.status(404).json({ message: "Partnership not found" });
+    return;
+  }
+  const isParty =
+    partnership.hostTenantId === tenantId || partnership.partnerTenantId === tenantId;
+  if (!isParty) {
+    res.status(403).json({ message: "Only a party to this partnership can report an issue" });
+    return;
+  }
+  if (
+    partnership.status !== "accepted" ||
+    !partnership.isActive ||
+    partnership.bannedAt != null
+  ) {
+    res.status(409).json({ message: "Disputes can only be filed on active partnerships" });
+    return;
+  }
+
+  const reportedTenantId =
+    partnership.hostTenantId === tenantId ? partnership.partnerTenantId : partnership.hostTenantId;
+  const now = new Date();
+  let created: CoopDispute;
+  try {
+    [created] = await db
+      .insert(coopDisputesTable)
+      .values({
+        partnershipId,
+        reportingTenantId: tenantId,
+        reportedTenantId,
+        category,
+        details: parsed.data.details?.trim() || null,
+        status: "open",
+        graceDeadlineAt: addBusinessDays(now, DISPUTE_GRACE_BUSINESS_DAYS),
+      })
+      .returning();
+  } catch (err) {
+    // Partial unique index (one live dispute per partnership) — concurrent or
+    // repeat filings surface as a unique violation, not a race.
+    const code = (err as { cause?: { code?: string }; code?: string })?.cause?.code ??
+      (err as { code?: string })?.code;
+    if (code === "23505") {
+      res.status(409).json({ message: "This partnership already has an open dispute" });
+      return;
+    }
+    throw err;
+  }
+
+  const [row] = await disputeRows().where(eq(coopDisputesTable.id, created.id));
+
+  // Alert the reported partner's business owner via the unified messaging
+  // pipeline (public business phone). Never blocks the filing itself.
+  const [reportedSettings] = await db
+    .select({ publicPhone: sosSettingsTable.publicPhone })
+    .from(sosSettingsTable)
+    .where(eq(sosSettingsTable.tenantId, reportedTenantId));
+  await sendMessageSafe({
+    tenantId: reportedTenantId,
+    origin: "operational",
+    kind: "coop_dispute",
+    toNumber: reportedSettings?.publicPhone?.trim() || null,
+    body:
+      `Co-Op alert: ${row.reportingTenantName} reported an issue on your "${partnership.perkTitle}" partnership ` +
+      `(${category}). Please resolve it within 7 business days or the shared perk will be paused automatically.`,
+    context: { disputeId: created.id, partnershipId, category },
+  });
+
+  res
+    .status(201)
+    .json(
+      CreateCoopDisputeResponse.parse(
+        serializeDispute(row.dispute, row.reportingTenantName, row.reportedTenantName, row.perkTitle)
+      )
+    );
+});
+
+// ── POST /coop/disputes/:id/withdraw — reporter withdraws before escalation ─
+router.post("/coop/disputes/:id/withdraw", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const [dispute] = await db.select().from(coopDisputesTable).where(eq(coopDisputesTable.id, id));
+  if (!dispute) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  if (dispute.reportingTenantId !== tenantId) {
+    res.status(403).json({ message: "Only the reporting business can withdraw its dispute" });
+    return;
+  }
+  if (dispute.status !== "open") {
+    res.status(409).json({
+      message:
+        dispute.status === "escalated"
+          ? "This dispute has already escalated — a platform admin must resolve it"
+          : "This dispute is already closed",
+    });
+    return;
+  }
+  const now = new Date();
+  // Conditional update guards against a concurrent escalation/withdrawal.
+  const [updated] = await db
+    .update(coopDisputesTable)
+    .set({ status: "withdrawn", withdrawnAt: now, updatedAt: now })
+    .where(and(eq(coopDisputesTable.id, id), eq(coopDisputesTable.status, "open")))
+    .returning();
+  if (!updated) {
+    res.status(409).json({ message: "This dispute was already escalated or closed" });
+    return;
+  }
+  // Restore the partnership immediately (defensive — an open dispute should
+  // never have suspended it, but withdrawal must always leave it clean).
+  await db
+    .update(merchantCoopPartnershipsTable)
+    .set({ disputeSuspended: false, updatedAt: now })
+    .where(eq(merchantCoopPartnershipsTable.id, dispute.partnershipId));
+
+  const [row] = await disputeRows().where(eq(coopDisputesTable.id, id));
+  res.json(
+    WithdrawCoopDisputeResponse.parse(
+      serializeDispute(row.dispute, row.reportingTenantName, row.reportedTenantName, row.perkTitle)
     )
   );
 });

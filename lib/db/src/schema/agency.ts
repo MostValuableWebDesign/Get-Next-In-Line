@@ -1,4 +1,5 @@
-import { pgTable, serial, text, numeric, integer, timestamp, boolean, unique, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, numeric, integer, timestamp, boolean, unique, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -196,6 +197,14 @@ export const merchantCoopPartnershipsTable = pgTable(
     perkStartsAt: timestamp("perk_starts_at"),
     perkEndsAt: timestamp("perk_ends_at"),
     respondedAt: timestamp("responded_at"),
+    // Set by the dispute engine when an unresolved dispute passed its grace
+    // deadline: the perk stops being served and the partnership is hidden
+    // from discovery until an admin reinstates it. Independent of isActive
+    // so reinstating restores the merchant's own on/off choice.
+    disputeSuspended: boolean("dispute_suspended").notNull().default(false),
+    // Set when a platform admin permanently bans the partnership. A banned
+    // partnership never serves its perk again.
+    bannedAt: timestamp("banned_at"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -379,6 +388,61 @@ export const coopMonthlyReportsTable = pgTable(
 );
 
 export type CoopMonthlyReport = typeof coopMonthlyReportsTable.$inferSelect;
+// ── Co-op partnership disputes ───────────────────────────────────────────────
+// A merchant flags a problem partner on an active partnership. The platform
+// mediates automatically: a grace period (7 business days) runs first; if the
+// dispute is still open when it expires, the background worker escalates it —
+// pausing the shared perk and hiding the partnership — until a platform admin
+// reinstates, bans, or mediates. Every state change is timestamped so the
+// history of a dispute is auditable.
+export const coopDisputesTable = pgTable(
+  "coop_disputes",
+  {
+    id: serial("id").primaryKey(),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    // The business that filed the dispute and the partner being reported —
+    // always the two parties of the partnership.
+    reportingTenantId: integer("reporting_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    reportedTenantId: integer("reported_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // Standardized dispute category (see COOP_DISPUTE_CATEGORIES in the API).
+    category: text("category").notNull(),
+    details: text("details"),
+    // open → escalated → resolved | withdrawn | banned.
+    status: text("status").notNull().default("open"),
+    // End of the 7-business-day resolution window computed at filing time.
+    graceDeadlineAt: timestamp("grace_deadline_at").notNull(),
+    escalatedAt: timestamp("escalated_at"),
+    resolvedAt: timestamp("resolved_at"),
+    withdrawnAt: timestamp("withdrawn_at"),
+    // Append-only mediation log kept by platform admins (timestamped lines).
+    mediationNotes: text("mediation_notes"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_disputes_partnership_idx").on(t.partnershipId),
+    index("coop_disputes_status_idx").on(t.status),
+    // DB-enforced invariant: at most one live (open/escalated) dispute per
+    // partnership, even under concurrent filings.
+    uniqueIndex("coop_disputes_one_live_per_partnership_idx")
+      .on(t.partnershipId)
+      .where(sql`status in ('open', 'escalated')`),
+  ]
+);
+
+export const insertCoopDisputeSchema = createInsertSchema(coopDisputesTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCoopDispute = z.infer<typeof insertCoopDisputeSchema>;
+export type CoopDispute = typeof coopDisputesTable.$inferSelect;
 
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,

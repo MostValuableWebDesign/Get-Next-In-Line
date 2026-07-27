@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "coop_disputes_one_live_per_partnership_idx" ON "coop_disputes" USING btree ("partnership_id") WHERE status in ('open', 'escalated');

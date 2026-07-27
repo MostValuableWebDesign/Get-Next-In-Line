@@ -386,6 +386,8 @@ export const ListCoopPartnershipsResponseItem = zod.object({
   "mutualRewardTerms": zod.string().nullable(),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
+  "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -425,6 +427,8 @@ export const CreateCoopPartnershipResponse = zod.object({
   "mutualRewardTerms": zod.string().nullable(),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
+  "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -465,6 +469,8 @@ export const UpdateCoopPartnershipResponse = zod.object({
   "mutualRewardTerms": zod.string().nullable(),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
+  "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -536,6 +542,8 @@ export const CreateCoopInviteResponse = zod.object({
   "mutualRewardTerms": zod.string().nullable(),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
+  "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -567,6 +575,8 @@ export const RespondToCoopInviteResponse = zod.object({
   "mutualRewardTerms": zod.string().nullable(),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
+  "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -619,6 +629,8 @@ export const RedeemCoopPerkResponse = zod.object({
   "mutualRewardTerms": zod.string().nullable(),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
+  "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 }),zod.null()]),
@@ -782,6 +794,8 @@ export const ValidateCoopRedemptionCodeResponse = zod.object({
   "mutualRewardTerms": zod.string().nullable(),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
+  "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 }),zod.null()])
@@ -1090,6 +1104,209 @@ export const DeleteSafetyTemplateParams = zod.object({
 })
 
 export const DeleteSafetyTemplateResponse = zod.void()
+
+
+/**
+ * @summary Merchant-facing — disputes on the scoped tenant's partnerships (as reporter or reported party); tenant scope via x-tenant-id
+ */
+export const ListCoopDisputesResponseItem = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "reportingTenantId": zod.number(),
+  "reportingTenantName": zod.string(),
+  "reportedTenantId": zod.number(),
+  "reportedTenantName": zod.string(),
+  "category": zod.enum(['Partner refusing valid digital perk', 'Inappropriate business conduct', 'Closed storefront/unresponsive']),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['open', 'escalated', 'resolved', 'withdrawn', 'banned']),
+  "graceDeadlineAt": zod.string().describe('End of the 7-business-day resolution window computed at filing time.'),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "withdrawnAt": zod.string().nullable(),
+  "mediationNotes": zod.string().nullable().describe('Append-only timestamped mediation log kept by platform admins.'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListCoopDisputesResponse = zod.array(ListCoopDisputesResponseItem)
+
+
+/**
+ * @summary Merchant-facing — report a partner issue on an active partnership, starting a 7-business-day grace period; tenant scope via x-tenant-id
+ */
+export const CreateCoopDisputeBody = zod.object({
+  "partnershipId": zod.number(),
+  "category": zod.enum(['Partner refusing valid digital perk', 'Inappropriate business conduct', 'Closed storefront/unresponsive']),
+  "details": zod.string().optional()
+})
+
+export const CreateCoopDisputeResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "reportingTenantId": zod.number(),
+  "reportingTenantName": zod.string(),
+  "reportedTenantId": zod.number(),
+  "reportedTenantName": zod.string(),
+  "category": zod.enum(['Partner refusing valid digital perk', 'Inappropriate business conduct', 'Closed storefront/unresponsive']),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['open', 'escalated', 'resolved', 'withdrawn', 'banned']),
+  "graceDeadlineAt": zod.string().describe('End of the 7-business-day resolution window computed at filing time.'),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "withdrawnAt": zod.string().nullable(),
+  "mediationNotes": zod.string().nullable().describe('Append-only timestamped mediation log kept by platform admins.'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — the reporter withdraws their own open dispute before escalation, restoring the partnership immediately; tenant scope via x-tenant-id
+ */
+export const WithdrawCoopDisputeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const WithdrawCoopDisputeResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "reportingTenantId": zod.number(),
+  "reportingTenantName": zod.string(),
+  "reportedTenantId": zod.number(),
+  "reportedTenantName": zod.string(),
+  "category": zod.enum(['Partner refusing valid digital perk', 'Inappropriate business conduct', 'Closed storefront/unresponsive']),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['open', 'escalated', 'resolved', 'withdrawn', 'banned']),
+  "graceDeadlineAt": zod.string().describe('End of the 7-business-day resolution window computed at filing time.'),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "withdrawnAt": zod.string().nullable(),
+  "mediationNotes": zod.string().nullable().describe('Append-only timestamped mediation log kept by platform admins.'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Admin-only — dispute escalation queue, optionally filtered by status
+ */
+export const ListAdminCoopDisputesQueryParams = zod.object({
+  "status": zod.enum(['open', 'escalated', 'resolved', 'withdrawn', 'banned']).optional()
+})
+
+export const ListAdminCoopDisputesResponseItem = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "reportingTenantId": zod.number(),
+  "reportingTenantName": zod.string(),
+  "reportedTenantId": zod.number(),
+  "reportedTenantName": zod.string(),
+  "category": zod.enum(['Partner refusing valid digital perk', 'Inappropriate business conduct', 'Closed storefront/unresponsive']),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['open', 'escalated', 'resolved', 'withdrawn', 'banned']),
+  "graceDeadlineAt": zod.string().describe('End of the 7-business-day resolution window computed at filing time.'),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "withdrawnAt": zod.string().nullable(),
+  "mediationNotes": zod.string().nullable().describe('Append-only timestamped mediation log kept by platform admins.'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListAdminCoopDisputesResponse = zod.array(ListAdminCoopDisputesResponseItem)
+
+
+/**
+ * @summary Admin-only — resolve the dispute and reinstate the partnership (perk reactivated, directory visibility restored)
+ */
+export const ReinstateCoopDisputeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ReinstateCoopDisputeResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "reportingTenantId": zod.number(),
+  "reportingTenantName": zod.string(),
+  "reportedTenantId": zod.number(),
+  "reportedTenantName": zod.string(),
+  "category": zod.enum(['Partner refusing valid digital perk', 'Inappropriate business conduct', 'Closed storefront/unresponsive']),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['open', 'escalated', 'resolved', 'withdrawn', 'banned']),
+  "graceDeadlineAt": zod.string().describe('End of the 7-business-day resolution window computed at filing time.'),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "withdrawnAt": zod.string().nullable(),
+  "mediationNotes": zod.string().nullable().describe('Append-only timestamped mediation log kept by platform admins.'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Admin-only — permanently ban the partnership behind the dispute
+ */
+export const BanCoopDisputePartnershipParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const BanCoopDisputePartnershipResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "reportingTenantId": zod.number(),
+  "reportingTenantName": zod.string(),
+  "reportedTenantId": zod.number(),
+  "reportedTenantName": zod.string(),
+  "category": zod.enum(['Partner refusing valid digital perk', 'Inappropriate business conduct', 'Closed storefront/unresponsive']),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['open', 'escalated', 'resolved', 'withdrawn', 'banned']),
+  "graceDeadlineAt": zod.string().describe('End of the 7-business-day resolution window computed at filing time.'),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "withdrawnAt": zod.string().nullable(),
+  "mediationNotes": zod.string().nullable().describe('Append-only timestamped mediation log kept by platform admins.'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Admin-only — record a timestamped mediation note while keeping the dispute open
+ */
+export const AddCoopDisputeMediationNoteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const AddCoopDisputeMediationNoteBody = zod.object({
+  "note": zod.string().min(1)
+})
+
+export const AddCoopDisputeMediationNoteResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "reportingTenantId": zod.number(),
+  "reportingTenantName": zod.string(),
+  "reportedTenantId": zod.number(),
+  "reportedTenantName": zod.string(),
+  "category": zod.enum(['Partner refusing valid digital perk', 'Inappropriate business conduct', 'Closed storefront/unresponsive']),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['open', 'escalated', 'resolved', 'withdrawn', 'banned']),
+  "graceDeadlineAt": zod.string().describe('End of the 7-business-day resolution window computed at filing time.'),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "withdrawnAt": zod.string().nullable(),
+  "mediationNotes": zod.string().nullable().describe('Append-only timestamped mediation log kept by platform admins.'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
 
 
 /**
@@ -1890,7 +2107,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -1919,7 +2136,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

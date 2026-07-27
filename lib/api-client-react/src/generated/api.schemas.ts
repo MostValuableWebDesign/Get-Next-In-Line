@@ -47,8 +47,84 @@ export interface CoopPartnership {
      * @nullable
      */
   perkEndsAt: string | null;
+  /** True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it. */
+  disputeSuspended: boolean;
+  /**
+     * Set when a platform admin permanently banned the partnership.
+     * @nullable
+     */
+  bannedAt: string | null;
   isActive: boolean;
   createdAt: string;
+}
+
+export type CoopDisputeCategory = typeof CoopDisputeCategory[keyof typeof CoopDisputeCategory];
+
+
+export const CoopDisputeCategory = {
+  Partner_refusing_valid_digital_perk: 'Partner refusing valid digital perk',
+  Inappropriate_business_conduct: 'Inappropriate business conduct',
+  'Closed_storefront/unresponsive': 'Closed storefront/unresponsive',
+} as const;
+
+export type CoopDisputeStatus = typeof CoopDisputeStatus[keyof typeof CoopDisputeStatus];
+
+
+export const CoopDisputeStatus = {
+  open: 'open',
+  escalated: 'escalated',
+  resolved: 'resolved',
+  withdrawn: 'withdrawn',
+  banned: 'banned',
+} as const;
+
+export interface CoopDispute {
+  id: number;
+  partnershipId: number;
+  perkTitle: string;
+  reportingTenantId: number;
+  reportingTenantName: string;
+  reportedTenantId: number;
+  reportedTenantName: string;
+  category: CoopDisputeCategory;
+  /** @nullable */
+  details: string | null;
+  status: CoopDisputeStatus;
+  /** End of the 7-business-day resolution window computed at filing time. */
+  graceDeadlineAt: string;
+  /** @nullable */
+  escalatedAt: string | null;
+  /** @nullable */
+  resolvedAt: string | null;
+  /** @nullable */
+  withdrawnAt: string | null;
+  /**
+     * Append-only timestamped mediation log kept by platform admins.
+     * @nullable
+     */
+  mediationNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CoopDisputeCreateCategory = typeof CoopDisputeCreateCategory[keyof typeof CoopDisputeCreateCategory];
+
+
+export const CoopDisputeCreateCategory = {
+  Partner_refusing_valid_digital_perk: 'Partner refusing valid digital perk',
+  Inappropriate_business_conduct: 'Inappropriate business conduct',
+  'Closed_storefront/unresponsive': 'Closed storefront/unresponsive',
+} as const;
+
+export interface CoopDisputeCreate {
+  partnershipId: number;
+  category: CoopDisputeCreateCategory;
+  details?: string;
+}
+
+export interface CoopDisputeMediationNote {
+  /** @minLength 1 */
+  note: string;
 }
 
 export interface CoopDirectoryEntry {
@@ -1612,6 +1688,7 @@ export const SosMessageKind = {
   perk_expiry_reminder: 'perk_expiry_reminder',
   coop_monthly_report: 'coop_monthly_report',
   safety_alert: 'safety_alert',
+  coop_dispute: 'coop_dispute',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];
@@ -2340,6 +2417,21 @@ export type ListCoopPartnerPerformanceParams = {
 from?: string;
 to?: string;
 };
+
+export type ListAdminCoopDisputesParams = {
+status?: ListAdminCoopDisputesStatus;
+};
+
+export type ListAdminCoopDisputesStatus = typeof ListAdminCoopDisputesStatus[keyof typeof ListAdminCoopDisputesStatus];
+
+
+export const ListAdminCoopDisputesStatus = {
+  open: 'open',
+  escalated: 'escalated',
+  resolved: 'resolved',
+  withdrawn: 'withdrawn',
+  banned: 'banned',
+} as const;
 
 export type ListSosCustomersParams = {
 search?: string;

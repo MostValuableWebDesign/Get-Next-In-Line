@@ -6,7 +6,13 @@ import {
   useUpdateCoopPartnership,
   useListTenants,
   getListTenantsQueryKey,
+  useListAdminCoopDisputes,
+  getListAdminCoopDisputesQueryKey,
+  useReinstateCoopDispute,
+  useBanCoopDisputePartnership,
+  useAddCoopDisputeMediationNote,
   type CoopPartnership,
+  type CoopDispute,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +29,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { AlertTriangle, ArrowLeftRight, Handshake, Plus, Power, Ticket } from 'lucide-react';
+import {
+  AlertTriangle, ArrowLeftRight, Ban, Gavel, Handshake, NotebookPen, Plus, Power,
+  RotateCcw, Ticket,
+} from 'lucide-react';
 
 /**
  * Command Center — merchant co-op partnerships.
@@ -139,6 +148,207 @@ export default function CoopPartnerships() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      <DisputeQueue />
+    </div>
+  );
+}
+
+// ── Admin dispute escalation queue ───────────────────────────────────────────
+
+const DISPUTE_STATUS_FILTERS = ['all', 'open', 'escalated', 'resolved', 'withdrawn', 'banned'] as const;
+
+function disputeAge(createdAt: string): string {
+  const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / (24 * 60 * 60 * 1000));
+  if (days <= 0) return 'today';
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+  switch (status) {
+    case 'escalated': return 'destructive';
+    case 'open': return 'default';
+    case 'banned': return 'outline';
+    default: return 'secondary';
+  }
+}
+
+/**
+ * Platform mediation console: open/escalated disputes with parties, category,
+ * and age, plus reinstate / permanently ban / mediation-note actions.
+ */
+function DisputeQueue() {
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const params = statusFilter === 'all' ? undefined : { status: statusFilter as CoopDispute['status'] };
+  const { data: disputes, isLoading } = useListAdminCoopDisputes(params, {
+    query: { queryKey: getListAdminCoopDisputesQueryKey(params) },
+  });
+
+  return (
+    <Card className="border-none shadow-md" data-testid="card-dispute-queue">
+      <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Gavel className="w-5 h-5 text-primary" /> Dispute Escalation Queue
+          </CardTitle>
+          <CardDescription>
+            Merchant-reported partner issues. Escalated disputes have already paused the shared
+            perk — reinstate, permanently ban, or record mediation notes.
+          </CardDescription>
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40" data-testid="select-dispute-status-filter">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DISPUTE_STATUS_FILTERS.map(s => (
+              <SelectItem key={s} value={s} className="capitalize">{s === 'all' ? 'All statuses' : s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <Skeleton className="h-24 w-full rounded-lg" />
+        ) : !disputes || disputes.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-testid="text-no-disputes">
+            No disputes {statusFilter === 'all' ? 'filed yet' : `with status "${statusFilter}"`}.
+          </p>
+        ) : (
+          disputes.map(d => <DisputeRow key={d.id} dispute={d} />)
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DisputeRow({ dispute: d }: { dispute: CoopDispute }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [confirming, setConfirming] = useState<'reinstate' | 'ban' | null>(null);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const reinstate = useReinstateCoopDispute();
+  const ban = useBanCoopDisputePartnership();
+  const addNote = useAddCoopDisputeMediationNote();
+
+  const refresh = () => {
+    queryClient.invalidateQueries({
+      predicate: q => typeof q.queryKey[0] === 'string' &&
+        (q.queryKey[0].includes('/api/admin/coop/') || q.queryKey[0].includes('/api/coop/')),
+    });
+  };
+  const onError = (err: unknown) => {
+    const e = err as { data?: { message?: string }; message?: string };
+    toast({
+      title: 'Action failed',
+      description: e?.data?.message ?? e?.message ?? 'Please try again.',
+      variant: 'destructive',
+    });
+  };
+
+  const actionable = d.status === 'open' || d.status === 'escalated';
+  const busy = reinstate.isPending || ban.isPending || addNote.isPending;
+
+  return (
+    <div className="border rounded-lg p-4 space-y-2" data-testid={`row-dispute-${d.id}`}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="font-semibold text-sm" data-testid={`text-dispute-parties-${d.id}`}>
+          {d.reportingTenantName}
+        </span>
+        <span className="text-xs text-muted-foreground">reported</span>
+        <span className="font-semibold text-sm">{d.reportedTenantName}</span>
+        <Badge variant={statusBadgeVariant(d.status)} className="capitalize" data-testid={`badge-dispute-status-${d.id}`}>
+          {d.status}
+        </Badge>
+        <span className="text-xs text-muted-foreground ml-auto" data-testid={`text-dispute-age-${d.id}`}>
+          Filed {disputeAge(d.createdAt)}
+        </span>
+      </div>
+      <div className="text-sm" data-testid={`text-dispute-category-${d.id}`}>{d.category}</div>
+      <div className="text-xs text-muted-foreground">
+        Perk: {d.perkTitle} · Grace deadline {new Date(d.graceDeadlineAt).toLocaleDateString()}
+        {d.escalatedAt && ` · Escalated ${new Date(d.escalatedAt).toLocaleDateString()}`}
+        {d.resolvedAt && ` · Closed ${new Date(d.resolvedAt).toLocaleDateString()}`}
+      </div>
+      {d.details && <div className="text-xs text-muted-foreground italic">“{d.details}”</div>}
+      {d.mediationNotes && (
+        <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-muted/50 rounded p-2" data-testid={`text-mediation-notes-${d.id}`}>
+          {d.mediationNotes}
+        </pre>
+      )}
+
+      {actionable && (
+        confirming ? (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm space-y-2" data-testid={`confirm-${confirming}-${d.id}`}>
+            <p>
+              {confirming === 'reinstate'
+                ? 'Resolve this dispute and reinstate the partnership? The perk goes live again and the partnership returns to the directory.'
+                : 'Permanently ban this partnership? The perk will never be served again. This can only be undone by reinstating through a future dispute record.'}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={confirming === 'ban' ? 'destructive' : 'default'}
+                disabled={busy}
+                onClick={() => {
+                  const m = confirming === 'reinstate' ? reinstate : ban;
+                  m.mutate({ id: d.id }, {
+                    onSuccess: () => {
+                      refresh();
+                      toast({
+                        title: confirming === 'reinstate' ? 'Partnership reinstated' : 'Partnership banned',
+                        description: `${d.reportingTenantName} × ${d.reportedTenantName}`,
+                      });
+                      setConfirming(null);
+                    },
+                    onError,
+                  });
+                }}
+                data-testid={`button-confirm-${confirming}-${d.id}`}
+              >
+                Yes, {confirming === 'reinstate' ? 'reinstate' : 'ban permanently'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setConfirming(null)} data-testid={`button-cancel-${confirming}-${d.id}`}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button size="sm" variant="outline" className="gap-1.5" disabled={busy} onClick={() => setConfirming('reinstate')} data-testid={`button-reinstate-${d.id}`}>
+              <RotateCcw className="w-3.5 h-3.5" /> Resolve & Reinstate
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:text-destructive" disabled={busy} onClick={() => setConfirming('ban')} data-testid={`button-ban-${d.id}`}>
+              <Ban className="w-3.5 h-3.5" /> Ban Partnership
+            </Button>
+            <Button size="sm" variant="ghost" className="gap-1.5" disabled={busy} onClick={() => setNoteOpen(o => !o)} data-testid={`button-mediation-note-${d.id}`}>
+              <NotebookPen className="w-3.5 h-3.5" /> Add Mediation Note
+            </Button>
+          </div>
+        )
+      )}
+      {actionable && noteOpen && !confirming && (
+        <div className="space-y-2 pt-1">
+          <Textarea
+            placeholder="Record a mediation step — the dispute stays open."
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            data-testid={`input-mediation-note-${d.id}`}
+          />
+          <Button
+            size="sm"
+            disabled={!note.trim() || busy}
+            onClick={() => addNote.mutate({ id: d.id, data: { note: note.trim() } }, {
+              onSuccess: () => { refresh(); setNote(''); setNoteOpen(false); toast({ title: 'Mediation note recorded' }); },
+              onError,
+            })}
+            data-testid={`button-save-mediation-note-${d.id}`}
+          >
+            Save Note
+          </Button>
         </div>
       )}
     </div>

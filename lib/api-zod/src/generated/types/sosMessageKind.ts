@@ -23,4 +23,5 @@ export const SosMessageKind = {
   perk_expiry_reminder: 'perk_expiry_reminder',
   coop_monthly_report: 'coop_monthly_report',
   safety_alert: 'safety_alert',
+  coop_dispute: 'coop_dispute',
 } as const;

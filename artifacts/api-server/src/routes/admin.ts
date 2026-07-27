@@ -9,7 +9,10 @@ import {
   tenantActivitiesTable,
   campaignsTable,
   attributionEventsTable,
+  coopDisputesTable,
+  merchantCoopPartnershipsTable,
 } from "@workspace/db";
+import { disputeRows, serializeDispute } from "./coop";
 import {
   GetConnectorRegistryResponse,
   UpdateConnectorRegistryEntryBody,
@@ -20,6 +23,11 @@ import {
   CreateAdminCampaignResponse,
   UpdateAdminCampaignBody,
   UpdateAdminCampaignResponse,
+  ListAdminCoopDisputesResponse,
+  ReinstateCoopDisputeResponse,
+  BanCoopDisputePartnershipResponse,
+  AddCoopDisputeMediationNoteBody,
+  AddCoopDisputeMediationNoteResponse,
 } from "@workspace/api-zod";
 import { CAMPAIGN_CODE_RE } from "./campaignRedirect";
 
@@ -358,6 +366,118 @@ router.patch("/admin/campaigns/:id", async (req, res): Promise<void> => {
       serializeCampaign(updated, tenant?.brandName ?? "", Number(clicks?.n ?? 0)),
     ),
   );
+});
+
+// ── Co-op dispute escalation queue ──────────────────────────────────────────
+// Platform mediation console: list disputes, reinstate the partnership,
+// permanently ban it, or record mediation notes while keeping it open.
+
+const DISPUTE_STATUSES = new Set(["open", "escalated", "resolved", "withdrawn", "banned"]);
+
+router.get("/admin/coop/disputes", async (req, res): Promise<void> => {
+  const status = String(req.query.status ?? "").trim();
+  let query = disputeRows()
+    .orderBy(desc(coopDisputesTable.createdAt), desc(coopDisputesTable.id))
+    .$dynamic();
+  if (status && DISPUTE_STATUSES.has(status)) {
+    query = query.where(eq(coopDisputesTable.status, status));
+  }
+  const rows = await query;
+  res.json(
+    ListAdminCoopDisputesResponse.parse(
+      rows.map((r) =>
+        serializeDispute(r.dispute, r.reportingTenantName, r.reportedTenantName, r.perkTitle)
+      )
+    )
+  );
+});
+
+/** Load a dispute or 404. Returns null after responding. */
+async function loadDispute(
+  req: Parameters<Parameters<IRouter["post"]>[1]>[0],
+  res: Parameters<Parameters<IRouter["post"]>[1]>[1]
+) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return null;
+  }
+  const [dispute] = await db.select().from(coopDisputesTable).where(eq(coopDisputesTable.id, id));
+  if (!dispute) {
+    res.status(404).json({ message: "Not found" });
+    return null;
+  }
+  return dispute;
+}
+
+async function respondWithDispute(res: { json: (b: unknown) => void }, id: number, schema: { parse: (v: unknown) => unknown }) {
+  const [row] = await disputeRows().where(eq(coopDisputesTable.id, id));
+  res.json(
+    schema.parse(
+      serializeDispute(row.dispute, row.reportingTenantName, row.reportedTenantName, row.perkTitle)
+    )
+  );
+}
+
+// Resolve the dispute and reinstate the partnership: perk reactivated and
+// directory visibility restored (the ban flag is also cleared — reinstating
+// is the explicit admin undo for both suspension and ban).
+router.post("/admin/coop/disputes/:id/reinstate", async (req, res): Promise<void> => {
+  const dispute = await loadDispute(req, res);
+  if (!dispute) return;
+  if (dispute.status !== "open" && dispute.status !== "escalated" && dispute.status !== "banned") {
+    res.status(409).json({ message: "This dispute is already closed" });
+    return;
+  }
+  const now = new Date();
+  await db
+    .update(coopDisputesTable)
+    .set({ status: "resolved", resolvedAt: now, updatedAt: now })
+    .where(eq(coopDisputesTable.id, dispute.id));
+  await db
+    .update(merchantCoopPartnershipsTable)
+    .set({ disputeSuspended: false, bannedAt: null, updatedAt: now })
+    .where(eq(merchantCoopPartnershipsTable.id, dispute.partnershipId));
+  await respondWithDispute(res, dispute.id, ReinstateCoopDisputeResponse);
+});
+
+// Permanently ban the partnership behind the dispute.
+router.post("/admin/coop/disputes/:id/ban", async (req, res): Promise<void> => {
+  const dispute = await loadDispute(req, res);
+  if (!dispute) return;
+  if (dispute.status !== "open" && dispute.status !== "escalated") {
+    res.status(409).json({ message: "This dispute is already closed" });
+    return;
+  }
+  const now = new Date();
+  await db
+    .update(coopDisputesTable)
+    .set({ status: "banned", resolvedAt: now, updatedAt: now })
+    .where(eq(coopDisputesTable.id, dispute.id));
+  await db
+    .update(merchantCoopPartnershipsTable)
+    .set({ bannedAt: now, disputeSuspended: true, updatedAt: now })
+    .where(eq(merchantCoopPartnershipsTable.id, dispute.partnershipId));
+  await respondWithDispute(res, dispute.id, BanCoopDisputePartnershipResponse);
+});
+
+// Append a timestamped mediation note; the dispute stays in its current state.
+router.post("/admin/coop/disputes/:id/mediation-notes", async (req, res): Promise<void> => {
+  const parsed = AddCoopDisputeMediationNoteBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const dispute = await loadDispute(req, res);
+  if (!dispute) return;
+  const now = new Date();
+  const line = `[${now.toISOString()}] ${parsed.data.note.trim()}`;
+  const mediationNotes = dispute.mediationNotes ? `${dispute.mediationNotes}\n${line}` : line;
+  await db
+    .update(coopDisputesTable)
+    .set({ mediationNotes, updatedAt: now })
+    .where(eq(coopDisputesTable.id, dispute.id));
+  await respondWithDispute(res, dispute.id, AddCoopDisputeMediationNoteResponse);
 });
 
 export default router;

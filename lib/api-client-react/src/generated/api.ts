@@ -41,6 +41,9 @@ import type {
   ConnectorRegistryEntryUpdate,
   CoopActivePerksResponse,
   CoopDirectoryEntry,
+  CoopDispute,
+  CoopDisputeCreate,
+  CoopDisputeMediationNote,
   CoopIndustryBarrierError,
   CoopInviteCreate,
   CoopInviteRespond,
@@ -59,6 +62,7 @@ import type {
   GetSosStaffEarningsParams,
   GetTenantActivityParams,
   HealthStatus,
+  ListAdminCoopDisputesParams,
   ListCoopDirectoryParams,
   ListCoopPartnerPerformanceParams,
   ListCoopPartnershipsParams,
@@ -3772,6 +3776,523 @@ export const useDeleteSafetyTemplate = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteSafetyTemplateMutationOptions(options));
+    }
+
+export const getListCoopDisputesUrl = () => {
+
+
+
+
+  return `/api/coop/disputes`
+}
+
+/**
+ * @summary Merchant-facing — disputes on the scoped tenant's partnerships (as reporter or reported party); tenant scope via x-tenant-id
+ */
+export const listCoopDisputes = async ( options?: RequestInit): Promise<CoopDispute[]> => {
+
+  return customFetch<CoopDispute[]>(getListCoopDisputesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopDisputesQueryKey = () => {
+    return [
+    `/api/coop/disputes`
+    ] as const;
+    }
+
+
+export const getListCoopDisputesQueryOptions = <TData = Awaited<ReturnType<typeof listCoopDisputes>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopDisputes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopDisputesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopDisputes>>> = ({ signal }) => listCoopDisputes({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopDisputes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopDisputesQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopDisputes>>>
+export type ListCoopDisputesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — disputes on the scoped tenant's partnerships (as reporter or reported party); tenant scope via x-tenant-id
+ */
+
+export function useListCoopDisputes<TData = Awaited<ReturnType<typeof listCoopDisputes>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopDisputes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopDisputesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopDisputeUrl = () => {
+
+
+
+
+  return `/api/coop/disputes`
+}
+
+/**
+ * @summary Merchant-facing — report a partner issue on an active partnership, starting a 7-business-day grace period; tenant scope via x-tenant-id
+ */
+export const createCoopDispute = async (coopDisputeCreate: CoopDisputeCreate, options?: RequestInit): Promise<CoopDispute> => {
+
+  return customFetch<CoopDispute>(getCreateCoopDisputeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopDisputeCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopDisputeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopDispute>>, TError,{data: BodyType<CoopDisputeCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopDispute>>, TError,{data: BodyType<CoopDisputeCreate>}, TContext> => {
+
+const mutationKey = ['createCoopDispute'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopDispute>>, {data: BodyType<CoopDisputeCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopDispute(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopDisputeMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopDispute>>>
+    export type CreateCoopDisputeMutationBody = BodyType<CoopDisputeCreate>
+    export type CreateCoopDisputeMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — report a partner issue on an active partnership, starting a 7-business-day grace period; tenant scope via x-tenant-id
+ */
+export const useCreateCoopDispute = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopDispute>>, TError,{data: BodyType<CoopDisputeCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopDispute>>,
+        TError,
+        {data: BodyType<CoopDisputeCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopDisputeMutationOptions(options));
+    }
+
+export const getWithdrawCoopDisputeUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/disputes/${id}/withdraw`
+}
+
+/**
+ * @summary Merchant-facing — the reporter withdraws their own open dispute before escalation, restoring the partnership immediately; tenant scope via x-tenant-id
+ */
+export const withdrawCoopDispute = async (id: number, options?: RequestInit): Promise<CoopDispute> => {
+
+  return customFetch<CoopDispute>(getWithdrawCoopDisputeUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getWithdrawCoopDisputeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof withdrawCoopDispute>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof withdrawCoopDispute>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['withdrawCoopDispute'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof withdrawCoopDispute>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  withdrawCoopDispute(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type WithdrawCoopDisputeMutationResult = NonNullable<Awaited<ReturnType<typeof withdrawCoopDispute>>>
+
+    export type WithdrawCoopDisputeMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — the reporter withdraws their own open dispute before escalation, restoring the partnership immediately; tenant scope via x-tenant-id
+ */
+export const useWithdrawCoopDispute = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof withdrawCoopDispute>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof withdrawCoopDispute>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getWithdrawCoopDisputeMutationOptions(options));
+    }
+
+export const getListAdminCoopDisputesUrl = (params?: ListAdminCoopDisputesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/coop/disputes?${stringifiedParams}` : `/api/admin/coop/disputes`
+}
+
+/**
+ * @summary Admin-only — dispute escalation queue, optionally filtered by status
+ */
+export const listAdminCoopDisputes = async (params?: ListAdminCoopDisputesParams, options?: RequestInit): Promise<CoopDispute[]> => {
+
+  return customFetch<CoopDispute[]>(getListAdminCoopDisputesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminCoopDisputesQueryKey = (params?: ListAdminCoopDisputesParams,) => {
+    return [
+    `/api/admin/coop/disputes`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAdminCoopDisputesQueryOptions = <TData = Awaited<ReturnType<typeof listAdminCoopDisputes>>, TError = ErrorType<unknown>>(params?: ListAdminCoopDisputesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopDisputes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminCoopDisputesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminCoopDisputes>>> = ({ signal }) => listAdminCoopDisputes(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopDisputes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminCoopDisputesQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminCoopDisputes>>>
+export type ListAdminCoopDisputesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Admin-only — dispute escalation queue, optionally filtered by status
+ */
+
+export function useListAdminCoopDisputes<TData = Awaited<ReturnType<typeof listAdminCoopDisputes>>, TError = ErrorType<unknown>>(
+ params?: ListAdminCoopDisputesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopDisputes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminCoopDisputesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReinstateCoopDisputeUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/coop/disputes/${id}/reinstate`
+}
+
+/**
+ * @summary Admin-only — resolve the dispute and reinstate the partnership (perk reactivated, directory visibility restored)
+ */
+export const reinstateCoopDispute = async (id: number, options?: RequestInit): Promise<CoopDispute> => {
+
+  return customFetch<CoopDispute>(getReinstateCoopDisputeUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReinstateCoopDisputeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reinstateCoopDispute>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reinstateCoopDispute>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['reinstateCoopDispute'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reinstateCoopDispute>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  reinstateCoopDispute(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReinstateCoopDisputeMutationResult = NonNullable<Awaited<ReturnType<typeof reinstateCoopDispute>>>
+
+    export type ReinstateCoopDisputeMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — resolve the dispute and reinstate the partnership (perk reactivated, directory visibility restored)
+ */
+export const useReinstateCoopDispute = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reinstateCoopDispute>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reinstateCoopDispute>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getReinstateCoopDisputeMutationOptions(options));
+    }
+
+export const getBanCoopDisputePartnershipUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/coop/disputes/${id}/ban`
+}
+
+/**
+ * @summary Admin-only — permanently ban the partnership behind the dispute
+ */
+export const banCoopDisputePartnership = async (id: number, options?: RequestInit): Promise<CoopDispute> => {
+
+  return customFetch<CoopDispute>(getBanCoopDisputePartnershipUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBanCoopDisputePartnershipMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof banCoopDisputePartnership>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof banCoopDisputePartnership>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['banCoopDisputePartnership'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof banCoopDisputePartnership>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  banCoopDisputePartnership(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BanCoopDisputePartnershipMutationResult = NonNullable<Awaited<ReturnType<typeof banCoopDisputePartnership>>>
+
+    export type BanCoopDisputePartnershipMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — permanently ban the partnership behind the dispute
+ */
+export const useBanCoopDisputePartnership = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof banCoopDisputePartnership>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof banCoopDisputePartnership>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getBanCoopDisputePartnershipMutationOptions(options));
+    }
+
+export const getAddCoopDisputeMediationNoteUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/coop/disputes/${id}/mediation-notes`
+}
+
+/**
+ * @summary Admin-only — record a timestamped mediation note while keeping the dispute open
+ */
+export const addCoopDisputeMediationNote = async (id: number,
+    coopDisputeMediationNote: CoopDisputeMediationNote, options?: RequestInit): Promise<CoopDispute> => {
+
+  return customFetch<CoopDispute>(getAddCoopDisputeMediationNoteUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopDisputeMediationNote)
+  }
+);}
+
+
+
+
+
+export const getAddCoopDisputeMediationNoteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCoopDisputeMediationNote>>, TError,{id: number;data: BodyType<CoopDisputeMediationNote>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addCoopDisputeMediationNote>>, TError,{id: number;data: BodyType<CoopDisputeMediationNote>}, TContext> => {
+
+const mutationKey = ['addCoopDisputeMediationNote'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addCoopDisputeMediationNote>>, {id: number;data: BodyType<CoopDisputeMediationNote>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addCoopDisputeMediationNote(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddCoopDisputeMediationNoteMutationResult = NonNullable<Awaited<ReturnType<typeof addCoopDisputeMediationNote>>>
+    export type AddCoopDisputeMediationNoteMutationBody = BodyType<CoopDisputeMediationNote>
+    export type AddCoopDisputeMediationNoteMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — record a timestamped mediation note while keeping the dispute open
+ */
+export const useAddCoopDisputeMediationNote = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCoopDisputeMediationNote>>, TError,{id: number;data: BodyType<CoopDisputeMediationNote>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addCoopDisputeMediationNote>>,
+        TError,
+        {id: number;data: BodyType<CoopDisputeMediationNote>},
+        TContext
+      > => {
+      return useMutation(getAddCoopDisputeMediationNoteMutationOptions(options));
     }
 
 export const getListAdminCampaignsUrl = () => {

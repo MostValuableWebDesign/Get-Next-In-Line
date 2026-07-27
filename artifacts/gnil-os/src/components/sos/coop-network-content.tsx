@@ -9,10 +9,13 @@ import {
   useCreatePlatformInvite,
   useListCoopPartnerPerformance, getListCoopPartnerPerformanceQueryKey,
   useListCoopMonthlyReports, getListCoopMonthlyReportsQueryKey,
+  useListCoopDisputes, getListCoopDisputesQueryKey,
+  useCreateCoopDispute, useWithdrawCoopDispute,
   type CoopDirectoryEntry, type CoopPartnership, type CoopPerkRedeemResult,
   type PlatformInvite,
   type CoopPartnerPerformance, type CoopMonthlyReport,
   type ListCoopPartnerPerformanceParams,
+  type CoopDispute, type CoopDisputeCreateCategory,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,9 +34,15 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertTriangle, ArrowLeftRight, ArrowUpDown, BarChart3, Bell, CalendarClock, Check, Copy,
-  DollarSign, Eye, Handshake, Keyboard, Link2, MapPin, ScanLine, Search, Send, Store,
-  Ticket, TrendingUp, UserPlus, Users, X, XCircle,
+  DollarSign, Eye, Flag, Handshake, Keyboard, Link2, MapPin, PauseCircle, ScanLine, Search,
+  Send, Store, Ticket, TrendingUp, Undo2, UserPlus, Users, X, XCircle,
 } from 'lucide-react';
+
+const DISPUTE_CATEGORIES = [
+  'Partner refusing valid digital perk',
+  'Inappropriate business conduct',
+  'Closed storefront/unresponsive',
+] as const;
 
 const SAME_INDUSTRY_MESSAGE = 'Same-industry pairings are restricted by platform guidelines.';
 
@@ -68,6 +77,9 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
   const { data: perks } = useListCoopActivePerks({
     query: { queryKey: getListCoopActivePerksQueryKey() },
   });
+  const { data: disputes } = useListCoopDisputes({
+    query: { queryKey: getListCoopDisputesQueryKey() },
+  });
 
   const received = (partnerships ?? []).filter(
     p => p.status === 'pending' && p.requestedByTenantId != null && p.requestedByTenantId !== tenantId,
@@ -79,7 +91,7 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
   const isExpired = (p: CoopPartnership) =>
     p.perkEndsAt != null && new Date(p.perkEndsAt).getTime() <= now;
   const active = (partnerships ?? []).filter(
-    p => p.status === 'accepted' && p.isActive && !isExpired(p),
+    p => p.status === 'accepted' && p.isActive && !isExpired(p) && p.bannedAt == null,
   );
   // Expired perks are archived, never deleted — shown under an Expired state.
   const expired = (partnerships ?? []).filter(p => p.status === 'accepted' && isExpired(p));
@@ -136,6 +148,7 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
               expired={expired}
               disclaimer={perks?.disclaimer ?? null}
               tenantId={tenantId}
+              disputes={disputes ?? []}
             />
           </div>
           <Directory tenantId={tenantId} partneredTenantIds={partneredTenantIds} />
@@ -468,13 +481,17 @@ function perkWindowLabel(p: CoopPartnership): string | null {
 }
 
 function ActivePartnerships({
-  partnerships, expired, disclaimer, tenantId,
+  partnerships, expired, disclaimer, tenantId, disputes,
 }: {
   partnerships: CoopPartnership[];
   expired: CoopPartnership[];
   disclaimer: string | null;
   tenantId: number;
+  disputes: CoopDispute[];
 }) {
+  const [reportTarget, setReportTarget] = useState<CoopPartnership | null>(null);
+  const activeDisputeFor = (partnershipId: number) =>
+    disputes.find(d => d.partnershipId === partnershipId && (d.status === 'open' || d.status === 'escalated')) ?? null;
   return (
     <Card data-testid="card-coop-active-partnerships">
       <CardHeader className="pb-3">
@@ -495,11 +512,14 @@ function ActivePartnerships({
             const otherName = p.hostTenantId === tenantId ? p.partnerTenantName : p.hostTenantName;
             const window = perkWindowLabel(p);
             const scheduled = p.perkStartsAt != null && new Date(p.perkStartsAt).getTime() > Date.now();
+            const dispute = activeDisputeFor(p.id);
             return (
               <div key={p.id} className="border rounded-lg p-3 space-y-1" data-testid={`row-active-partnership-${p.id}`}>
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <ArrowLeftRight className="w-3.5 h-3.5 text-muted-foreground" /> {otherName}
-                  {scheduled ? (
+                  {p.disputeSuspended ? (
+                    <Badge variant="destructive" className="ml-auto" data-testid={`badge-partnership-suspended-${p.id}`}>Suspended</Badge>
+                  ) : scheduled ? (
                     <Badge variant="secondary" className="ml-auto" data-testid={`badge-partnership-scheduled-${p.id}`}>Scheduled</Badge>
                   ) : (
                     <Badge className="ml-auto" data-testid={`badge-partnership-live-${p.id}`}>Live</Badge>
@@ -519,6 +539,12 @@ function ActivePartnerships({
                 <div className="text-xs text-muted-foreground font-mono flex items-center gap-1">
                   <Ticket className="w-3 h-3" /> {p.redemptionCode}
                 </div>
+                <DisputeStatus
+                  partnership={p}
+                  dispute={dispute}
+                  tenantId={tenantId}
+                  onReport={() => setReportTarget(p)}
+                />
               </div>
             );
           })
@@ -553,7 +579,224 @@ function ActivePartnerships({
           </p>
         )}
       </CardContent>
+      <ReportPartnerIssueDialog
+        tenantId={tenantId}
+        target={reportTarget}
+        onClose={() => setReportTarget(null)}
+      />
     </Card>
+  );
+}
+
+// ── Dispute status + reporting ───────────────────────────────────────────────
+
+function businessDaysLeftLabel(deadlineIso: string): string {
+  const ms = new Date(deadlineIso).getTime() - Date.now();
+  if (ms <= 0) return 'Grace period ended — pending automatic suspension';
+  const days = Math.ceil(ms / (24 * 60 * 60 * 1000));
+  return `Grace period: ${days} day${days === 1 ? '' : 's'} left to resolve (until ${new Date(deadlineIso).toLocaleDateString()})`;
+}
+
+/**
+ * Per-partnership dispute surface: the "Report Partner Issue" entry point on
+ * healthy partnerships, and the grace-period countdown / suspended notice /
+ * withdraw option once a dispute exists. Both parties see the status.
+ */
+function DisputeStatus({
+  partnership, dispute, tenantId, onReport,
+}: {
+  partnership: CoopPartnership;
+  dispute: CoopDispute | null;
+  tenantId: number;
+  onReport: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const withdraw = useWithdrawCoopDispute();
+
+  if (!dispute) {
+    return (
+      <div className="pt-1.5">
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 text-destructive hover:text-destructive"
+          onClick={onReport}
+          data-testid={`button-report-issue-${partnership.id}`}
+        >
+          <Flag className="w-3.5 h-3.5" /> Report Partner Issue
+        </Button>
+      </div>
+    );
+  }
+
+  const iAmReporter = dispute.reportingTenantId === tenantId;
+  const doWithdraw = () => {
+    withdraw.mutate(
+      { id: dispute.id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            predicate: q => typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('/api/coop/'),
+          });
+          toast({ title: 'Dispute withdrawn', description: 'The partnership is fully restored.' });
+        },
+        onError: (err: unknown) => {
+          const e = err as { data?: { message?: string }; message?: string };
+          toast({
+            title: 'Could not withdraw',
+            description: e?.data?.message ?? e?.message ?? 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <div
+      className="mt-1.5 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-2.5 text-xs space-y-1.5"
+      data-testid={`dispute-status-${partnership.id}`}
+    >
+      <div className="flex items-start gap-1.5 font-medium">
+        {dispute.status === 'escalated' ? (
+          <PauseCircle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
+        ) : (
+          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+        )}
+        <span data-testid={`text-dispute-summary-${partnership.id}`}>
+          {iAmReporter
+            ? `You reported: ${dispute.category}`
+            : `${dispute.reportingTenantName} reported: ${dispute.category}`}
+        </span>
+      </div>
+      {dispute.status === 'open' ? (
+        <p className="text-muted-foreground" data-testid={`text-dispute-grace-${partnership.id}`}>
+          {businessDaysLeftLabel(dispute.graceDeadlineAt)}. If unresolved, the shared perk will be
+          paused automatically.
+        </p>
+      ) : (
+        <p className="text-destructive font-medium" data-testid={`text-dispute-suspended-${partnership.id}`}>
+          The grace period expired without resolution — this perk is paused and the partnership is
+          hidden until a platform admin reviews it.
+        </p>
+      )}
+      {iAmReporter && dispute.status === 'open' && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 h-7"
+          disabled={withdraw.isPending}
+          onClick={doWithdraw}
+          data-testid={`button-withdraw-dispute-${partnership.id}`}
+        >
+          <Undo2 className="w-3 h-3" /> Withdraw dispute
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function ReportPartnerIssueDialog({
+  tenantId, target, onClose,
+}: {
+  tenantId: number;
+  target: CoopPartnership | null;
+  onClose: () => void;
+}) {
+  const [category, setCategory] = useState<string>('');
+  const [details, setDetails] = useState('');
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const createDispute = useCreateCoopDispute();
+
+  const reset = () => { setCategory(''); setDetails(''); };
+  const otherName = target
+    ? (target.hostTenantId === tenantId ? target.partnerTenantName : target.hostTenantName)
+    : '';
+
+  const submit = () => {
+    if (!target || !category) return;
+    createDispute.mutate(
+      {
+        data: {
+          partnershipId: target.id,
+          category: category as CoopDisputeCreateCategory,
+          ...(details.trim() ? { details: details.trim() } : {}),
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            predicate: q => typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('/api/coop/'),
+          });
+          toast({
+            title: 'Issue reported',
+            description: `${otherName} has been alerted. They have 7 business days to resolve it before the perk is paused.`,
+          });
+          onClose();
+          reset();
+        },
+        onError: (err: unknown) => {
+          const e = err as { data?: { message?: string }; message?: string };
+          toast({
+            title: 'Could not file the report',
+            description: e?.data?.message ?? e?.message ?? 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={target != null} onOpenChange={o => { if (!o) { onClose(); reset(); } }}>
+      <DialogContent data-testid="dialog-report-issue">
+        <DialogHeader>
+          <DialogTitle>Report Partner Issue</DialogTitle>
+          <DialogDescription>
+            Report a problem with {otherName}. They'll be alerted and given 7 business days to
+            resolve it — if it stays unresolved, the shared perk is paused automatically and the
+            dispute goes to platform admins.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>What's the issue?</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger data-testid="select-dispute-category">
+                <SelectValue placeholder="Choose a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {DISPUTE_CATEGORIES.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dispute-details">Details (optional)</Label>
+            <Textarea
+              id="dispute-details"
+              placeholder="What happened? Anything that helps your partner or the platform resolve this."
+              value={details}
+              onChange={e => setDetails(e.target.value)}
+              data-testid="input-dispute-details"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="destructive"
+            onClick={submit}
+            disabled={!category || createDispute.isPending}
+            data-testid="button-submit-dispute"
+          >
+            <Flag className="w-4 h-4 mr-1.5" /> File Report
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
