@@ -432,6 +432,8 @@ export const GetSosSettingsResponse = zod.object({
   "businessName": zod.string(),
   "industryType": zod.string(),
   "resourceLabel": zod.string(),
+  "openTime": zod.string().describe('Daily opening time (\"HH:MM\", 24h) used to compute public booking slots.'),
+  "closeTime": zod.string().describe('Daily closing time (\"HH:MM\", 24h) used to compute public booking slots.'),
   "serviceNames": zod.string().describe('Comma-separated list of the business\'s own service names.'),
   "aiReceptionistEnabled": zod.boolean(),
   "waitlistAutoFillEnabled": zod.boolean(),
@@ -453,6 +455,8 @@ export const GetSosSettingsResponse = zod.object({
 /**
  * @summary Update SOS business settings
  */
+export const updateSosSettingsBodyOpenTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const updateSosSettingsBodyCloseTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
 export const updateSosSettingsBodyNoShowDepositAmountMin = 0;
 
 export const updateSosSettingsBodyNoShowCancellationWindowHoursMin = 0;
@@ -466,6 +470,8 @@ export const UpdateSosSettingsBody = zod.object({
   "businessName": zod.string().optional(),
   "industryType": zod.string().optional(),
   "resourceLabel": zod.string().optional(),
+  "openTime": zod.string().regex(updateSosSettingsBodyOpenTimeRegExp).optional(),
+  "closeTime": zod.string().regex(updateSosSettingsBodyCloseTimeRegExp).optional(),
   "serviceNames": zod.string().optional(),
   "aiReceptionistEnabled": zod.boolean().optional(),
   "waitlistAutoFillEnabled": zod.boolean().optional(),
@@ -483,6 +489,8 @@ export const UpdateSosSettingsResponse = zod.object({
   "businessName": zod.string(),
   "industryType": zod.string(),
   "resourceLabel": zod.string(),
+  "openTime": zod.string().describe('Daily opening time (\"HH:MM\", 24h) used to compute public booking slots.'),
+  "closeTime": zod.string().describe('Daily closing time (\"HH:MM\", 24h) used to compute public booking slots.'),
   "serviceNames": zod.string().describe('Comma-separated list of the business\'s own service names.'),
   "aiReceptionistEnabled": zod.boolean(),
   "waitlistAutoFillEnabled": zod.boolean(),
@@ -1621,6 +1629,8 @@ export const GetTenantSettingsResponse = zod.object({
   "businessName": zod.string(),
   "industryType": zod.string(),
   "resourceLabel": zod.string(),
+  "openTime": zod.string().describe('Daily opening time (\"HH:MM\", 24h) used to compute public booking slots.'),
+  "closeTime": zod.string().describe('Daily closing time (\"HH:MM\", 24h) used to compute public booking slots.'),
   "serviceNames": zod.string().describe('Comma-separated list of the business\'s own service names.'),
   "aiReceptionistEnabled": zod.boolean(),
   "waitlistAutoFillEnabled": zod.boolean(),
@@ -1646,6 +1656,8 @@ export const UpdateTenantSettingsParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const updateTenantSettingsBodyOpenTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+export const updateTenantSettingsBodyCloseTimeRegExp = new RegExp('^([01][0-9]|2[0-3]):[0-5][0-9]$');
 export const updateTenantSettingsBodyNoShowDepositAmountMin = 0;
 
 export const updateTenantSettingsBodyNoShowCancellationWindowHoursMin = 0;
@@ -1659,6 +1671,8 @@ export const UpdateTenantSettingsBody = zod.object({
   "businessName": zod.string().optional(),
   "industryType": zod.string().optional(),
   "resourceLabel": zod.string().optional(),
+  "openTime": zod.string().regex(updateTenantSettingsBodyOpenTimeRegExp).optional(),
+  "closeTime": zod.string().regex(updateTenantSettingsBodyCloseTimeRegExp).optional(),
   "serviceNames": zod.string().optional(),
   "aiReceptionistEnabled": zod.boolean().optional(),
   "waitlistAutoFillEnabled": zod.boolean().optional(),
@@ -1676,6 +1690,8 @@ export const UpdateTenantSettingsResponse = zod.object({
   "businessName": zod.string(),
   "industryType": zod.string(),
   "resourceLabel": zod.string(),
+  "openTime": zod.string().describe('Daily opening time (\"HH:MM\", 24h) used to compute public booking slots.'),
+  "closeTime": zod.string().describe('Daily closing time (\"HH:MM\", 24h) used to compute public booking slots.'),
   "serviceNames": zod.string().describe('Comma-separated list of the business\'s own service names.'),
   "aiReceptionistEnabled": zod.boolean(),
   "waitlistAutoFillEnabled": zod.boolean(),
@@ -2068,6 +2084,94 @@ export const DisconnectPartnerResponse = zod.object({
   "details": zod.string().nullable(),
   "createdAt": zod.string()
 }))
+})
+
+
+/**
+ * @summary Public (unauthenticated) booking config for a business — branding, service menu, and staff, keyed by the tenant's subdomain slug
+ */
+export const GetPublicBookingConfigParams = zod.object({
+  "slug": zod.coerce.string()
+})
+
+export const GetPublicBookingConfigResponse = zod.object({
+  "slug": zod.string(),
+  "brandName": zod.string(),
+  "businessName": zod.string(),
+  "industryType": zod.string(),
+  "resourceLabel": zod.string().describe('What this business calls a bookable staff member\/resource (e.g. \"Chair\", \"Stylist\").'),
+  "openTime": zod.string(),
+  "closeTime": zod.string(),
+  "services": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "price": zod.number().nullable(),
+  "durationMinutes": zod.number().nullable()
+})),
+  "staff": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+}))
+})
+
+
+/**
+ * @summary Compute genuinely available time slots for a service on a given day (respects business hours and existing bookings)
+ */
+export const GetPublicBookingAvailabilityParams = zod.object({
+  "slug": zod.coerce.string()
+})
+
+export const getPublicBookingAvailabilityBodyDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+
+
+export const GetPublicBookingAvailabilityBody = zod.object({
+  "serviceId": zod.number(),
+  "date": zod.string().regex(getPublicBookingAvailabilityBodyDateRegExp).describe('Local calendar date (yyyy-mm-dd) to compute slots for.'),
+  "resourceId": zod.number().optional().describe('Optional preferred staff member\/resource.')
+})
+
+export const GetPublicBookingAvailabilityResponse = zod.object({
+  "slots": zod.array(zod.object({
+  "startsAt": zod.string(),
+  "endsAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Book an appointment publicly with just name + phone/email — validated against availability with duplicate and conflict guards
+ */
+export const CreatePublicBookingParams = zod.object({
+  "slug": zod.coerce.string()
+})
+
+export const createPublicBookingBodyNameMax = 120;
+
+export const createPublicBookingBodyPhoneMax = 30;
+
+export const createPublicBookingBodyEmailMax = 254;
+
+
+
+export const CreatePublicBookingBody = zod.object({
+  "serviceId": zod.number(),
+  "startsAt": zod.string(),
+  "resourceId": zod.number().optional(),
+  "name": zod.string().min(1).max(createPublicBookingBodyNameMax),
+  "phone": zod.string().max(createPublicBookingBodyPhoneMax).optional(),
+  "email": zod.string().max(createPublicBookingBodyEmailMax).optional()
+})
+
+export const CreatePublicBookingResponse = zod.object({
+  "appointmentId": zod.number(),
+  "serviceType": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "businessName": zod.string(),
+  "staffName": zod.string().nullish()
 })
 
 

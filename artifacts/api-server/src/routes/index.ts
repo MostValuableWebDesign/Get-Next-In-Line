@@ -10,6 +10,7 @@ import adminRouter from "./admin";
 import sosRouter from "./sos";
 import conciergeRouter from "./concierge";
 import partnersRouter from "./partners";
+import publicBookingRouter from "./publicBooking";
 
 const router: IRouter = Router();
 
@@ -17,6 +18,10 @@ const router: IRouter = Router();
 // These do not require an authenticated session.
 router.use(healthRouter); // GET /healthz
 router.use(authRouter);   // POST /auth/login, POST /auth/logout, GET /auth/me
+// Public booking flow (/public/booking/:slug/...) — deliberately
+// unauthenticated: customers book without an account. Slug-scoped, exposes
+// only the public booking surface, and booking creation is rate limited.
+router.use(publicBookingRouter);
 
 // ── Protected routes ─────────────────────────────────────────────────────────
 // All routes below this middleware require a valid session — except the

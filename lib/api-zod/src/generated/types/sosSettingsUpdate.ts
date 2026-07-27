@@ -10,6 +10,10 @@ export interface SosSettingsUpdate {
   businessName?: string;
   industryType?: string;
   resourceLabel?: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]$ */
+  openTime?: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]$ */
+  closeTime?: string;
   serviceNames?: string;
   aiReceptionistEnabled?: boolean;
   waitlistAutoFillEnabled?: boolean;

@@ -108,6 +108,8 @@ export async function serializeSettings(s: SosSettingsRow) {
     businessName: s.businessName,
     industryType: s.industryType,
     resourceLabel: s.resourceLabel,
+    openTime: s.openTime,
+    closeTime: s.closeTime,
     aiReceptionistEnabled: s.aiReceptionistEnabled,
     waitlistAutoFillEnabled: s.waitlistAutoFillEnabled,
     smsFromNumber: s.smsFromNumber,

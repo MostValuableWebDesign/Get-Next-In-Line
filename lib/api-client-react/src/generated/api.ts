@@ -54,6 +54,11 @@ import type {
   PartnerConnectResult,
   PartnerConnectionStatus,
   PartnerConnectionSummary,
+  PublicAvailabilityInput,
+  PublicAvailabilityResponse,
+  PublicBookingConfig,
+  PublicBookingConfirmation,
+  PublicBookingInput,
   SosAppointment,
   SosAppointmentInput,
   SosCall,
@@ -6160,5 +6165,226 @@ export const useDisconnectPartner = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDisconnectPartnerMutationOptions(options));
+    }
+
+export const getGetPublicBookingConfigUrl = (slug: string,) => {
+
+
+
+
+  return `/api/public/booking/${slug}`
+}
+
+/**
+ * @summary Public (unauthenticated) booking config for a business — branding, service menu, and staff, keyed by the tenant's subdomain slug
+ */
+export const getPublicBookingConfig = async (slug: string, options?: RequestInit): Promise<PublicBookingConfig> => {
+
+  return customFetch<PublicBookingConfig>(getGetPublicBookingConfigUrl(slug),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicBookingConfigQueryKey = (slug: string,) => {
+    return [
+    `/api/public/booking/${slug}`
+    ] as const;
+    }
+
+
+export const getGetPublicBookingConfigQueryOptions = <TData = Awaited<ReturnType<typeof getPublicBookingConfig>>, TError = ErrorType<void>>(slug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicBookingConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicBookingConfigQueryKey(slug);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicBookingConfig>>> = ({ signal }) => getPublicBookingConfig(slug, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: slug !== null && slug !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicBookingConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicBookingConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicBookingConfig>>>
+export type GetPublicBookingConfigQueryError = ErrorType<void>
+
+
+/**
+ * @summary Public (unauthenticated) booking config for a business — branding, service menu, and staff, keyed by the tenant's subdomain slug
+ */
+
+export function useGetPublicBookingConfig<TData = Awaited<ReturnType<typeof getPublicBookingConfig>>, TError = ErrorType<void>>(
+ slug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicBookingConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicBookingConfigQueryOptions(slug,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPublicBookingAvailabilityUrl = (slug: string,) => {
+
+
+
+
+  return `/api/public/booking/${slug}/availability`
+}
+
+/**
+ * @summary Compute genuinely available time slots for a service on a given day (respects business hours and existing bookings)
+ */
+export const getPublicBookingAvailability = async (slug: string,
+    publicAvailabilityInput: PublicAvailabilityInput, options?: RequestInit): Promise<PublicAvailabilityResponse> => {
+
+  return customFetch<PublicAvailabilityResponse>(getGetPublicBookingAvailabilityUrl(slug),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(publicAvailabilityInput)
+  }
+);}
+
+
+
+
+
+export const getGetPublicBookingAvailabilityMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getPublicBookingAvailability>>, TError,{slug: string;data: BodyType<PublicAvailabilityInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof getPublicBookingAvailability>>, TError,{slug: string;data: BodyType<PublicAvailabilityInput>}, TContext> => {
+
+const mutationKey = ['getPublicBookingAvailability'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof getPublicBookingAvailability>>, {slug: string;data: BodyType<PublicAvailabilityInput>}> = (props) => {
+          const {slug,data} = props ?? {};
+
+          return  getPublicBookingAvailability(slug,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GetPublicBookingAvailabilityMutationResult = NonNullable<Awaited<ReturnType<typeof getPublicBookingAvailability>>>
+    export type GetPublicBookingAvailabilityMutationBody = BodyType<PublicAvailabilityInput>
+    export type GetPublicBookingAvailabilityMutationError = ErrorType<void>
+
+    /**
+ * @summary Compute genuinely available time slots for a service on a given day (respects business hours and existing bookings)
+ */
+export const useGetPublicBookingAvailability = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getPublicBookingAvailability>>, TError,{slug: string;data: BodyType<PublicAvailabilityInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof getPublicBookingAvailability>>,
+        TError,
+        {slug: string;data: BodyType<PublicAvailabilityInput>},
+        TContext
+      > => {
+      return useMutation(getGetPublicBookingAvailabilityMutationOptions(options));
+    }
+
+export const getCreatePublicBookingUrl = (slug: string,) => {
+
+
+
+
+  return `/api/public/booking/${slug}/appointments`
+}
+
+/**
+ * @summary Book an appointment publicly with just name + phone/email — validated against availability with duplicate and conflict guards
+ */
+export const createPublicBooking = async (slug: string,
+    publicBookingInput: PublicBookingInput, options?: RequestInit): Promise<PublicBookingConfirmation> => {
+
+  return customFetch<PublicBookingConfirmation>(getCreatePublicBookingUrl(slug),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(publicBookingInput)
+  }
+);}
+
+
+
+
+
+export const getCreatePublicBookingMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPublicBooking>>, TError,{slug: string;data: BodyType<PublicBookingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPublicBooking>>, TError,{slug: string;data: BodyType<PublicBookingInput>}, TContext> => {
+
+const mutationKey = ['createPublicBooking'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPublicBooking>>, {slug: string;data: BodyType<PublicBookingInput>}> = (props) => {
+          const {slug,data} = props ?? {};
+
+          return  createPublicBooking(slug,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePublicBookingMutationResult = NonNullable<Awaited<ReturnType<typeof createPublicBooking>>>
+    export type CreatePublicBookingMutationBody = BodyType<PublicBookingInput>
+    export type CreatePublicBookingMutationError = ErrorType<void>
+
+    /**
+ * @summary Book an appointment publicly with just name + phone/email — validated against availability with duplicate and conflict guards
+ */
+export const useCreatePublicBooking = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPublicBooking>>, TError,{slug: string;data: BodyType<PublicBookingInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPublicBooking>>,
+        TError,
+        {slug: string;data: BodyType<PublicBookingInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePublicBookingMutationOptions(options));
     }
 

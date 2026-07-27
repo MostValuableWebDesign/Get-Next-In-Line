@@ -5,6 +5,82 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+export interface PublicBookingService {
+  id: number;
+  name: string;
+  /** @nullable */
+  category: string | null;
+  /** @nullable */
+  description: string | null;
+  /** @nullable */
+  price: number | null;
+  /** @nullable */
+  durationMinutes: number | null;
+}
+
+export interface PublicBookingStaff {
+  id: number;
+  name: string;
+}
+
+export interface PublicBookingConfig {
+  slug: string;
+  brandName: string;
+  businessName: string;
+  industryType: string;
+  /** What this business calls a bookable staff member/resource (e.g. "Chair", "Stylist"). */
+  resourceLabel: string;
+  openTime: string;
+  closeTime: string;
+  services: PublicBookingService[];
+  staff: PublicBookingStaff[];
+}
+
+export interface PublicAvailabilityInput {
+  serviceId: number;
+  /**
+     * Local calendar date (yyyy-mm-dd) to compute slots for.
+     * @pattern ^\d{4}-\d{2}-\d{2}$
+     */
+  date: string;
+  /** Optional preferred staff member/resource. */
+  resourceId?: number;
+}
+
+export interface PublicTimeSlot {
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface PublicAvailabilityResponse {
+  slots: PublicTimeSlot[];
+}
+
+export interface PublicBookingInput {
+  serviceId: number;
+  startsAt: string;
+  resourceId?: number;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+  /** @maxLength 30 */
+  phone?: string;
+  /** @maxLength 254 */
+  email?: string;
+}
+
+export interface PublicBookingConfirmation {
+  appointmentId: number;
+  serviceType: string;
+  startsAt: string;
+  endsAt: string;
+  businessName: string;
+  /** @nullable */
+  staffName?: string | null;
+}
+
 export type PartnerConnectionSummaryStatus = typeof PartnerConnectionSummaryStatus[keyof typeof PartnerConnectionSummaryStatus];
 
 
@@ -294,6 +370,10 @@ export interface SosSettings {
   businessName: string;
   industryType: string;
   resourceLabel: string;
+  /** Daily opening time ("HH:MM", 24h) used to compute public booking slots. */
+  openTime: string;
+  /** Daily closing time ("HH:MM", 24h) used to compute public booking slots. */
+  closeTime: string;
   /** Comma-separated list of the business's own service names. */
   serviceNames: string;
   aiReceptionistEnabled: boolean;
@@ -321,6 +401,10 @@ export interface SosSettingsUpdate {
   businessName?: string;
   industryType?: string;
   resourceLabel?: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]$ */
+  openTime?: string;
+  /** @pattern ^([01][0-9]|2[0-3]):[0-5][0-9]$ */
+  closeTime?: string;
   serviceNames?: string;
   aiReceptionistEnabled?: boolean;
   waitlistAutoFillEnabled?: boolean;

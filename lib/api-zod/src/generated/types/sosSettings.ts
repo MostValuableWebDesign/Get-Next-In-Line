@@ -14,6 +14,10 @@ export interface SosSettings {
   businessName: string;
   industryType: string;
   resourceLabel: string;
+  /** Daily opening time ("HH:MM", 24h) used to compute public booking slots. */
+  openTime: string;
+  /** Daily closing time ("HH:MM", 24h) used to compute public booking slots. */
+  closeTime: string;
   /** Comma-separated list of the business's own service names. */
   serviceNames: string;
   aiReceptionistEnabled: boolean;

@@ -73,6 +73,8 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
     resourceLabel: '',
   });
   const [waitlistAutoFillEnabled, setWaitlistAutoFillEnabled] = React.useState(false);
+  const [openTime, setOpenTime] = React.useState('09:00');
+  const [closeTime, setCloseTime] = React.useState('17:00');
   const [smsFromNumber, setSmsFromNumber] = React.useState('');
   const [noShowShieldEnabled, setNoShowShieldEnabled] = React.useState(false);
   const [noShowDepositAmount, setNoShowDepositAmount] = React.useState('25');
@@ -94,6 +96,8 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
         resourceLabel: settings.resourceLabel,
       });
       setWaitlistAutoFillEnabled(settings.waitlistAutoFillEnabled);
+      setOpenTime(settings.openTime);
+      setCloseTime(settings.closeTime);
       setSmsFromNumber(settings.smsFromNumber || '');
       setNoShowShieldEnabled(settings.noShowShieldEnabled);
       setNoShowDepositAmount(String(settings.noShowDepositAmount));
@@ -131,6 +135,8 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       aiReceptionistEnabled: boolean;
       waitlistAutoFillEnabled: boolean;
       smsFromNumber: string;
+      openTime: string;
+      closeTime: string;
       noShowShieldEnabled: boolean;
       noShowDepositAmount: number;
       noShowCancellationWindowHours: number;
@@ -339,6 +345,19 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Online Booking (public page + embeddable widget) ────────── */}
+      {isTenantScoped && (
+        <OnlineBookingCard
+          slug={tenant?.subdomain ?? null}
+          openTime={openTime}
+          closeTime={closeTime}
+          setOpenTime={setOpenTime}
+          setCloseTime={setCloseTime}
+          onSave={() => saveSection('Online Booking', { openTime, closeTime })}
+          isPending={isPending}
+        />
+      )}
 
       {/* ── No-Show Shield & Deposits ───────────────────────────────── */}
       <Card id="no-show-shield" className="scroll-mt-6" data-testid="section-no-show-shield">
@@ -555,5 +574,121 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Online Booking section (tenant-scoped only): business hours that drive the
+ * public page's offered slots, the business's public booking link, and the
+ * copy-paste iframe embed snippet for WordPress/Wix/Squarespace/Shopify.
+ */
+function OnlineBookingCard({
+  slug, openTime, closeTime, setOpenTime, setCloseTime, onSave, isPending,
+}: {
+  slug: string | null;
+  openTime: string;
+  closeTime: string;
+  setOpenTime: (v: string) => void;
+  setCloseTime: (v: string) => void;
+  onSave: () => void;
+  isPending: boolean;
+}) {
+  const { toast } = useToast();
+  const base = `${window.location.origin}${import.meta.env.BASE_URL}`;
+  const publicUrl = slug ? `${base}book/${slug}` : null;
+  const embedSnippet = publicUrl
+    ? `<iframe src="${publicUrl}?embed=1" title="Book an appointment" style="width:100%;max-width:480px;height:640px;border:0;border-radius:12px;" loading="lazy"></iframe>`
+    : null;
+
+  const copy = async (label: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: `${label} copied` });
+    } catch {
+      toast({ title: `Couldn't copy ${label.toLowerCase()}`, variant: 'destructive' });
+    }
+  };
+
+  return (
+    <Card id="online-booking" className="scroll-mt-6" data-testid="section-online-booking">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ExternalLink className="w-5 h-5 text-primary" /> Online Booking
+        </CardTitle>
+        <CardDescription>
+          Customers book directly — no login — from your public page or a widget embedded on your own website.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="open-time">Opens at</Label>
+            <Input
+              id="open-time"
+              type="time"
+              value={openTime}
+              onChange={(e) => setOpenTime(e.target.value)}
+              data-testid="input-open-time"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="close-time">Closes at</Label>
+            <Input
+              id="close-time"
+              type="time"
+              value={closeTime}
+              onChange={(e) => setCloseTime(e.target.value)}
+              data-testid="input-close-time"
+            />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Only time slots inside these hours (and not already booked) are offered to customers.
+        </p>
+
+        {publicUrl ? (
+          <>
+            <div className="space-y-2">
+              <Label>Public booking link</Label>
+              <div className="flex gap-2">
+                <Input readOnly value={publicUrl} className="font-mono text-xs" data-testid="input-public-booking-url" />
+                <Button variant="outline" onClick={() => copy('Link', publicUrl)} data-testid="button-copy-booking-url">
+                  Copy
+                </Button>
+                <Button asChild variant="outline" data-testid="link-open-booking-page">
+                  <a href={publicUrl} target="_blank" rel="noreferrer">Open</a>
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Embed widget</Label>
+              <p className="text-xs text-muted-foreground">
+                Paste this snippet into WordPress, Wix, Squarespace, Shopify, or any site that accepts custom HTML.
+              </p>
+              <div className="flex gap-2 items-start">
+                <textarea
+                  readOnly
+                  value={embedSnippet ?? ''}
+                  rows={3}
+                  className="flex-1 rounded-md border bg-muted/40 p-2 font-mono text-xs resize-none"
+                  data-testid="textarea-embed-snippet"
+                />
+                <Button variant="outline" onClick={() => embedSnippet && copy('Embed snippet', embedSnippet)} data-testid="button-copy-embed-snippet">
+                  Copy
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">Loading your booking link…</p>
+        )}
+
+        <div className="flex justify-end">
+          <Button onClick={onSave} disabled={isPending} data-testid="button-save-online-booking">
+            Save Online Booking
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

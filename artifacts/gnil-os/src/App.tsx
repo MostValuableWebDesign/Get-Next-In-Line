@@ -10,6 +10,7 @@ import TenantDetail from "@/pages/TenantDetail";
 import OperationsHub from "@/pages/OperationsHub";
 import ModuleConsole from "@/pages/ModuleConsole";
 import Login from "@/pages/Login";
+import PublicBookingPage from "@/pages/public-booking";
 import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
@@ -194,6 +195,12 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      {/* Public no-login booking page (also the embeddable widget with
+          ?embed=1) — must stay outside ProtectedApp so customers can book
+          without an account. */}
+      <Route path="/book/:slug">
+        {(params) => <PublicBookingPage slug={params.slug} />}
+      </Route>
       <Route component={ProtectedApp} />
     </Switch>
   );

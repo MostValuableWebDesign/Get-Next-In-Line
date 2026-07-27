@@ -25,6 +25,10 @@ export const sosSettingsTable = pgTable("sos_settings", {
   businessName: text("business_name").notNull().default("SOS Operations"),
   industryType: text("industry_type").notNull().default("salon"),
   resourceLabel: text("resource_label").notNull().default("Chair"),
+  // Daily business hours ("HH:MM", 24h) used by the public booking page to
+  // compute offerable slots. Single open/close window applied to every day.
+  openTime: text("open_time").notNull().default("09:00"),
+  closeTime: text("close_time").notNull().default("17:00"),
   // Comma-separated list of the business's own service names (e.g. "haircut, color").
   serviceNames: text("service_names").notNull().default(""),
   aiReceptionistEnabled: boolean("ai_receptionist_enabled").notNull().default(true),
