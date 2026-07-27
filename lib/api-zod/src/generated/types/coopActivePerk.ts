@@ -16,6 +16,11 @@ export interface CoopActivePerk {
   partnerName: string;
   redemptionCode: string;
   /**
+     * Direction-aware tracking code for the scoped tenant as sender — encoded in the customer pass QR so redemptions at the partner are attributed to this business.
+     * @nullable
+     */
+  trackingCode: string | null;
+  /**
      * ISO timestamp the perk expires; null = never expires.
      * @nullable
      */

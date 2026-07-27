@@ -9,6 +9,7 @@ import {
   sosStaffMembersTable,
   merchantCoopPartnershipsTable,
   perkPassesTable,
+  coopAttributionEventsTable,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { createHmac } from "crypto";
@@ -379,6 +380,67 @@ describe("normalized event pipeline", () => {
     // A second redemption attempt (new event id) is ignored, not re-applied.
     const second = await deliver(integ, payload(`${RUN}-vg-redeem-2`));
     expect(second.body.status).toBe("ignored");
+
+    // Exactly one attribution event exists for this redemption, with the
+    // redeeming (partner) tenant as the receiver.
+    const events = await db
+      .select()
+      .from(coopAttributionEventsTable)
+      .where(eq(coopAttributionEventsTable.partnershipId, pass.partnershipId));
+    expect(events.length).toBe(1);
+    expect(events[0].receivingTenantId).toBe(partnerTenantId);
+    expect(events[0].direction).toBe("host_to_partner");
+  });
+
+  it("rejects a POS redemption from a tenant outside the pass's partnership", async () => {
+    // Grant a fresh pass for the same partnership, then present its token
+    // through an OUTSIDER tenant's POS integration.
+    const [pass] = await db
+      .select()
+      .from(perkPassesTable)
+      .where(eq(perkPassesTable.customerPhone, "+15552010001"));
+    const [fresh] = await db
+      .insert(perkPassesTable)
+      .values({
+        partnershipId: pass.partnershipId,
+        grantedByTenantId: pass.grantedByTenantId,
+        customerPhone: "+15552010002",
+        token: `WPASS-${RUN}-OUTSIDER`,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      })
+      .returning();
+    const [outsider] = await db
+      .insert(tenantsTable)
+      .values([{ brandName: `POS Outsider ${RUN}`, subdomain: `${RUN}-posout`, status: "active" }])
+      .returning({ id: tenantsTable.id });
+    try {
+      const agent = await loggedInAgent();
+      const enabled = await agent
+        .post("/api/pos/integrations/vagaro/enable")
+        .set("x-tenant-id", String(outsider.id));
+      const integ = enabled.body as Integ;
+      const res = await deliver(integ, {
+        eventId: `${RUN}-vg-outsider-1`,
+        eventType: "promotion.redeemed",
+        data: { promoCode: fresh.token },
+      });
+      expect(res.body.status).toBe("error");
+
+      // No writes: the pass is still unredeemed and no attribution recorded.
+      const [after] = await db
+        .select()
+        .from(perkPassesTable)
+        .where(eq(perkPassesTable.id, fresh.id));
+      expect(after.redeemedAt).toBeNull();
+      const events = await db
+        .select()
+        .from(coopAttributionEventsTable)
+        .where(eq(coopAttributionEventsTable.partnershipId, pass.partnershipId));
+      expect(events.length).toBe(1);
+    } finally {
+      await db.delete(tenantsTable).where(eq(tenantsTable.id, outsider.id));
+      await db.delete(perkPassesTable).where(eq(perkPassesTable.id, fresh.id));
+    }
   });
 });
 

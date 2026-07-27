@@ -388,6 +388,8 @@ export const ListCoopPartnershipsResponseItem = zod.object({
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
   "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
+  "hostTrackingCode": zod.string().nullable().describe('Tracking code carried by the host\'s customers (host→partner traffic); null only until backfilled.'),
+  "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -429,6 +431,8 @@ export const CreateCoopPartnershipResponse = zod.object({
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
   "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
+  "hostTrackingCode": zod.string().nullable().describe('Tracking code carried by the host\'s customers (host→partner traffic); null only until backfilled.'),
+  "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -471,6 +475,8 @@ export const UpdateCoopPartnershipResponse = zod.object({
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
   "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
+  "hostTrackingCode": zod.string().nullable().describe('Tracking code carried by the host\'s customers (host→partner traffic); null only until backfilled.'),
+  "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -576,6 +582,8 @@ export const CreateCoopInviteResponse = zod.object({
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
   "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
+  "hostTrackingCode": zod.string().nullable().describe('Tracking code carried by the host\'s customers (host→partner traffic); null only until backfilled.'),
+  "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -609,6 +617,8 @@ export const RespondToCoopInviteResponse = zod.object({
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
   "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
+  "hostTrackingCode": zod.string().nullable().describe('Tracking code carried by the host\'s customers (host→partner traffic); null only until backfilled.'),
+  "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -626,6 +636,7 @@ export const ListCoopActivePerksResponse = zod.object({
   "mutualRewardTerms": zod.string().nullable(),
   "partnerName": zod.string(),
   "redemptionCode": zod.string(),
+  "trackingCode": zod.string().nullable().describe('Direction-aware tracking code for the scoped tenant as sender — encoded in the customer pass QR so redemptions at the partner are attributed to this business.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.')
 })),
   "flashPerks": zod.array(zod.object({
@@ -672,6 +683,8 @@ export const RedeemCoopPerkResponse = zod.object({
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
   "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
+  "hostTrackingCode": zod.string().nullable().describe('Tracking code carried by the host\'s customers (host→partner traffic); null only until backfilled.'),
+  "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 }),zod.null()]),
@@ -940,6 +953,32 @@ export const RegisterViaPlatformInviteResponse = zod.object({
 
 
 /**
+ * @summary Merchant-facing — cross-promotion traffic per partnership and in aggregate (sent vs. received) over a rolling window; tenant scope via x-tenant-id
+ */
+export const getCoopStatsQueryWindowDaysDefault = 30;
+
+export const GetCoopStatsQueryParams = zod.object({
+  "windowDays": zod.union([zod.literal(30),zod.literal(90)]).default(getCoopStatsQueryWindowDaysDefault)
+})
+
+export const GetCoopStatsResponse = zod.object({
+  "windowDays": zod.number(),
+  "totals": zod.object({
+  "sent": zod.number(),
+  "received": zod.number()
+}),
+  "partnerships": zod.array(zod.object({
+  "partnershipId": zod.number(),
+  "partnerName": zod.string(),
+  "perkTitle": zod.string(),
+  "isActive": zod.boolean(),
+  "sent": zod.number().describe('Customers this business sent to the partner (redeemed there) in the window.'),
+  "received": zod.number().describe('Customers the partner sent here (redeemed at this business) in the window.')
+}))
+})
+
+
+/**
  * @summary Validate a co-op perk redemption code at checkout time
  */
 export const ValidateCoopRedemptionCodeParams = zod.object({
@@ -966,6 +1005,8 @@ export const ValidateCoopRedemptionCodeResponse = zod.object({
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
   "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
+  "hostTrackingCode": zod.string().nullable().describe('Tracking code carried by the host\'s customers (host→partner traffic); null only until backfilled.'),
+  "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 }),zod.null()])

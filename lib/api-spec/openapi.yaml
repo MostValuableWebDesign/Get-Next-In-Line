@@ -878,6 +878,28 @@ paths:
           description: Invite expired
         "429":
           description: Too many registration attempts
+  /coop/stats:
+    get:
+      operationId: getCoopStats
+      tags: [coop]
+      summary: Merchant-facing — cross-promotion traffic per partnership and in aggregate (sent vs. received) over a rolling window; tenant scope via x-tenant-id
+      parameters:
+        - name: windowDays
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [30, 90]
+            default: 30
+      responses:
+        "200":
+          description: Attribution counts for the scoped tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopStatsResponse"
+        "400":
+          description: Missing x-tenant-id header or invalid window
 
   /coop/redemptions/{code}:
     get:
@@ -3289,6 +3311,8 @@ components:
           perkEndsAt,
           disputeSuspended,
           bannedAt,
+          hostTrackingCode,
+          partnerTrackingCode,
           isActive,
           createdAt,
         ]
@@ -3332,6 +3356,12 @@ components:
         bannedAt:
           type: ["string", "null"]
           description: Set when a platform admin permanently banned the partnership.
+        hostTrackingCode:
+          type: ["string", "null"]
+          description: Tracking code carried by the host's customers (host→partner traffic); null only until backfilled.
+        partnerTrackingCode:
+          type: ["string", "null"]
+          description: Tracking code carried by the partner's customers (partner→host traffic); null only until backfilled.
         isActive:
           type: boolean
         createdAt:
@@ -3547,7 +3577,7 @@ components:
 
     CoopActivePerk:
       type: object
-      required: [id, perkTitle, perkDescription, mutualRewardTerms, partnerName, redemptionCode, perkEndsAt]
+      required: [id, perkTitle, perkDescription, mutualRewardTerms, partnerName, redemptionCode, trackingCode, perkEndsAt]
       properties:
         id:
           type: integer
@@ -3561,6 +3591,9 @@ components:
           type: string
         redemptionCode:
           type: string
+        trackingCode:
+          type: ["string", "null"]
+          description: Direction-aware tracking code for the scoped tenant as sender — encoded in the customer pass QR so redemptions at the partner are attributed to this business.
         perkEndsAt:
           type: ["string", "null"]
           description: ISO timestamp the perk expires; null = never expires.
@@ -3922,6 +3955,44 @@ components:
           type: number
         createdAt:
           type: string
+
+    CoopPartnershipStats:
+      type: object
+      required: [partnershipId, partnerName, perkTitle, isActive, sent, received]
+      properties:
+        partnershipId:
+          type: integer
+        partnerName:
+          type: string
+        perkTitle:
+          type: string
+        isActive:
+          type: boolean
+        sent:
+          type: integer
+          description: Customers this business sent to the partner (redeemed there) in the window.
+        received:
+          type: integer
+          description: Customers the partner sent here (redeemed at this business) in the window.
+
+    CoopStatsResponse:
+      type: object
+      required: [windowDays, totals, partnerships]
+      properties:
+        windowDays:
+          type: integer
+        totals:
+          type: object
+          required: [sent, received]
+          properties:
+            sent:
+              type: integer
+            received:
+              type: integer
+        partnerships:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopPartnershipStats"
 
     CoopPartnershipCreate:
       type: object

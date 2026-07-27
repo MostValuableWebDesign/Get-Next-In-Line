@@ -61,6 +61,7 @@ import type {
   CoopPerkRedeemRequest,
   CoopPerkRedeemResult,
   CoopRedemptionValidation,
+  CoopStatsResponse,
   CoopSuggestion,
   CoopSuggestionDismissResult,
   CoopTaxonomyIndustry,
@@ -69,6 +70,7 @@ import type {
   EngagementRuleUpdate,
   ExportAdminComplianceReportParams,
   GetAdminComplianceSummaryParams,
+  GetCoopStatsParams,
   GetSosStaffEarningsParams,
   GetTenantActivityParams,
   HealthStatus,
@@ -3210,6 +3212,90 @@ export const useRegisterViaPlatformInvite = <TError = ErrorType<void>,
       > => {
       return useMutation(getRegisterViaPlatformInviteMutationOptions(options));
     }
+
+export const getGetCoopStatsUrl = (params?: GetCoopStatsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/coop/stats?${stringifiedParams}` : `/api/coop/stats`
+}
+
+/**
+ * @summary Merchant-facing — cross-promotion traffic per partnership and in aggregate (sent vs. received) over a rolling window; tenant scope via x-tenant-id
+ */
+export const getCoopStats = async (params?: GetCoopStatsParams, options?: RequestInit): Promise<CoopStatsResponse> => {
+
+  return customFetch<CoopStatsResponse>(getGetCoopStatsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopStatsQueryKey = (params?: GetCoopStatsParams,) => {
+    return [
+    `/api/coop/stats`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCoopStatsQueryOptions = <TData = Awaited<ReturnType<typeof getCoopStats>>, TError = ErrorType<void>>(params?: GetCoopStatsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopStatsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopStats>>> = ({ signal }) => getCoopStats(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopStats>>>
+export type GetCoopStatsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — cross-promotion traffic per partnership and in aggregate (sent vs. received) over a rolling window; tenant scope via x-tenant-id
+ */
+
+export function useGetCoopStats<TData = Awaited<ReturnType<typeof getCoopStats>>, TError = ErrorType<void>>(
+ params?: GetCoopStatsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopStatsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getValidateCoopRedemptionCodeUrl = (code: string,) => {
 

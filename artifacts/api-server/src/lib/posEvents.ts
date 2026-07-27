@@ -9,6 +9,7 @@ import {
   sosVisitsTable,
   perkPassesTable,
   coopPerkRedemptionsTable,
+  coopAttributionEventsTable,
   type PosIntegration,
 } from "@workspace/db";
 import type { PgColumn } from "drizzle-orm/pg-core";
@@ -19,6 +20,7 @@ import { autoLinkCustomer } from "./customerLink";
 import { updateProfileCadence } from "./visitCadence";
 import { grantPerkPassesSafe, findWalletPass, isWalletPassToken } from "./perkPasses";
 import { attachRevenueToRecentCrossoverSafe } from "./coopEvents";
+import type { CoopDirection } from "./coopTracking";
 import { translatePosPayload, type NormalizedPosEvent, type PosVendor } from "./posVendors";
 
 /**
@@ -253,6 +255,18 @@ async function applyPerkRedeemed(
   if (row.pass.expiresAt <= new Date()) {
     return { status: "error", detail: "Pass has expired" };
   }
+  // Same integrity rule as the native /coop/redemptions path: only a business
+  // that is a party to the partnership may redeem its passes. A leaked token
+  // presented through some other tenant's POS is rejected without writes.
+  if (
+    integration.tenantId !== row.partnership.hostTenantId &&
+    integration.tenantId !== row.partnership.partnerTenantId
+  ) {
+    return {
+      status: "error",
+      detail: "Only a business in this partnership can redeem this perk pass",
+    };
+  }
   // Conditional update is the single-use lock (same as the native
   // /coop/redemptions path): exactly one redeemer flips redeemed_at.
   const [redeemed] = await db
@@ -264,14 +278,33 @@ async function applyPerkRedeemed(
     return { status: "ignored", detail: "Pass was already redeemed" };
   }
   // Mirror into the shared redemption ledger for partner-side reporting.
-  await db
+  const [redemption] = await db
     .insert(coopPerkRedemptionsTable)
     .values({
       partnershipId: row.partnership.id,
       passCode: token,
       redeemedByTenantId: integration.tenantId,
     })
-    .onConflictDoNothing();
+    .onConflictDoNothing()
+    .returning();
+  // Attribution: exactly one event per counted redemption (unique
+  // redemption_id makes replays no-ops). The redeeming tenant is the
+  // receiver; the other side of the partnership sent the customer.
+  if (redemption) {
+    const p = row.partnership;
+    const direction: CoopDirection =
+      integration.tenantId === p.hostTenantId ? "partner_to_host" : "host_to_partner";
+    await db
+      .insert(coopAttributionEventsTable)
+      .values({
+        redemptionId: redemption.id,
+        partnershipId: p.id,
+        direction,
+        sendingTenantId: direction === "host_to_partner" ? p.hostTenantId : p.partnerTenantId,
+        receivingTenantId: integration.tenantId,
+      })
+      .onConflictDoNothing();
+  }
   return { status: "processed", detail: `Perk pass ${token} redeemed` };
 }
 

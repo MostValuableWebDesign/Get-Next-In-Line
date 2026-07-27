@@ -48,6 +48,15 @@ export function perkQrPayload(redemptionCode: string, passCode: string): string 
 }
 
 /**
+ * Code the customer pass QR should carry: the direction-aware tracking code
+ * when present (attributes the redemption to this business as the sender),
+ * falling back to the legacy shared redemption code.
+ */
+export function perkPassCode(perk: Pick<CoopActivePerk, 'trackingCode' | 'redemptionCode'>): string {
+  return perk.trackingCode ?? perk.redemptionCode;
+}
+
+/**
  * Compact partner-perk block reused across the checkout ticket, the printed
  * receipt, and customer pass/plan surfaces. `staffFacing` controls whether
  * the redemption code is shown. When `passCode` is provided (customer pass
@@ -114,10 +123,10 @@ export function PartnerPerksBlock({
             {passCode && (
               <div className="mt-1.5 flex items-center gap-3" data-testid={`qr-partner-perk-${perk.id}`}>
                 <div className="bg-white p-1.5 rounded-md border">
-                  <QRCodeSVG value={perkQrPayload(perk.redemptionCode, passCode)} size={72} />
+                  <QRCodeSVG value={perkQrPayload(perkPassCode(perk), passCode)} size={72} />
                 </div>
                 <div className="text-[10px] font-mono text-muted-foreground break-all">
-                  {perkQrPayload(perk.redemptionCode, passCode)}
+                  {perkQrPayload(perkPassCode(perk), passCode)}
                   <div className="font-sans mt-0.5">Show this at {perk.partnerName} to redeem — one use per pass.</div>
                 </div>
               </div>

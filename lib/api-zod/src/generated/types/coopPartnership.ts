@@ -44,6 +44,16 @@ export interface CoopPartnership {
      * @nullable
      */
   bannedAt: string | null;
+  /**
+     * Tracking code carried by the host's customers (host→partner traffic); null only until backfilled.
+     * @nullable
+     */
+  hostTrackingCode: string | null;
+  /**
+     * Tracking code carried by the partner's customers (partner→host traffic); null only until backfilled.
+     * @nullable
+     */
+  partnerTrackingCode: string | null;
   isActive: boolean;
   createdAt: string;
 }

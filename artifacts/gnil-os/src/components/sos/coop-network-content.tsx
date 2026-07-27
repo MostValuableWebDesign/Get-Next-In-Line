@@ -12,6 +12,7 @@ import {
   useListCoopDisputes, getListCoopDisputesQueryKey,
   useCreateCoopDispute, useWithdrawCoopDispute,
   useListCoopSuggestions, getListCoopSuggestionsQueryKey,
+  useGetCoopStats, getGetCoopStatsQueryKey,
   useDismissCoopSuggestion,
   type CoopSuggestion,
   type CoopDirectoryEntry, type CoopPartnership, type CoopPerkRedeemResult,
@@ -37,7 +38,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { CoopCampaignsSection } from '@/components/sos/coop-campaigns-content';
 import {
-  AlertTriangle, ArrowLeftRight, ArrowUpDown, BarChart3, Bell, CalendarClock, Check, Copy,
+  AlertTriangle, ArrowDownLeft, ArrowLeftRight, ArrowUpDown, ArrowUpRight, BarChart3, Bell, CalendarClock, Check, Copy,
   DollarSign, Eye, Flag, Handshake, Keyboard, Link2, MapPin, PauseCircle, ScanLine, Search,
   Send, Store, Ticket, TrendingUp, Undo2, UserPlus, Users, X, XCircle,
 } from 'lucide-react';
@@ -150,6 +151,7 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
       ) : (
         <div className="grid lg:grid-cols-2 gap-6 items-start">
           <div className="space-y-6">
+            <CrossPromotionStats />
             <ReceivedInvites invites={received} />
             <SentInvites invites={sent} />
             <PlatformInvitesList />
@@ -355,6 +357,100 @@ function MonthlyImpactReport() {
             {stat(<Users className="w-3.5 h-3.5" />, 'Cross-over visits', String(report.crossoverVisits), 'stat-report-crossover')}
             {stat(<DollarSign className="w-3.5 h-3.5" />, 'Revenue influenced', `$${report.revenueInfluenced.toFixed(2)}`, 'stat-report-revenue')}
           </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+
+// ── Cross-promotion traffic metrics ──────────────────────────────────────────
+// Sent = this business's customers who redeemed a perk at a partner;
+// Received = partners' customers who redeemed here. Counts come from
+// attribution events recorded at scan time — traffic only, never revenue.
+
+function CrossPromotionStats() {
+  const [windowDays, setWindowDays] = useState<30 | 90>(30);
+  const { data: stats, isLoading } = useGetCoopStats(
+    { windowDays },
+    { query: { queryKey: getGetCoopStatsQueryKey({ windowDays }) } },
+  );
+
+  return (
+    <Card data-testid="card-coop-stats">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-primary" /> Cross-Promotion Traffic
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Perk redemptions attributed to each partnership — customers you sent out vs. brought in.
+            </CardDescription>
+          </div>
+          <Select value={String(windowDays)} onValueChange={v => setWindowDays(Number(v) as 30 | 90)}>
+            <SelectTrigger className="h-8 w-32 shrink-0" data-testid="select-stats-window">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="90">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading || !stats ? (
+          <Skeleton className="h-16 w-full rounded-lg" />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border p-3">
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <ArrowUpRight className="w-3.5 h-3.5 text-primary" /> Sent to partners
+                </div>
+                <div className="text-2xl font-bold tabular-nums" data-testid="text-stats-total-sent">
+                  {stats.totals.sent}
+                </div>
+              </div>
+              <div className="rounded-lg border p-3">
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" /> Received from partners
+                </div>
+                <div className="text-2xl font-bold tabular-nums" data-testid="text-stats-total-received">
+                  {stats.totals.received}
+                </div>
+              </div>
+            </div>
+            {stats.partnerships.length === 0 ? (
+              <p className="text-sm text-muted-foreground" data-testid="text-stats-no-partnerships">
+                No accepted partnerships yet — traffic shows up here once perks start getting scanned.
+              </p>
+            ) : (
+              <div className="divide-y" data-testid="list-stats-partnerships">
+                {stats.partnerships.map(p => (
+                  <div
+                    key={p.partnershipId}
+                    className="py-2 flex items-center justify-between gap-3"
+                    data-testid={`row-stats-partnership-${p.partnershipId}`}
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{p.partnerName}</div>
+                      <div className="text-xs text-muted-foreground truncate">{p.perkTitle}</div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0 text-sm tabular-nums">
+                      <span className="flex items-center gap-1" title="Customers sent to this partner" data-testid={`text-stats-sent-${p.partnershipId}`}>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-primary" /> {p.sent}
+                      </span>
+                      <span className="flex items-center gap-1" title="Customers received from this partner" data-testid={`text-stats-received-${p.partnershipId}`}>
+                        <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-600" /> {p.received}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

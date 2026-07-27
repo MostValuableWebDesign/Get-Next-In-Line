@@ -8,16 +8,21 @@ import {
   merchantCoopPartnershipsTable,
   coopPerkRedemptionsTable,
   coopDisputesTable,
+  coopAttributionEventsTable,
   sosSettingsTable,
   type MerchantCoopPartnership,
   type CoopDispute,
 } from "@workspace/db";
 import { perkPassesTable } from "@workspace/db";
 import { alias } from "drizzle-orm/pg-core";
-import { and, desc, eq, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, ne, or } from "drizzle-orm";
 import { isWalletPassToken, findWalletPass, type WalletPassRow } from "../lib/perkPasses";
 import { sendMessageSafe } from "../lib/messaging";
 import { sessionIsPlatformAdmin } from "../middlewares/tenantAccess";
+import {
+  generateTrackingCode,
+  type CoopDirection,
+} from "../lib/coopTracking";
 import {
   COOP_PERK_DISCLAIMER,
   perkWindowOpen,
@@ -65,6 +70,7 @@ import {
   RespondToCoopCampaignBody,
   RespondToCoopCampaignResponse,
   TriggerCoopCampaignBlastResponse,
+  GetCoopStatsResponse,
 } from "@workspace/api-zod";
 import {
   coopCampaignsTable,
@@ -153,6 +159,8 @@ function serialize(
     perkEndsAt: p.perkEndsAt ? p.perkEndsAt.toISOString() : null,
     disputeSuspended: p.disputeSuspended,
     bannedAt: p.bannedAt ? p.bannedAt.toISOString() : null,
+    hostTrackingCode: p.hostTrackingCode,
+    partnerTrackingCode: p.partnerTrackingCode,
     isActive: p.isActive,
     createdAt: p.createdAt.toISOString(),
   };
@@ -288,6 +296,18 @@ function walletPassState(row: WalletPassRow | null): { reason: string | null } {
   return { reason: null };
 }
 
+/**
+ * A presented code may be the legacy shared redemption code or either
+ * direction-aware tracking code — all three validate and redeem.
+ */
+function matchesAnyCode(code: string) {
+  return or(
+    eq(merchantCoopPartnershipsTable.redemptionCode, code),
+    eq(merchantCoopPartnershipsTable.hostTrackingCode, code),
+    eq(merchantCoopPartnershipsTable.partnerTrackingCode, code)
+  );
+}
+
 function pgUniqueViolation(err: unknown): boolean {
   const pgCode =
     (err as { code?: string }).code ?? (err as { cause?: { code?: string } }).cause?.code;
@@ -401,6 +421,8 @@ router.post("/coop/partnerships", async (req, res): Promise<void> => {
           industryBarrierOverridden: override,
           perkStartsAt: parsed.data.perkStartsAt ? new Date(parsed.data.perkStartsAt) : null,
           perkEndsAt: parsed.data.perkEndsAt ? new Date(parsed.data.perkEndsAt) : null,
+          hostTrackingCode: generateTrackingCode(),
+          partnerTrackingCode: generateTrackingCode(),
         })
         .returning();
       res
@@ -806,6 +828,8 @@ router.post("/coop/invites", async (req, res): Promise<void> => {
           perkStartsAt: parsed.data.perkStartsAt ? new Date(parsed.data.perkStartsAt) : null,
           perkEndsAt: parsed.data.perkEndsAt ? new Date(parsed.data.perkEndsAt) : null,
           redemptionCode: generateCode(),
+          hostTrackingCode: generateTrackingCode(),
+          partnerTrackingCode: generateTrackingCode(),
           requestedByTenantId: tenantId,
           status: "pending",
           isActive: false,
@@ -1334,6 +1358,13 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
         partnerName:
           r.partnership.hostTenantId === tenantId ? r.partnerTenantName : r.hostTenantName,
         redemptionCode: r.partnership.redemptionCode,
+        // Direction-aware tracking code for the scoped tenant *as sender*:
+        // this tenant's customers carry it and redeem it at the partner, so
+        // the redemption is attributed to this business as the referrer.
+        trackingCode:
+          r.partnership.hostTenantId === tenantId
+            ? r.partnership.hostTrackingCode
+            : r.partnership.partnerTrackingCode,
         perkEndsAt: r.partnership.perkEndsAt ? r.partnership.perkEndsAt.toISOString() : null,
       })),
     })
@@ -1361,9 +1392,7 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
     );
     return;
   }
-  const [row] = await partnershipRows().where(
-    eq(merchantCoopPartnershipsTable.redemptionCode, code)
-  );
+  const [row] = await partnershipRows().where(matchesAnyCode(code));
   if (!row) {
     res.json(
       ValidateCoopRedemptionCodeResponse.parse({
@@ -1473,6 +1502,22 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
       );
       return;
     }
+    // Only a party to the partnership may redeem a wallet pass — same
+    // integrity rule as classic codes.
+    if (
+      tenantId !== walletRow!.partnership.hostTenantId &&
+      tenantId !== walletRow!.partnership.partnerTenantId
+    ) {
+      res.json(
+        RedeemCoopPerkResponse.parse({
+          valid: false,
+          reason: "Only a business in this partnership can redeem this perk",
+          partnership: partnershipJson,
+          redeemedAt: null,
+        })
+      );
+      return;
+    }
     // Conditional update is the single-use lock: of two concurrent scans of
     // the same pass, exactly one flips redeemed_at from NULL.
     const [redeemedPass] = await db
@@ -1494,14 +1539,34 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
     }
     // Mirror the redemption into the shared ledger so partner-side reporting
     // sees wallet redemptions alongside classic pass-code redemptions.
-    await db
+    const [walletRedemption] = await db
       .insert(coopPerkRedemptionsTable)
       .values({
         partnershipId: walletRow!.partnership.id,
         passCode: code,
         redeemedByTenantId: tenantId,
       })
-      .onConflictDoNothing();
+      .onConflictDoNothing()
+      .returning();
+    // Attribution: wallet passes are server-issued single-use tokens — the
+    // strongest redemption instance we have. The scanning tenant is the
+    // receiver; the other side of the partnership sent the customer.
+    if (walletRedemption) {
+      const wp = walletRow!.partnership;
+      const walletDirection: CoopDirection =
+        tenantId === wp.hostTenantId ? "partner_to_host" : "host_to_partner";
+      await db
+        .insert(coopAttributionEventsTable)
+        .values({
+          redemptionId: walletRedemption.id,
+          partnershipId: wp.id,
+          direction: walletDirection,
+          sendingTenantId:
+            walletDirection === "host_to_partner" ? wp.hostTenantId : wp.partnerTenantId,
+          receivingTenantId: tenantId,
+        })
+        .onConflictDoNothing();
+    }
     res.json(
       RedeemCoopPerkResponse.parse({
         valid: true,
@@ -1531,9 +1596,7 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
     );
   };
 
-  const [row] = await partnershipRows().where(
-    eq(merchantCoopPartnershipsTable.redemptionCode, code)
-  );
+  const [row] = await partnershipRows().where(matchesAnyCode(code));
   if (!row) {
     fail("Unknown redemption code");
     return;
@@ -1550,6 +1613,29 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
   const windowState = perkWindowState(row.partnership);
   if (windowState !== "open") {
     fail(windowState === "expired" ? "This perk has expired" : "This perk is not active yet", row);
+    return;
+  }
+
+  // Integrity: only a business that is a party to this partnership can record
+  // a redemption. Without this, any tenant holding a leaked code could write
+  // redemption + attribution rows into someone else's partnership.
+  if (
+    tenantId !== row.partnership.hostTenantId &&
+    tenantId !== row.partnership.partnerTenantId
+  ) {
+    fail("Only a business in this partnership can redeem this perk", row);
+    return;
+  }
+  // Direction-aware codes must be redeemed at the RECEIVING side:
+  // hostTrackingCode travels with the host's customers and is only redeemable
+  // at the partner; partnerTrackingCode is the mirror. This stops a business
+  // from scanning its own outbound code to inflate its "sent" count.
+  if (code === row.partnership.hostTrackingCode && tenantId !== row.partnership.partnerTenantId) {
+    fail("This code can only be redeemed at the partner business", row);
+    return;
+  }
+  if (code === row.partnership.partnerTrackingCode && tenantId !== row.partnership.hostTenantId) {
+    fail("This code can only be redeemed at the host business", row);
     return;
   }
 
@@ -1603,6 +1689,34 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
       },
     ]);
   }
+
+  // Attribution: exactly one event per counted redemption. The direction
+  // comes from which tracking code was presented; a legacy shared code is
+  // attributed by who scanned it (the scanning tenant is the receiver).
+  // Only the winner of the pass lock reaches this insert, and the unique
+  // redemption_id makes any replay a no-op — no double counting.
+  const p = row.partnership;
+  const direction: CoopDirection =
+    code === p.hostTrackingCode
+      ? "host_to_partner"
+      : code === p.partnerTrackingCode
+        ? "partner_to_host"
+        : tenantId === p.hostTenantId
+          ? "partner_to_host"
+          : "host_to_partner";
+  const sendingTenantId = direction === "host_to_partner" ? p.hostTenantId : p.partnerTenantId;
+  const receivingTenantId = direction === "host_to_partner" ? p.partnerTenantId : p.hostTenantId;
+  await db
+    .insert(coopAttributionEventsTable)
+    .values({
+      redemptionId: redemption.id,
+      partnershipId: p.id,
+      direction,
+      sendingTenantId,
+      receivingTenantId,
+    })
+    .onConflictDoNothing();
+
   res.json(
     RedeemCoopPerkResponse.parse({
       valid: true,
@@ -1846,6 +1960,86 @@ router.post("/coop/disputes/:id/withdraw", async (req, res): Promise<void> => {
     WithdrawCoopDisputeResponse.parse(
       serializeDispute(row.dispute, row.reportingTenantName, row.reportedTenantName, row.perkTitle)
     )
+  );
+});
+
+// ── GET /coop/stats — cross-promotion traffic for the scoped tenant ─────────
+// Per partnership and in aggregate: customers this business sent to partners
+// vs. received from partners, over a rolling window (30 or 90 days). Counts
+// come from attribution events (one per counted redemption), never revenue.
+router.get("/coop/stats", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const windowDays = Number(req.query.windowDays ?? 30);
+  if (windowDays !== 30 && windowDays !== 90) {
+    res.status(400).json({ message: "windowDays must be 30 or 90" });
+    return;
+  }
+  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
+
+  // All accepted partnerships this tenant participates in (active or not, so
+  // history from a since-deactivated pact still shows in the window).
+  const partnerships = await partnershipRows().where(
+    and(
+      eq(merchantCoopPartnershipsTable.status, "accepted"),
+      or(
+        eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
+        eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId)
+      )
+    )
+  );
+  const ids = partnerships.map((r) => r.partnership.id);
+  const events = ids.length
+    ? await db
+        .select({
+          partnershipId: coopAttributionEventsTable.partnershipId,
+          sendingTenantId: coopAttributionEventsTable.sendingTenantId,
+          receivingTenantId: coopAttributionEventsTable.receivingTenantId,
+        })
+        .from(coopAttributionEventsTable)
+        .where(
+          and(
+            inArray(coopAttributionEventsTable.partnershipId, ids),
+            gte(coopAttributionEventsTable.occurredAt, since)
+          )
+        )
+    : [];
+
+  const byPartnership = new Map<number, { sent: number; received: number }>();
+  let totalSent = 0;
+  let totalReceived = 0;
+  for (const e of events) {
+    const bucket = byPartnership.get(e.partnershipId) ?? { sent: 0, received: 0 };
+    if (e.sendingTenantId === tenantId) {
+      bucket.sent += 1;
+      totalSent += 1;
+    } else if (e.receivingTenantId === tenantId) {
+      bucket.received += 1;
+      totalReceived += 1;
+    }
+    byPartnership.set(e.partnershipId, bucket);
+  }
+
+  res.json(
+    GetCoopStatsResponse.parse({
+      windowDays,
+      totals: { sent: totalSent, received: totalReceived },
+      partnerships: partnerships.map((r) => {
+        const counts = byPartnership.get(r.partnership.id) ?? { sent: 0, received: 0 };
+        return {
+          partnershipId: r.partnership.id,
+          partnerName:
+            r.partnership.hostTenantId === tenantId ? r.partnerTenantName : r.hostTenantName,
+          perkTitle: r.partnership.perkTitle,
+          isActive: r.partnership.isActive,
+          sent: counts.sent,
+          received: counts.received,
+        };
+      }),
+    })
   );
 });
 

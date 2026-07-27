@@ -142,6 +142,16 @@ export interface CoopPartnership {
      * @nullable
      */
   bannedAt: string | null;
+  /**
+     * Tracking code carried by the host's customers (host→partner traffic); null only until backfilled.
+     * @nullable
+     */
+  hostTrackingCode: string | null;
+  /**
+     * Tracking code carried by the partner's customers (partner→host traffic); null only until backfilled.
+     * @nullable
+     */
+  partnerTrackingCode: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -315,6 +325,11 @@ export interface CoopActivePerk {
   mutualRewardTerms: string | null;
   partnerName: string;
   redemptionCode: string;
+  /**
+     * Direction-aware tracking code for the scoped tenant as sender — encoded in the customer pass QR so redemptions at the partner are attributed to this business.
+     * @nullable
+     */
+  trackingCode: string | null;
   /**
      * ISO timestamp the perk expires; null = never expires.
      * @nullable
@@ -568,6 +583,28 @@ export interface CoopMonthlyReport {
   crossoverVisits: number;
   revenueInfluenced: number;
   createdAt: string;
+}
+
+export interface CoopPartnershipStats {
+  partnershipId: number;
+  partnerName: string;
+  perkTitle: string;
+  isActive: boolean;
+  /** Customers this business sent to the partner (redeemed there) in the window. */
+  sent: number;
+  /** Customers the partner sent here (redeemed at this business) in the window. */
+  received: number;
+}
+
+export type CoopStatsResponseTotals = {
+  sent: number;
+  received: number;
+};
+
+export interface CoopStatsResponse {
+  windowDays: number;
+  totals: CoopStatsResponseTotals;
+  partnerships: CoopPartnershipStats[];
 }
 
 export interface CoopPartnershipCreate {
@@ -2738,6 +2775,18 @@ export type ListCoopPartnerPerformanceParams = {
 from?: string;
 to?: string;
 };
+
+export type GetCoopStatsParams = {
+windowDays?: GetCoopStatsWindowDays;
+};
+
+export type GetCoopStatsWindowDays = typeof GetCoopStatsWindowDays[keyof typeof GetCoopStatsWindowDays];
+
+
+export const GetCoopStatsWindowDays = {
+  NUMBER_30: 30,
+  NUMBER_90: 90,
+} as const;
 
 export type ListAdminCoopDisputesParams = {
 status?: ListAdminCoopDisputesStatus;

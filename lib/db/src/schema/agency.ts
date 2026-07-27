@@ -205,6 +205,13 @@ export const merchantCoopPartnershipsTable = pgTable(
     // Set when a platform admin permanently bans the partnership. A banned
     // partnership never serves its perk again.
     bannedAt: timestamp("banned_at"),
+    // Direction-aware cross-promotion tracking codes (unguessable, unique
+    // across all partnerships). hostTrackingCode is carried by the HOST's
+    // customers and redeemed at the partner (host→partner traffic);
+    // partnerTrackingCode is the mirror direction. NULL only transiently —
+    // backfilled at server start for pre-existing rows.
+    hostTrackingCode: text("host_tracking_code").unique(),
+    partnerTrackingCode: text("partner_tracking_code").unique(),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -636,6 +643,45 @@ export const insertPlatformLedgerEntrySchema = createInsertSchema(platformLedger
 });
 export type InsertPlatformLedgerEntry = z.infer<typeof insertPlatformLedgerEntrySchema>;
 export type PlatformLedgerEntry = typeof platformLedgerEntriesTable.$inferSelect;
+
+// ── Co-op cross-promotion attribution events ─────────────────────────────────
+// One row per *counted* redemption, attributing cross-promotion traffic to a
+// partnership direction: the sending tenant referred the customer, the
+// receiving tenant honored the perk. The unique redemption_id FK is the
+// exactly-once guarantee — an event can only exist for a redemption that
+// won the (partnership, passCode) lock, so refreshes/replays never double
+// count.
+export const coopAttributionEventsTable = pgTable(
+  "coop_attribution_events",
+  {
+    id: serial("id").primaryKey(),
+    redemptionId: integer("redemption_id")
+      .notNull()
+      .unique()
+      .references(() => coopPerkRedemptionsTable.id, { onDelete: "cascade" }),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    // "host_to_partner": host's customer redeemed at the partner.
+    // "partner_to_host": partner's customer redeemed at the host.
+    direction: text("direction").notNull(),
+    sendingTenantId: integer("sending_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    receivingTenantId: integer("receiving_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    occurredAt: timestamp("occurred_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_attribution_events_partnership_idx").on(t.partnershipId),
+    index("coop_attribution_events_sending_idx").on(t.sendingTenantId),
+    index("coop_attribution_events_receiving_idx").on(t.receivingTenantId),
+    index("coop_attribution_events_occurred_idx").on(t.occurredAt),
+  ]
+);
+
+export type CoopAttributionEvent = typeof coopAttributionEventsTable.$inferSelect;
 
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,

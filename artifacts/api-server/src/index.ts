@@ -97,6 +97,15 @@ async function ensureDatabaseReady(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "Service catalog backfill failed");
   }
+
+  // Idempotent: give pre-existing co-op partnerships their direction-aware
+  // cross-promotion tracking codes (new rows get codes at insert time).
+  try {
+    const { backfillCoopTrackingCodes } = await import("./lib/coopTracking");
+    await backfillCoopTrackingCodes();
+  } catch (err) {
+    logger.error({ err }, "Coop tracking code backfill failed");
+  }
 }
 ensureDatabaseReady().catch((err) => {
   logger.error({ err }, "Database readiness bootstrap failed");

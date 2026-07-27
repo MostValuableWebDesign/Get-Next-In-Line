@@ -19,3 +19,8 @@ description: Invite lifecycle rules and tenant scoping for the merchant Local Co
 - Single-use guard: registration consumes the invite via a conditional UPDATE (`status in ('sent','clicked')`) inside the same transaction that creates the tenant/storefront/partnership — losers of the race roll back cleanly.
 - Expiry is computed lazily (`effectiveInviteStatus`) — no sweeper flips rows to expired; never trust the raw `status` column alone for display or registration gating.
 - Auto-created partnership respects the same-industry guardrail by comparing the inviter's sos_settings category to the registrant's submitted category; registration still succeeds when blocked (partnershipCreated=false).
+
+## Redemption integrity & attribution
+Rule: every redemption write path — the native co-op redemption route AND POS webhook wallet-pass processing — must (1) verify the redeeming tenant is a party to the partnership, (2) enforce direction-aware tracking codes are redeemed by the receiving side only (host code → partner scans; partner code → host scans), and (3) record at most one attribution event per redemption (unique redemption_id).
+**Why:** completion code review rejected the attribution feature twice for forgeable metrics — outsiders or self-scans could inflate sent/received counts, and the POS webhook path silently bypassed the checks added to the native route.
+**How to apply:** when adding any new surface that redeems perks/passes (new webhook vendor, kiosk, API), route it through the same participant + direction checks and insert attribution via the unique redemption_id lock; reject without writes on mismatch.
