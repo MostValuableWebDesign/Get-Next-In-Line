@@ -131,6 +131,33 @@ app.post(
   },
 );
 
+// POS vendor webhooks (Square, Clover, Boulevard, Vagaro) also need the raw
+// body: each vendor's HMAC signature is verified over the exact bytes sent.
+// Authenticated per-integration by signing secret — no session involved.
+app.post(
+  "/api/pos/webhooks/:vendor/:token",
+  express.raw({ type: "*/*" }),
+  async (req, res) => {
+    try {
+      const { handlePosDelivery } = await import("./routes/pos");
+      const { POS_SIGNATURE_HEADERS } = await import("./lib/posVendors");
+      const headerName =
+        POS_SIGNATURE_HEADERS[req.params.vendor as keyof typeof POS_SIGNATURE_HEADERS];
+      const sig = headerName ? req.headers[headerName] : undefined;
+      const out = await handlePosDelivery(
+        req.params.vendor,
+        req.params.token,
+        Buffer.isBuffer(req.body) ? req.body : Buffer.from(""),
+        Array.isArray(sig) ? sig[0] : sig,
+      );
+      res.status(out.http).json(out.body);
+    } catch (err) {
+      logger.error({ err }, "POS webhook processing failed");
+      res.status(500).json({ error: "Webhook processing error" });
+    }
+  },
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

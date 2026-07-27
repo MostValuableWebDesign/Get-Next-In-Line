@@ -5,6 +5,94 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+export type PosIntegrationVendor = typeof PosIntegrationVendor[keyof typeof PosIntegrationVendor];
+
+
+export const PosIntegrationVendor = {
+  square: 'square',
+  clover: 'clover',
+  boulevard: 'boulevard',
+  vagaro: 'vagaro',
+} as const;
+
+export type PosIntegrationStatus = typeof PosIntegrationStatus[keyof typeof PosIntegrationStatus];
+
+
+export const PosIntegrationStatus = {
+  not_configured: 'not_configured',
+  active: 'active',
+  disabled: 'disabled',
+} as const;
+
+export interface PosIntegration {
+  vendor: PosIntegrationVendor;
+  vendorLabel: string;
+  status: PosIntegrationStatus;
+  /** Tenant-specific webhook endpoint to paste into the vendor's webhook configuration. */
+  webhookUrl: string | null;
+  /** Webhook signing secret for the vendor configuration. Only shown to the authenticated owning merchant. */
+  signingSecret: string | null;
+  /** HTTP header the vendor sends its signature in. */
+  signatureHeader: string;
+  lastEventAt: string | null;
+  lastError: string | null;
+  connectedAt: string | null;
+}
+
+export interface PosInboundEvent {
+  id: number;
+  vendor: string;
+  externalEventId: string;
+  /** Normalized platform event kind (check_in, service_completed, perk_redeemed, unknown). */
+  eventKind: string;
+  /** Processing outcome (processed, ignored, unrecognized, invalid, error, received). */
+  status: string;
+  detail: string | null;
+  customerId: number | null;
+  visitId: number | null;
+  createdAt: string;
+}
+
+export type SimulatePosEventRequestVendor = typeof SimulatePosEventRequestVendor[keyof typeof SimulatePosEventRequestVendor];
+
+
+export const SimulatePosEventRequestVendor = {
+  square: 'square',
+  clover: 'clover',
+  boulevard: 'boulevard',
+  vagaro: 'vagaro',
+} as const;
+
+export type SimulatePosEventRequestKind = typeof SimulatePosEventRequestKind[keyof typeof SimulatePosEventRequestKind];
+
+
+export const SimulatePosEventRequestKind = {
+  check_in: 'check_in',
+  service_completed: 'service_completed',
+  perk_redeemed: 'perk_redeemed',
+} as const;
+
+export interface SimulatePosEventRequest {
+  vendor: SimulatePosEventRequestVendor;
+  kind: SimulatePosEventRequestKind;
+  externalEventId?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerEmail?: string | null;
+  serviceType?: string | null;
+  staffName?: string | null;
+  paymentAmount?: number | null;
+  perkToken?: string | null;
+}
+
+export interface SimulatePosEventResult {
+  received: boolean;
+  status: string;
+  detail: string | null;
+  /** The vendor-shaped JSON payload that was posted through the pipeline. */
+  payload: string;
+}
+
 /**
  * Invite lifecycle; admin-created partnerships are accepted from the start.
  */
@@ -2566,5 +2654,9 @@ from: string;
  * Period end (ISO date/datetime, exclusive)
  */
 to: string;
+};
+
+export type ListPosEventsParams = {
+vendor?: string;
 };
 

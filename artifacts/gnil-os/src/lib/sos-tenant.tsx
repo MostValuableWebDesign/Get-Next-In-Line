@@ -25,7 +25,7 @@ setTenantHeaderGetter((url) => {
   if (currentSosTenantId == null) return null;
   // Only SOS operational endpoints and the merchant-facing co-op endpoints
   // understand this header; everything else must stay unscoped.
-  return url.includes('/api/sos/') || url.includes('/api/coop/')
+  return url.includes('/api/sos/') || url.includes('/api/coop/') || url.includes('/api/pos/')
     ? String(currentSosTenantId)
     : null;
 });
@@ -49,7 +49,9 @@ function dropSosQueries(queryClient: QueryClient) {
   queryClient.removeQueries({
     predicate: (q) =>
       typeof q.queryKey[0] === 'string' &&
-      (q.queryKey[0].includes('/api/sos/') || q.queryKey[0].includes('/api/coop/')),
+      (q.queryKey[0].includes('/api/sos/') ||
+        q.queryKey[0].includes('/api/coop/') ||
+        q.queryKey[0].includes('/api/pos/')),
   });
 }
 

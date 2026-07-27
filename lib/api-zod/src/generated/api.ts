@@ -3365,6 +3365,108 @@ export const DisconnectPartnerResponse = zod.object({
 
 
 /**
+ * @summary List the tenant's external POS integrations (Square, Clover, Boulevard, Vagaro) with webhook endpoint, signing secret, and connection status
+ */
+export const ListPosIntegrationsResponseItem = zod.object({
+  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro']),
+  "vendorLabel": zod.string(),
+  "status": zod.enum(['not_configured', 'active', 'disabled']),
+  "webhookUrl": zod.string().nullable().describe('Tenant-specific webhook endpoint to paste into the vendor\'s webhook configuration.'),
+  "signingSecret": zod.string().nullable().describe('Webhook signing secret for the vendor configuration. Only shown to the authenticated owning merchant.'),
+  "signatureHeader": zod.string().describe('HTTP header the vendor sends its signature in.'),
+  "lastEventAt": zod.string().nullable(),
+  "lastError": zod.string().nullable(),
+  "connectedAt": zod.string().nullable()
+})
+export const ListPosIntegrationsResponse = zod.array(ListPosIntegrationsResponseItem)
+
+
+/**
+ * @summary Enable (or re-enable) a POS integration, provisioning its webhook endpoint and signing secret
+ */
+export const EnablePosIntegrationParams = zod.object({
+  "vendor": zod.coerce.string()
+})
+
+export const EnablePosIntegrationResponse = zod.object({
+  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro']),
+  "vendorLabel": zod.string(),
+  "status": zod.enum(['not_configured', 'active', 'disabled']),
+  "webhookUrl": zod.string().nullable().describe('Tenant-specific webhook endpoint to paste into the vendor\'s webhook configuration.'),
+  "signingSecret": zod.string().nullable().describe('Webhook signing secret for the vendor configuration. Only shown to the authenticated owning merchant.'),
+  "signatureHeader": zod.string().describe('HTTP header the vendor sends its signature in.'),
+  "lastEventAt": zod.string().nullable(),
+  "lastError": zod.string().nullable(),
+  "connectedAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Disable a POS integration — its webhook endpoint stops accepting deliveries
+ */
+export const DisablePosIntegrationParams = zod.object({
+  "vendor": zod.coerce.string()
+})
+
+export const DisablePosIntegrationResponse = zod.object({
+  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro']),
+  "vendorLabel": zod.string(),
+  "status": zod.enum(['not_configured', 'active', 'disabled']),
+  "webhookUrl": zod.string().nullable().describe('Tenant-specific webhook endpoint to paste into the vendor\'s webhook configuration.'),
+  "signingSecret": zod.string().nullable().describe('Webhook signing secret for the vendor configuration. Only shown to the authenticated owning merchant.'),
+  "signatureHeader": zod.string().describe('HTTP header the vendor sends its signature in.'),
+  "lastEventAt": zod.string().nullable(),
+  "lastError": zod.string().nullable(),
+  "connectedAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Inspectable inbound POS event log (newest first, up to 100)
+ */
+export const ListPosEventsQueryParams = zod.object({
+  "vendor": zod.coerce.string().optional()
+})
+
+export const ListPosEventsResponseItem = zod.object({
+  "id": zod.number(),
+  "vendor": zod.string(),
+  "externalEventId": zod.string(),
+  "eventKind": zod.string().describe('Normalized platform event kind (check_in, service_completed, perk_redeemed, unknown).'),
+  "status": zod.string().describe('Processing outcome (processed, ignored, unrecognized, invalid, error, received).'),
+  "detail": zod.string().nullable(),
+  "customerId": zod.number().nullable(),
+  "visitId": zod.number().nullable(),
+  "createdAt": zod.string()
+})
+export const ListPosEventsResponse = zod.array(ListPosEventsResponseItem)
+
+
+/**
+ * @summary Dev-only simulator — builds a vendor-shaped payload, signs it, and runs the full webhook pipeline
+ */
+export const SimulatePosEventBody = zod.object({
+  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro']),
+  "kind": zod.enum(['check_in', 'service_completed', 'perk_redeemed']),
+  "externalEventId": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "customerPhone": zod.string().nullish(),
+  "customerEmail": zod.string().nullish(),
+  "serviceType": zod.string().nullish(),
+  "staffName": zod.string().nullish(),
+  "paymentAmount": zod.number().nullish(),
+  "perkToken": zod.string().nullish()
+})
+
+export const SimulatePosEventResponse = zod.object({
+  "received": zod.boolean(),
+  "status": zod.string(),
+  "detail": zod.string().nullable(),
+  "payload": zod.string().describe('The vendor-shaped JSON payload that was posted through the pipeline.')
+})
+
+
+/**
  * @summary Public (unauthenticated) booking config for a business — branding, service menu, and staff, keyed by the tenant's subdomain slug
  */
 export const GetPublicBookingConfigParams = zod.object({

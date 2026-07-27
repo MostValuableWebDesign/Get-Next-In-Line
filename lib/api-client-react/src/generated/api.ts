@@ -71,6 +71,7 @@ import type {
   ListCoopDirectoryParams,
   ListCoopPartnerPerformanceParams,
   ListCoopPartnershipsParams,
+  ListPosEventsParams,
   ListSosAppointmentsParams,
   ListSosCustomersParams,
   ListSosMessagesParams,
@@ -87,6 +88,8 @@ import type {
   PlatformInviteCreate,
   PlatformInviteRegistration,
   PlatformInviteRegistrationResult,
+  PosInboundEvent,
+  PosIntegration,
   PublicAvailabilityInput,
   PublicAvailabilityResponse,
   PublicBookingConfig,
@@ -103,6 +106,8 @@ import type {
   SafetyIncidentCreate,
   SafetyIncidentUpdateCreate,
   SafetyTimelineEntry,
+  SimulatePosEventRequest,
+  SimulatePosEventResult,
   SosAppointment,
   SosAppointmentInput,
   SosCall,
@@ -9802,6 +9807,380 @@ export const useDisconnectPartner = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDisconnectPartnerMutationOptions(options));
+    }
+
+export const getListPosIntegrationsUrl = () => {
+
+
+
+
+  return `/api/pos/integrations`
+}
+
+/**
+ * @summary List the tenant's external POS integrations (Square, Clover, Boulevard, Vagaro) with webhook endpoint, signing secret, and connection status
+ */
+export const listPosIntegrations = async ( options?: RequestInit): Promise<PosIntegration[]> => {
+
+  return customFetch<PosIntegration[]>(getListPosIntegrationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPosIntegrationsQueryKey = () => {
+    return [
+    `/api/pos/integrations`
+    ] as const;
+    }
+
+
+export const getListPosIntegrationsQueryOptions = <TData = Awaited<ReturnType<typeof listPosIntegrations>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPosIntegrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPosIntegrationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPosIntegrations>>> = ({ signal }) => listPosIntegrations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPosIntegrations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPosIntegrationsQueryResult = NonNullable<Awaited<ReturnType<typeof listPosIntegrations>>>
+export type ListPosIntegrationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List the tenant's external POS integrations (Square, Clover, Boulevard, Vagaro) with webhook endpoint, signing secret, and connection status
+ */
+
+export function useListPosIntegrations<TData = Awaited<ReturnType<typeof listPosIntegrations>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPosIntegrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPosIntegrationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getEnablePosIntegrationUrl = (vendor: string,) => {
+
+
+
+
+  return `/api/pos/integrations/${vendor}/enable`
+}
+
+/**
+ * @summary Enable (or re-enable) a POS integration, provisioning its webhook endpoint and signing secret
+ */
+export const enablePosIntegration = async (vendor: string, options?: RequestInit): Promise<PosIntegration> => {
+
+  return customFetch<PosIntegration>(getEnablePosIntegrationUrl(vendor),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getEnablePosIntegrationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enablePosIntegration>>, TError,{vendor: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enablePosIntegration>>, TError,{vendor: string}, TContext> => {
+
+const mutationKey = ['enablePosIntegration'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enablePosIntegration>>, {vendor: string}> = (props) => {
+          const {vendor} = props ?? {};
+
+          return  enablePosIntegration(vendor,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnablePosIntegrationMutationResult = NonNullable<Awaited<ReturnType<typeof enablePosIntegration>>>
+
+    export type EnablePosIntegrationMutationError = ErrorType<void>
+
+    /**
+ * @summary Enable (or re-enable) a POS integration, provisioning its webhook endpoint and signing secret
+ */
+export const useEnablePosIntegration = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enablePosIntegration>>, TError,{vendor: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enablePosIntegration>>,
+        TError,
+        {vendor: string},
+        TContext
+      > => {
+      return useMutation(getEnablePosIntegrationMutationOptions(options));
+    }
+
+export const getDisablePosIntegrationUrl = (vendor: string,) => {
+
+
+
+
+  return `/api/pos/integrations/${vendor}/disable`
+}
+
+/**
+ * @summary Disable a POS integration — its webhook endpoint stops accepting deliveries
+ */
+export const disablePosIntegration = async (vendor: string, options?: RequestInit): Promise<PosIntegration> => {
+
+  return customFetch<PosIntegration>(getDisablePosIntegrationUrl(vendor),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDisablePosIntegrationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disablePosIntegration>>, TError,{vendor: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof disablePosIntegration>>, TError,{vendor: string}, TContext> => {
+
+const mutationKey = ['disablePosIntegration'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof disablePosIntegration>>, {vendor: string}> = (props) => {
+          const {vendor} = props ?? {};
+
+          return  disablePosIntegration(vendor,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DisablePosIntegrationMutationResult = NonNullable<Awaited<ReturnType<typeof disablePosIntegration>>>
+
+    export type DisablePosIntegrationMutationError = ErrorType<void>
+
+    /**
+ * @summary Disable a POS integration — its webhook endpoint stops accepting deliveries
+ */
+export const useDisablePosIntegration = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disablePosIntegration>>, TError,{vendor: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof disablePosIntegration>>,
+        TError,
+        {vendor: string},
+        TContext
+      > => {
+      return useMutation(getDisablePosIntegrationMutationOptions(options));
+    }
+
+export const getListPosEventsUrl = (params?: ListPosEventsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/pos/events?${stringifiedParams}` : `/api/pos/events`
+}
+
+/**
+ * @summary Inspectable inbound POS event log (newest first, up to 100)
+ */
+export const listPosEvents = async (params?: ListPosEventsParams, options?: RequestInit): Promise<PosInboundEvent[]> => {
+
+  return customFetch<PosInboundEvent[]>(getListPosEventsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPosEventsQueryKey = (params?: ListPosEventsParams,) => {
+    return [
+    `/api/pos/events`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPosEventsQueryOptions = <TData = Awaited<ReturnType<typeof listPosEvents>>, TError = ErrorType<unknown>>(params?: ListPosEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPosEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPosEventsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPosEvents>>> = ({ signal }) => listPosEvents(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPosEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPosEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listPosEvents>>>
+export type ListPosEventsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Inspectable inbound POS event log (newest first, up to 100)
+ */
+
+export function useListPosEvents<TData = Awaited<ReturnType<typeof listPosEvents>>, TError = ErrorType<unknown>>(
+ params?: ListPosEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPosEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPosEventsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSimulatePosEventUrl = () => {
+
+
+
+
+  return `/api/pos/simulate`
+}
+
+/**
+ * @summary Dev-only simulator — builds a vendor-shaped payload, signs it, and runs the full webhook pipeline
+ */
+export const simulatePosEvent = async (simulatePosEventRequest: SimulatePosEventRequest, options?: RequestInit): Promise<SimulatePosEventResult> => {
+
+  return customFetch<SimulatePosEventResult>(getSimulatePosEventUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(simulatePosEventRequest)
+  }
+);}
+
+
+
+
+
+export const getSimulatePosEventMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof simulatePosEvent>>, TError,{data: BodyType<SimulatePosEventRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof simulatePosEvent>>, TError,{data: BodyType<SimulatePosEventRequest>}, TContext> => {
+
+const mutationKey = ['simulatePosEvent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof simulatePosEvent>>, {data: BodyType<SimulatePosEventRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  simulatePosEvent(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SimulatePosEventMutationResult = NonNullable<Awaited<ReturnType<typeof simulatePosEvent>>>
+    export type SimulatePosEventMutationBody = BodyType<SimulatePosEventRequest>
+    export type SimulatePosEventMutationError = ErrorType<void>
+
+    /**
+ * @summary Dev-only simulator — builds a vendor-shaped payload, signs it, and runs the full webhook pipeline
+ */
+export const useSimulatePosEvent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof simulatePosEvent>>, TError,{data: BodyType<SimulatePosEventRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof simulatePosEvent>>,
+        TError,
+        {data: BodyType<SimulatePosEventRequest>},
+        TContext
+      > => {
+      return useMutation(getSimulatePosEventMutationOptions(options));
     }
 
 export const getGetPublicBookingConfigUrl = (slug: string,) => {

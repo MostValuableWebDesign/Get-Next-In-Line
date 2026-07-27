@@ -31,4 +31,5 @@
 - [Migration conflicts on rebase](migration-rebase-conflicts.md) — keep main's migration meta, regenerate yours as next number, delete the stale DB hash row, then reconcile; never hand-merge snapshots.
 - [User↔tenant authorization](tenant-authorization.md) — one middleware authorizes all acting-tenant refs (header/param/query/body); password login stays DB-free admin; counterparty tenant fields are not checked.
 - [Platform compliance ledger](platform-ledger.md) — append-only trigger must carve out the tenant FK's ON DELETE SET NULL update; server CSV is the canonical export.
+- [POS webhook connectors](pos-connectors.md) — raw-body mount before express.json, per-vendor HMAC schemes, event-log idempotency; completion effects must mirror native checkout.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.
