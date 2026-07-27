@@ -1934,6 +1934,9 @@ components:
           type: ["string", "null"]
         averageCycleDays:
           type: ["integer", "null"]
+        cycleOverride:
+          type: boolean
+          description: True when averageCycleDays was set manually; the automatic visit-history computation never overwrites it.
         createdAt:
           type: string
 
@@ -1984,7 +1987,7 @@ components:
 
     SosSettings:
       type: object
-      required: [id, businessName, industryType, resourceLabel, aiReceptionistEnabled, waitlistAutoFillEnabled, serviceNames, noShowShieldEnabled, noShowShieldProvisioned, noShowDepositAmount, noShowCancellationWindowHours, noShowFee, updatedAt]
+      required: [id, businessName, industryType, resourceLabel, aiReceptionistEnabled, waitlistAutoFillEnabled, serviceNames, noShowShieldEnabled, noShowShieldProvisioned, noShowDepositAmount, noShowCancellationWindowHours, noShowFee, defaultCycleDays, updatedAt]
       properties:
         id:
           type: integer
@@ -2025,6 +2028,9 @@ components:
           type: integer
         noShowFee:
           type: number
+        defaultCycleDays:
+          type: integer
+          description: Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history.
         updatedAt:
           type: string
 
@@ -2056,6 +2062,9 @@ components:
         noShowFee:
           type: number
           minimum: 0
+        defaultCycleDays:
+          type: integer
+          minimum: 1
 
     SosResource:
       type: object

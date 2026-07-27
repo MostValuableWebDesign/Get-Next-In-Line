@@ -445,6 +445,7 @@ export const GetSosSettingsResponse = zod.object({
   "noShowDepositAmount": zod.number(),
   "noShowCancellationWindowHours": zod.number(),
   "noShowFee": zod.number(),
+  "defaultCycleDays": zod.number().describe('Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history.'),
   "updatedAt": zod.string()
 })
 
@@ -460,6 +461,7 @@ export const updateSosSettingsBodyNoShowFeeMin = 0;
 
 
 
+
 export const UpdateSosSettingsBody = zod.object({
   "businessName": zod.string().optional(),
   "industryType": zod.string().optional(),
@@ -471,7 +473,8 @@ export const UpdateSosSettingsBody = zod.object({
   "noShowShieldEnabled": zod.boolean().optional(),
   "noShowDepositAmount": zod.number().min(updateSosSettingsBodyNoShowDepositAmountMin).optional(),
   "noShowCancellationWindowHours": zod.number().min(updateSosSettingsBodyNoShowCancellationWindowHoursMin).optional(),
-  "noShowFee": zod.number().min(updateSosSettingsBodyNoShowFeeMin).optional()
+  "noShowFee": zod.number().min(updateSosSettingsBodyNoShowFeeMin).optional(),
+  "defaultCycleDays": zod.number().min(1).optional()
 })
 
 export const UpdateSosSettingsResponse = zod.object({
@@ -493,6 +496,7 @@ export const UpdateSosSettingsResponse = zod.object({
   "noShowDepositAmount": zod.number(),
   "noShowCancellationWindowHours": zod.number(),
   "noShowFee": zod.number(),
+  "defaultCycleDays": zod.number().describe('Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history.'),
   "updatedAt": zod.string()
 })
 
@@ -1630,6 +1634,7 @@ export const GetTenantSettingsResponse = zod.object({
   "noShowDepositAmount": zod.number(),
   "noShowCancellationWindowHours": zod.number(),
   "noShowFee": zod.number(),
+  "defaultCycleDays": zod.number().describe('Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history.'),
   "updatedAt": zod.string()
 })
 
@@ -1649,6 +1654,7 @@ export const updateTenantSettingsBodyNoShowFeeMin = 0;
 
 
 
+
 export const UpdateTenantSettingsBody = zod.object({
   "businessName": zod.string().optional(),
   "industryType": zod.string().optional(),
@@ -1660,7 +1666,8 @@ export const UpdateTenantSettingsBody = zod.object({
   "noShowShieldEnabled": zod.boolean().optional(),
   "noShowDepositAmount": zod.number().min(updateTenantSettingsBodyNoShowDepositAmountMin).optional(),
   "noShowCancellationWindowHours": zod.number().min(updateTenantSettingsBodyNoShowCancellationWindowHoursMin).optional(),
-  "noShowFee": zod.number().min(updateTenantSettingsBodyNoShowFeeMin).optional()
+  "noShowFee": zod.number().min(updateTenantSettingsBodyNoShowFeeMin).optional(),
+  "defaultCycleDays": zod.number().min(1).optional()
 })
 
 export const UpdateTenantSettingsResponse = zod.object({
@@ -1682,6 +1689,7 @@ export const UpdateTenantSettingsResponse = zod.object({
   "noShowDepositAmount": zod.number(),
   "noShowCancellationWindowHours": zod.number(),
   "noShowFee": zod.number(),
+  "defaultCycleDays": zod.number().describe('Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history.'),
   "updatedAt": zod.string()
 })
 
@@ -1782,6 +1790,7 @@ export const ListClientProfilesResponseItem = zod.object({
   "lastVisitAt": zod.string().nullish(),
   "nextVisitAt": zod.string().nullish(),
   "averageCycleDays": zod.number().nullish(),
+  "cycleOverride": zod.boolean().optional().describe('True when averageCycleDays was set manually; the automatic visit-history computation never overwrites it.'),
   "createdAt": zod.string()
 })
 export const ListClientProfilesResponse = zod.array(ListClientProfilesResponseItem)
@@ -1819,6 +1828,7 @@ export const CreateClientProfileResponse = zod.object({
   "lastVisitAt": zod.string().nullish(),
   "nextVisitAt": zod.string().nullish(),
   "averageCycleDays": zod.number().nullish(),
+  "cycleOverride": zod.boolean().optional().describe('True when averageCycleDays was set manually; the automatic visit-history computation never overwrites it.'),
   "createdAt": zod.string()
 })
 
@@ -1856,6 +1866,7 @@ export const UpdateClientProfileResponse = zod.object({
   "lastVisitAt": zod.string().nullish(),
   "nextVisitAt": zod.string().nullish(),
   "averageCycleDays": zod.number().nullish(),
+  "cycleOverride": zod.boolean().optional().describe('True when averageCycleDays was set manually; the automatic visit-history computation never overwrites it.'),
   "createdAt": zod.string()
 })
 

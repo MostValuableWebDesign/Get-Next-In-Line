@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { seedConnectorMapping } from "./lib/connectorSeed";
 import { backfillCustomerLinks } from "./lib/customerLink";
+import { backfillVisitCadence } from "./lib/visitCadence";
 import { startConciergeWorker, type ConciergeWorkerHandle } from "./workers/concierge";
 import {
   pool,
@@ -103,9 +104,16 @@ ensureDatabaseReady().catch((err) => {
 
 // Idempotent: link pre-existing SOS customers to concierge client profiles
 // by unambiguous phone match (link is a durable FK once established).
-backfillCustomerLinks().catch((err) => {
-  logger.error({ err }, "Customer link backfill failed");
-});
+backfillCustomerLinks()
+  .then(() =>
+    // Runs after linking so freshly linked customers' history counts too.
+    // Idempotent: recomputes last-visit/average-cycle from completed visits,
+    // respecting manual overrides.
+    backfillVisitCadence(),
+  )
+  .catch((err) => {
+    logger.error({ err }, "Customer link / visit cadence backfill failed");
+  });
 
 // Stripe (No-Show Shield deposit holds): create the stripe schema, register
 // the managed webhook, and backfill existing data. Failure-tolerant so a

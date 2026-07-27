@@ -45,6 +45,9 @@ export const sosSettingsTable = pgTable("sos_settings", {
   noShowFee: numeric("no_show_fee", { precision: 10, scale: 2 })
     .notNull()
     .default("25.00"),
+  // Fallback visit cycle (days) used by the rebooking-nudge scan for clients
+  // whose visit history is too thin to compute a personal average.
+  defaultCycleDays: integer("default_cycle_days").notNull().default(30),
   // Business-specific service names the AI receptionist should recognize,
   // in addition to the generic industry-neutral terms.
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

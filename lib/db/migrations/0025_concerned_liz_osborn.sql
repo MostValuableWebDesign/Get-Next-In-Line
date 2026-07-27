@@ -1,0 +1,2 @@
+ALTER TABLE "sos_settings" ADD COLUMN "default_cycle_days" integer DEFAULT 30 NOT NULL;--> statement-breakpoint
+ALTER TABLE "client_profiles" ADD COLUMN "cycle_override" boolean DEFAULT false NOT NULL;

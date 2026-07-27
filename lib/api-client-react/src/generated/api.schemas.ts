@@ -222,6 +222,8 @@ export interface ConciergeClientProfile {
   nextVisitAt?: string | null;
   /** @nullable */
   averageCycleDays?: number | null;
+  /** True when averageCycleDays was set manually; the automatic visit-history computation never overwrites it. */
+  cycleOverride?: boolean;
   createdAt: string;
 }
 
@@ -310,6 +312,8 @@ export interface SosSettings {
   noShowDepositAmount: number;
   noShowCancellationWindowHours: number;
   noShowFee: number;
+  /** Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history. */
+  defaultCycleDays: number;
   updatedAt: string;
 }
 
@@ -328,6 +332,8 @@ export interface SosSettingsUpdate {
   noShowCancellationWindowHours?: number;
   /** @minimum 0 */
   noShowFee?: number;
+  /** @minimum 1 */
+  defaultCycleDays?: number;
 }
 
 export type SosResourceStatus = typeof SosResourceStatus[keyof typeof SosResourceStatus];

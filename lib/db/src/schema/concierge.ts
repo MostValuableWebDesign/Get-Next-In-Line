@@ -34,6 +34,9 @@ export const clientProfilesTable = pgTable(
     lastVisitAt: timestamp("last_visit_at"),
     nextVisitAt: timestamp("next_visit_at"),
     averageCycleDays: integer("average_cycle_days"),
+    // True when averageCycleDays was set by hand (API) — the automatic
+    // visit-history cadence computation never overwrites overridden values.
+    cycleOverride: boolean("cycle_override").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

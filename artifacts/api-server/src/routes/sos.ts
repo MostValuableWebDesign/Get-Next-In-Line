@@ -98,6 +98,7 @@ import {
 } from "../lib/serviceCatalog";
 import { parseInboundKeyword, getInboundWebhookUrl } from "../lib/inboundSms";
 import { claimWaitlistSlot } from "../lib/waitlistClaim";
+import { updateProfileCadence } from "../lib/visitCadence";
 import {
   autoLinkCustomer,
   getLinkedProfile,
@@ -1607,6 +1608,20 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     .set(updates)
     .where(eq(sosVisitsTable.id, id))
     .returning();
+
+  if (body.action === "check_out") {
+    // Keep the operational last-visit stamp on the customer fresh, then
+    // recompute the linked concierge profile's cadence (last visit + average
+    // cycle) from real completed-visit history so the rebooking automation
+    // sees up-to-date data. Establish the profile link first if missing.
+    await db
+      .update(sosCustomersTable)
+      .set({ lastVisitAt: updated.checkedOutAt })
+      .where(eq(sosCustomersTable.id, customer.id));
+    const linkedProfileId =
+      customer.clientProfileId ?? (await autoLinkCustomer(customer))?.id ?? null;
+    await updateProfileCadence(linkedProfileId);
+  }
 
   const resourceName = updated.resourceId
     ? ((

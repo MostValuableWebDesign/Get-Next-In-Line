@@ -23,5 +23,7 @@ export interface ConciergeClientProfile {
   nextVisitAt?: string | null;
   /** @nullable */
   averageCycleDays?: number | null;
+  /** True when averageCycleDays was set manually; the automatic visit-history computation never overwrites it. */
+  cycleOverride?: boolean;
   createdAt: string;
 }

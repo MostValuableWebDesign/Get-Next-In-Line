@@ -121,6 +121,7 @@ export async function serializeSettings(s: SosSettingsRow) {
     noShowDepositAmount: parseFloat(s.noShowDepositAmount),
     noShowCancellationWindowHours: s.noShowCancellationWindowHours,
     noShowFee: parseFloat(s.noShowFee),
+    defaultCycleDays: s.defaultCycleDays,
     updatedAt: s.updatedAt.toISOString(),
   };
 }

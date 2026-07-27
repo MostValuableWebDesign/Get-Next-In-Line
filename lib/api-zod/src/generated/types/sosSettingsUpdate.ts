@@ -21,4 +21,6 @@ export interface SosSettingsUpdate {
   noShowCancellationWindowHours?: number;
   /** @minimum 0 */
   noShowFee?: number;
+  /** @minimum 1 */
+  defaultCycleDays?: number;
 }

@@ -14,6 +14,7 @@ import {
   renderTemplate,
 } from "../lib/concierge";
 import { logger } from "../lib/logger";
+import { resolveSettings } from "../lib/settings";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -131,6 +132,11 @@ export async function handleRebookingNudge(now: Date = new Date()): Promise<numb
       continue;
     }
 
+    // Tenant-level fallback cycle: clients whose visit history is too thin to
+    // have a computed averageCycleDays are still scanned against the tenant's
+    // default cycle so they aren't invisible to the automation.
+    const defaultCycleDays = (await resolveSettings(rule.tenantId)).defaultCycleDays;
+
     const profiles: ClientProfile[] = await db
       .select()
       .from(clientProfilesTable)
@@ -138,15 +144,15 @@ export async function handleRebookingNudge(now: Date = new Date()): Promise<numb
         and(
           eq(clientProfilesTable.tenantId, rule.tenantId),
           isNotNull(clientProfilesTable.lastVisitAt),
-          isNotNull(clientProfilesTable.averageCycleDays),
         ),
       );
 
     for (const profile of profiles) {
+      const cycleDays = profile.averageCycleDays ?? defaultCycleDays;
       const daysSince = Math.floor(
         (now.getTime() - profile.lastVisitAt!.getTime()) / MS_PER_DAY,
       );
-      if (daysSince <= profile.averageCycleDays!) continue;
+      if (daysSince <= cycleDays) continue;
 
       // Respect the nudge cooldown so overdue clients aren't spammed.
       const since = new Date(now.getTime() - cfg.data.cooldownDays * MS_PER_DAY);
@@ -164,6 +170,7 @@ export async function handleRebookingNudge(now: Date = new Date()): Promise<numb
         context: {
           lastVisitAt: profile.lastVisitAt!.toISOString(),
           averageCycleDays: profile.averageCycleDays,
+          effectiveCycleDays: cycleDays,
           daysSinceLastVisit: daysSince,
         },
       });

@@ -83,6 +83,7 @@ function serializeProfile(p: ClientProfile) {
     lastVisitAt: iso(p.lastVisitAt),
     nextVisitAt: iso(p.nextVisitAt),
     averageCycleDays: p.averageCycleDays,
+    cycleOverride: p.cycleOverride,
     createdAt: p.createdAt.toISOString(),
   };
 }
@@ -340,6 +341,9 @@ router.post("/tenants/:id/client-profiles", async (req, res): Promise<void> => {
       lastVisitAt: toDate(body.lastVisitAt) ?? null,
       nextVisitAt: toDate(body.nextVisitAt) ?? null,
       averageCycleDays: body.averageCycleDays ?? null,
+      // A cycle supplied by hand at creation is a manual override the
+      // automatic visit-history computation must not clobber.
+      cycleOverride: body.averageCycleDays != null,
     })
     .returning();
   res.status(201).json(CreateClientProfileResponse.parse(serializeProfile(profile)));
@@ -368,7 +372,12 @@ router.patch(
           ? { nextVisitAt: toDate(body.nextVisitAt) }
           : {}),
         ...(body.averageCycleDays !== undefined
-          ? { averageCycleDays: body.averageCycleDays }
+          ? {
+              averageCycleDays: body.averageCycleDays,
+              // Setting a value by hand marks the override; clearing it
+              // (null) hands control back to the automatic computation.
+              cycleOverride: body.averageCycleDays != null,
+            }
           : {}),
         updatedAt: new Date(),
       })

@@ -32,5 +32,7 @@ export interface SosSettings {
   noShowDepositAmount: number;
   noShowCancellationWindowHours: number;
   noShowFee: number;
+  /** Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history. */
+  defaultCycleDays: number;
   updatedAt: string;
 }
