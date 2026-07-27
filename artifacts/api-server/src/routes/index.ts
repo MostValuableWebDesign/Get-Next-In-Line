@@ -15,6 +15,7 @@ import coopRouter from "./coop";
 import safetyRouter from "./safety";
 import emergencyRouter from "./emergency";
 import posRouter from "./pos";
+import gatewayRouter from "./gateway";
 import publicBookingRouter from "./publicBooking";
 import landingRouter from "./landing";
 import campaignRedirectRouter from "./campaignRedirect";
@@ -67,6 +68,10 @@ export const SESSION_EXEMPT_PATHS = new Set([
 // session; sandbox pattern — signature verification drops in with real creds).
 export const SESSION_EXEMPT_PATTERNS: RegExp[] = [
   /^\/v1\/partners\/[a-z0-9-]+\/webhook$/,
+  // Public Co-Op API Gateway: server-to-server calls from third-party POS /
+  // developer systems, authenticated by per-tenant bearer tokens inside the
+  // gateway router (rotation/revocation enforced there). Never session-authed.
+  /^\/v1\/gateway\//,
 ];
 router.use((req, res, next) => {
   if (SESSION_EXEMPT_PATHS.has(req.path) || SESSION_EXEMPT_PATTERNS.some((p) => p.test(req.path))) {
@@ -99,6 +104,7 @@ router.use(partnersRouter); // Partner-Direct Integrations proxy engine (/v1/par
 router.use(coopRouter);     // Merchant co-op partnerships (/coop)
 router.use(franchiseRouter); // Multi-Location Franchise Co-Op Controller (/franchise)
 router.use(posRouter);      // External POS webhook connectors (/pos)
+router.use(gatewayRouter);  // Co-Op API gateway: token mgmt (/gateway) + public API (/v1/gateway)
 router.use(safetyRouter);   // Co-op emergency & safety alert network (/coop/safety)
 router.use(emergencyRouter); // Co-op emergency & crisis network broadcasts (/coop/emergency)
 

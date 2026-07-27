@@ -69,6 +69,7 @@ function webhookPath(integ: Integ): string {
 
 function sign(vendor: string, body: string, secret: string): string {
   if (vendor === "clover") return secret;
+  if (vendor === "custom") return createHmac("sha256", secret).update(body).digest("hex");
   const h = createHmac("sha256", secret).update(body);
   return vendor === "boulevard" ? h.digest("hex") : h.digest("base64");
 }
@@ -129,13 +130,14 @@ describe("POS integration setup", () => {
     expect((await request(app).post("/api/pos/integrations/square/enable")).status).toBe(401);
   });
 
-  it("lists all four vendors, initially not configured", async () => {
+  it("lists all five vendors, initially not configured", async () => {
     const agent = await loggedInAgent();
     const res = await agent.get("/api/pos/integrations").set("x-tenant-id", String(tenantId));
     expect(res.status).toBe(200);
     expect(res.body.map((i: Integ) => i.vendor).sort()).toEqual([
       "boulevard",
       "clover",
+      "custom",
       "square",
       "vagaro",
     ]);
@@ -324,6 +326,31 @@ describe("normalized event pipeline", () => {
     const [visit] = await db.select().from(sosVisitsTable).where(eq(sosVisitsTable.customerId, dee.id));
     expect(visit.status).toBe("checked_out");
     expect(visit.paymentAmount).toBe("80.00");
+  });
+
+  it("custom/legacy connector normalizes the generic envelope end to end", async () => {
+    const custom = await enableVendor("custom");
+    expect(custom.signatureHeader).toBe("x-gnil-signature");
+    const res = await deliver(custom, {
+      eventId: `${RUN}-custom-complete`,
+      type: "service_completed",
+      customer: { name: `Edy ${RUN}`, phone: "555-201-0005" },
+      serviceType: "Facial",
+      staffName: `Stylist ${RUN}`,
+      paymentAmount: 65,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("processed");
+    const [edy] = await db
+      .select()
+      .from(sosCustomersTable)
+      .where(and(eq(sosCustomersTable.tenantId, tenantId), eq(sosCustomersTable.name, `Edy ${RUN}`)));
+    const [visit] = await db.select().from(sosVisitsTable).where(eq(sosVisitsTable.customerId, edy.id));
+    expect(visit.status).toBe("checked_out");
+    expect(visit.paymentAmount).toBe("65.00");
+    // Bad signature on the custom scheme is rejected like every other vendor.
+    const bad = await deliver(custom, { eventId: `${RUN}-custom-bad`, type: "check_in" }, { badSig: true });
+    expect(bad.status).toBe(401);
   });
 
   it("logs malformed and unrecognized events instead of dropping them", async () => {

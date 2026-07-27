@@ -13,7 +13,7 @@ import { createHmac, timingSafeEqual } from "crypto";
  * schemes mirror the real ones closely enough that live endpoints drop in.
  */
 
-export const POS_VENDORS = ["square", "clover", "boulevard", "vagaro"] as const;
+export const POS_VENDORS = ["square", "clover", "boulevard", "vagaro", "custom"] as const;
 export type PosVendor = (typeof POS_VENDORS)[number];
 
 export function isPosVendor(v: string): v is PosVendor {
@@ -25,6 +25,7 @@ export const POS_VENDOR_LABELS: Record<PosVendor, string> = {
   clover: "Clover",
   boulevard: "Boulevard",
   vagaro: "Vagaro",
+  custom: "Custom / Legacy POS",
 };
 
 /** Vendor-specific signature header name. */
@@ -33,6 +34,7 @@ export const POS_SIGNATURE_HEADERS: Record<PosVendor, string> = {
   clover: "x-clover-auth",
   boulevard: "x-boulevard-signature",
   vagaro: "x-vagaro-signature",
+  custom: "x-gnil-signature",
 };
 
 export type NormalizedPosEventKind =
@@ -88,6 +90,10 @@ export function computePosSignature(
     case "vagaro":
       // Vagaro-style: base64 HMAC-SHA256 over the raw body.
       return createHmac("sha256", secret).update(rawBody).digest("base64");
+    case "custom":
+      // Custom/legacy connector: hex HMAC-SHA256 over the raw body in
+      // X-GNIL-Signature — the documented scheme for bespoke integrations.
+      return createHmac("sha256", secret).update(rawBody).digest("hex");
   }
 }
 
@@ -240,6 +246,27 @@ export function translatePosPayload(vendor: PosVendor, payload: unknown): Normal
       }
       return ev;
     }
+    case "custom": {
+      // Documented generic envelope for custom/legacy systems:
+      // { eventId, type: check_in|service_completed|perk_redeemed,
+      //   customer: {name, phone, email}, serviceType, staffName,
+      //   paymentAmount (dollars), perkToken }
+      const id = asStr(p.eventId);
+      if (!id) return null;
+      const type = asStr(p.type);
+      const ev = base(id, type);
+      ev.customer = customer(asObj(p.customer));
+      ev.serviceType = asStr(p.serviceType);
+      ev.staffName = asStr(p.staffName);
+      ev.paymentAmount = asNum(p.paymentAmount);
+      if (type === "check_in") ev.kind = "check_in";
+      else if (type === "service_completed") ev.kind = "service_completed";
+      else if (type === "perk_redeemed") {
+        ev.kind = "perk_redeemed";
+        ev.perkToken = asStr(p.perkToken);
+      }
+      return ev;
+    }
   }
 }
 
@@ -376,6 +403,20 @@ export function buildSimulatedPosPayload(vendor: PosVendor, f: SimulatedPosField
           price: f.paymentAmount ?? null,
           promoCode: f.perkToken ?? null,
         },
+      };
+    case "custom":
+      return {
+        eventId: f.externalEventId,
+        type: f.kind,
+        customer: {
+          name: f.customerName ?? null,
+          phone: f.customerPhone ?? null,
+          email: f.customerEmail ?? null,
+        },
+        serviceType: f.serviceType ?? null,
+        staffName: f.staffName ?? null,
+        paymentAmount: f.paymentAmount ?? null,
+        perkToken: f.perkToken ?? null,
       };
   }
 }

@@ -372,6 +372,13 @@
       "when": 1785138569372,
       "tag": "0052_wide_viper",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1785139042974,
+      "tag": "0053_silly_ricochet",
+      "breakpoints": true
     }
   ]
 }

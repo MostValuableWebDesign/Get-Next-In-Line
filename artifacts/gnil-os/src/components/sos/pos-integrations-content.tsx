@@ -4,8 +4,12 @@ import {
   useEnablePosIntegration, useDisablePosIntegration,
   useListPosEvents, getListPosEventsQueryKey,
   useSimulatePosEvent,
-  type PosIntegration, type PosInboundEvent,
+  useListGatewayTokens, getListGatewayTokensQueryKey,
+  useCreateGatewayToken, useRotateGatewayToken, useRevokeGatewayToken,
+  useListGatewayCalls, getListGatewayCallsQueryKey,
+  type PosIntegration, type PosInboundEvent, type GatewayToken, type GatewayApiCall,
 } from '@workspace/api-client-react';
+import { Switch } from '@/components/ui/switch';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +21,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Cable, Copy, Eye, EyeOff, FlaskConical, Plug, PlugZap, RefreshCw } from 'lucide-react';
+import { Cable, Copy, Eye, EyeOff, FlaskConical, KeyRound, Plug, PlugZap, RefreshCw } from 'lucide-react';
 
 /**
  * External POS connectors — merchant hub tab.
@@ -120,6 +124,242 @@ export function PosIntegrationsContent({ tenantId }: { tenantId: number | null }
           </div>
         </CardContent>
       </Card>
+
+      <GatewaySection tenantId={tenantId} />
+    </div>
+  );
+}
+
+/**
+ * Developer API Gateway — tokenized public /v1/gateway API for third-party
+ * systems (partner directory, voucher validation, redemption push). Tokens
+ * are shown exactly once at creation/rotation; sandbox tokens hit the same
+ * endpoints against isolated test data.
+ */
+function GatewaySection({ tenantId }: { tenantId: number | null }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: tokens, isLoading } = useListGatewayTokens({
+    query: { queryKey: [...getListGatewayTokensQueryKey(), tenantId] },
+  });
+  const { data: calls, isLoading: isLoadingCalls } = useListGatewayCalls({
+    query: { queryKey: [...getListGatewayCallsQueryKey(), tenantId], refetchInterval: 15000 },
+  });
+  const create = useCreateGatewayToken();
+  const rotate = useRotateGatewayToken();
+  const revoke = useRevokeGatewayToken();
+  const [label, setLabel] = useState('');
+  const [sandbox, setSandbox] = useState(false);
+  // Newly minted token values, shown once and kept only in component state.
+  const [freshTokens, setFreshTokens] = useState<Record<number, string>>({});
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: getListGatewayTokensQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListGatewayCallsQueryKey() });
+  };
+  const copy = (value: string) => {
+    navigator.clipboard?.writeText(value);
+    toast({ title: 'Token copied' });
+  };
+
+  const onCreate = () => {
+    create.mutate(
+      { data: { label: label.trim(), sandbox } },
+      {
+        onSuccess: (res) => {
+          setFreshTokens((m) => ({ ...m, [res.id]: res.token }));
+          setLabel('');
+          refresh();
+          toast({
+            title: 'API token created',
+            description: 'Copy it now — it will never be shown again.',
+          });
+        },
+        onError: (err) =>
+          toast({ title: 'Token creation failed', description: String(err), variant: 'destructive' }),
+      },
+    );
+  };
+  const onRotate = (t: GatewayToken) => {
+    rotate.mutate(
+      { id: t.id },
+      {
+        onSuccess: (res) => {
+          setFreshTokens((m) => ({ ...m, [res.id]: res.token }));
+          refresh();
+          toast({
+            title: 'Token rotated',
+            description: 'The old value stopped working. Copy the new one now.',
+          });
+        },
+        onError: (err) =>
+          toast({ title: 'Rotation failed', description: String(err), variant: 'destructive' }),
+      },
+    );
+  };
+  const onRevoke = (t: GatewayToken) => {
+    revoke.mutate(
+      { id: t.id },
+      {
+        onSuccess: () => {
+          refresh();
+          toast({ title: 'Token revoked', description: 'External callers using it are now rejected.' });
+        },
+        onError: (err) =>
+          toast({ title: 'Revoke failed', description: String(err), variant: 'destructive' }),
+      },
+    );
+  };
+
+  return (
+    <div className="space-y-4" data-testid="gateway-section">
+      <div>
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <KeyRound className="h-5 w-5" /> Developer API Gateway
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Give your POS vendor or developer a bearer token for the public co-op API: list your
+          partner directory, validate perk vouchers, and push redemptions in real time. Sandbox
+          tokens use isolated test data and never touch live records.
+        </p>
+      </div>
+
+      <Card data-testid="card-gateway-tokens">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">API Tokens</CardTitle>
+          <CardDescription>
+            Token values are shown exactly once. Rotate immediately if a token leaks.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              placeholder="Token label (e.g. 'Clover bridge')"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              className="max-w-xs"
+              data-testid="input-gateway-token-label"
+            />
+            <div className="flex items-center gap-1.5">
+              <Switch checked={sandbox} onCheckedChange={setSandbox} data-testid="switch-gateway-sandbox" />
+              <Label className="text-xs">Sandbox</Label>
+            </div>
+            <Button size="sm" onClick={onCreate} disabled={!label.trim() || create.isPending} data-testid="button-create-gateway-token">
+              {create.isPending ? 'Creating…' : 'Create token'}
+            </Button>
+          </div>
+          {isLoading && <Skeleton className="h-16 w-full" />}
+          {!isLoading && (tokens?.length ?? 0) === 0 && (
+            <p className="text-sm text-muted-foreground" data-testid="text-gateway-tokens-empty">
+              No API tokens yet.
+            </p>
+          )}
+          <div className="space-y-2">
+            {tokens?.map((t) => (
+              <div
+                key={t.id}
+                className="rounded-md border p-2 text-sm space-y-1.5"
+                data-testid={`row-gateway-token-${t.id}`}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{t.label}</span>
+                  {t.sandbox && <Badge variant="outline">sandbox</Badge>}
+                  <Badge variant={t.status === 'active' ? 'default' : 'destructive'} data-testid={`badge-gateway-token-status-${t.id}`}>
+                    {t.status}
+                  </Badge>
+                  <code className="text-xs text-muted-foreground">{t.tokenPrefix}</code>
+                  <span className="text-xs text-muted-foreground flex-1 text-right">
+                    {t.lastUsedAt ? `Last used ${new Date(t.lastUsedAt).toLocaleString()}` : 'Never used'}
+                  </span>
+                  {t.status === 'active' && (
+                    <>
+                      <Button size="sm" variant="outline" disabled={rotate.isPending} onClick={() => onRotate(t)} data-testid={`button-rotate-token-${t.id}`}>
+                        Rotate
+                      </Button>
+                      <Button size="sm" variant="destructive" disabled={revoke.isPending} onClick={() => onRevoke(t)} data-testid={`button-revoke-token-${t.id}`}>
+                        Revoke
+                      </Button>
+                    </>
+                  )}
+                </div>
+                {freshTokens[t.id] && t.status === 'active' && (
+                  <div className="flex items-center gap-1">
+                    <Input readOnly value={freshTokens[t.id]} className="text-xs font-mono" data-testid={`input-fresh-token-${t.id}`} />
+                    <Button variant="ghost" size="icon" onClick={() => copy(freshTokens[t.id])} data-testid={`button-copy-fresh-token-${t.id}`}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-gateway-endpoints">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Endpoint Reference</CardTitle>
+          <CardDescription>
+            Send the token as <code>Authorization: Bearer &lt;token&gt;</code>. Tenant scope comes
+            from the token itself — no other headers needed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-1.5 text-sm font-mono">
+            <p><Badge variant="secondary">GET</Badge> /api/v1/gateway/partners <span className="font-sans text-muted-foreground">— your live partner directory &amp; perks</span></p>
+            <p><Badge variant="secondary">POST</Badge> /api/v1/gateway/vouchers/validate <span className="font-sans text-muted-foreground">— {'{ "code": "WPASS-…" }'} → valid / reason</span></p>
+            <p><Badge variant="secondary">POST</Badge> /api/v1/gateway/redemptions <span className="font-sans text-muted-foreground">— {'{ "code": "WPASS-…" }'} → redeem &amp; attribute</span></p>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            Sandbox tokens accept the fixture vouchers WPASS-SANDBOX-VALID, WPASS-SANDBOX-REDEEMED,
+            and WPASS-SANDBOX-EXPIRED, and every sandbox response carries <code>"sandbox": true</code>.
+            For custom/legacy POS webhooks, enable the "Custom / Legacy POS" connector above and sign
+            the raw body with hex HMAC-SHA256 in the <code>X-GNIL-Signature</code> header.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card data-testid="card-gateway-call-log">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <div>
+            <CardTitle className="text-base">API Call Log</CardTitle>
+            <CardDescription>Every public gateway call — including rejected attempts.</CardDescription>
+          </div>
+          <Button variant="ghost" size="sm" onClick={refresh} data-testid="button-refresh-gateway-calls">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoadingCalls && <Skeleton className="h-16 w-full" />}
+          {!isLoadingCalls && (calls?.length ?? 0) === 0 && (
+            <p className="text-sm text-muted-foreground" data-testid="text-gateway-calls-empty">
+              No API calls yet.
+            </p>
+          )}
+          <div className="space-y-2">
+            {calls?.map((c) => (
+              <CallRow key={c.id} c={c} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function CallRow({ c }: { c: GatewayApiCall }) {
+  const variant =
+    c.outcome === 'ok' ? 'default' : c.outcome === 'auth_failed' || c.outcome === 'rejected' ? 'destructive' : 'secondary';
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm" data-testid={`row-gateway-call-${c.id}`}>
+      <Badge variant="secondary">{c.method}</Badge>
+      <code className="text-xs">{c.path}</code>
+      <Badge variant={variant} data-testid={`badge-gateway-call-outcome-${c.id}`}>{c.outcome}</Badge>
+      {c.sandbox && <Badge variant="outline">sandbox</Badge>}
+      <span className="text-muted-foreground truncate flex-1 min-w-[10rem]">
+        {c.tokenLabel ? `${c.tokenLabel}: ` : ''}{c.detail ?? `HTTP ${c.httpStatus}`}
+      </span>
+      <span className="text-xs text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</span>
     </div>
   );
 }
@@ -270,7 +510,7 @@ function SimulatorCard({
     simulate.mutate(
       {
         data: {
-          vendor: vendor as 'square' | 'clover' | 'boulevard' | 'vagaro',
+          vendor: vendor as 'square' | 'clover' | 'boulevard' | 'vagaro' | 'custom',
           kind: kind as 'check_in' | 'service_completed' | 'perk_redeemed',
           customerName: name || null,
           customerPhone: phone || null,
@@ -307,7 +547,7 @@ function SimulatorCard({
           <Select value={vendor} onValueChange={setVendor}>
             <SelectTrigger data-testid="select-sim-vendor"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {['square', 'clover', 'boulevard', 'vagaro'].map((v) => (
+              {['square', 'clover', 'boulevard', 'vagaro', 'custom'].map((v) => (
                 <SelectItem key={v} value={v} className="capitalize">{v}</SelectItem>
               ))}
             </SelectContent>

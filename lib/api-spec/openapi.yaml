@@ -24,6 +24,8 @@ tags:
     description: Partner-Direct Integrations — connection handshakes and status (webhook listener is server-to-server only, outside this spec)
   - name: sos
     description: SOS operations platform — resources, visits, waitlist, appointments, AI receptionist
+  - name: gateway
+    description: Co-Op API & Third-Party POS Integration Gateway — bearer-token management and API call log (public /v1/gateway endpoints are server-to-server, outside this spec)
   - name: public-booking
     description: Public (no-login) direct-booking flow — service menu, availability, and booking keyed by tenant slug
 
@@ -3578,6 +3580,97 @@ paths:
         "409":
           description: Integration not enabled
 
+  /gateway/tokens:
+    get:
+      operationId: listGatewayTokens
+      tags: [gateway]
+      summary: List the tenant's Co-Op API gateway tokens (masked — full values are never recoverable)
+      responses:
+        "200":
+          description: Gateway API tokens, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GatewayToken"
+    post:
+      operationId: createGatewayToken
+      tags: [gateway]
+      summary: Create a gateway API token — the full token value is returned exactly once and stored only as a one-way hash
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGatewayTokenRequest"
+      responses:
+        "201":
+          description: Token created — save the token value now, it cannot be shown again
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayTokenWithSecret"
+
+  /gateway/tokens/{id}/rotate:
+    post:
+      operationId: rotateGatewayToken
+      tags: [gateway]
+      summary: Rotate a token in place — the old value stops working instantly; the new value is shown exactly once
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Token rotated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayTokenWithSecret"
+        "404":
+          description: Token not found in this tenant scope
+        "409":
+          description: Revoked tokens cannot be rotated
+
+  /gateway/tokens/{id}/revoke:
+    post:
+      operationId: revokeGatewayToken
+      tags: [gateway]
+      summary: Revoke a token — external callers using it are rejected from that moment on
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Token revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GatewayToken"
+        "404":
+          description: Token not found in this tenant scope
+
+  /gateway/calls:
+    get:
+      operationId: listGatewayCalls
+      tags: [gateway]
+      summary: Merchant-viewable log of public gateway API calls (newest first, up to 100), including rejected attempts
+      responses:
+        "200":
+          description: Gateway API call log
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GatewayApiCall"
+
   /public/booking/{slug}:
     get:
       operationId: getPublicBookingConfig
@@ -4294,7 +4387,7 @@ components:
       properties:
         vendor:
           type: string
-          enum: [square, clover, boulevard, vagaro]
+          enum: [square, clover, boulevard, vagaro, custom]
         vendorLabel:
           type: string
         status:
@@ -4355,7 +4448,7 @@ components:
       properties:
         vendor:
           type: string
-          enum: [square, clover, boulevard, vagaro]
+          enum: [square, clover, boulevard, vagaro, custom]
         kind:
           type: string
           enum: [check_in, service_completed, perk_redeemed]
@@ -4398,6 +4491,83 @@ components:
         payload:
           type: string
           description: The vendor-shaped JSON payload that was posted through the pipeline.
+
+    GatewayToken:
+      type: object
+      required: [id, label, tokenPrefix, sandbox, status, lastUsedAt, rotatedAt, revokedAt, createdAt]
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+        tokenPrefix:
+          type: string
+          description: Non-secret display prefix; the full token is never recoverable.
+        sandbox:
+          type: boolean
+        status:
+          type: string
+          enum: [active, revoked]
+        lastUsedAt:
+          type: string
+          nullable: true
+        rotatedAt:
+          type: string
+          nullable: true
+        revokedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+
+    GatewayTokenWithSecret:
+      allOf:
+        - $ref: "#/components/schemas/GatewayToken"
+        - type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              description: The full bearer token — shown exactly once at creation/rotation.
+
+    CreateGatewayTokenRequest:
+      type: object
+      required: [label]
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+        sandbox:
+          type: boolean
+          nullable: true
+          description: Sandbox tokens exercise the same endpoints against isolated test data and never touch live records.
+
+    GatewayApiCall:
+      type: object
+      required: [id, tokenLabel, method, path, httpStatus, outcome, detail, sandbox, createdAt]
+      properties:
+        id:
+          type: integer
+        tokenLabel:
+          type: string
+          nullable: true
+        method:
+          type: string
+        path:
+          type: string
+        httpStatus:
+          type: integer
+        outcome:
+          type: string
+          description: ok | auth_failed | invalid | rejected | error
+        detail:
+          type: string
+          nullable: true
+        sandbox:
+          type: boolean
+        createdAt:
+          type: string
 
     CoopPartnership:
       type: object

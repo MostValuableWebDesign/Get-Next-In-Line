@@ -78,6 +78,7 @@ import type {
   CoopSuggestion,
   CoopSuggestionDismissResult,
   CoopTaxonomyIndustry,
+  CreateGatewayTokenRequest,
   EmergencyBroadcast,
   EmergencyBroadcastCreate,
   EmergencyCheckin,
@@ -105,6 +106,9 @@ import type {
   FranchiseTemplate,
   FranchiseTemplateCreate,
   FranchiseTemplateUpdate,
+  GatewayApiCall,
+  GatewayToken,
+  GatewayTokenWithSecret,
   GetAdminComplianceSummaryParams,
   GetCoopLedgerParams,
   GetCoopStatsParams,
@@ -12378,6 +12382,373 @@ export const useSimulatePosEvent = <TError = ErrorType<void>,
       > => {
       return useMutation(getSimulatePosEventMutationOptions(options));
     }
+
+export const getListGatewayTokensUrl = () => {
+
+
+
+
+  return `/api/gateway/tokens`
+}
+
+/**
+ * @summary List the tenant's Co-Op API gateway tokens (masked — full values are never recoverable)
+ */
+export const listGatewayTokens = async ( options?: RequestInit): Promise<GatewayToken[]> => {
+
+  return customFetch<GatewayToken[]>(getListGatewayTokensUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGatewayTokensQueryKey = () => {
+    return [
+    `/api/gateway/tokens`
+    ] as const;
+    }
+
+
+export const getListGatewayTokensQueryOptions = <TData = Awaited<ReturnType<typeof listGatewayTokens>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGatewayTokens>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGatewayTokensQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGatewayTokens>>> = ({ signal }) => listGatewayTokens({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGatewayTokens>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListGatewayTokensQueryResult = NonNullable<Awaited<ReturnType<typeof listGatewayTokens>>>
+export type ListGatewayTokensQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List the tenant's Co-Op API gateway tokens (masked — full values are never recoverable)
+ */
+
+export function useListGatewayTokens<TData = Awaited<ReturnType<typeof listGatewayTokens>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGatewayTokens>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListGatewayTokensQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateGatewayTokenUrl = () => {
+
+
+
+
+  return `/api/gateway/tokens`
+}
+
+/**
+ * @summary Create a gateway API token — the full token value is returned exactly once and stored only as a one-way hash
+ */
+export const createGatewayToken = async (createGatewayTokenRequest: CreateGatewayTokenRequest, options?: RequestInit): Promise<GatewayTokenWithSecret> => {
+
+  return customFetch<GatewayTokenWithSecret>(getCreateGatewayTokenUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createGatewayTokenRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateGatewayTokenMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGatewayToken>>, TError,{data: BodyType<CreateGatewayTokenRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createGatewayToken>>, TError,{data: BodyType<CreateGatewayTokenRequest>}, TContext> => {
+
+const mutationKey = ['createGatewayToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createGatewayToken>>, {data: BodyType<CreateGatewayTokenRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createGatewayToken(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateGatewayTokenMutationResult = NonNullable<Awaited<ReturnType<typeof createGatewayToken>>>
+    export type CreateGatewayTokenMutationBody = BodyType<CreateGatewayTokenRequest>
+    export type CreateGatewayTokenMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a gateway API token — the full token value is returned exactly once and stored only as a one-way hash
+ */
+export const useCreateGatewayToken = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGatewayToken>>, TError,{data: BodyType<CreateGatewayTokenRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createGatewayToken>>,
+        TError,
+        {data: BodyType<CreateGatewayTokenRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateGatewayTokenMutationOptions(options));
+    }
+
+export const getRotateGatewayTokenUrl = (id: number,) => {
+
+
+
+
+  return `/api/gateway/tokens/${id}/rotate`
+}
+
+/**
+ * @summary Rotate a token in place — the old value stops working instantly; the new value is shown exactly once
+ */
+export const rotateGatewayToken = async (id: number, options?: RequestInit): Promise<GatewayTokenWithSecret> => {
+
+  return customFetch<GatewayTokenWithSecret>(getRotateGatewayTokenUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRotateGatewayTokenMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateGatewayToken>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rotateGatewayToken>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['rotateGatewayToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rotateGatewayToken>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  rotateGatewayToken(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RotateGatewayTokenMutationResult = NonNullable<Awaited<ReturnType<typeof rotateGatewayToken>>>
+
+    export type RotateGatewayTokenMutationError = ErrorType<void>
+
+    /**
+ * @summary Rotate a token in place — the old value stops working instantly; the new value is shown exactly once
+ */
+export const useRotateGatewayToken = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateGatewayToken>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rotateGatewayToken>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRotateGatewayTokenMutationOptions(options));
+    }
+
+export const getRevokeGatewayTokenUrl = (id: number,) => {
+
+
+
+
+  return `/api/gateway/tokens/${id}/revoke`
+}
+
+/**
+ * @summary Revoke a token — external callers using it are rejected from that moment on
+ */
+export const revokeGatewayToken = async (id: number, options?: RequestInit): Promise<GatewayToken> => {
+
+  return customFetch<GatewayToken>(getRevokeGatewayTokenUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeGatewayTokenMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeGatewayToken>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeGatewayToken>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['revokeGatewayToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeGatewayToken>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  revokeGatewayToken(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeGatewayTokenMutationResult = NonNullable<Awaited<ReturnType<typeof revokeGatewayToken>>>
+
+    export type RevokeGatewayTokenMutationError = ErrorType<void>
+
+    /**
+ * @summary Revoke a token — external callers using it are rejected from that moment on
+ */
+export const useRevokeGatewayToken = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeGatewayToken>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeGatewayToken>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRevokeGatewayTokenMutationOptions(options));
+    }
+
+export const getListGatewayCallsUrl = () => {
+
+
+
+
+  return `/api/gateway/calls`
+}
+
+/**
+ * @summary Merchant-viewable log of public gateway API calls (newest first, up to 100), including rejected attempts
+ */
+export const listGatewayCalls = async ( options?: RequestInit): Promise<GatewayApiCall[]> => {
+
+  return customFetch<GatewayApiCall[]>(getListGatewayCallsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGatewayCallsQueryKey = () => {
+    return [
+    `/api/gateway/calls`
+    ] as const;
+    }
+
+
+export const getListGatewayCallsQueryOptions = <TData = Awaited<ReturnType<typeof listGatewayCalls>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGatewayCalls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGatewayCallsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGatewayCalls>>> = ({ signal }) => listGatewayCalls({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGatewayCalls>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListGatewayCallsQueryResult = NonNullable<Awaited<ReturnType<typeof listGatewayCalls>>>
+export type ListGatewayCallsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Merchant-viewable log of public gateway API calls (newest first, up to 100), including rejected attempts
+ */
+
+export function useListGatewayCalls<TData = Awaited<ReturnType<typeof listGatewayCalls>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGatewayCalls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListGatewayCallsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetPublicBookingConfigUrl = (slug: string,) => {
 

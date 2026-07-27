@@ -4528,7 +4528,7 @@ export const DisconnectPartnerResponse = zod.object({
  * @summary List the tenant's external POS integrations (Square, Clover, Boulevard, Vagaro) with webhook endpoint, signing secret, and connection status
  */
 export const ListPosIntegrationsResponseItem = zod.object({
-  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro']),
+  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro', 'custom']),
   "vendorLabel": zod.string(),
   "status": zod.enum(['not_configured', 'active', 'disabled']),
   "webhookUrl": zod.string().nullable().describe('Tenant-specific webhook endpoint to paste into the vendor\'s webhook configuration.'),
@@ -4549,7 +4549,7 @@ export const EnablePosIntegrationParams = zod.object({
 })
 
 export const EnablePosIntegrationResponse = zod.object({
-  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro']),
+  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro', 'custom']),
   "vendorLabel": zod.string(),
   "status": zod.enum(['not_configured', 'active', 'disabled']),
   "webhookUrl": zod.string().nullable().describe('Tenant-specific webhook endpoint to paste into the vendor\'s webhook configuration.'),
@@ -4569,7 +4569,7 @@ export const DisablePosIntegrationParams = zod.object({
 })
 
 export const DisablePosIntegrationResponse = zod.object({
-  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro']),
+  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro', 'custom']),
   "vendorLabel": zod.string(),
   "status": zod.enum(['not_configured', 'active', 'disabled']),
   "webhookUrl": zod.string().nullable().describe('Tenant-specific webhook endpoint to paste into the vendor\'s webhook configuration.'),
@@ -4606,7 +4606,7 @@ export const ListPosEventsResponse = zod.array(ListPosEventsResponseItem)
  * @summary Dev-only simulator — builds a vendor-shaped payload, signs it, and runs the full webhook pipeline
  */
 export const SimulatePosEventBody = zod.object({
-  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro']),
+  "vendor": zod.enum(['square', 'clover', 'boulevard', 'vagaro', 'custom']),
   "kind": zod.enum(['check_in', 'service_completed', 'perk_redeemed']),
   "externalEventId": zod.string().nullish(),
   "customerName": zod.string().nullish(),
@@ -4624,6 +4624,109 @@ export const SimulatePosEventResponse = zod.object({
   "detail": zod.string().nullable(),
   "payload": zod.string().describe('The vendor-shaped JSON payload that was posted through the pipeline.')
 })
+
+
+/**
+ * @summary List the tenant's Co-Op API gateway tokens (masked — full values are never recoverable)
+ */
+export const ListGatewayTokensResponseItem = zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "tokenPrefix": zod.string().describe('Non-secret display prefix; the full token is never recoverable.'),
+  "sandbox": zod.boolean(),
+  "status": zod.enum(['active', 'revoked']),
+  "lastUsedAt": zod.string().nullable(),
+  "rotatedAt": zod.string().nullable(),
+  "revokedAt": zod.string().nullable(),
+  "createdAt": zod.string()
+})
+export const ListGatewayTokensResponse = zod.array(ListGatewayTokensResponseItem)
+
+
+/**
+ * @summary Create a gateway API token — the full token value is returned exactly once and stored only as a one-way hash
+ */
+export const createGatewayTokenBodyLabelMax = 100;
+
+
+
+export const CreateGatewayTokenBody = zod.object({
+  "label": zod.string().min(1).max(createGatewayTokenBodyLabelMax),
+  "sandbox": zod.boolean().nullish().describe('Sandbox tokens exercise the same endpoints against isolated test data and never touch live records.')
+})
+
+export const CreateGatewayTokenResponse = zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "tokenPrefix": zod.string().describe('Non-secret display prefix; the full token is never recoverable.'),
+  "sandbox": zod.boolean(),
+  "status": zod.enum(['active', 'revoked']),
+  "lastUsedAt": zod.string().nullable(),
+  "rotatedAt": zod.string().nullable(),
+  "revokedAt": zod.string().nullable(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "token": zod.string().describe('The full bearer token — shown exactly once at creation\/rotation.')
+}))
+
+
+/**
+ * @summary Rotate a token in place — the old value stops working instantly; the new value is shown exactly once
+ */
+export const RotateGatewayTokenParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RotateGatewayTokenResponse = zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "tokenPrefix": zod.string().describe('Non-secret display prefix; the full token is never recoverable.'),
+  "sandbox": zod.boolean(),
+  "status": zod.enum(['active', 'revoked']),
+  "lastUsedAt": zod.string().nullable(),
+  "rotatedAt": zod.string().nullable(),
+  "revokedAt": zod.string().nullable(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "token": zod.string().describe('The full bearer token — shown exactly once at creation\/rotation.')
+}))
+
+
+/**
+ * @summary Revoke a token — external callers using it are rejected from that moment on
+ */
+export const RevokeGatewayTokenParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RevokeGatewayTokenResponse = zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "tokenPrefix": zod.string().describe('Non-secret display prefix; the full token is never recoverable.'),
+  "sandbox": zod.boolean(),
+  "status": zod.enum(['active', 'revoked']),
+  "lastUsedAt": zod.string().nullable(),
+  "rotatedAt": zod.string().nullable(),
+  "revokedAt": zod.string().nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-viewable log of public gateway API calls (newest first, up to 100), including rejected attempts
+ */
+export const ListGatewayCallsResponseItem = zod.object({
+  "id": zod.number(),
+  "tokenLabel": zod.string().nullable(),
+  "method": zod.string(),
+  "path": zod.string(),
+  "httpStatus": zod.number(),
+  "outcome": zod.string().describe('ok | auth_failed | invalid | rejected | error'),
+  "detail": zod.string().nullable(),
+  "sandbox": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListGatewayCallsResponse = zod.array(ListGatewayCallsResponseItem)
 
 
 /**

@@ -13,6 +13,7 @@ export const PosIntegrationVendor = {
   clover: 'clover',
   boulevard: 'boulevard',
   vagaro: 'vagaro',
+  custom: 'custom',
 } as const;
 
 export type PosIntegrationStatus = typeof PosIntegrationStatus[keyof typeof PosIntegrationStatus];
@@ -61,6 +62,7 @@ export const SimulatePosEventRequestVendor = {
   clover: 'clover',
   boulevard: 'boulevard',
   vagaro: 'vagaro',
+  custom: 'custom',
 } as const;
 
 export type SimulatePosEventRequestKind = typeof SimulatePosEventRequestKind[keyof typeof SimulatePosEventRequestKind];
@@ -91,6 +93,55 @@ export interface SimulatePosEventResult {
   detail: string | null;
   /** The vendor-shaped JSON payload that was posted through the pipeline. */
   payload: string;
+}
+
+export type GatewayTokenStatus = typeof GatewayTokenStatus[keyof typeof GatewayTokenStatus];
+
+
+export const GatewayTokenStatus = {
+  active: 'active',
+  revoked: 'revoked',
+} as const;
+
+export interface GatewayToken {
+  id: number;
+  label: string;
+  /** Non-secret display prefix; the full token is never recoverable. */
+  tokenPrefix: string;
+  sandbox: boolean;
+  status: GatewayTokenStatus;
+  lastUsedAt: string | null;
+  rotatedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+export type GatewayTokenWithSecret = GatewayToken & {
+  /** The full bearer token — shown exactly once at creation/rotation. */
+  token: string;
+};
+
+export interface CreateGatewayTokenRequest {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  label: string;
+  /** Sandbox tokens exercise the same endpoints against isolated test data and never touch live records. */
+  sandbox?: boolean | null;
+}
+
+export interface GatewayApiCall {
+  id: number;
+  tokenLabel: string | null;
+  method: string;
+  path: string;
+  httpStatus: number;
+  /** ok | auth_failed | invalid | rejected | error */
+  outcome: string;
+  detail: string | null;
+  sandbox: boolean;
+  createdAt: string;
 }
 
 /**

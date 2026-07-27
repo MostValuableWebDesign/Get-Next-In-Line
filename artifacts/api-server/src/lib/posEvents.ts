@@ -7,9 +7,6 @@ import {
   sosStaffMembersTable,
   sosResourcesTable,
   sosVisitsTable,
-  perkPassesTable,
-  coopPerkRedemptionsTable,
-  coopAttributionEventsTable,
   type PosIntegration,
 } from "@workspace/db";
 import type { PgColumn } from "drizzle-orm/pg-core";
@@ -18,10 +15,9 @@ import { logger } from "./logger";
 import { normalizeToE164 } from "./sms";
 import { autoLinkCustomer } from "./customerLink";
 import { updateProfileCadence } from "./visitCadence";
-import { grantPerkPassesSafe, findWalletPass, isWalletPassToken } from "./perkPasses";
+import { grantPerkPassesSafe } from "./perkPasses";
 import { attachRevenueToRecentCrossoverSafe } from "./coopEvents";
-import { recordPassportStampSafe } from "./passport";
-import type { CoopDirection } from "./coopTracking";
+import { redeemWalletPassAsTenant } from "./walletRedemption";
 import { translatePosPayload, type NormalizedPosEvent, type PosVendor } from "./posVendors";
 
 /**
@@ -238,87 +234,14 @@ async function applyPerkRedeemed(
   integration: PosIntegration,
   ev: NormalizedPosEvent
 ): Promise<{ status: string; detail: string }> {
-  if (integration.tenantId == null) {
-    return {
-      status: "error",
-      detail: "Perk redemption requires a tenant-scoped integration",
-    };
-  }
-  const token = ev.perkToken?.trim() ?? "";
-  if (!token || !isWalletPassToken(token)) {
-    return { status: "error", detail: "Missing or unrecognized perk pass token" };
-  }
-  const row = await findWalletPass(token);
-  if (!row) return { status: "error", detail: "Unknown perk pass token" };
-  if (row.pass.redeemedAt != null) {
-    return { status: "ignored", detail: "Pass was already redeemed" };
-  }
-  if (row.pass.expiresAt <= new Date()) {
-    return { status: "error", detail: "Pass has expired" };
-  }
-  // Same integrity rule as the native /coop/redemptions path: only a business
-  // that is a party to the partnership may redeem its passes. A leaked token
-  // presented through some other tenant's POS is rejected without writes.
-  if (
-    integration.tenantId !== row.partnership.hostTenantId &&
-    integration.tenantId !== row.partnership.partnerTenantId
-  ) {
-    return {
-      status: "error",
-      detail: "Only a business in this partnership can redeem this perk pass",
-    };
-  }
-  // Conditional update is the single-use lock (same as the native
-  // /coop/redemptions path): exactly one redeemer flips redeemed_at.
-  const [redeemed] = await db
-    .update(perkPassesTable)
-    .set({ redeemedAt: new Date(), redeemedByTenantId: integration.tenantId })
-    .where(and(eq(perkPassesTable.token, token), isNull(perkPassesTable.redeemedAt)))
-    .returning();
-  if (!redeemed) {
-    return { status: "ignored", detail: "Pass was already redeemed" };
-  }
-  // Mirror into the shared redemption ledger for partner-side reporting.
-  const [redemption] = await db
-    .insert(coopPerkRedemptionsTable)
-    .values({
-      partnershipId: row.partnership.id,
-      passCode: token,
-      redeemedByTenantId: integration.tenantId,
-    })
-    .onConflictDoNothing()
-    .returning();
-  // Attribution: exactly one event per counted redemption (unique
-  // redemption_id makes replays no-ops). The redeeming tenant is the
-  // receiver; the other side of the partnership sent the customer.
-  if (redemption) {
-    const p = row.partnership;
-    const direction: CoopDirection =
-      integration.tenantId === p.hostTenantId ? "partner_to_host" : "host_to_partner";
-    await db
-      .insert(coopAttributionEventsTable)
-      .values({
-        redemptionId: redemption.id,
-        partnershipId: p.id,
-        direction,
-        sendingTenantId: direction === "host_to_partner" ? p.hostTenantId : p.partnerTenantId,
-        receivingTenantId: integration.tenantId,
-      })
-      .onConflictDoNothing();
-    // Neighborhood Passport: stamp the redeeming business on the wallet
-    // owner's passport, enriched with any customer contact on the POS event.
-    await recordPassportStampSafe({
-      redeemedByTenantId: integration.tenantId,
-      redemptionId: redemption.id,
-      person: {
-        phone: row.pass.customerPhone,
-        email: ev.customer?.email ?? null,
-        name: row.pass.customerName ?? ev.customer?.name ?? null,
-      },
-    });
-  }
-  return { status: "processed", detail: `Perk pass ${token} redeemed` };
-}
+  // Shared with the /v1/gateway developer API — the same integrity rules
+  // (participant enforcement, single-use lock, attribution, passport
+  // stamping) apply to every machine-driven redemption path. Contact info
+  // from the POS event enriches the passport identity.
+  return redeemWalletPassAsTenant(integration.tenantId, ev.perkToken, {
+    email: ev.customer?.email ?? null,
+    name: ev.customer?.name ?? null,
+  });}
 
 // ── pipeline entry ───────────────────────────────────────────────────────────
 

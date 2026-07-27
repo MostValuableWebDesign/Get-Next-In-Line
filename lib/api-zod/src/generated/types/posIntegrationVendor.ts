@@ -14,4 +14,5 @@ export const PosIntegrationVendor = {
   clover: 'clover',
   boulevard: 'boulevard',
   vagaro: 'vagaro',
+  custom: 'custom',
 } as const;
