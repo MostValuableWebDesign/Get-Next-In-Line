@@ -1,6 +1,12 @@
 import { Router, type IRouter } from "express";
-import { db, tenantsTable, sosReviewsTable } from "@workspace/db";
-import { and, desc, eq } from "drizzle-orm";
+import {
+  db,
+  tenantsTable,
+  sosReviewsTable,
+  merchantCoopPartnershipsTable,
+} from "@workspace/db";
+import { alias } from "drizzle-orm/pg-core";
+import { and, desc, eq, or } from "drizzle-orm";
 import { getSettingsForTenant } from "../lib/settings";
 import { listServicesForScope } from "../lib/serviceCatalog";
 import { parseServiceNames } from "../lib/receptionist";
@@ -33,10 +39,76 @@ function jsonLd(obj: unknown): string {
 
 const SCHEMA_TYPE_RE = /^[A-Za-z][A-Za-z0-9]{0,60}$/;
 
+// ── Public co-op perks ───────────────────────────────────────────────────────
+// A business's active merchant co-op partnership perks, shaped for public
+// display: perk title, description, and the *other* business's name only.
+// Redemption codes are deliberately never selected here — they must never
+// reach the public storefront HTML or the public perks JSON.
+export interface PublicCoopPerk {
+  perkTitle: string;
+  perkDescription: string | null;
+  partnerBusinessName: string;
+}
+
+export async function getPublicCoopPerks(
+  tenantId: number,
+): Promise<PublicCoopPerk[]> {
+  const hostTenant = alias(tenantsTable, "landing_host_tenant");
+  const partnerTenant = alias(tenantsTable, "landing_partner_tenant");
+  const rows = await db
+    .select({
+      perkTitle: merchantCoopPartnershipsTable.perkTitle,
+      perkDescription: merchantCoopPartnershipsTable.perkDescription,
+      hostTenantId: merchantCoopPartnershipsTable.hostTenantId,
+      hostTenantName: hostTenant.brandName,
+      partnerTenantName: partnerTenant.brandName,
+    })
+    .from(merchantCoopPartnershipsTable)
+    .innerJoin(hostTenant, eq(merchantCoopPartnershipsTable.hostTenantId, hostTenant.id))
+    .innerJoin(partnerTenant, eq(merchantCoopPartnershipsTable.partnerTenantId, partnerTenant.id))
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.isActive, true),
+        or(
+          eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
+          eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId),
+        ),
+      ),
+    )
+    .orderBy(desc(merchantCoopPartnershipsTable.createdAt), desc(merchantCoopPartnershipsTable.id));
+  return rows.map((r) => ({
+    perkTitle: r.perkTitle,
+    perkDescription: r.perkDescription,
+    partnerBusinessName:
+      r.hostTenantId === tenantId ? r.partnerTenantName : r.hostTenantName,
+  }));
+}
+
 function starRow(rating: number): string {
   const n = Math.max(1, Math.min(5, Math.round(rating)));
   return "★".repeat(n) + "☆".repeat(5 - n);
 }
+
+// GET /public/landing/:slug/perks — read-only, unauthenticated JSON view of a
+// business's active co-op partnership perks. Same slug-scoping as the landing
+// page; exposes only perk title, description, and partner business name.
+router.get("/public/landing/:slug/perks", async (req, res): Promise<void> => {
+  const slug = String(req.params.slug || "").toLowerCase();
+  if (!/^[a-z0-9-]{1,80}$/.test(slug)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const [tenant] = await db
+    .select({ id: tenantsTable.id })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.subdomain, slug));
+  if (!tenant) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const perks = await getPublicCoopPerks(tenant.id);
+  res.json({ perks });
+});
 
 router.get("/public/landing/:slug", async (req, res): Promise<void> => {
   const slug = String(req.params.slug || "").toLowerCase();
@@ -69,6 +141,8 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
           price: null as string | null,
           durationMinutes: null as number | null,
         }));
+
+  const perks = await getPublicCoopPerks(tenant.id);
 
   const reviews = await db
     .select()
@@ -201,6 +275,33 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
           .join("")}</section>`
       : "";
 
+  // Inline booking: the existing embeddable booking widget in embed mode,
+  // scoped to this same business. The plain "open the booking page" link
+  // remains as a crawlable, no-JS fallback.
+  const embedUrl = `${bookUrl}?embed=1`;
+  const bookingHtml = `<section id="book" data-testid="section-storefront-booking"><h2>Book Your Appointment</h2>
+    <iframe class="booking-embed" src="${escapeHtml(embedUrl)}" title="Book an appointment with ${escapeHtml(name)}" loading="lazy"></iframe>
+    <p class="book-fallback">Trouble with the form? <a href="${escapeHtml(bookUrl)}" data-testid="link-book-now">Open the booking page</a>.</p>
+  </section>`;
+
+  // Local Perks banner: active co-op partnership perks only. Renders nothing
+  // when the business has no active partnerships, and never includes
+  // redemption codes or other businesses' booking links.
+  const perksHtml =
+    perks.length > 0
+      ? `<section id="perks" data-testid="section-local-perks"><h2>Local Perks</h2>
+    <p class="perks-intro">Perks for our customers through local business partnerships.</p>
+    ${perks
+      .map(
+        (p) =>
+          `<article class="perk"><h3>${escapeHtml(p.perkTitle)}</h3>${
+            p.perkDescription ? `<p>${escapeHtml(p.perkDescription)}</p>` : ""
+          }<footer>with ${escapeHtml(p.partnerBusinessName)}</footer></article>`,
+      )
+      .join("\n    ")}
+  </section>`
+      : "";
+
   const detailRows: string[] = [];
   const addressLine = [
     settings.streetAddress,
@@ -252,6 +353,13 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
   .stars{color:#f59e0b;letter-spacing:.15em}
   .review footer{color:#6b6b8a;font-size:.9rem}
   .cta-bottom{margin-top:3rem;text-align:center}
+  .booking-embed{width:100%;height:640px;border:1px solid #ececf4;border-radius:.6rem;background:#fff}
+  .book-fallback{color:#6b6b8a;font-size:.9rem}
+  .perks-intro{color:#4a4a68;margin:0 0 .75rem}
+  .perk{background:#fffbeb;border:1px solid #fde68a;border-radius:.6rem;padding:1rem 1.2rem;margin:.75rem 0}
+  .perk h3{margin:0 0 .25rem;font-size:1.05rem}
+  .perk p{margin:.15rem 0;color:#4a4a68}
+  .perk footer{color:#92400e;font-size:.9rem;font-weight:600}
 </style>
 </head>
 <body>
@@ -260,12 +368,14 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
     <h1>${escapeHtml(name)}</h1>
     <p class="tagline">${escapeHtml(description)}</p>
     ${detailRows.join("\n    ")}
-    <a class="book-btn" href="${escapeHtml(bookUrl)}" data-testid="link-book-now">Book Now</a>
+    <a class="book-btn" href="#book" data-testid="link-book-anchor">Book Now</a>
   </header>
+  ${bookingHtml}
+  ${perksHtml}
   ${servicesHtml}
   ${reviewsHtml}
   <div class="cta-bottom">
-    <a class="book-btn" href="${escapeHtml(bookUrl)}">Book an Appointment</a>
+    <a class="book-btn" href="#book">Book an Appointment</a>
   </div>
 </main>
 </body>
