@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { CoopCampaignsSection } from '@/components/sos/coop-campaigns-content';
+import { PassportChallengesSection } from '@/components/sos/passport-challenges-content';
 import {
   AlertTriangle, ArrowDownLeft, ArrowDownToLine, ArrowLeftRight, ArrowUpDown, ArrowUpFromLine,
   ArrowUpRight, BarChart3, Bell, CalendarClock, Check, Copy, DollarSign, Eye, FileSignature, Flag,
@@ -163,6 +164,10 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
       {/* Flash campaigns & seasonal blasts — synchronized limited-time perks
           across the partner network with one frequency-capped joint SMS. */}
       <CoopCampaignsSection tenantId={tenantId} />
+
+      {/* Neighborhood Passport — sponsor milestone challenges that reward
+          customers for redeeming perks at N distinct partner businesses. */}
+      <PassportChallengesSection tenantId={tenantId} />
 
       {isLoading ? (
         <Skeleton className="h-24 w-full rounded-xl" />

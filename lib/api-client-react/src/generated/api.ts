@@ -114,6 +114,9 @@ import type {
   PartnerConnectResult,
   PartnerConnectionStatus,
   PartnerConnectionSummary,
+  PassportChallenge,
+  PassportChallengeCreate,
+  PassportChallengeUpdate,
   PlatformInvite,
   PlatformInviteCreate,
   PlatformInviteRegistration,
@@ -188,6 +191,7 @@ import type {
   WalletLoginVerify,
   WalletPassDetail,
   WalletPassList,
+  WalletPassportView,
   WalletSessionResult
 } from './api.schemas';
 
@@ -11847,6 +11851,303 @@ export function useGetWalletPass<TData = Awaited<ReturnType<typeof getWalletPass
 
 
 
+
+export const getGetWalletPassportUrl = () => {
+
+
+
+
+  return `/api/wallet/passport`
+}
+
+/**
+ * @summary The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (x-wallet-session header)
+ */
+export const getWalletPassport = async ( options?: RequestInit): Promise<WalletPassportView> => {
+
+  return customFetch<WalletPassportView>(getGetWalletPassportUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWalletPassportQueryKey = () => {
+    return [
+    `/api/wallet/passport`
+    ] as const;
+    }
+
+
+export const getGetWalletPassportQueryOptions = <TData = Awaited<ReturnType<typeof getWalletPassport>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalletPassport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWalletPassportQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWalletPassport>>> = ({ signal }) => getWalletPassport({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWalletPassport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWalletPassportQueryResult = NonNullable<Awaited<ReturnType<typeof getWalletPassport>>>
+export type GetWalletPassportQueryError = ErrorType<void>
+
+
+/**
+ * @summary The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (x-wallet-session header)
+ */
+
+export function useGetWalletPassport<TData = Awaited<ReturnType<typeof getWalletPassport>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalletPassport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWalletPassportQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListPassportChallengesUrl = () => {
+
+
+
+
+  return `/api/coop/passport/challenges`
+}
+
+/**
+ * @summary Merchant-facing — the scoped tenant's sponsored milestone challenges with completion counts; tenant scope via x-tenant-id
+ */
+export const listPassportChallenges = async ( options?: RequestInit): Promise<PassportChallenge[]> => {
+
+  return customFetch<PassportChallenge[]>(getListPassportChallengesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPassportChallengesQueryKey = () => {
+    return [
+    `/api/coop/passport/challenges`
+    ] as const;
+    }
+
+
+export const getListPassportChallengesQueryOptions = <TData = Awaited<ReturnType<typeof listPassportChallenges>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPassportChallenges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPassportChallengesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPassportChallenges>>> = ({ signal }) => listPassportChallenges({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPassportChallenges>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPassportChallengesQueryResult = NonNullable<Awaited<ReturnType<typeof listPassportChallenges>>>
+export type ListPassportChallengesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — the scoped tenant's sponsored milestone challenges with completion counts; tenant scope via x-tenant-id
+ */
+
+export function useListPassportChallenges<TData = Awaited<ReturnType<typeof listPassportChallenges>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPassportChallenges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPassportChallengesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePassportChallengeUrl = () => {
+
+
+
+
+  return `/api/coop/passport/challenges`
+}
+
+/**
+ * @summary Merchant-facing — sponsor a new milestone challenge (N distinct businesses in M days → reward); tenant scope via x-tenant-id
+ */
+export const createPassportChallenge = async (passportChallengeCreate: PassportChallengeCreate, options?: RequestInit): Promise<PassportChallenge> => {
+
+  return customFetch<PassportChallenge>(getCreatePassportChallengeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(passportChallengeCreate)
+  }
+);}
+
+
+
+
+
+export const getCreatePassportChallengeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPassportChallenge>>, TError,{data: BodyType<PassportChallengeCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPassportChallenge>>, TError,{data: BodyType<PassportChallengeCreate>}, TContext> => {
+
+const mutationKey = ['createPassportChallenge'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPassportChallenge>>, {data: BodyType<PassportChallengeCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPassportChallenge(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePassportChallengeMutationResult = NonNullable<Awaited<ReturnType<typeof createPassportChallenge>>>
+    export type CreatePassportChallengeMutationBody = BodyType<PassportChallengeCreate>
+    export type CreatePassportChallengeMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — sponsor a new milestone challenge (N distinct businesses in M days → reward); tenant scope via x-tenant-id
+ */
+export const useCreatePassportChallenge = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPassportChallenge>>, TError,{data: BodyType<PassportChallengeCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPassportChallenge>>,
+        TError,
+        {data: BodyType<PassportChallengeCreate>},
+        TContext
+      > => {
+      return useMutation(getCreatePassportChallengeMutationOptions(options));
+    }
+
+export const getUpdatePassportChallengeUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/passport/challenges/${id}`
+}
+
+/**
+ * @summary Merchant-facing — edit or activate/deactivate a sponsored challenge; only the sponsor tenant may edit; tenant scope via x-tenant-id
+ */
+export const updatePassportChallenge = async (id: number,
+    passportChallengeUpdate: PassportChallengeUpdate, options?: RequestInit): Promise<PassportChallenge> => {
+
+  return customFetch<PassportChallenge>(getUpdatePassportChallengeUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(passportChallengeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdatePassportChallengeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePassportChallenge>>, TError,{id: number;data: BodyType<PassportChallengeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePassportChallenge>>, TError,{id: number;data: BodyType<PassportChallengeUpdate>}, TContext> => {
+
+const mutationKey = ['updatePassportChallenge'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePassportChallenge>>, {id: number;data: BodyType<PassportChallengeUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePassportChallenge(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePassportChallengeMutationResult = NonNullable<Awaited<ReturnType<typeof updatePassportChallenge>>>
+    export type UpdatePassportChallengeMutationBody = BodyType<PassportChallengeUpdate>
+    export type UpdatePassportChallengeMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — edit or activate/deactivate a sponsored challenge; only the sponsor tenant may edit; tenant scope via x-tenant-id
+ */
+export const useUpdatePassportChallenge = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePassportChallenge>>, TError,{id: number;data: BodyType<PassportChallengeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePassportChallenge>>,
+        TError,
+        {id: number;data: BodyType<PassportChallengeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdatePassportChallengeMutationOptions(options));
+    }
 
 export const getListFranchiseOrgsUrl = () => {
 

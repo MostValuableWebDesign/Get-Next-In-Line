@@ -124,6 +124,14 @@ backfillCustomerLinks()
     logger.error({ err }, "Customer link / visit cadence backfill failed");
   });
 
+// Neighborhood Passport: idempotent stamp backfill from historical perk
+// redemptions so existing customers start with credit (never sends messages).
+import("./lib/passport")
+  .then(({ backfillPassportStampsSafe }) => backfillPassportStampsSafe())
+  .catch((err) => {
+    logger.error({ err }, "Passport stamp backfill failed to start");
+  });
+
 // Stripe (No-Show Shield deposit holds): create the stripe schema, register
 // the managed webhook, and backfill existing data. Failure-tolerant so a
 // Stripe outage never blocks the API from serving; deposit authorization

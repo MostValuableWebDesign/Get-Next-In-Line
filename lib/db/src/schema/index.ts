@@ -5,6 +5,7 @@ export * from "./messages";
 export * from "./partners";
 export * from "./pos";
 export * from "./wallet";
+export * from "./passport";
 export * from "./safety";
 export * from "./users";
 export * from "./franchise";

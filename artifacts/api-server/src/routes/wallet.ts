@@ -20,7 +20,9 @@ import {
   VerifyWalletLoginCodeResponse,
   ListWalletPassesResponse,
   GetWalletPassResponse,
+  GetWalletPassportResponse,
 } from "@workspace/api-zod";
+import { buildPassportView } from "../lib/passport";
 import { normalizeToE164 } from "../lib/sms";
 import { sendMessageSafe } from "../lib/messaging";
 import { redeemAtSide } from "../lib/perkPasses";
@@ -278,6 +280,21 @@ router.get("/wallet/passes/:id", async (req, res): Promise<void> => {
       qrPayload: row.pass.token,
     })
   );
+});
+
+// ── GET /wallet/passport — the customer's Neighborhood Passport ─────────────
+// Stamps (one per unique partner business where a perk was redeemed), tier
+// badges, milestone challenge progress, and earned rewards. Keyed by the
+// wallet session's phone — the same cross-tenant identity the stamping flow
+// uses, so redemptions at different businesses land on one passport.
+router.get("/wallet/passport", async (req, res): Promise<void> => {
+  const session = await sessionFrom(req);
+  if (!session) {
+    res.status(401).json({ message: "Wallet session required" });
+    return;
+  }
+  const view = await buildPassportView({ phone: session.phone });
+  res.json(GetWalletPassportResponse.parse({ phone: session.phone, ...view }));
 });
 
 export default router;

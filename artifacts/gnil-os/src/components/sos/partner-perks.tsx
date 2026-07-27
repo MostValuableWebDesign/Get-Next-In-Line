@@ -134,6 +134,17 @@ export function PartnerPerksBlock({
           </div>
         ))}
       </div>
+      {/* Neighborhood Passport: every redemption at a new partner business
+          earns a stamp — the passport lives inside the customer wallet. */}
+      <p className="text-[11px] leading-snug pt-1">
+        <a
+          href={`${import.meta.env.BASE_URL}wallet`}
+          className="text-emerald-700 dark:text-emerald-400 underline underline-offset-2"
+          data-testid="link-perk-passport"
+        >
+          Redeeming earns a Neighborhood Passport stamp — view your passport
+        </a>
+      </p>
       {disclaimer && (
         <p className="text-[10px] leading-snug text-muted-foreground pt-1 border-t border-emerald-500/20" data-testid="text-perk-disclaimer">
           {disclaimer}

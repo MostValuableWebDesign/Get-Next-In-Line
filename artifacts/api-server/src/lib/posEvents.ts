@@ -20,6 +20,7 @@ import { autoLinkCustomer } from "./customerLink";
 import { updateProfileCadence } from "./visitCadence";
 import { grantPerkPassesSafe, findWalletPass, isWalletPassToken } from "./perkPasses";
 import { attachRevenueToRecentCrossoverSafe } from "./coopEvents";
+import { recordPassportStampSafe } from "./passport";
 import type { CoopDirection } from "./coopTracking";
 import { translatePosPayload, type NormalizedPosEvent, type PosVendor } from "./posVendors";
 
@@ -304,6 +305,17 @@ async function applyPerkRedeemed(
         receivingTenantId: integration.tenantId,
       })
       .onConflictDoNothing();
+    // Neighborhood Passport: stamp the redeeming business on the wallet
+    // owner's passport, enriched with any customer contact on the POS event.
+    await recordPassportStampSafe({
+      redeemedByTenantId: integration.tenantId,
+      redemptionId: redemption.id,
+      person: {
+        phone: row.pass.customerPhone,
+        email: ev.customer?.email ?? null,
+        name: row.pass.customerName ?? ev.customer?.name ?? null,
+      },
+    });
   }
   return { status: "processed", detail: `Perk pass ${token} redeemed` };
 }

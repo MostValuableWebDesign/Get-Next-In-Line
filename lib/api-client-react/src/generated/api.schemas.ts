@@ -690,6 +690,173 @@ export type WalletPassDetail = WalletPass & {
   qrPayload: string;
 };
 
+export interface PassportTier {
+  name: string;
+  /** Distinct stamped businesses required to unlock this badge. */
+  threshold: number;
+  unlocked: boolean;
+}
+
+export interface PassportStampView {
+  businessName: string;
+  stampedAt: string;
+}
+
+export type PassportChallengeProgressRewardType = typeof PassportChallengeProgressRewardType[keyof typeof PassportChallengeProgressRewardType];
+
+
+export const PassportChallengeProgressRewardType = {
+  bonus_perk: 'bonus_perk',
+  sweepstakes_entry: 'sweepstakes_entry',
+  free_upgrade: 'free_upgrade',
+} as const;
+
+export interface PassportChallengeProgress {
+  id: number;
+  title: string;
+  sponsorName: string;
+  requiredBusinesses: number;
+  windowDays: number;
+  rewardType: PassportChallengeProgressRewardType;
+  rewardDescription: string;
+  /** Distinct businesses stamped inside the rolling window right now (capped at requiredBusinesses). */
+  progress: number;
+  completed: boolean;
+  /** @nullable */
+  endsAt: string | null;
+}
+
+export type PassportRewardViewRewardType = typeof PassportRewardViewRewardType[keyof typeof PassportRewardViewRewardType];
+
+
+export const PassportRewardViewRewardType = {
+  bonus_perk: 'bonus_perk',
+  sweepstakes_entry: 'sweepstakes_entry',
+  free_upgrade: 'free_upgrade',
+} as const;
+
+export interface PassportRewardView {
+  id: number;
+  challengeTitle: string;
+  sponsorName: string;
+  rewardType: PassportRewardViewRewardType;
+  rewardDescription: string;
+  issuedAt: string;
+}
+
+export interface WalletPassportView {
+  phone: string;
+  stamps: PassportStampView[];
+  stampCount: number;
+  tiers: PassportTier[];
+  /** @nullable */
+  currentTier: string | null;
+  challenges: PassportChallengeProgress[];
+  rewards: PassportRewardView[];
+}
+
+export type PassportChallengeRewardType = typeof PassportChallengeRewardType[keyof typeof PassportChallengeRewardType];
+
+
+export const PassportChallengeRewardType = {
+  bonus_perk: 'bonus_perk',
+  sweepstakes_entry: 'sweepstakes_entry',
+  free_upgrade: 'free_upgrade',
+} as const;
+
+export interface PassportChallenge {
+  id: number;
+  sponsorTenantId: number;
+  title: string;
+  requiredBusinesses: number;
+  windowDays: number;
+  rewardType: PassportChallengeRewardType;
+  rewardDescription: string;
+  /** @nullable */
+  startsAt: string | null;
+  /** @nullable */
+  endsAt: string | null;
+  isActive: boolean;
+  /** Customers who completed this challenge (reward issuances). */
+  completionCount: number;
+  createdAt: string;
+}
+
+export type PassportChallengeCreateRewardType = typeof PassportChallengeCreateRewardType[keyof typeof PassportChallengeCreateRewardType];
+
+
+export const PassportChallengeCreateRewardType = {
+  bonus_perk: 'bonus_perk',
+  sweepstakes_entry: 'sweepstakes_entry',
+  free_upgrade: 'free_upgrade',
+} as const;
+
+export interface PassportChallengeCreate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title: string;
+  /**
+     * @minimum 2
+     * @maximum 50
+     */
+  requiredBusinesses: number;
+  /**
+     * @minimum 1
+     * @maximum 365
+     */
+  windowDays: number;
+  rewardType: PassportChallengeCreateRewardType;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  rewardDescription: string;
+  /** @nullable */
+  startsAt?: string | null;
+  /** @nullable */
+  endsAt?: string | null;
+}
+
+export type PassportChallengeUpdateRewardType = typeof PassportChallengeUpdateRewardType[keyof typeof PassportChallengeUpdateRewardType];
+
+
+export const PassportChallengeUpdateRewardType = {
+  bonus_perk: 'bonus_perk',
+  sweepstakes_entry: 'sweepstakes_entry',
+  free_upgrade: 'free_upgrade',
+} as const;
+
+export interface PassportChallengeUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  title?: string;
+  /**
+     * @minimum 2
+     * @maximum 50
+     */
+  requiredBusinesses?: number;
+  /**
+     * @minimum 1
+     * @maximum 365
+     */
+  windowDays?: number;
+  rewardType?: PassportChallengeUpdateRewardType;
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  rewardDescription?: string;
+  /** @nullable */
+  startsAt?: string | null;
+  /** @nullable */
+  endsAt?: string | null;
+  isActive?: boolean;
+}
+
 export interface CoopPerkRedeemRequest {
   /**
      * The partnership's redemption code, or a scanned wallet pass token (WPASS-…) which carries its own single-use state.
@@ -2239,6 +2406,7 @@ export const SosMessageKind = {
   coop_invite: 'coop_invite',
   coop_campaign_blast: 'coop_campaign_blast',
   coop_tier_change: 'coop_tier_change',
+  passport_reward: 'passport_reward',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];

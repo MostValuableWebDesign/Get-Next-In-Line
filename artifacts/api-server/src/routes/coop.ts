@@ -33,6 +33,15 @@ import {
   perkWindowState,
   validatePerkWindow,
 } from "../lib/coopPerks";
+import {
+  recordPassportStampSafe,
+  personFromClassicPassCode,
+  challengeCompletionCounts,
+  PASSPORT_REWARD_TYPES,
+} from "../lib/passport";
+import {
+  passportChallengesTable,
+} from "@workspace/db";
 import { effectiveCoopRadiusMiles } from "../lib/geoDensity";
 import {
   recordCoopEventsSafe,
@@ -86,6 +95,11 @@ import {
   RespondToCoopRenegotiationResponse,
   PauseCoopPartnershipResponse,
   ResumeCoopPartnershipResponse,
+  ListPassportChallengesResponse,
+  CreatePassportChallengeBody,
+  CreatePassportChallengeResponse,
+  UpdatePassportChallengeBody,
+  UpdatePassportChallengeResponse,
 } from "@workspace/api-zod";
 import {
   disparityPercent,
@@ -2297,6 +2311,16 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
           receivingTenantId: tenantId,
         })
         .onConflictDoNothing();
+      // Neighborhood Passport: stamp the redeeming business on the wallet
+      // owner's passport (phone-keyed identity). Never blocks the redemption.
+      await recordPassportStampSafe({
+        redeemedByTenantId: tenantId,
+        redemptionId: walletRedemption.id,
+        person: {
+          phone: walletRow!.pass.customerPhone,
+          name: walletRow!.pass.customerName,
+        },
+      });
     }
     res.json(
       RedeemCoopPerkResponse.parse({
@@ -2455,6 +2479,18 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
       receivingTenantId,
     })
     .onConflictDoNothing();
+
+  // Neighborhood Passport: customer-pass codes ("C<id>") resolve to a person;
+  // stamp the redeeming business on their cross-tenant passport. Codes with
+  // no resolvable person (manual/POS receipt codes) simply don't stamp.
+  const passPerson = await personFromClassicPassCode(passCode);
+  if (passPerson) {
+    await recordPassportStampSafe({
+      redeemedByTenantId: tenantId,
+      redemptionId: redemption.id,
+      person: passPerson,
+    });
+  }
 
   res.json(
     RedeemCoopPerkResponse.parse({
@@ -2943,6 +2979,167 @@ router.post("/coop/plaza-conflicts/:id/release", async (req, res): Promise<void>
   res.json(ReleaseCoopPlazaConflictResponse.parse((await serializePlazaConflicts([row]))[0]));
 });
 
+// ── Neighborhood Passport — merchant sponsorship console ────────────────────
+// Merchants create/sponsor milestone challenges (redeem perks at N distinct
+// partner businesses within M days → automated reward) and see how many
+// customers completed them. All routes tenant-scoped via x-tenant-id.
 
+type PassportChallengeRow = typeof passportChallengesTable.$inferSelect;
+
+function serializePassportChallenge(c: PassportChallengeRow, completionCount: number) {
+  return {
+    id: c.id,
+    sponsorTenantId: c.sponsorTenantId,
+    title: c.title,
+    requiredBusinesses: c.requiredBusinesses,
+    windowDays: c.windowDays,
+    rewardType: c.rewardType,
+    rewardDescription: c.rewardDescription,
+    startsAt: c.startsAt ? c.startsAt.toISOString() : null,
+    endsAt: c.endsAt ? c.endsAt.toISOString() : null,
+    isActive: c.isActive,
+    completionCount,
+    createdAt: c.createdAt.toISOString(),
+  };
+}
+
+/** Validate an optional challenge date window; returns an error message or null. */
+function validateChallengeWindow(
+  startsAt: string | null | undefined,
+  endsAt: string | null | undefined,
+): string | null {
+  const parse = (v: string | null | undefined): Date | null | "invalid" => {
+    if (v == null) return null;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? "invalid" : d;
+  };
+  const start = parse(startsAt);
+  const end = parse(endsAt);
+  if (start === "invalid" || end === "invalid") return "Invalid challenge date";
+  if (start && end && end <= start) return "The challenge end date must be after the start date";
+  return null;
+}
+
+// GET /coop/passport/challenges — the scoped tenant's sponsored challenges.
+router.get("/coop/passport/challenges", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const [rows, counts] = await Promise.all([
+    db
+      .select()
+      .from(passportChallengesTable)
+      .where(eq(passportChallengesTable.sponsorTenantId, tenantId))
+      .orderBy(desc(passportChallengesTable.createdAt), desc(passportChallengesTable.id)),
+    challengeCompletionCounts(tenantId),
+  ]);
+  res.json(
+    ListPassportChallengesResponse.parse(
+      rows.map((c) => serializePassportChallenge(c, counts.get(c.id) ?? 0)),
+    ),
+  );
+});
+
+// POST /coop/passport/challenges — sponsor a new milestone challenge.
+router.post("/coop/passport/challenges", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = CreatePassportChallengeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const body = parsed.data;
+  const windowError = validateChallengeWindow(body.startsAt, body.endsAt);
+  if (windowError) {
+    res.status(400).json({ message: windowError });
+    return;
+  }
+  if (!PASSPORT_REWARD_TYPES.includes(body.rewardType)) {
+    res.status(400).json({ message: "Unknown reward type" });
+    return;
+  }
+  const [created] = await db
+    .insert(passportChallengesTable)
+    .values({
+      sponsorTenantId: tenantId,
+      title: body.title.trim(),
+      requiredBusinesses: body.requiredBusinesses,
+      windowDays: body.windowDays,
+      rewardType: body.rewardType,
+      rewardDescription: body.rewardDescription.trim(),
+      startsAt: body.startsAt ? new Date(body.startsAt) : null,
+      endsAt: body.endsAt ? new Date(body.endsAt) : null,
+    })
+    .returning();
+  res.status(201).json(CreatePassportChallengeResponse.parse(serializePassportChallenge(created, 0)));
+});
+
+// PATCH /coop/passport/challenges/:id — edit / activate / deactivate.
+router.patch("/coop/passport/challenges/:id", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const parsed = UpdatePassportChallengeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const body = parsed.data;
+  // Only the sponsor may edit its own challenge.
+  const [existing] = await db
+    .select()
+    .from(passportChallengesTable)
+    .where(
+      and(eq(passportChallengesTable.id, id), eq(passportChallengesTable.sponsorTenantId, tenantId)),
+    );
+  if (!existing) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const nextStartsAt =
+    body.startsAt !== undefined ? (body.startsAt ? body.startsAt : null) : undefined;
+  const nextEndsAt = body.endsAt !== undefined ? (body.endsAt ? body.endsAt : null) : undefined;
+  const windowError = validateChallengeWindow(
+    nextStartsAt !== undefined ? nextStartsAt : (existing.startsAt?.toISOString() ?? null),
+    nextEndsAt !== undefined ? nextEndsAt : (existing.endsAt?.toISOString() ?? null),
+  );
+  if (windowError) {
+    res.status(400).json({ message: windowError });
+    return;
+  }
+  const updates: Partial<typeof passportChallengesTable.$inferInsert> = { updatedAt: new Date() };
+  if (body.title !== undefined) updates.title = body.title.trim();
+  if (body.requiredBusinesses !== undefined) updates.requiredBusinesses = body.requiredBusinesses;
+  if (body.windowDays !== undefined) updates.windowDays = body.windowDays;
+  if (body.rewardType !== undefined) updates.rewardType = body.rewardType;
+  if (body.rewardDescription !== undefined) updates.rewardDescription = body.rewardDescription.trim();
+  if (nextStartsAt !== undefined) updates.startsAt = nextStartsAt ? new Date(nextStartsAt) : null;
+  if (nextEndsAt !== undefined) updates.endsAt = nextEndsAt ? new Date(nextEndsAt) : null;
+  if (body.isActive !== undefined) updates.isActive = body.isActive;
+  const [updated] = await db
+    .update(passportChallengesTable)
+    .set(updates)
+    .where(eq(passportChallengesTable.id, id))
+    .returning();
+  const counts = await challengeCompletionCounts(tenantId);
+  res.json(
+    UpdatePassportChallengeResponse.parse(
+      serializePassportChallenge(updated, counts.get(updated.id) ?? 0),
+    ),
+  );
+});
 
 export default router;

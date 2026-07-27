@@ -2771,7 +2771,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -2800,7 +2800,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -4235,6 +4235,150 @@ export const GetWalletPassResponse = zod.object({
 }).and(zod.object({
   "qrPayload": zod.string().describe('Exact string to encode in the pass QR code.')
 }))
+
+
+/**
+ * @summary The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (x-wallet-session header)
+ */
+export const GetWalletPassportResponse = zod.object({
+  "phone": zod.string(),
+  "stamps": zod.array(zod.object({
+  "businessName": zod.string(),
+  "stampedAt": zod.string()
+})),
+  "stampCount": zod.number(),
+  "tiers": zod.array(zod.object({
+  "name": zod.string(),
+  "threshold": zod.number().describe('Distinct stamped businesses required to unlock this badge.'),
+  "unlocked": zod.boolean()
+})),
+  "currentTier": zod.string().nullable(),
+  "challenges": zod.array(zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "sponsorName": zod.string(),
+  "requiredBusinesses": zod.number(),
+  "windowDays": zod.number(),
+  "rewardType": zod.enum(['bonus_perk', 'sweepstakes_entry', 'free_upgrade']),
+  "rewardDescription": zod.string(),
+  "progress": zod.number().describe('Distinct businesses stamped inside the rolling window right now (capped at requiredBusinesses).'),
+  "completed": zod.boolean(),
+  "endsAt": zod.string().nullable()
+})),
+  "rewards": zod.array(zod.object({
+  "id": zod.number(),
+  "challengeTitle": zod.string(),
+  "sponsorName": zod.string(),
+  "rewardType": zod.enum(['bonus_perk', 'sweepstakes_entry', 'free_upgrade']),
+  "rewardDescription": zod.string(),
+  "issuedAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Merchant-facing — the scoped tenant's sponsored milestone challenges with completion counts; tenant scope via x-tenant-id
+ */
+export const ListPassportChallengesResponseItem = zod.object({
+  "id": zod.number(),
+  "sponsorTenantId": zod.number(),
+  "title": zod.string(),
+  "requiredBusinesses": zod.number(),
+  "windowDays": zod.number(),
+  "rewardType": zod.enum(['bonus_perk', 'sweepstakes_entry', 'free_upgrade']),
+  "rewardDescription": zod.string(),
+  "startsAt": zod.string().nullable(),
+  "endsAt": zod.string().nullable(),
+  "isActive": zod.boolean(),
+  "completionCount": zod.number().describe('Customers who completed this challenge (reward issuances).'),
+  "createdAt": zod.string()
+})
+export const ListPassportChallengesResponse = zod.array(ListPassportChallengesResponseItem)
+
+
+/**
+ * @summary Merchant-facing — sponsor a new milestone challenge (N distinct businesses in M days → reward); tenant scope via x-tenant-id
+ */
+export const createPassportChallengeBodyTitleMax = 120;
+
+export const createPassportChallengeBodyRequiredBusinessesMin = 2;
+export const createPassportChallengeBodyRequiredBusinessesMax = 50;
+
+export const createPassportChallengeBodyWindowDaysMax = 365;
+
+export const createPassportChallengeBodyRewardDescriptionMax = 500;
+
+
+
+export const CreatePassportChallengeBody = zod.object({
+  "title": zod.string().min(1).max(createPassportChallengeBodyTitleMax),
+  "requiredBusinesses": zod.number().min(createPassportChallengeBodyRequiredBusinessesMin).max(createPassportChallengeBodyRequiredBusinessesMax),
+  "windowDays": zod.number().min(1).max(createPassportChallengeBodyWindowDaysMax),
+  "rewardType": zod.enum(['bonus_perk', 'sweepstakes_entry', 'free_upgrade']),
+  "rewardDescription": zod.string().min(1).max(createPassportChallengeBodyRewardDescriptionMax),
+  "startsAt": zod.string().nullish(),
+  "endsAt": zod.string().nullish()
+})
+
+export const CreatePassportChallengeResponse = zod.object({
+  "id": zod.number(),
+  "sponsorTenantId": zod.number(),
+  "title": zod.string(),
+  "requiredBusinesses": zod.number(),
+  "windowDays": zod.number(),
+  "rewardType": zod.enum(['bonus_perk', 'sweepstakes_entry', 'free_upgrade']),
+  "rewardDescription": zod.string(),
+  "startsAt": zod.string().nullable(),
+  "endsAt": zod.string().nullable(),
+  "isActive": zod.boolean(),
+  "completionCount": zod.number().describe('Customers who completed this challenge (reward issuances).'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — edit or activate/deactivate a sponsored challenge; only the sponsor tenant may edit; tenant scope via x-tenant-id
+ */
+export const UpdatePassportChallengeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updatePassportChallengeBodyTitleMax = 120;
+
+export const updatePassportChallengeBodyRequiredBusinessesMin = 2;
+export const updatePassportChallengeBodyRequiredBusinessesMax = 50;
+
+export const updatePassportChallengeBodyWindowDaysMax = 365;
+
+export const updatePassportChallengeBodyRewardDescriptionMax = 500;
+
+
+
+export const UpdatePassportChallengeBody = zod.object({
+  "title": zod.string().min(1).max(updatePassportChallengeBodyTitleMax).optional(),
+  "requiredBusinesses": zod.number().min(updatePassportChallengeBodyRequiredBusinessesMin).max(updatePassportChallengeBodyRequiredBusinessesMax).optional(),
+  "windowDays": zod.number().min(1).max(updatePassportChallengeBodyWindowDaysMax).optional(),
+  "rewardType": zod.enum(['bonus_perk', 'sweepstakes_entry', 'free_upgrade']).optional(),
+  "rewardDescription": zod.string().min(1).max(updatePassportChallengeBodyRewardDescriptionMax).optional(),
+  "startsAt": zod.string().nullish(),
+  "endsAt": zod.string().nullish(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdatePassportChallengeResponse = zod.object({
+  "id": zod.number(),
+  "sponsorTenantId": zod.number(),
+  "title": zod.string(),
+  "requiredBusinesses": zod.number(),
+  "windowDays": zod.number(),
+  "rewardType": zod.enum(['bonus_perk', 'sweepstakes_entry', 'free_upgrade']),
+  "rewardDescription": zod.string(),
+  "startsAt": zod.string().nullable(),
+  "endsAt": zod.string().nullable(),
+  "isActive": zod.boolean(),
+  "completionCount": zod.number().describe('Customers who completed this challenge (reward issuances).'),
+  "createdAt": zod.string()
+})
 
 
 /**

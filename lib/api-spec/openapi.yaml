@@ -3400,6 +3400,87 @@ paths:
         "404":
           description: Pass not found (or not owned by this session)
 
+  /wallet/passport:
+    get:
+      operationId: getWalletPassport
+      tags: [wallet]
+      summary: The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (x-wallet-session header)
+      responses:
+        "200":
+          description: The passport view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletPassportView"
+        "401":
+          description: Missing or expired wallet session
+
+  # ── Neighborhood Passport — merchant sponsorship console ─────────────────
+  /coop/passport/challenges:
+    get:
+      operationId: listPassportChallenges
+      tags: [coop]
+      summary: Merchant-facing — the scoped tenant's sponsored milestone challenges with completion counts; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Sponsored challenges, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PassportChallenge"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createPassportChallenge
+      tags: [coop]
+      summary: Merchant-facing — sponsor a new milestone challenge (N distinct businesses in M days → reward); tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PassportChallengeCreate"
+      responses:
+        "201":
+          description: Challenge created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PassportChallenge"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+
+  /coop/passport/challenges/{id}:
+    patch:
+      operationId: updatePassportChallenge
+      tags: [coop]
+      summary: Merchant-facing — edit or activate/deactivate a sponsored challenge; only the sponsor tenant may edit; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PassportChallengeUpdate"
+      responses:
+        "200":
+          description: Updated challenge
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PassportChallenge"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+        "404":
+          description: Not found (or not sponsored by this tenant)
+
   # ── Franchise Co-Op Controller ──────────────────────────────────────────
   /franchise/orgs:
     get:
@@ -4748,6 +4829,189 @@ components:
             qrPayload:
               type: string
               description: Exact string to encode in the pass QR code.
+
+    PassportTier:
+      type: object
+      required: [name, threshold, unlocked]
+      properties:
+        name:
+          type: string
+        threshold:
+          type: integer
+          description: Distinct stamped businesses required to unlock this badge.
+        unlocked:
+          type: boolean
+
+    PassportStampView:
+      type: object
+      required: [businessName, stampedAt]
+      properties:
+        businessName:
+          type: string
+        stampedAt:
+          type: string
+
+    PassportChallengeProgress:
+      type: object
+      required:
+        [id, title, sponsorName, requiredBusinesses, windowDays, rewardType, rewardDescription, progress, completed, endsAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        sponsorName:
+          type: string
+        requiredBusinesses:
+          type: integer
+        windowDays:
+          type: integer
+        rewardType:
+          type: string
+          enum: [bonus_perk, sweepstakes_entry, free_upgrade]
+        rewardDescription:
+          type: string
+        progress:
+          type: integer
+          description: Distinct businesses stamped inside the rolling window right now (capped at requiredBusinesses).
+        completed:
+          type: boolean
+        endsAt:
+          type: ["string", "null"]
+
+    PassportRewardView:
+      type: object
+      required: [id, challengeTitle, sponsorName, rewardType, rewardDescription, issuedAt]
+      properties:
+        id:
+          type: integer
+        challengeTitle:
+          type: string
+        sponsorName:
+          type: string
+        rewardType:
+          type: string
+          enum: [bonus_perk, sweepstakes_entry, free_upgrade]
+        rewardDescription:
+          type: string
+        issuedAt:
+          type: string
+
+    WalletPassportView:
+      type: object
+      required: [phone, stamps, stampCount, tiers, currentTier, challenges, rewards]
+      properties:
+        phone:
+          type: string
+        stamps:
+          type: array
+          items:
+            $ref: "#/components/schemas/PassportStampView"
+        stampCount:
+          type: integer
+        tiers:
+          type: array
+          items:
+            $ref: "#/components/schemas/PassportTier"
+        currentTier:
+          type: ["string", "null"]
+        challenges:
+          type: array
+          items:
+            $ref: "#/components/schemas/PassportChallengeProgress"
+        rewards:
+          type: array
+          items:
+            $ref: "#/components/schemas/PassportRewardView"
+
+    PassportChallenge:
+      type: object
+      required:
+        [id, sponsorTenantId, title, requiredBusinesses, windowDays, rewardType, rewardDescription, startsAt, endsAt, isActive, completionCount, createdAt]
+      properties:
+        id:
+          type: integer
+        sponsorTenantId:
+          type: integer
+        title:
+          type: string
+        requiredBusinesses:
+          type: integer
+        windowDays:
+          type: integer
+        rewardType:
+          type: string
+          enum: [bonus_perk, sweepstakes_entry, free_upgrade]
+        rewardDescription:
+          type: string
+        startsAt:
+          type: ["string", "null"]
+        endsAt:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        completionCount:
+          type: integer
+          description: Customers who completed this challenge (reward issuances).
+        createdAt:
+          type: string
+
+    PassportChallengeCreate:
+      type: object
+      required: [title, requiredBusinesses, windowDays, rewardType, rewardDescription]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        requiredBusinesses:
+          type: integer
+          minimum: 2
+          maximum: 50
+        windowDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+        rewardType:
+          type: string
+          enum: [bonus_perk, sweepstakes_entry, free_upgrade]
+        rewardDescription:
+          type: string
+          minLength: 1
+          maxLength: 500
+        startsAt:
+          type: ["string", "null"]
+        endsAt:
+          type: ["string", "null"]
+
+    PassportChallengeUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        requiredBusinesses:
+          type: integer
+          minimum: 2
+          maximum: 50
+        windowDays:
+          type: integer
+          minimum: 1
+          maximum: 365
+        rewardType:
+          type: string
+          enum: [bonus_perk, sweepstakes_entry, free_upgrade]
+        rewardDescription:
+          type: string
+          minLength: 1
+          maxLength: 500
+        startsAt:
+          type: ["string", "null"]
+        endsAt:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
 
     CoopPerkRedeemRequest:
       type: object
@@ -6512,7 +6776,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

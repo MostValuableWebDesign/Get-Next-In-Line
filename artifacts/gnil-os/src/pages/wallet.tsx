@@ -5,6 +5,8 @@ import {
   useVerifyWalletLoginCode,
   useListWalletPasses,
   getListWalletPassesQueryKey,
+  useGetWalletPassport,
+  getGetWalletPassportQueryKey,
   type WalletPass,
 } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import {
   Gift, ChevronLeft, Clock, CheckCircle2, Smartphone, LogOut, TicketCheck, TicketX,
+  Stamp, Trophy, Sparkles, MapPin,
 } from 'lucide-react';
 
 /**
@@ -37,11 +40,13 @@ function loadSession(): string | null {
 export default function WalletPage() {
   const [session, setSession] = useState<string | null>(loadSession);
   const [selected, setSelected] = useState<WalletPass | null>(null);
+  const [view, setView] = useState<'passes' | 'passport'>('passes');
 
   const signOut = () => {
     try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
     setSession(null);
     setSelected(null);
+    setView('passes');
   };
 
   return (
@@ -66,7 +71,35 @@ export default function WalletPage() {
         ) : selected ? (
           <PassDetail pass={selected} onBack={() => setSelected(null)} />
         ) : (
-          <PassList session={session} onSelect={setSelected} onUnauthorized={signOut} />
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2" data-testid="tabs-wallet-view">
+              <Button
+                variant={view === 'passes' ? 'default' : 'outline'}
+                className={view === 'passes'
+                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold'
+                  : 'border-slate-700 bg-transparent text-slate-300 hover:bg-slate-900'}
+                onClick={() => setView('passes')}
+                data-testid="button-wallet-view-passes"
+              >
+                <Gift className="h-4 w-4 mr-1.5" /> My Perks
+              </Button>
+              <Button
+                variant={view === 'passport' ? 'default' : 'outline'}
+                className={view === 'passport'
+                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold'
+                  : 'border-slate-700 bg-transparent text-slate-300 hover:bg-slate-900'}
+                onClick={() => setView('passport')}
+                data-testid="button-wallet-view-passport"
+              >
+                <Stamp className="h-4 w-4 mr-1.5" /> Passport
+              </Button>
+            </div>
+            {view === 'passport' ? (
+              <PassportView session={session} onUnauthorized={signOut} />
+            ) : (
+              <PassList session={session} onSelect={setSelected} onUnauthorized={signOut} />
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -270,6 +303,182 @@ function PassList({
           </section>
         );
       })}
+    </div>
+  );
+}
+
+// ── Neighborhood Passport — stamps, tiers, challenges, rewards ──────────────
+
+const REWARD_LABELS: Record<string, string> = {
+  bonus_perk: 'Bonus perk',
+  sweepstakes_entry: 'Sweepstakes entry',
+  free_upgrade: 'Free upgrade',
+};
+
+function PassportView({ session, onUnauthorized }: { session: string; onUnauthorized: () => void }) {
+  const { data, isLoading, isError, error } = useGetWalletPassport({
+    query: { queryKey: [...getGetWalletPassportQueryKey(), session] },
+    request: { headers: { 'x-wallet-session': session } },
+  });
+
+  useEffect(() => {
+    if (isError && (error as { status?: number })?.status === 401) onUnauthorized();
+  }, [isError, error, onUnauthorized]);
+
+  if (isLoading || !data) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-32 w-full bg-slate-800" />
+        <Skeleton className="h-24 w-full bg-slate-800" />
+      </div>
+    );
+  }
+
+  const nextTier = data.tiers.find(t => !t.unlocked) ?? null;
+
+  return (
+    <div className="space-y-4" data-testid="view-wallet-passport">
+      {/* Tier status + progress toward the next badge */}
+      <Card className="bg-slate-900 border-slate-800 text-slate-50">
+        <CardContent className="pt-6 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="font-bold text-lg flex items-center gap-2">
+                <Stamp className="h-5 w-5 text-amber-400" /> Neighborhood Passport
+              </h2>
+              <p className="text-sm text-slate-400" data-testid="text-passport-stamp-count">
+                {data.stampCount} {data.stampCount === 1 ? 'business' : 'businesses'} stamped
+              </p>
+            </div>
+            {data.currentTier && (
+              <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 shrink-0" data-testid="badge-passport-tier">
+                <Trophy className="h-3 w-3 mr-1" /> {data.currentTier}
+              </Badge>
+            )}
+          </div>
+          {nextTier && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-slate-400">
+                <span>Next badge: <span className="text-slate-200">{nextTier.name}</span></span>
+                <span>{data.stampCount}/{nextTier.threshold}</span>
+              </div>
+              <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-amber-500 transition-all"
+                  style={{ width: `${Math.min(100, (data.stampCount / nextTier.threshold) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {data.tiers.map(t => (
+              <Badge
+                key={t.name}
+                variant="outline"
+                className={t.unlocked
+                  ? 'border-amber-500/40 text-amber-300'
+                  : 'border-slate-700 text-slate-500'}
+              >
+                {t.name} · {t.threshold}
+              </Badge>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stamp grid */}
+      {data.stamps.length === 0 ? (
+        <Card className="bg-slate-900 border-slate-800 border-dashed text-slate-50">
+          <CardContent className="pt-6 text-center space-y-2 pb-8" data-testid="text-passport-empty">
+            <MapPin className="h-10 w-10 mx-auto text-slate-600" />
+            <h3 className="font-semibold">No stamps yet</h3>
+            <p className="text-sm text-slate-400">
+              Redeem a partner perk at a local business to earn your first passport stamp.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Stamps</h3>
+          <div className="grid grid-cols-2 gap-2" data-testid="grid-passport-stamps">
+            {data.stamps.map((s, i) => (
+              <Card key={i} className="bg-slate-900 border-slate-800 text-slate-50">
+                <CardContent className="py-3 px-3 space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <Stamp className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                    <span className="font-medium text-sm truncate">{s.businessName}</span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {new Date(s.stampedAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Active challenges */}
+      {data.challenges.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Challenges</h3>
+          <div className="space-y-2" data-testid="list-passport-challenges">
+            {data.challenges.map(c => (
+              <Card key={c.id} className="bg-slate-900 border-slate-800 text-slate-50">
+                <CardContent className="py-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-semibold text-sm">{c.title}</div>
+                      <p className="text-xs text-slate-400">
+                        Visit {c.requiredBusinesses} businesses in {c.windowDays} days · by {c.sponsorName}
+                      </p>
+                    </div>
+                    {c.completed && (
+                      <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 shrink-0">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Done
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-slate-400">
+                      <span>{REWARD_LABELS[c.rewardType] ?? c.rewardType}: {c.rewardDescription}</span>
+                      <span>{c.progress}/{c.requiredBusinesses}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${c.completed ? 'bg-emerald-500' : 'bg-amber-500'}`}
+                        style={{ width: `${Math.min(100, (c.progress / c.requiredBusinesses) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Earned rewards */}
+      {data.rewards.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Earned rewards</h3>
+          <div className="space-y-2" data-testid="list-passport-rewards">
+            {data.rewards.map(r => (
+              <Card key={r.id} className="bg-slate-900 border-emerald-500/30 text-slate-50">
+                <CardContent className="py-3 space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <span className="font-medium text-sm">{REWARD_LABELS[r.rewardType] ?? r.rewardType}: {r.rewardDescription}</span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    "{r.challengeTitle}" · {r.sponsorName} · {new Date(r.issuedAt).toLocaleDateString()}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
