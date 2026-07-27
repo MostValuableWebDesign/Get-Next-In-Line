@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   useListCoopPartnerships,
   getListCoopPartnershipsQueryKey,
   useCreateCoopPartnership,
-  useUpdateCoopPartnership,
+  updateCoopPartnership,
   useListTenants,
   getListTenantsQueryKey,
   useListAdminCoopDisputes,
@@ -14,7 +14,7 @@ import {
   type CoopPartnership,
   type CoopDispute,
 } from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,17 +45,43 @@ import {
 export default function CoopPartnerships() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: partnerships, isLoading } = useListCoopPartnerships(undefined, {
-    query: { queryKey: getListCoopPartnershipsQueryKey(undefined) },
+  // Partnerships are tenant-scoped on the server (participant-only): the
+  // operator picks a business, and the list shows the pacts that business
+  // participates in as host or partner.
+  const { data: tenants } = useListTenants({
+    query: { queryKey: getListTenantsQueryKey() },
   });
-  const updatePartnership = useUpdateCoopPartnership();
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
+  useEffect(() => {
+    if (selectedTenantId === '' && tenants && tenants.length > 0) {
+      setSelectedTenantId(String(tenants[0].id));
+    }
+  }, [tenants, selectedTenantId]);
+  const tenantId = selectedTenantId ? Number(selectedTenantId) : null;
+
+  const listParams = tenantId != null ? { tenantId } : undefined;
+  const { data: partnerships, isLoading } = useListCoopPartnerships(listParams, {
+    query: {
+      queryKey: getListCoopPartnershipsQueryKey(listParams),
+      enabled: tenantId != null,
+    },
+  });
+
+  // Mutations must carry participant tenant context; scope each toggle to the
+  // partnership's host tenant explicitly.
+  const updatePartnership = useMutation({
+    mutationFn: ({ p, isActive }: { p: CoopPartnership; isActive: boolean }) =>
+      updateCoopPartnership(p.id, { isActive }, {
+        headers: { 'x-tenant-id': String(p.hostTenantId) },
+      }),
+  });
 
   const toggleActive = (p: CoopPartnership) => {
     updatePartnership.mutate(
-      { id: p.id, data: { isActive: !p.isActive } },
+      { p, isActive: !p.isActive },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListCoopPartnershipsQueryKey(undefined) });
+          queryClient.invalidateQueries({ queryKey: getListCoopPartnershipsQueryKey(listParams) });
           toast({
             title: p.isActive ? 'Partnership deactivated' : 'Partnership reactivated',
             description: `${p.hostTenantName} × ${p.partnerTenantName}`,
@@ -78,7 +104,21 @@ export default function CoopPartnerships() {
             from its partner. Same-industry pairings are blocked unless explicitly overridden.
           </p>
         </div>
-        <CreatePartnershipDialog />
+        <div className="flex items-center gap-2">
+          <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+            <SelectTrigger className="w-[220px]" data-testid="select-partnerships-tenant">
+              <SelectValue placeholder="Select a business" />
+            </SelectTrigger>
+            <SelectContent>
+              {(tenants ?? []).map((t) => (
+                <SelectItem key={t.id} value={String(t.id)}>
+                  {t.brandName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <CreatePartnershipDialog />
+        </div>
       </div>
 
       {isLoading ? (

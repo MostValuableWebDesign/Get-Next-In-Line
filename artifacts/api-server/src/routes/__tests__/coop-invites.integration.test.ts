@@ -213,7 +213,11 @@ describe("co-op invite lifecycle", () => {
     const redemption = await agent.get(`/api/coop/redemptions/${inviteCode}`).expect(200);
     expect(redemption.body.valid).toBe(false);
     // Admin PATCH cannot flip a pending invite live.
-    await agent.patch(`/api/coop/partnerships/${inviteId}`).send({ isActive: true }).expect(409);
+    await agent
+      .patch(`/api/coop/partnerships/${inviteId}`)
+      .set("x-tenant-id", String(salonAId))
+      .send({ isActive: true })
+      .expect(409);
   });
 
   it("only the invited business can respond — not the requester or a bystander", async () => {
@@ -267,7 +271,11 @@ describe("co-op invite lifecycle", () => {
   });
 
   it("deactivation removes the perk everywhere with no manual steps", async () => {
-    await agent.patch(`/api/coop/partnerships/${inviteId}`).send({ isActive: false }).expect(200);
+    await agent
+      .patch(`/api/coop/partnerships/${inviteId}`)
+      .set("x-tenant-id", String(salonAId))
+      .send({ isActive: false })
+      .expect(200);
     for (const t of [salonAId, cafeId]) {
       const perks = await agent
         .get("/api/coop/perks")
@@ -278,7 +286,11 @@ describe("co-op invite lifecycle", () => {
     const redemption = await agent.get(`/api/coop/redemptions/${inviteCode}`).expect(200);
     expect(redemption.body.valid).toBe(false);
     // Accepted partnerships may be reactivated (unlike pending/declined).
-    await agent.patch(`/api/coop/partnerships/${inviteId}`).send({ isActive: true }).expect(200);
+    await agent
+      .patch(`/api/coop/partnerships/${inviteId}`)
+      .set("x-tenant-id", String(salonAId))
+      .send({ isActive: true })
+      .expect(200);
   });
 
   it("declined invites never surface and stay dead", async () => {
@@ -307,6 +319,7 @@ describe("co-op invite lifecycle", () => {
     // Declined invites cannot be force-activated either.
     await agent
       .patch(`/api/coop/partnerships/${created.body.id}`)
+      .set("x-tenant-id", String(gymId))
       .send({ isActive: true })
       .expect(409);
     await db

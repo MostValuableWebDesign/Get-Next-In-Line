@@ -190,6 +190,38 @@ describe("partner connection lifecycle", () => {
     expect(scoped.body.status).toBe("active");
   });
 
+  it("ignores a spoofed tenantId in the webhook body", async () => {
+    const agent = await loggedInAgent();
+
+    // No header + a body tenantId naming the tenant with the active
+    // connection: the body must NOT redirect scope, so the legacy (NULL)
+    // scope matches nothing and the event is rejected.
+    const spoof = await request(app)
+      .post(`/api/v1/partners/${PARTNER_ID}/webhook`)
+      .send({ event: `spoofed.event.${RUN}`, tenantId });
+    expect(spoof.status).toBe(404);
+    const scoped = await agent
+      .get(`/api/v1/partners/${PARTNER_ID}/status`)
+      .set("x-tenant-id", String(tenantId));
+    expect(
+      scoped.body.events.some((e: { details: string | null }) => e.details === `spoofed.event.${RUN}`)
+    ).toBe(false);
+
+    // Header-scoped webhook with a mismatched body tenantId still lands on
+    // the header-derived connection — the body value is ignored, not honored.
+    const hook = await request(app)
+      .post(`/api/v1/partners/${PARTNER_ID}/webhook`)
+      .set("x-tenant-id", String(tenantId))
+      .send({ event: `real.event.${RUN}`, tenantId: 99999999 });
+    expect(hook.status).toBe(200);
+    const after = await agent
+      .get(`/api/v1/partners/${PARTNER_ID}/status`)
+      .set("x-tenant-id", String(tenantId));
+    expect(
+      after.body.events.some((e: { details: string | null }) => e.details === `real.event.${RUN}`)
+    ).toBe(true);
+  });
+
   it("404s for an unknown partner", async () => {
     const agent = await loggedInAgent();
     const res = await agent.post(`/api/v1/partners/not-a-partner-${RUN}/connect`);

@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
+import { randomBytes } from "crypto";
 import {
   db,
   tenantsTable,
   modulesTable,
   tenantModulesTable,
   merchantCoopPartnershipsTable,
+  usersTable,
+  userTenantMembershipsTable,
 } from "@workspace/db";
 import { eq, inArray, or } from "drizzle-orm";
 
@@ -211,6 +214,7 @@ describe("merchant co-op partnerships", () => {
   it("edits the perk and deactivates; inactive codes fail validation", async () => {
     const upd = await agent
       .patch(`/api/coop/partnerships/${partnershipId}`)
+      .set("x-tenant-id", String(salonAId))
       .send({ perkTitle: "Free latte with any cut", isActive: false })
       .expect(200);
     expect(upd.body.perkTitle).toBe("Free latte with any cut");
@@ -223,6 +227,7 @@ describe("merchant co-op partnerships", () => {
     // Reactivation restores validation.
     await agent
       .patch(`/api/coop/partnerships/${partnershipId}`)
+      .set("x-tenant-id", String(salonAId))
       .send({ isActive: true })
       .expect(200);
     const again = await agent.get(`/api/coop/redemptions/${autoCode}`).expect(200);
@@ -230,7 +235,11 @@ describe("merchant co-op partnerships", () => {
   });
 
   it("404s when updating a missing partnership", async () => {
-    await agent.patch("/api/coop/partnerships/99999999").send({ isActive: false }).expect(404);
+    await agent
+      .patch("/api/coop/partnerships/99999999")
+      .set("x-tenant-id", String(salonAId))
+      .send({ isActive: false })
+      .expect(404);
   });
 });
 
@@ -270,6 +279,7 @@ describe("co-op perk date windows, disclaimer, expiry sweep, and redemption lock
     // Updating only the end below the existing start must also be rejected.
     await agent
       .patch(`/api/coop/partnerships/${created.id}`)
+      .set("x-tenant-id", String(cafeId))
       .send({ perkEndsAt: new Date(Date.now() - 2 * HOUR).toISOString() })
       .expect(400);
     await db.delete(merchantCoopPartnershipsTable).where(eq(merchantCoopPartnershipsTable.id, created.id));
@@ -390,6 +400,7 @@ describe("co-op perk date windows, disclaimer, expiry sweep, and redemption lock
 
     await agent
       .patch(`/api/coop/partnerships/${p.id}`)
+      .set("x-tenant-id", String(cafeId))
       .send({ perkStartsAt: new Date(Date.now() - 2 * HOUR).toISOString(), perkEndsAt: new Date(Date.now() - HOUR).toISOString() })
       .expect(200);
     const expiredRedeem = await agent
@@ -405,5 +416,83 @@ describe("co-op perk date windows, disclaimer, expiry sweep, and redemption lock
     await anon.post("/api/coop/redemptions").send({ code: p.redemptionCode, passCode: "x" }).expect(401);
 
     await db.delete(merchantCoopPartnershipsTable).where(eq(merchantCoopPartnershipsTable.id, p.id));
+  });
+});
+
+describe("cross-tenant partnership lockdown", () => {
+  let lockedId: number;
+  let memberAgent: ReturnType<typeof request.agent>;
+  let memberUserId: number;
+
+  beforeAll(async () => {
+    const res = await agent
+      .post("/api/coop/partnerships")
+      .send({ hostTenantId: salonAId, partnerTenantId: cafeId, perkTitle: `Lockdown perk ${RUN}` })
+      .expect(201);
+    lockedId = res.body.id;
+
+    // A non-admin member of Salon B — not a participant in the partnership.
+    const app = (await import("../../app")).default;
+    const loginToken = `tok-${RUN}-${randomBytes(12).toString("hex")}`;
+    const [user] = await db
+      .insert(usersTable)
+      .values({ username: `member-${RUN}`, isPlatformAdmin: false, loginToken })
+      .returning({ id: usersTable.id });
+    memberUserId = user.id;
+    await db.insert(userTenantMembershipsTable).values({ userId: memberUserId, tenantId: salonBId });
+    memberAgent = request.agent(app);
+    await memberAgent.post("/api/auth/login").send({ loginToken }).expect(200);
+  });
+
+  afterAll(async () => {
+    await db.delete(usersTable).where(eq(usersTable.id, memberUserId));
+    await db
+      .delete(merchantCoopPartnershipsTable)
+      .where(eq(merchantCoopPartnershipsTable.id, lockedId));
+  });
+
+  it("rejects a non-admin listing without any tenant context", async () => {
+    // Unscoped list is a platform-admin surface; members must scope to a tenant.
+    await memberAgent.get("/api/coop/partnerships").expect(403);
+  });
+
+  it("rejects a mismatched header/query tenant pair", async () => {
+    await agent
+      .get(`/api/coop/partnerships?tenantId=${salonAId}`)
+      .set("x-tenant-id", String(salonBId))
+      .expect(403);
+  });
+
+  it("scoped listing never contains another tenant's partnerships", async () => {
+    const res = await agent
+      .get("/api/coop/partnerships")
+      .set("x-tenant-id", String(salonBId))
+      .expect(200);
+    expect(res.body.some((p: { id: number }) => p.id === lockedId)).toBe(false);
+    for (const p of res.body as Array<{ hostTenantId: number; partnerTenantId: number }>) {
+      expect([p.hostTenantId, p.partnerTenantId]).toContain(salonBId);
+    }
+  });
+
+  it("rejects updates without tenant context and from non-participants", async () => {
+    await agent.patch(`/api/coop/partnerships/${lockedId}`).send({ isActive: false }).expect(400);
+    const forbidden = await agent
+      .patch(`/api/coop/partnerships/${lockedId}`)
+      .set("x-tenant-id", String(salonBId))
+      .send({ isActive: false })
+      .expect(403);
+    expect(forbidden.body.message).toMatch(/participant/i);
+    // The row is untouched by the rejected attempts.
+    const [row] = await db
+      .select()
+      .from(merchantCoopPartnershipsTable)
+      .where(eq(merchantCoopPartnershipsTable.id, lockedId));
+    expect(row.isActive).toBe(true);
+    // Either participant (here: the partner side) may still update.
+    await agent
+      .patch(`/api/coop/partnerships/${lockedId}`)
+      .set("x-tenant-id", String(cafeId))
+      .send({ isActive: false })
+      .expect(200);
   });
 });

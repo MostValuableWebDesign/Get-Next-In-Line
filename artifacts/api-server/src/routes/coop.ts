@@ -17,6 +17,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { isWalletPassToken, findWalletPass, type WalletPassRow } from "../lib/perkPasses";
 import { sendMessageSafe } from "../lib/messaging";
+import { sessionIsPlatformAdmin } from "../middlewares/tenantAccess";
 import {
   COOP_PERK_DISCLAIMER,
   perkWindowOpen,
@@ -272,22 +273,40 @@ function pgUniqueViolation(err: unknown): boolean {
   return pgCode === "23505";
 }
 
-// ── GET /coop/partnerships — list, optionally filtered to one tenant ────────
+// ── GET /coop/partnerships — list the scoped tenant's partnerships ──────────
+// Tenant context is REQUIRED (x-tenant-id header, tenantId query fallback) and
+// the response only ever contains partnerships where that tenant is the host
+// or the partner — no caller can enumerate other merchants' pacts. When both
+// header and query are supplied they must agree.
 router.get("/coop/partnerships", async (req, res): Promise<void> => {
-  const rawTenantId = req.query.tenantId;
-  const tenantId = rawTenantId != null ? Number(rawTenantId) : null;
-  let query = partnershipRows()
-    .orderBy(desc(merchantCoopPartnershipsTable.createdAt), desc(merchantCoopPartnershipsTable.id))
-    .$dynamic();
-  if (tenantId != null && Number.isInteger(tenantId)) {
-    query = query.where(
-      or(
-        eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
-        eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId)
-      )
-    );
+  const headerTenantId = tenantIdFrom(req);
+  const rawQuery = req.query.tenantId;
+  const parsedQuery = rawQuery != null ? Number(rawQuery) : null;
+  const queryTenantId =
+    parsedQuery != null && Number.isInteger(parsedQuery) && parsedQuery > 0 ? parsedQuery : null;
+  if (headerTenantId != null && queryTenantId != null && headerTenantId !== queryTenantId) {
+    res.status(403).json({ message: "Cannot list another business's partnerships" });
+    return;
   }
-  const rows = await query;
+  const tenantId = headerTenantId ?? queryTenantId;
+  if (tenantId == null && !sessionIsPlatformAdmin(req)) {
+    res
+      .status(400)
+      .json({ message: "Tenant context is required (x-tenant-id header or tenantId query)" });
+    return;
+  }
+  // Platform admins with no tenant context see the unscoped admin-console
+  // list; the tenantAccess middleware already 403s non-admins on that path.
+  const base = partnershipRows();
+  const rows = await (tenantId == null
+    ? base
+    : base.where(
+        or(
+          eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
+          eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId)
+        )
+      )
+  ).orderBy(desc(merchantCoopPartnershipsTable.createdAt), desc(merchantCoopPartnershipsTable.id));
   res.json(
     ListCoopPartnershipsResponse.parse(
       rows.map((r) => serialize(r.partnership, r.hostTenantName, r.partnerTenantName))
@@ -382,10 +401,17 @@ router.post("/coop/partnerships", async (req, res): Promise<void> => {
 });
 
 // ── PATCH /coop/partnerships/:id — edit perk / activate / deactivate ────────
+// Tenant context is REQUIRED (x-tenant-id header) and only the two
+// participants (host or partner) may mutate the partnership.
 router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) {
     res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
     return;
   }
   const parsed = UpdateCoopPartnershipBody.safeParse(req.body);
@@ -406,23 +432,28 @@ router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
     res.status(400).json({ message: "No fields to update" });
     return;
   }
-  // Fetch the existing row when needed to validate the merged date window or
-  // the activation transition.
+  const [existing] = await db
+    .select({
+      hostTenantId: merchantCoopPartnershipsTable.hostTenantId,
+      partnerTenantId: merchantCoopPartnershipsTable.partnerTenantId,
+      status: merchantCoopPartnershipsTable.status,
+      perkStartsAt: merchantCoopPartnershipsTable.perkStartsAt,
+      perkEndsAt: merchantCoopPartnershipsTable.perkEndsAt,
+    })
+    .from(merchantCoopPartnershipsTable)
+    .where(eq(merchantCoopPartnershipsTable.id, id));
+  if (!existing) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  // Participant enforcement: only the host or the partner may mutate.
+  if (existing.hostTenantId !== tenantId && existing.partnerTenantId !== tenantId) {
+    res.status(403).json({ message: "Only a participant business can modify this partnership" });
+    return;
+  }
   const touchesWindow =
     parsed.data.perkStartsAt !== undefined || parsed.data.perkEndsAt !== undefined;
   if (updates.isActive === true || touchesWindow) {
-    const [existing] = await db
-      .select({
-        status: merchantCoopPartnershipsTable.status,
-        perkStartsAt: merchantCoopPartnershipsTable.perkStartsAt,
-        perkEndsAt: merchantCoopPartnershipsTable.perkEndsAt,
-      })
-      .from(merchantCoopPartnershipsTable)
-      .where(eq(merchantCoopPartnershipsTable.id, id));
-    if (!existing) {
-      res.status(404).json({ message: "Not found" });
-      return;
-    }
     // A perk can only be (re)activated on an accepted partnership — pending
     // and declined invites must never surface anywhere.
     if (updates.isActive === true && existing.status !== "accepted") {

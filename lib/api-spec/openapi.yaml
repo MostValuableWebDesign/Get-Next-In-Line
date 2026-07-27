@@ -377,11 +377,12 @@ paths:
     get:
       operationId: listCoopPartnerships
       tags: [admin]
-      summary: List merchant co-op partnerships, optionally filtered to one tenant (as host or partner)
+      summary: List the scoped tenant's co-op partnerships (as host or partner); tenant context required via x-tenant-id header or tenantId query
       parameters:
         - name: tenantId
           in: query
           required: false
+          description: Tenant scope fallback when no x-tenant-id header is set; must match the header when both are present.
           schema:
             type: integer
       responses:

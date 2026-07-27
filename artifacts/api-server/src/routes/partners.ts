@@ -302,12 +302,17 @@ router.post("/v1/partners/:partnerId/webhook", async (req, res): Promise<void> =
     res.status(400).json({ error: "Missing event name" });
     return;
   }
-  // Tenant context: explicit tenantId in the payload wins, else the header
-  // convention, else the agency-level (NULL) workspace.
-  const tenantId =
-    typeof body.tenantId === "number" && Number.isInteger(body.tenantId) && body.tenantId > 0
-      ? body.tenantId
-      : tenantIdFrom(req);
+  // Tenant scope comes ONLY from the server-side header convention (or the
+  // agency-level NULL workspace). A tenantId in the webhook body is untrusted
+  // caller input and is ignored — it can never redirect an event to another
+  // tenant's connection.
+  const tenantId = tenantIdFrom(req);
+  if (body.tenantId !== undefined) {
+    logger.warn(
+      { partnerId: req.params.partnerId, bodyTenantId: body.tenantId, scopedTenantId: tenantId },
+      "Ignoring tenantId supplied in partner webhook body"
+    );
+  }
 
   const conn = await findConnection(module.id, tenantId);
   if (!conn || conn.status !== "active") {

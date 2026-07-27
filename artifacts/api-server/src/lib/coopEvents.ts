@@ -344,7 +344,10 @@ export async function generateCoopMonthlyReports(
     } catch (err) {
       // FK violation: the tenant was deleted between scoping and insert
       // (concurrent offboarding). Skip it — nothing to report on.
-      if ((err as { code?: string }).code === "23503") continue;
+      const pgCode =
+        (err as { code?: string }).code ??
+        ((err as { cause?: { code?: string } }).cause?.code);
+      if (pgCode === "23503") continue;
       throw err;
     }
     if (!inserted) continue;
