@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CoopPartnershipStatus } from './coopPartnershipStatus';
+import type { CoopPartnershipTier } from './coopPartnershipTier';
 
 export interface CoopPartnership {
   id: number;
@@ -54,6 +55,28 @@ export interface CoopPartnership {
      * @nullable
      */
   partnerTrackingCode: string | null;
+  /** Performance-based tier, evaluated against rolling 30-day attribution counts. */
+  tier: CoopPartnershipTier;
+  /**
+     * Customers/30 days the host demands of partner→host traffic; null = platform default (5).
+     * @nullable
+     */
+  hostReciprocityThreshold: number | null;
+  /**
+     * Customers/30 days the partner demands of host→partner traffic; null = platform default (5).
+     * @nullable
+     */
+  partnerReciprocityThreshold: number | null;
+  /**
+     * Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.
+     * @nullable
+     */
+  performancePausedAt: string | null;
+  /**
+     * Tenant that requested reactivation of a performance pause; cleared when the pause lifts.
+     * @nullable
+     */
+  reactivationRequestedByTenantId: number | null;
   isActive: boolean;
   createdAt: string;
 }

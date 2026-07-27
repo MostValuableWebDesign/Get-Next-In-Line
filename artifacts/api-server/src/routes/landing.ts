@@ -6,7 +6,7 @@ import {
   merchantCoopPartnershipsTable,
 } from "@workspace/db";
 import { alias } from "drizzle-orm/pg-core";
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { getSettingsForTenant } from "../lib/settings";
 import { COOP_PERK_DISCLAIMER, perkWindowOpen } from "../lib/coopPerks";
 import { filterPartnershipsForConsumerSurface } from "../lib/coopFirewall";
@@ -80,6 +80,8 @@ export async function getPublicCoopPerks(
       and(
         eq(merchantCoopPartnershipsTable.isActive, true),
         eq(merchantCoopPartnershipsTable.status, "accepted"),
+        // Performance-paused partnerships never render publicly.
+        isNull(merchantCoopPartnershipsTable.performancePausedAt),
         // Perks outside their optional date window never render publicly.
         perkWindowOpen(),
         or(

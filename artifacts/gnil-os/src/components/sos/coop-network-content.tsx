@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   useListCoopDirectory, getListCoopDirectoryQueryKey,
   useListCoopPartnerships, getListCoopPartnershipsQueryKey,
+  updateCoopPartnership, reactivateCoopPartnership,
   useCreateCoopInvite, useRespondToCoopInvite,
   useListCoopActivePerks, getListCoopActivePerksQueryKey,
   useRedeemCoopPerk,
@@ -22,7 +23,7 @@ import {
   type ListCoopPartnerPerformanceParams,
   type CoopDispute, type CoopDisputeCreateCategory,
 } from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -591,6 +592,132 @@ function perkWindowLabel(p: CoopPartnership): string | null {
   return null;
 }
 
+/** Default reciprocity threshold when a side hasn't set its own rule. */
+const DEFAULT_RECIPROCITY = 5;
+
+function tierBadge(p: CoopPartnership) {
+  if (p.performancePausedAt != null) return null; // paused badge shown separately
+  return p.tier === 'premier' ? (
+    <Badge className="bg-amber-500 hover:bg-amber-500 text-white" data-testid={`badge-partnership-tier-${p.id}`}>
+      Premier
+    </Badge>
+  ) : (
+    <Badge variant="secondary" data-testid={`badge-partnership-tier-${p.id}`}>
+      Standard
+    </Badge>
+  );
+}
+
+/**
+ * Performance tier controls for one partnership row: shows the scoped
+ * tenant's own reciprocity rule (editable — the server enforces that each
+ * side only edits its own threshold) and, when performance-paused, the
+ * mutual-agreement reactivation flow.
+ */
+function TierControls({ partnership: p, tenantId }: { partnership: CoopPartnership; tenantId: number }) {
+  const isHost = p.hostTenantId === tenantId;
+  const own = isHost ? p.hostReciprocityThreshold : p.partnerReciprocityThreshold;
+  const otherName = isHost ? p.partnerTenantName : p.hostTenantName;
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(own ?? DEFAULT_RECIPROCITY));
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: getListCoopPartnershipsQueryKey({ tenantId }) });
+
+  const saveThreshold = useMutation({
+    mutationFn: (threshold: number) =>
+      updateCoopPartnership(
+        p.id,
+        isHost ? { hostReciprocityThreshold: threshold } : { partnerReciprocityThreshold: threshold },
+        { headers: { 'x-tenant-id': String(tenantId) } },
+      ),
+    onSuccess: () => { invalidate(); setEditing(false); toast({ title: 'Reciprocity rule saved' }); },
+    onError: () => toast({ title: 'Could not save the rule', variant: 'destructive' }),
+  });
+  const reactivate = useMutation({
+    mutationFn: () => reactivateCoopPartnership(p.id, { headers: { 'x-tenant-id': String(tenantId) } }),
+    onSuccess: (updated) => {
+      invalidate();
+      toast({
+        title: updated.performancePausedAt == null
+          ? 'Partnership reactivated'
+          : 'Reactivation requested — waiting on your partner',
+      });
+    },
+    onError: (err: unknown) => {
+      const e = err as { data?: { message?: string }; message?: string };
+      toast({ title: 'Reactivation failed', description: e?.data?.message ?? e?.message, variant: 'destructive' });
+    },
+  });
+
+  const n = Number(value);
+  const valid = Number.isInteger(n) && n >= 1 && n <= 1000;
+  const iRequested = p.reactivationRequestedByTenantId === tenantId;
+  const theyRequested = p.reactivationRequestedByTenantId != null && !iRequested;
+
+  return (
+    <div className="pt-1 space-y-1" data-testid={`tier-controls-${p.id}`}>
+      <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+        <TrendingUp className="w-3 h-3" />
+        {editing ? (
+          <span className="flex items-center gap-1.5">
+            {otherName} must send ≥
+            <Input
+              type="number"
+              min={1}
+              max={1000}
+              value={value}
+              onChange={e => setValue(e.target.value)}
+              className="h-6 w-16 text-xs px-1.5"
+              data-testid={`input-reciprocity-${p.id}`}
+            />
+            customers / 30 days
+            <Button size="sm" className="h-6 px-2 text-xs" disabled={!valid || saveThreshold.isPending}
+              onClick={() => saveThreshold.mutate(n)} data-testid={`button-save-reciprocity-${p.id}`}>
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          </span>
+        ) : (
+          <span data-testid={`text-reciprocity-rule-${p.id}`}>
+            Your rule: {otherName} sends ≥{own ?? DEFAULT_RECIPROCITY} customers / 30 days
+            {own == null && ' (default)'}
+            <Button size="sm" variant="link" className="h-auto p-0 pl-1.5 text-xs"
+              onClick={() => { setValue(String(own ?? DEFAULT_RECIPROCITY)); setEditing(true); }}
+              data-testid={`button-edit-reciprocity-${p.id}`}>
+              Edit
+            </Button>
+          </span>
+        )}
+      </div>
+      {p.performancePausedAt != null && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 p-2 text-xs space-y-1" data-testid={`paused-notice-${p.id}`}>
+          <p>
+            Paused automatically on {new Date(p.performancePausedAt).toLocaleDateString()} — no
+            cross-promoted customers in 30 days. The perk is hidden from customers; it reactivates
+            when traffic resumes or when both businesses agree.
+          </p>
+          {iRequested ? (
+            <p className="text-muted-foreground" data-testid={`text-reactivation-waiting-${p.id}`}>
+              You requested reactivation — waiting on {otherName}.
+            </p>
+          ) : (
+            <Button size="sm" variant="outline" className="h-6 px-2 text-xs"
+              disabled={reactivate.isPending}
+              onClick={() => reactivate.mutate()}
+              data-testid={`button-reactivate-partnership-${p.id}`}>
+              {theyRequested ? `Agree & reactivate (requested by ${otherName})` : 'Request reactivation'}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ActivePartnerships({
   partnerships, expired, disclaimer, tenantId, disputes,
 }: {
@@ -628,8 +755,11 @@ function ActivePartnerships({
               <div key={p.id} className="border rounded-lg p-3 space-y-1" data-testid={`row-active-partnership-${p.id}`}>
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <ArrowLeftRight className="w-3.5 h-3.5 text-muted-foreground" /> {otherName}
+                  {tierBadge(p)}
                   {p.disputeSuspended ? (
                     <Badge variant="destructive" className="ml-auto" data-testid={`badge-partnership-suspended-${p.id}`}>Suspended</Badge>
+                  ) : p.performancePausedAt != null ? (
+                    <Badge variant="destructive" className="ml-auto" data-testid={`badge-partnership-paused-${p.id}`}>Paused</Badge>
                   ) : scheduled ? (
                     <Badge variant="secondary" className="ml-auto" data-testid={`badge-partnership-scheduled-${p.id}`}>Scheduled</Badge>
                   ) : (
@@ -650,6 +780,7 @@ function ActivePartnerships({
                 <div className="text-xs text-muted-foreground font-mono flex items-center gap-1">
                   <Ticket className="w-3 h-3" /> {p.redemptionCode}
                 </div>
+                <TierControls partnership={p} tenantId={tenantId} />
                 <DisputeStatus
                   partnership={p}
                   dispute={dispute}

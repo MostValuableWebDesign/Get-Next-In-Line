@@ -18,4 +18,18 @@ export interface CoopPartnershipUpdate {
   perkStartsAt?: Date | null;
   /** @nullable */
   perkEndsAt?: Date | null;
+  /**
+     * Only the host may set this; null restores the platform default.
+     * @minimum 1
+     * @maximum 1000
+     * @nullable
+     */
+  hostReciprocityThreshold?: number | null;
+  /**
+     * Only the partner may set this; null restores the platform default.
+     * @minimum 1
+     * @maximum 1000
+     * @nullable
+     */
+  partnerReciprocityThreshold?: number | null;
 }

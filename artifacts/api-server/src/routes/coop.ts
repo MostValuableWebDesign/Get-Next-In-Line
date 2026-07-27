@@ -10,6 +10,7 @@ import {
   coopDisputesTable,
   coopAttributionEventsTable,
   coopPlazaConflictsTable,
+  coopTierEventsTable,
   sosSettingsTable,
   type MerchantCoopPartnership,
   type CoopDispute,
@@ -45,6 +46,7 @@ import {
   CreateCoopPartnershipResponse,
   UpdateCoopPartnershipBody,
   UpdateCoopPartnershipResponse,
+  ReactivateCoopPartnershipResponse,
   ValidateCoopRedemptionCodeResponse,
   ListCoopDirectoryResponse,
   CreateCoopInviteBody,
@@ -167,6 +169,11 @@ function serialize(
     bannedAt: p.bannedAt ? p.bannedAt.toISOString() : null,
     hostTrackingCode: p.hostTrackingCode,
     partnerTrackingCode: p.partnerTrackingCode,
+    tier: p.tier,
+    hostReciprocityThreshold: p.hostReciprocityThreshold,
+    partnerReciprocityThreshold: p.partnerReciprocityThreshold,
+    performancePausedAt: p.performancePausedAt ? p.performancePausedAt.toISOString() : null,
+    reactivationRequestedByTenantId: p.reactivationRequestedByTenantId,
     isActive: p.isActive,
     createdAt: p.createdAt.toISOString(),
   };
@@ -464,6 +471,9 @@ function walletPassState(row: WalletPassRow | null): { reason: string | null } {
   if (!row.partnership.isActive || row.partnership.status !== "accepted") {
     return { reason: "This partnership is no longer active" };
   }
+  // NOTE: performance-paused partnerships intentionally still redeem — a
+  // pause hides the perk from new customers, but honoring already-issued
+  // passes/codes is exactly how traffic resumes and auto-reactivates the pact.
   if (row.pass.redeemedAt != null) return { reason: "This pass was already redeemed" };
   if (row.pass.expiresAt <= new Date()) return { reason: "This pass has expired" };
   return { reason: null };
@@ -644,6 +654,10 @@ router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
     updates.perkStartsAt = parsed.data.perkStartsAt ? new Date(parsed.data.perkStartsAt) : null;
   if (parsed.data.perkEndsAt !== undefined)
     updates.perkEndsAt = parsed.data.perkEndsAt ? new Date(parsed.data.perkEndsAt) : null;
+  if (parsed.data.hostReciprocityThreshold !== undefined)
+    updates.hostReciprocityThreshold = parsed.data.hostReciprocityThreshold;
+  if (parsed.data.partnerReciprocityThreshold !== undefined)
+    updates.partnerReciprocityThreshold = parsed.data.partnerReciprocityThreshold;
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ message: "No fields to update" });
     return;
@@ -665,6 +679,24 @@ router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
   // Participant enforcement: only the host or the partner may mutate.
   if (existing.hostTenantId !== tenantId && existing.partnerTenantId !== tenantId) {
     res.status(403).json({ message: "Only a participant business can modify this partnership" });
+    return;
+  }
+  // Reciprocity rules are each side's OWN demand of the other's traffic: the
+  // host edits hostReciprocityThreshold, the partner edits its mirror.
+  if (
+    parsed.data.hostReciprocityThreshold !== undefined &&
+    existing.hostTenantId !== tenantId
+  ) {
+    res.status(403).json({ message: "Only the host business can set its reciprocity threshold" });
+    return;
+  }
+  if (
+    parsed.data.partnerReciprocityThreshold !== undefined &&
+    existing.partnerTenantId !== tenantId
+  ) {
+    res
+      .status(403)
+      .json({ message: "Only the partner business can set its reciprocity threshold" });
     return;
   }
   const touchesWindow =
@@ -719,6 +751,110 @@ router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
     }
     throw err;
   }
+});
+
+// ── POST /coop/partnerships/:id/reactivate — mutual re-accept of a pause ────
+// A performance-paused partnership reactivates when BOTH parties agree: the
+// first participant's call records the request, the second (from the other
+// side) clears the pause. Traffic resuming also auto-reactivates via the
+// scheduled evaluator — this is the manual mutual-agreement path.
+router.post("/coop/partnerships/:id/reactivate", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const [partnership] = await db
+    .select()
+    .from(merchantCoopPartnershipsTable)
+    .where(eq(merchantCoopPartnershipsTable.id, id));
+  if (!partnership) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  if (partnership.hostTenantId !== tenantId && partnership.partnerTenantId !== tenantId) {
+    res.status(403).json({ message: "Only a participant business can reactivate this partnership" });
+    return;
+  }
+  if (partnership.performancePausedAt == null) {
+    res.status(409).json({ message: "This partnership is not performance-paused" });
+    return;
+  }
+  if (partnership.bannedAt != null) {
+    res.status(409).json({ message: "This partnership is banned and cannot be reactivated" });
+    return;
+  }
+  const now = new Date();
+  const alreadyRequestedBy = partnership.reactivationRequestedByTenantId;
+  if (alreadyRequestedBy != null && alreadyRequestedBy !== tenantId) {
+    // Mutual agreement reached — clear the pause. Conditional on the pause
+    // timestamp so a concurrent evaluator reactivation can't double-apply.
+    const [claimed] = await db
+      .update(merchantCoopPartnershipsTable)
+      .set({
+        performancePausedAt: null,
+        reactivationRequestedByTenantId: null,
+        tier: "standard",
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(merchantCoopPartnershipsTable.id, id),
+          eq(merchantCoopPartnershipsTable.performancePausedAt, partnership.performancePausedAt)
+        )
+      )
+      .returning({ id: merchantCoopPartnershipsTable.id });
+    if (claimed) {
+      const [names] = await partnershipRows().where(eq(merchantCoopPartnershipsTable.id, id));
+      await db.insert(coopTierEventsTable).values({
+        partnershipId: id,
+        previousState: "paused",
+        newState: "standard",
+        reason: "reactivated by mutual agreement of both businesses.",
+        hostToPartnerCount: 0,
+        partnerToHostCount: 0,
+        createdAt: now,
+      });
+      for (const partyId of [partnership.hostTenantId, partnership.partnerTenantId]) {
+        const [settings] = await db
+          .select({ publicPhone: sosSettingsTable.publicPhone })
+          .from(sosSettingsTable)
+          .where(eq(sosSettingsTable.tenantId, partyId));
+        const otherName =
+          partyId === partnership.hostTenantId ? names.partnerTenantName : names.hostTenantName;
+        await sendMessageSafe({
+          tenantId: partyId,
+          origin: "operational",
+          kind: "coop_tier_change",
+          toNumber: settings?.publicPhone?.trim() || null,
+          body: `Co-Op update: your "${partnership.perkTitle}" partnership with ${otherName} — reactivated by mutual agreement. The perk is live again at Standard tier.`,
+          context: { partnershipId: id },
+        });
+      }
+    }
+  } else if (alreadyRequestedBy == null) {
+    await db
+      .update(merchantCoopPartnershipsTable)
+      .set({ reactivationRequestedByTenantId: tenantId, updatedAt: now })
+      .where(
+        and(
+          eq(merchantCoopPartnershipsTable.id, id),
+          isNull(merchantCoopPartnershipsTable.reactivationRequestedByTenantId)
+        )
+      );
+  }
+  // else: same side re-requesting is a no-op.
+  const [row] = await partnershipRows().where(eq(merchantCoopPartnershipsTable.id, id));
+  res.json(
+    ReactivateCoopPartnershipResponse.parse(
+      serialize(row.partnership, row.hostTenantName, row.partnerTenantName)
+    )
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -1621,6 +1757,8 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
         // Dispute-suspended and banned partnerships never serve their perk.
         eq(merchantCoopPartnershipsTable.disputeSuspended, false),
         isNull(merchantCoopPartnershipsTable.bannedAt),
+        // Performance-paused partnerships never serve their perk either.
+        isNull(merchantCoopPartnershipsTable.performancePausedAt),
         // Perks outside their optional date window never reach any surface.
         perkWindowOpen(),
         or(

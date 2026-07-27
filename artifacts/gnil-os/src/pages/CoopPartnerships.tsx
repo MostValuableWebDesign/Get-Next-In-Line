@@ -151,11 +151,18 @@ export default function CoopPartnerships() {
                       <Badge variant="outline" data-testid={`badge-partnership-status-${p.id}`}>
                         Expired
                       </Badge>
+                    ) : p.performancePausedAt != null ? (
+                      <Badge variant="destructive" data-testid={`badge-partnership-status-${p.id}`}>
+                        Paused (low traffic)
+                      </Badge>
                     ) : (
                       <Badge variant={p.isActive ? 'default' : 'secondary'} data-testid={`badge-partnership-status-${p.id}`}>
                         {p.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     )}
+                    <Badge variant="outline" className="capitalize" data-testid={`badge-partnership-tier-${p.id}`}>
+                      {p.tier}
+                    </Badge>
                     {p.industryBarrierOverridden && (
                       <Badge variant="outline" className="text-amber-600 border-amber-300">
                         <AlertTriangle className="w-3 h-3 mr-1" /> Barrier overridden
@@ -765,9 +772,16 @@ export function TenantCoopPartnershipsSection({ tenantId }: { tenantId: number }
                     <Badge variant="outline" className="text-[9px] uppercase">
                       {isHost ? 'Host' : 'Partner'}
                     </Badge>
-                    <Badge variant={p.isActive ? 'default' : 'secondary'}>
-                      {p.isActive ? 'Active' : 'Inactive'}
+                    <Badge variant="outline" className="capitalize" data-testid={`badge-tenant-partnership-tier-${p.id}`}>
+                      {p.tier}
                     </Badge>
+                    {p.performancePausedAt != null ? (
+                      <Badge variant="destructive">Paused</Badge>
+                    ) : (
+                      <Badge variant={p.isActive ? 'default' : 'secondary'}>
+                        {p.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               );

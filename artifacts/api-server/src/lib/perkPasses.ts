@@ -9,7 +9,7 @@ import {
   type MerchantCoopPartnership,
 } from "@workspace/db";
 import { alias } from "drizzle-orm/pg-core";
-import { and, eq, gt, or } from "drizzle-orm";
+import { and, eq, gt, isNull, or } from "drizzle-orm";
 import { normalizeToE164 } from "./sms";
 import { perkWindowOpen } from "./coopPerks";
 import { logger } from "./logger";
@@ -82,6 +82,8 @@ export async function grantPerkPassesForCheckout(opts: {
       and(
         eq(merchantCoopPartnershipsTable.status, "accepted"),
         eq(merchantCoopPartnershipsTable.isActive, true),
+        // Performance-paused partnerships stop granting new wallet passes.
+        isNull(merchantCoopPartnershipsTable.performancePausedAt),
         perkWindowOpen(now),
         or(
           eq(merchantCoopPartnershipsTable.hostTenantId, opts.tenantId),

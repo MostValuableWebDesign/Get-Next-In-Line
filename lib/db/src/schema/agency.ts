@@ -212,6 +212,27 @@ export const merchantCoopPartnershipsTable = pgTable(
     // backfilled at server start for pre-existing rows.
     hostTrackingCode: text("host_tracking_code").unique(),
     partnerTrackingCode: text("partner_tracking_code").unique(),
+    // Performance-based partnership tier: "premier" | "standard". Evaluated by
+    // the scheduled tier job against rolling 30-day attribution counts.
+    tier: text("tier").notNull().default("standard"),
+    // Reciprocity thresholds (customers / rolling 30 days) each side demands
+    // of the OTHER side's traffic. hostReciprocityThreshold is set by the host
+    // and applies to partner→host traffic; partnerReciprocityThreshold is the
+    // mirror. NULL = platform default applies.
+    hostReciprocityThreshold: integer("host_reciprocity_threshold"),
+    partnerReciprocityThreshold: integer("partner_reciprocity_threshold"),
+    // Set by the tier evaluator when the partnership had ZERO cross-promoted
+    // traffic over the rolling 30-day window: the perk stops being served on
+    // every customer surface until traffic resumes or both parties agree to
+    // reactivate. Independent of isActive/disputeSuspended so clearing it
+    // restores the merchants' own on/off choice.
+    performancePausedAt: timestamp("performance_paused_at"),
+    // One-sided reactivation request while performance-paused; when the OTHER
+    // party also requests, the pause clears (mutual agreement).
+    reactivationRequestedByTenantId: integer("reactivation_requested_by_tenant_id").references(
+      () => tenantsTable.id,
+      { onDelete: "set null" }
+    ),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -731,6 +752,31 @@ export const coopPlazaConflictsTable = pgTable(
 
 export type CoopPlazaConflict = typeof coopPlazaConflictsTable.$inferSelect;
 
+// ── Co-op partnership tier events ────────────────────────────────────────────
+// Append-style audit trail of every automatic or mutual tier transition the
+// performance evaluator (or the reactivation flow) applied: what changed,
+// why, and the rolling 30-day attribution counts that drove the decision.
+export const coopTierEventsTable = pgTable(
+  "coop_tier_events",
+  {
+    id: serial("id").primaryKey(),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    // Tier/pause state before and after ("premier" | "standard" | "paused").
+    previousState: text("previous_state").notNull(),
+    newState: text("new_state").notNull(),
+    // Human-readable explanation shown in notifications and audits.
+    reason: text("reason").notNull(),
+    // Rolling 30-day attribution counts at evaluation time.
+    hostToPartnerCount: integer("host_to_partner_count").notNull().default(0),
+    partnerToHostCount: integer("partner_to_host_count").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_tier_events_partnership_idx").on(t.partnershipId, t.createdAt.desc())]
+);
+
+export type CoopTierEvent = typeof coopTierEventsTable.$inferSelect;
 
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,

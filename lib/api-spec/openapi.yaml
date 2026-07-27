@@ -451,6 +451,33 @@ paths:
         "404":
           description: Not found
 
+  /coop/partnerships/{id}/reactivate:
+    post:
+      operationId: reactivateCoopPartnership
+      tags: [coop]
+      summary: Request (or complete, when the other side already requested) mutual reactivation of a performance-paused partnership
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Partnership after the request was recorded or the pause was lifted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPartnership"
+        "400":
+          description: Missing tenant context
+        "403":
+          description: Caller is not a participant
+        "404":
+          description: Not found
+        "409":
+          description: Not performance-paused, or banned
+
   /coop/taxonomy:
     get:
       operationId: getCoopTaxonomy
@@ -3831,6 +3858,11 @@ components:
           bannedAt,
           hostTrackingCode,
           partnerTrackingCode,
+          tier,
+          hostReciprocityThreshold,
+          partnerReciprocityThreshold,
+          performancePausedAt,
+          reactivationRequestedByTenantId,
           isActive,
           createdAt,
         ]
@@ -3880,6 +3912,22 @@ components:
         partnerTrackingCode:
           type: ["string", "null"]
           description: Tracking code carried by the partner's customers (partner→host traffic); null only until backfilled.
+        tier:
+          type: string
+          enum: [premier, standard]
+          description: Performance-based tier, evaluated against rolling 30-day attribution counts.
+        hostReciprocityThreshold:
+          type: ["integer", "null"]
+          description: Customers/30 days the host demands of partner→host traffic; null = platform default (5).
+        partnerReciprocityThreshold:
+          type: ["integer", "null"]
+          description: Customers/30 days the partner demands of host→partner traffic; null = platform default (5).
+        performancePausedAt:
+          type: ["string", "null"]
+          description: Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.
+        reactivationRequestedByTenantId:
+          type: ["integer", "null"]
+          description: Tenant that requested reactivation of a performance pause; cleared when the pause lifts.
         isActive:
           type: boolean
         createdAt:
@@ -4630,6 +4678,16 @@ components:
         perkEndsAt:
           type: ["string", "null"]
           format: date-time
+        hostReciprocityThreshold:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 1000
+          description: Only the host may set this; null restores the platform default.
+        partnerReciprocityThreshold:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 1000
+          description: Only the partner may set this; null restores the platform default.
 
     PlatformInvite:
       type: object
@@ -6204,7 +6262,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

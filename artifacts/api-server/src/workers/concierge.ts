@@ -23,6 +23,7 @@ import { logger } from "../lib/logger";
 import { resolveSettings } from "../lib/settings";
 import { generateCoopMonthlyReports } from "../lib/coopEvents";
 import { sweepCampaignAutoBlasts } from "../lib/coopCampaigns";
+import { evaluateCoopPartnershipTiers } from "../lib/coopTiers";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -382,6 +383,8 @@ export interface ConciergeTickResult {
   escalatedDisputes: number;
   /** Co-op campaign joint blasts auto-fired at campaign start this tick. */
   campaignBlasts: number;
+  /** Co-op partnership tier transitions (pause/downgrade/promote/reactivate) applied this tick. */
+  tierTransitions: number;
 }
 
 /**
@@ -399,7 +402,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, tierTransitions: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
     const expiredPerks = await sweepExpiredCoopPerks(now);
@@ -413,9 +416,14 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     // blast_triggered_at conditional claim inside the sweep is the send-once
     // lock, so this is safe to run on every tick.
     const campaignBlasts = await sweepCampaignAutoBlasts(now);
+    // Performance-based partnership tiers: state-diff transitions are
+    // idempotent, so running on every tick only ever applies each change once.
+    const tierResult = await evaluateCoopPartnershipTiers(now);
+    const tierTransitions =
+      tierResult.paused + tierResult.reactivated + tierResult.downgraded + tierResult.promoted;
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
-    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts };
+    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, tierTransitions };
   });
 }
 
@@ -456,6 +464,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       await generateCoopMonthlyReports();
       await escalateExpiredCoopDisputes();
       await sweepCampaignAutoBlasts();
+      await evaluateCoopPartnershipTiers();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;

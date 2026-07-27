@@ -1807,6 +1807,77 @@ export const useUpdateCoopPartnership = <TError = ErrorType<void>,
       return useMutation(getUpdateCoopPartnershipMutationOptions(options));
     }
 
+export const getReactivateCoopPartnershipUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/partnerships/${id}/reactivate`
+}
+
+/**
+ * @summary Request (or complete, when the other side already requested) mutual reactivation of a performance-paused partnership
+ */
+export const reactivateCoopPartnership = async (id: number, options?: RequestInit): Promise<CoopPartnership> => {
+
+  return customFetch<CoopPartnership>(getReactivateCoopPartnershipUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReactivateCoopPartnershipMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reactivateCoopPartnership>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reactivateCoopPartnership>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['reactivateCoopPartnership'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reactivateCoopPartnership>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  reactivateCoopPartnership(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReactivateCoopPartnershipMutationResult = NonNullable<Awaited<ReturnType<typeof reactivateCoopPartnership>>>
+
+    export type ReactivateCoopPartnershipMutationError = ErrorType<void>
+
+    /**
+ * @summary Request (or complete, when the other side already requested) mutual reactivation of a performance-paused partnership
+ */
+export const useReactivateCoopPartnership = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reactivateCoopPartnership>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reactivateCoopPartnership>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getReactivateCoopPartnershipMutationOptions(options));
+    }
+
 export const getGetCoopTaxonomyUrl = () => {
 
 

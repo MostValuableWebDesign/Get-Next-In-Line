@@ -71,6 +71,7 @@ export * from './coopPartnership';
 export * from './coopPartnershipCreate';
 export * from './coopPartnershipStats';
 export * from './coopPartnershipStatus';
+export * from './coopPartnershipTier';
 export * from './coopPartnershipUpdate';
 export * from './coopPerkRedeemRequest';
 export * from './coopPerkRedeemResult';
