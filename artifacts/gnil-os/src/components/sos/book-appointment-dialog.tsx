@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ServiceTypeInput } from '@/components/sos/service-type-input';
+import { ServiceTypeInput, useServiceSuggestions } from '@/components/sos/service-type-input';
 import { useToast } from '@/hooks/use-toast';
 import { CustomerPlanBadges } from '@/components/sos/plan-benefits';
 import { Plus } from 'lucide-react';
@@ -54,11 +54,18 @@ export function BookAppointmentDialog({
   }, [open, initialDate]);
 
 
+  // Matched catalog service (if any) — drives the appointment duration.
+  const services = useServiceSuggestions();
+  const matched = services.find(
+    (s) => s.name.toLowerCase() === serviceType.trim().toLowerCase(),
+  );
+
   const handleSave = () => {
     if (!customer) return;
     const startsAt = new Date(`${date}T${time}`).toISOString();
     const dEnd = new Date(`${date}T${time}`);
-    dEnd.setHours(dEnd.getHours() + 1);
+    // Use the service's estimated duration from the catalog; 60 min default.
+    dEnd.setMinutes(dEnd.getMinutes() + (matched?.durationMinutes ?? 60));
 
     create.mutate(
       { data: { customerId: customer.id, serviceType, startsAt, endsAt: dEnd.toISOString(), source: 'staff' } },

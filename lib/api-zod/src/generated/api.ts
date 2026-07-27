@@ -1256,6 +1256,120 @@ export const UpdateSosPlanResponse = zod.object({
 
 
 /**
+ * @summary List the business's structured service menu (all rows, including inactive)
+ */
+export const ListSosServicesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "price": zod.number().nullable(),
+  "durationMinutes": zod.number().nullable(),
+  "sortOrder": zod.number(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListSosServicesResponse = zod.array(ListSosServicesResponseItem)
+
+
+/**
+ * @summary Add a service to the menu
+ */
+
+export const createSosServiceBodyPriceMin = 0;
+
+
+
+
+export const CreateSosServiceBody = zod.object({
+  "name": zod.string().min(1),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "price": zod.number().min(createSosServiceBodyPriceMin).nullish(),
+  "durationMinutes": zod.number().min(1).nullish()
+})
+
+export const CreateSosServiceResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "price": zod.number().nullable(),
+  "durationMinutes": zod.number().nullable(),
+  "sortOrder": zod.number(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a service (fields, active flag, or sort order)
+ */
+export const UpdateSosServiceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const updateSosServiceBodyPriceMin = 0;
+
+
+
+
+export const UpdateSosServiceBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "category": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "price": zod.number().min(updateSosServiceBodyPriceMin).nullish(),
+  "durationMinutes": zod.number().min(1).nullish(),
+  "isActive": zod.boolean().optional(),
+  "sortOrder": zod.number().optional()
+})
+
+export const UpdateSosServiceResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "price": zod.number().nullable(),
+  "durationMinutes": zod.number().nullable(),
+  "sortOrder": zod.number(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Remove a service from the menu
+ */
+export const DeleteSosServiceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteSosServiceResponse = zod.void()
+
+
+/**
+ * @summary Persist a new display order for the service menu
+ */
+export const ReorderSosServicesBody = zod.object({
+  "orderedIds": zod.array(zod.number())
+})
+
+export const ReorderSosServicesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "price": zod.number().nullable(),
+  "durationMinutes": zod.number().nullable(),
+  "sortOrder": zod.number(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ReorderSosServicesResponse = zod.array(ReorderSosServicesResponseItem)
+
+
+/**
  * @summary A customer's plan enrollments, balances, and redemption history
  */
 export const GetSosCustomerPlansParams = zod.object({

@@ -74,6 +74,10 @@ import type {
   SosResource,
   SosResourceInput,
   SosResourceUpdate,
+  SosService,
+  SosServiceInput,
+  SosServiceReorderInput,
+  SosServiceUpdate,
   SosSettings,
   SosSettingsUpdate,
   SosTimelineEntry,
@@ -3867,6 +3871,368 @@ export const useUpdateSosPlan = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getUpdateSosPlanMutationOptions(options));
+    }
+
+export const getListSosServicesUrl = () => {
+
+
+
+
+  return `/api/sos/services`
+}
+
+/**
+ * @summary List the business's structured service menu (all rows, including inactive)
+ */
+export const listSosServices = async ( options?: RequestInit): Promise<SosService[]> => {
+
+  return customFetch<SosService[]>(getListSosServicesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSosServicesQueryKey = () => {
+    return [
+    `/api/sos/services`
+    ] as const;
+    }
+
+
+export const getListSosServicesQueryOptions = <TData = Awaited<ReturnType<typeof listSosServices>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosServices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSosServicesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSosServices>>> = ({ signal }) => listSosServices({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSosServices>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSosServicesQueryResult = NonNullable<Awaited<ReturnType<typeof listSosServices>>>
+export type ListSosServicesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List the business's structured service menu (all rows, including inactive)
+ */
+
+export function useListSosServices<TData = Awaited<ReturnType<typeof listSosServices>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosServices>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSosServicesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSosServiceUrl = () => {
+
+
+
+
+  return `/api/sos/services`
+}
+
+/**
+ * @summary Add a service to the menu
+ */
+export const createSosService = async (sosServiceInput: SosServiceInput, options?: RequestInit): Promise<SosService> => {
+
+  return customFetch<SosService>(getCreateSosServiceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosServiceInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSosServiceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosService>>, TError,{data: BodyType<SosServiceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSosService>>, TError,{data: BodyType<SosServiceInput>}, TContext> => {
+
+const mutationKey = ['createSosService'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSosService>>, {data: BodyType<SosServiceInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSosService(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSosServiceMutationResult = NonNullable<Awaited<ReturnType<typeof createSosService>>>
+    export type CreateSosServiceMutationBody = BodyType<SosServiceInput>
+    export type CreateSosServiceMutationError = ErrorType<void>
+
+    /**
+ * @summary Add a service to the menu
+ */
+export const useCreateSosService = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosService>>, TError,{data: BodyType<SosServiceInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSosService>>,
+        TError,
+        {data: BodyType<SosServiceInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSosServiceMutationOptions(options));
+    }
+
+export const getUpdateSosServiceUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/services/${id}`
+}
+
+/**
+ * @summary Update a service (fields, active flag, or sort order)
+ */
+export const updateSosService = async (id: number,
+    sosServiceUpdate: SosServiceUpdate, options?: RequestInit): Promise<SosService> => {
+
+  return customFetch<SosService>(getUpdateSosServiceUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosServiceUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSosServiceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosService>>, TError,{id: number;data: BodyType<SosServiceUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSosService>>, TError,{id: number;data: BodyType<SosServiceUpdate>}, TContext> => {
+
+const mutationKey = ['updateSosService'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSosService>>, {id: number;data: BodyType<SosServiceUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSosService(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSosServiceMutationResult = NonNullable<Awaited<ReturnType<typeof updateSosService>>>
+    export type UpdateSosServiceMutationBody = BodyType<SosServiceUpdate>
+    export type UpdateSosServiceMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a service (fields, active flag, or sort order)
+ */
+export const useUpdateSosService = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosService>>, TError,{id: number;data: BodyType<SosServiceUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSosService>>,
+        TError,
+        {id: number;data: BodyType<SosServiceUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSosServiceMutationOptions(options));
+    }
+
+export const getDeleteSosServiceUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/services/${id}`
+}
+
+/**
+ * @summary Remove a service from the menu
+ */
+export const deleteSosService = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteSosServiceUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteSosServiceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSosService>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSosService>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteSosService'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSosService>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteSosService(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSosServiceMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSosService>>>
+
+    export type DeleteSosServiceMutationError = ErrorType<void>
+
+    /**
+ * @summary Remove a service from the menu
+ */
+export const useDeleteSosService = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSosService>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSosService>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteSosServiceMutationOptions(options));
+    }
+
+export const getReorderSosServicesUrl = () => {
+
+
+
+
+  return `/api/sos/services/reorder`
+}
+
+/**
+ * @summary Persist a new display order for the service menu
+ */
+export const reorderSosServices = async (sosServiceReorderInput: SosServiceReorderInput, options?: RequestInit): Promise<SosService[]> => {
+
+  return customFetch<SosService[]>(getReorderSosServicesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosServiceReorderInput)
+  }
+);}
+
+
+
+
+
+export const getReorderSosServicesMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderSosServices>>, TError,{data: BodyType<SosServiceReorderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reorderSosServices>>, TError,{data: BodyType<SosServiceReorderInput>}, TContext> => {
+
+const mutationKey = ['reorderSosServices'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reorderSosServices>>, {data: BodyType<SosServiceReorderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  reorderSosServices(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReorderSosServicesMutationResult = NonNullable<Awaited<ReturnType<typeof reorderSosServices>>>
+    export type ReorderSosServicesMutationBody = BodyType<SosServiceReorderInput>
+    export type ReorderSosServicesMutationError = ErrorType<void>
+
+    /**
+ * @summary Persist a new display order for the service menu
+ */
+export const useReorderSosServices = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reorderSosServices>>, TError,{data: BodyType<SosServiceReorderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reorderSosServices>>,
+        TError,
+        {data: BodyType<SosServiceReorderInput>},
+        TContext
+      > => {
+      return useMutation(getReorderSosServicesMutationOptions(options));
     }
 
 export const getGetSosCustomerPlansUrl = (id: number,) => {

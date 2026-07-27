@@ -86,6 +86,16 @@ async function ensureDatabaseReady(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "Connector mapping seed failed");
   }
+
+  // Idempotent: migrate legacy comma-separated serviceNames settings into the
+  // structured service catalog (skips scopes that already have catalog rows).
+  // Runs AFTER schema repair so the sos_services table is guaranteed present.
+  try {
+    const { backfillServiceCatalog } = await import("./lib/serviceCatalog");
+    await backfillServiceCatalog();
+  } catch (err) {
+    logger.error({ err }, "Service catalog backfill failed");
+  }
 }
 ensureDatabaseReady().catch((err) => {
   logger.error({ err }, "Database readiness bootstrap failed");

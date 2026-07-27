@@ -590,6 +590,66 @@ export interface SosPlanUpdate {
   isActive?: boolean;
 }
 
+export interface SosService {
+  id: number;
+  name: string;
+  /** @nullable */
+  category: string | null;
+  /** @nullable */
+  description: string | null;
+  /** @nullable */
+  price: number | null;
+  /** @nullable */
+  durationMinutes: number | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface SosServiceInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  price?: number | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  durationMinutes?: number | null;
+}
+
+export interface SosServiceUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  description?: string | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  price?: number | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  durationMinutes?: number | null;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+export interface SosServiceReorderInput {
+  orderedIds: number[];
+}
+
 export type SosCustomerPlanPlanType = typeof SosCustomerPlanPlanType[keyof typeof SosCustomerPlanPlanType];
 
 

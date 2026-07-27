@@ -54,6 +54,8 @@ vi.mock('@workspace/api-client-react', () => ({
     data: id ? { id, brandName: `Brand ${id}` } : undefined,
   }),
   getGetTenantQueryKey: (id: number) => ['/api/tenants', id],
+  useListSosServices: () => ({ data: [], isLoading: false }),
+  getListSosServicesQueryKey: () => ['/api/sos/services'],
 }));
 
 import { AiReceptionistPage } from '../sos/ai-receptionist';
@@ -75,7 +77,10 @@ describe('Tenant-scoped AI Receptionist view', () => {
 
   it('hydrates the form from the tenant settings record', () => {
     renderPage();
-    expect(screen.getByTestId('input-service-names')).toHaveValue('haircut, color');
+    // Route-scoped tenant embed: the service vocabulary links to the Service
+    // Menu editor rather than fetching an unreliable scope.
+    expect(screen.getByTestId('card-service-vocabulary')).toBeInTheDocument();
+    expect(screen.getByTestId('link-manage-service-menu')).toBeInTheDocument();
     expect(screen.getByTestId('switch-ai-receptionist')).toBeChecked();
     // Business-wide sections are hidden per-tenant
     expect(screen.queryByTestId('section-call-logs')).not.toBeInTheDocument();
@@ -85,7 +90,7 @@ describe('Tenant-scoped AI Receptionist view', () => {
   it('rehydrates the form and saves to the new tenant when the :id param changes without a remount', () => {
     const view = renderPage();
 
-    expect(screen.getByTestId('input-service-names')).toHaveValue('haircut, color');
+    expect(screen.getByTestId('switch-ai-receptionist')).toBeChecked();
 
     // Simulate wouter navigating /tenants/1/... -> /tenants/2/... (same
     // mounted component, new params).
@@ -99,7 +104,6 @@ describe('Tenant-scoped AI Receptionist view', () => {
     );
 
     // Form must reflect tenant 2's record, not stale tenant 1 values
-    expect(screen.getByTestId('input-service-names')).toHaveValue('oil change, tires');
     expect(screen.getByTestId('switch-ai-receptionist')).not.toBeChecked();
 
     // Saving targets tenant 2 with tenant 2's values
@@ -107,7 +111,7 @@ describe('Tenant-scoped AI Receptionist view', () => {
     expect(updateTenantMutate).toHaveBeenCalledTimes(1);
     expect(updateTenantMutate.mock.calls[0][0]).toMatchObject({
       id: 2,
-      data: { aiReceptionistEnabled: false, serviceNames: 'oil change, tires' },
+      data: { aiReceptionistEnabled: false },
     });
   });
 });

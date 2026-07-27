@@ -30,13 +30,25 @@ const SERVICE_KEYWORDS = [
   "follow-up",
 ];
 
-/** Parse a comma-separated service-names setting into a clean list. */
+/**
+ * Parse a comma-separated service-names setting into a clean, de-duplicated
+ * (case-insensitive) list. Mirrors `parseServiceNames` in the web app's
+ * service-type-input so staff-booked and AI-booked appointments share the
+ * same vocabulary.
+ */
 export function parseServiceNames(raw: string | null | undefined): string[] {
   if (!raw) return [];
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(",")) {
+    const name = part.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(name);
+  }
+  return out;
 }
 
 export function fallbackParse(inquiry: string, serviceNames: string[] = []): ParsedCallIntent {

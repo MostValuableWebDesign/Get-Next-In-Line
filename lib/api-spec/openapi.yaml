@@ -985,6 +985,107 @@ paths:
         "404":
           description: Not found
 
+  /sos/services:
+    get:
+      operationId: listSosServices
+      tags: [sos]
+      summary: List the business's structured service menu (all rows, including inactive)
+      responses:
+        "200":
+          description: Services ordered by sort order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosService"
+    post:
+      operationId: createSosService
+      tags: [sos]
+      summary: Add a service to the menu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosServiceInput"
+      responses:
+        "201":
+          description: Created service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosService"
+        "409":
+          description: A service with this name already exists
+
+  /sos/services/{id}:
+    patch:
+      operationId: updateSosService
+      tags: [sos]
+      summary: Update a service (fields, active flag, or sort order)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosServiceUpdate"
+      responses:
+        "200":
+          description: Updated service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosService"
+        "404":
+          description: Not found
+        "409":
+          description: A service with this name already exists
+    delete:
+      operationId: deleteSosService
+      tags: [sos]
+      summary: Remove a service from the menu
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /sos/services/reorder:
+    post:
+      operationId: reorderSosServices
+      tags: [sos]
+      summary: Persist a new display order for the service menu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosServiceReorderInput"
+      responses:
+        "200":
+          description: Services in the new order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosService"
+        "400":
+          description: orderedIds must cover exactly the business's services
+
   /sos/customers/{id}/plans:
     get:
       operationId: getSosCustomerPlans
@@ -2120,6 +2221,77 @@ components:
           minimum: 1
         isActive:
           type: boolean
+
+    SosService:
+      type: object
+      required: [id, name, category, description, price, durationMinutes, sortOrder, isActive, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        price:
+          type: ["number", "null"]
+        durationMinutes:
+          type: ["integer", "null"]
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+
+    SosServiceInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        price:
+          type: ["number", "null"]
+          minimum: 0
+        durationMinutes:
+          type: ["integer", "null"]
+          minimum: 1
+
+    SosServiceUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        price:
+          type: ["number", "null"]
+          minimum: 0
+        durationMinutes:
+          type: ["integer", "null"]
+          minimum: 1
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    SosServiceReorderInput:
+      type: object
+      required: [orderedIds]
+      properties:
+        orderedIds:
+          type: array
+          items:
+            type: integer
 
     SosCustomerPlan:
       type: object

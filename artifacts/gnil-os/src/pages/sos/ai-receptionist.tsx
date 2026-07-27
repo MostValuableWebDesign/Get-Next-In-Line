@@ -6,6 +6,7 @@ import {
   useGetTenantSettings, useUpdateTenantSettings, getGetTenantSettingsQueryKey,
   useGetTenant, getGetTenantQueryKey,
   getListSosCallsQueryKey, getListSosMessagesQueryKey,
+  useListSosServices, getListSosServicesQueryKey,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -83,7 +84,6 @@ export function AiReceptionistPage({
   const { toast } = useToast();
 
   const [aiReceptionistEnabled, setAiReceptionistEnabled] = useState(false);
-  const [serviceNames, setServiceNames] = useState('');
   const initialized = useRef(false);
 
   // Re-initialize local form state when switching between settings records
@@ -96,12 +96,11 @@ export function AiReceptionistPage({
   useEffect(() => {
     if (settings && !initialized.current) {
       setAiReceptionistEnabled(settings.aiReceptionistEnabled);
-      setServiceNames(settings.serviceNames || '');
       initialized.current = true;
     }
   }, [settings]);
 
-  const save = (data: { aiReceptionistEnabled: boolean; serviceNames?: string }) => {
+  const save = (data: { aiReceptionistEnabled: boolean }) => {
     const onSuccess = () => {
       queryClient.invalidateQueries({
         queryKey: isTenantScoped
@@ -211,22 +210,14 @@ export function AiReceptionistPage({
               data-testid="switch-ai-receptionist"
             />
           </div>
-          <div className="grid gap-2">
-            <Label>Service Names</Label>
-            <Input
-              value={serviceNames}
-              onChange={(e) => setServiceNames(e.target.value)}
-              placeholder="e.g. haircut, color, blowout"
-              data-testid="input-service-names"
-            />
-            <p className="text-sm text-muted-foreground">
-              Comma-separated list of your services. The receptionist uses these to recognize
-              what callers are asking for.
-            </p>
-          </div>
+          <ServiceVocabularyCard
+            tenantId={tenantId}
+            reliableScope={!isTenantScoped || tenantIdProp != null}
+            legacyServiceNames={settings?.serviceNames}
+          />
           <div className="flex justify-end">
             <Button
-              onClick={() => save({ aiReceptionistEnabled, serviceNames })}
+              onClick={() => save({ aiReceptionistEnabled })}
               disabled={update.isPending}
               data-testid="button-save-ai-receptionist"
             >
@@ -290,6 +281,71 @@ export function AiReceptionistPage({
         <h2 className="text-xl font-semibold">SMS Broadcast History</h2>
         <MessageLogList />
       </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Read-only view of the receptionist's service vocabulary — the structured
+ * Service Menu (with the legacy comma-separated setting as fallback for
+ * scopes not yet backfilled). Editing happens on the Services tab of
+ * Business Bookings; this card just shows what the receptionist recognizes.
+ *
+ * `reliableScope` is false on the tenant-detail embed (no ?tenant= URL param,
+ * so the catalog fetch can't be scoped) — there we only link to the editor.
+ */
+function ServiceVocabularyCard({
+  tenantId,
+  reliableScope,
+  legacyServiceNames,
+}: {
+  tenantId: number | null;
+  reliableScope: boolean;
+  legacyServiceNames: string | null | undefined;
+}) {
+  const { data: catalog } = useListSosServices({
+    query: { queryKey: getListSosServicesQueryKey(), enabled: reliableScope },
+  });
+  const activeNames = (catalog ?? []).filter((s) => s.isActive).map((s) => s.name);
+  const legacyNames = (legacyServiceNames ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const usingLegacy = reliableScope && catalog != null && catalog.length === 0;
+  const names = !reliableScope ? [] : usingLegacy ? legacyNames : activeNames;
+  const servicesUrl = tenantId != null ? `/sos/bookings?tab=services&tenant=${tenantId}` : '/sos/bookings?tab=services';
+
+  return (
+    <div className="p-4 border rounded-lg space-y-2" data-testid="card-service-vocabulary">
+      <div className="flex items-center justify-between gap-3">
+        <Label className="text-base">Services the receptionist recognizes</Label>
+        <Button asChild variant="outline" size="sm" data-testid="link-manage-service-menu">
+          <Link href={servicesUrl}>Manage Service Menu</Link>
+        </Button>
+      </div>
+      {!reliableScope ? (
+        <p className="text-sm text-muted-foreground">
+          This business's service menu is managed in Business Bookings → Services.
+        </p>
+      ) : names.length === 0 ? (
+        <p className="text-sm text-muted-foreground" data-testid="text-no-services">
+          No services configured yet — add them to the Service Menu so callers can book by name.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-1.5" data-testid="list-recognized-services">
+            {names.map((name) => (
+              <Badge key={name} variant="outline">{name}</Badge>
+            ))}
+          </div>
+          {usingLegacy && (
+            <p className="text-xs text-muted-foreground">
+              Shown from the legacy service-names setting — add these to the Service Menu to set
+              prices and durations.
+            </p>
+          )}
         </>
       )}
     </div>

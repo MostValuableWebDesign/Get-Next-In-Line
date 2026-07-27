@@ -268,6 +268,36 @@ export const sosPlanTransactionsTable = pgTable("sos_plan_transactions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ── structured service catalog ──────────────────────────────────────────────
+// Per-business service menu: categories, descriptions, flat-rate prices, and
+// estimated durations. Replaces the legacy comma-separated
+// sos_settings.service_names string (kept as a read-only fallback until each
+// scope is backfilled into structured rows).
+export const sosServicesTable = pgTable(
+  "sos_services",
+  {
+    id: serial("id").primaryKey(),
+    // Tenant scope. NULL identifies legacy single-tenant rows.
+    tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    // Free-form grouping label (e.g. "Hair", "Nails"). NULL = uncategorized.
+    category: text("category"),
+    description: text("description"),
+    // Flat-rate price. NULL when the business hasn't priced it yet (e.g.
+    // rows backfilled from the legacy name-only setting).
+    price: numeric("price", { precision: 10, scale: 2 }),
+    // Estimated duration in minutes. NULL when unknown.
+    durationMinutes: integer("duration_minutes"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("sos_services_tenant_id_idx").on(t.tenantId)],
+);
+
 export const sosCallsTable = pgTable(
   "sos_calls",
   {

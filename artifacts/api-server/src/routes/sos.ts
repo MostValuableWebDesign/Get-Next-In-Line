@@ -10,6 +10,7 @@ import {
   sosDepositHoldsTable,
   messagesTable,
   sosCallsTable,
+  sosServicesTable,
   sosPlansTable,
   sosCustomerPlansTable,
   sosPlanTransactionsTable,
@@ -65,6 +66,13 @@ import {
   SellSosPlanResponse,
   RenewSosCustomerPlanResponse,
   CancelSosCustomerPlanResponse,
+  ListSosServicesResponse,
+  CreateSosServiceBody,
+  CreateSosServiceResponse,
+  UpdateSosServiceBody,
+  UpdateSosServiceResponse,
+  ReorderSosServicesBody,
+  ReorderSosServicesResponse,
 } from "@workspace/api-zod";
 import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import twilio from "twilio";
@@ -75,7 +83,12 @@ import {
   recordInboundMessage,
   applyDeliveryStatus,
 } from "../lib/messaging";
-import { parseCallIntent, parseServiceNames } from "../lib/receptionist";
+import { parseCallIntent } from "../lib/receptionist";
+import {
+  listServicesForScope,
+  getServiceNamesForScope,
+  type SosServiceRow,
+} from "../lib/serviceCatalog";
 import { parseInboundKeyword, getInboundWebhookUrl } from "../lib/inboundSms";
 import { claimWaitlistSlot } from "../lib/waitlistClaim";
 import {
@@ -692,6 +705,153 @@ router.get("/sos/customers/:id/timeline", async (req, res): Promise<void> => {
 
   entries.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
   res.json(GetSosCustomerTimelineResponse.parse(entries));
+});
+
+// ── structured service catalog ───────────────────────────────────────────────
+
+function serializeService(s: SosServiceRow) {
+  return {
+    id: s.id,
+    name: s.name,
+    category: s.category,
+    description: s.description,
+    price: s.price == null ? null : parseFloat(s.price),
+    durationMinutes: s.durationMinutes,
+    sortOrder: s.sortOrder,
+    isActive: s.isActive,
+    createdAt: s.createdAt.toISOString(),
+  };
+}
+
+/** Case-insensitive duplicate-name check within a scope. */
+async function serviceNameTaken(
+  name: string,
+  tenantId: number | null,
+  excludeId?: number,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: sosServicesTable.id })
+    .from(sosServicesTable)
+    .where(
+      and(
+        tenantMatch(sosServicesTable.tenantId, tenantId),
+        sql`lower(${sosServicesTable.name}) = lower(${name})`,
+        excludeId != null ? ne(sosServicesTable.id, excludeId) : undefined,
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+router.get("/sos/services", async (req, res): Promise<void> => {
+  const rows = await listServicesForScope(tenantIdFrom(req));
+  res.json(ListSosServicesResponse.parse(rows.map(serializeService)));
+});
+
+router.post("/sos/services", async (req, res): Promise<void> => {
+  const body = CreateSosServiceBody.parse(req.body);
+  const tenantId = tenantIdFrom(req);
+  if (await serviceNameTaken(body.name, tenantId)) {
+    res.status(409).json({ message: `A service named "${body.name}" already exists` });
+    return;
+  }
+  // Append to the end of the menu.
+  const [{ max }] = await db
+    .select({ max: sql<number>`coalesce(max(${sosServicesTable.sortOrder}), -1)::int` })
+    .from(sosServicesTable)
+    .where(tenantMatch(sosServicesTable.tenantId, tenantId));
+  const [row] = await db
+    .insert(sosServicesTable)
+    .values({
+      tenantId,
+      name: body.name,
+      category: body.category ?? null,
+      description: body.description ?? null,
+      price: body.price == null ? null : body.price.toFixed(2),
+      durationMinutes: body.durationMinutes ?? null,
+      sortOrder: max + 1,
+    })
+    .returning();
+  res.status(201).json(CreateSosServiceResponse.parse(serializeService(row)));
+});
+
+router.patch("/sos/services/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const body = UpdateSosServiceBody.parse(req.body);
+  const tenantId = tenantIdFrom(req);
+  if (body.name !== undefined && (await serviceNameTaken(body.name, tenantId, id))) {
+    res.status(409).json({ message: `A service named "${body.name}" already exists` });
+    return;
+  }
+  const updates: Partial<typeof sosServicesTable.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+  if (body.name !== undefined) updates.name = body.name;
+  if (body.category !== undefined) updates.category = body.category;
+  if (body.description !== undefined) updates.description = body.description;
+  if (body.price !== undefined)
+    updates.price = body.price == null ? null : body.price.toFixed(2);
+  if (body.durationMinutes !== undefined) updates.durationMinutes = body.durationMinutes;
+  if (body.isActive !== undefined) updates.isActive = body.isActive;
+  if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder;
+  const [row] = await db
+    .update(sosServicesTable)
+    .set(updates)
+    .where(and(eq(sosServicesTable.id, id), tenantMatch(sosServicesTable.tenantId, tenantId)))
+    .returning();
+  if (!row) {
+    res.status(404).json({ message: "Service not found" });
+    return;
+  }
+  res.json(UpdateSosServiceResponse.parse(serializeService(row)));
+});
+
+router.delete("/sos/services/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const [row] = await db
+    .delete(sosServicesTable)
+    .where(and(eq(sosServicesTable.id, id), tenantMatch(sosServicesTable.tenantId, tenantIdFrom(req))))
+    .returning({ id: sosServicesTable.id });
+  if (!row) {
+    res.status(404).json({ message: "Service not found" });
+    return;
+  }
+  res.sendStatus(204);
+});
+
+router.post("/sos/services/reorder", async (req, res): Promise<void> => {
+  const body = ReorderSosServicesBody.parse(req.body);
+  const tenantId = tenantIdFrom(req);
+  const rows = await listServicesForScope(tenantId);
+  const currentIds = new Set(rows.map((r) => r.id));
+  const requested = body.orderedIds;
+  // The new order must be a permutation of exactly this scope's services —
+  // anything else (missing rows, foreign ids, duplicates) is a stale client.
+  const valid =
+    requested.length === currentIds.size &&
+    new Set(requested).size === requested.length &&
+    requested.every((id) => currentIds.has(id));
+  if (!valid) {
+    res.status(400).json({
+      message: "orderedIds must list each of this business's services exactly once",
+    });
+    return;
+  }
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < requested.length; i++) {
+      await tx
+        .update(sosServicesTable)
+        .set({ sortOrder: i, updatedAt: new Date() })
+        .where(
+          and(
+            eq(sosServicesTable.id, requested[i]),
+            tenantMatch(sosServicesTable.tenantId, tenantId),
+          ),
+        );
+    }
+  });
+  const updated = await listServicesForScope(tenantId);
+  res.json(ReorderSosServicesResponse.parse(updated.map(serializeService)));
 });
 
 // ── memberships, packages & credit passes ───────────────────────────────────
@@ -1882,11 +2042,15 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
     return;
   }
 
+  // Service vocabulary comes from the structured catalog (legacy serviceNames
+  // string only as fallback for scopes not yet backfilled) — the same source
+  // the staff booking UI suggests from, so parsing can't drift.
+  const serviceNames = await getServiceNamesForScope(tenantId, settings.serviceNames);
   const parsed = await parseCallIntent(
     body.inquiry,
     body.callerName ?? null,
     new Date().toISOString(),
-    parseServiceNames(settings.serviceNames),
+    serviceNames,
   );
 
   // Find or create the customer by phone number, within the tenant scope.
@@ -1912,7 +2076,17 @@ router.post("/sos/calls", async (req, res): Promise<void> => {
   if (parsed.intent === "book_appointment") {
     const startsAt = parsed.requestedTime ? new Date(parsed.requestedTime) : null;
     if (startsAt && !isNaN(startsAt.getTime())) {
-      const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
+      // Use the catalog's estimated duration for the matched service when it
+      // has one; otherwise fall back to the historical 60-minute default.
+      let durationMinutes = 60;
+      if (parsed.serviceType) {
+        const catalog = await listServicesForScope(tenantId);
+        const matched = catalog.find(
+          (s) => s.isActive && s.name.toLowerCase() === parsed.serviceType!.toLowerCase(),
+        );
+        if (matched?.durationMinutes) durationMinutes = matched.durationMinutes;
+      }
+      const endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
       const [appt] = await db
         .insert(sosAppointmentsTable)
         .values({

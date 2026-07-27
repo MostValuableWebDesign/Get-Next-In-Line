@@ -22,12 +22,13 @@ import { OpenTicketsPanel } from '@/components/sos/open-tickets-panel';
 import { ReportsContent } from '@/pages/sos/reports';
 import { CustomersContent } from '@/components/sos/customers-content';
 import { MembershipPlansContent } from '@/pages/sos/memberships';
+import { ServiceMenuContent } from '@/components/sos/service-menu-content';
 import { AiReceptionistPage } from '@/pages/sos/ai-receptionist';
 import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
   Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
   Activity, ListOrdered, CheckCircle2, Phone, DollarSign, Search,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, UtensilsCrossed,
 } from 'lucide-react';
 
 /**
@@ -35,7 +36,7 @@ import {
  * List and Calendar views of appointments (the old standalone Calendar page
  * redirects here), plus the one place open tickets are checked out.
  */
-const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'plans', 'ai-receptionist'] as const;
+const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'services', 'plans', 'ai-receptionist'] as const;
 
 export function BookingsPage() {
   // Tab state lives in the URL (?tab=) so /sos/bookings?tab=reports deep
@@ -196,6 +197,9 @@ export function BookingsPage() {
           <TabsTrigger value="customers" data-testid="tab-customers">
             <Users className="h-4 w-4 mr-1.5" /> Customers
           </TabsTrigger>
+          <TabsTrigger value="services" data-testid="tab-service-menu">
+            <UtensilsCrossed className="h-4 w-4 mr-1.5" /> Services
+          </TabsTrigger>
           <TabsTrigger value="plans" data-testid="tab-membership-plans">
             <Crown className="h-4 w-4 mr-1.5" /> Plans
           </TabsTrigger>
@@ -245,6 +249,10 @@ export function BookingsPage() {
 
         <TabsContent value="customers" className="mt-0">
           <CustomersContent initialCustomerId={initialCustomerId} />
+        </TabsContent>
+
+        <TabsContent value="services" className="mt-0">
+          <ServiceMenuContent />
         </TabsContent>
 
         <TabsContent value="plans" className="mt-0">
