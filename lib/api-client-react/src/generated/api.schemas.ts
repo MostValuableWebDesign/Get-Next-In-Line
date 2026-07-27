@@ -2407,6 +2407,7 @@ export const SosMessageKind = {
   coop_campaign_blast: 'coop_campaign_blast',
   coop_tier_change: 'coop_tier_change',
   passport_reward: 'passport_reward',
+  emergency_broadcast: 'emergency_broadcast',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];
@@ -2878,6 +2879,176 @@ export interface CheckoutResult {
   modulesProvisioned: number;
   modulesSkipped?: number;
   message: string;
+}
+
+export type EmergencyBroadcastScope = typeof EmergencyBroadcastScope[keyof typeof EmergencyBroadcastScope];
+
+
+export const EmergencyBroadcastScope = {
+  network: 'network',
+  platform: 'platform',
+  selected: 'selected',
+} as const;
+
+export type EmergencyBroadcastSeverity = typeof EmergencyBroadcastSeverity[keyof typeof EmergencyBroadcastSeverity];
+
+
+export const EmergencyBroadcastSeverity = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export type EmergencyBroadcastAlertType = typeof EmergencyBroadcastAlertType[keyof typeof EmergencyBroadcastAlertType];
+
+
+export const EmergencyBroadcastAlertType = {
+  weather_closure: 'weather_closure',
+  power_outage: 'power_outage',
+  safety_alert: 'safety_alert',
+  schedule_change: 'schedule_change',
+  other: 'other',
+} as const;
+
+export type EmergencyBroadcastStatus = typeof EmergencyBroadcastStatus[keyof typeof EmergencyBroadcastStatus];
+
+
+export const EmergencyBroadcastStatus = {
+  active: 'active',
+  resolved: 'resolved',
+} as const;
+
+export interface EmergencyRosterEntry {
+  tenantId: number;
+  tenantName: string;
+  /**
+     * open | temporarily_closed | safe — null while the tenant hasn't checked in yet.
+     * @nullable
+     */
+  status: string | null;
+  /** @nullable */
+  note: string | null;
+  /** @nullable */
+  checkedInAt: string | null;
+}
+
+export interface EmergencyBroadcast {
+  id: number;
+  /**
+     * NULL when a platform admin sent the broadcast.
+     * @nullable
+     */
+  senderTenantId: number | null;
+  /** Sender business name, or "Platform Administration" for admin broadcasts. */
+  senderName: string;
+  scope: EmergencyBroadcastScope;
+  severity: EmergencyBroadcastSeverity;
+  alertType: EmergencyBroadcastAlertType;
+  headline: string;
+  message: string;
+  status: EmergencyBroadcastStatus;
+  /** @nullable */
+  resolvedAt: string | null;
+  targetCount: number;
+  checkedInCount: number;
+  /** Subscriber SMS alerts recorded so far across all targets (sent or simulated). */
+  smsSentCount: number;
+  /**
+     * The requesting tenant's own check-in status, when scoped and targeted.
+     * @nullable
+     */
+  myCheckinStatus: string | null;
+  /** @nullable */
+  myCheckinNote: string | null;
+  roster: EmergencyRosterEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type EmergencyBroadcastCreateSeverity = typeof EmergencyBroadcastCreateSeverity[keyof typeof EmergencyBroadcastCreateSeverity];
+
+
+export const EmergencyBroadcastCreateSeverity = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export type EmergencyBroadcastCreateAlertType = typeof EmergencyBroadcastCreateAlertType[keyof typeof EmergencyBroadcastCreateAlertType];
+
+
+export const EmergencyBroadcastCreateAlertType = {
+  weather_closure: 'weather_closure',
+  power_outage: 'power_outage',
+  safety_alert: 'safety_alert',
+  schedule_change: 'schedule_change',
+  other: 'other',
+} as const;
+
+/**
+ * Admin-only targeting; merchant broadcasts always use their co-op network.
+ */
+export type EmergencyBroadcastCreateScope = typeof EmergencyBroadcastCreateScope[keyof typeof EmergencyBroadcastCreateScope];
+
+
+export const EmergencyBroadcastCreateScope = {
+  platform: 'platform',
+  selected: 'selected',
+} as const;
+
+export interface EmergencyBroadcastCreate {
+  severity: EmergencyBroadcastCreateSeverity;
+  alertType: EmergencyBroadcastCreateAlertType;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  headline: string;
+  /**
+     * @minLength 1
+     * @maxLength 1000
+     */
+  message: string;
+  /** Admin-only targeting; merchant broadcasts always use their co-op network. */
+  scope?: EmergencyBroadcastCreateScope;
+  /** Required when scope is "selected". */
+  targetTenantIds?: number[];
+}
+
+export type EmergencyCheckinCreateStatus = typeof EmergencyCheckinCreateStatus[keyof typeof EmergencyCheckinCreateStatus];
+
+
+export const EmergencyCheckinCreateStatus = {
+  open: 'open',
+  temporarily_closed: 'temporarily_closed',
+  safe: 'safe',
+} as const;
+
+export interface EmergencyCheckinCreate {
+  status: EmergencyCheckinCreateStatus;
+  /**
+     * @maxLength 300
+     * @nullable
+     */
+  note?: string | null;
+}
+
+export type EmergencyCheckinStatus = typeof EmergencyCheckinStatus[keyof typeof EmergencyCheckinStatus];
+
+
+export const EmergencyCheckinStatus = {
+  open: 'open',
+  temporarily_closed: 'temporarily_closed',
+  safe: 'safe',
+} as const;
+
+export interface EmergencyCheckin {
+  broadcastId: number;
+  tenantId: number;
+  status: EmergencyCheckinStatus;
+  /** @nullable */
+  note: string | null;
+  updatedAt: string;
 }
 
 /**

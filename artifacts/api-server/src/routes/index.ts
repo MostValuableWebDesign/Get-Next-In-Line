@@ -13,6 +13,7 @@ import conciergeRouter from "./concierge";
 import partnersRouter from "./partners";
 import coopRouter from "./coop";
 import safetyRouter from "./safety";
+import emergencyRouter from "./emergency";
 import posRouter from "./pos";
 import publicBookingRouter from "./publicBooking";
 import landingRouter from "./landing";
@@ -99,5 +100,6 @@ router.use(coopRouter);     // Merchant co-op partnerships (/coop)
 router.use(franchiseRouter); // Multi-Location Franchise Co-Op Controller (/franchise)
 router.use(posRouter);      // External POS webhook connectors (/pos)
 router.use(safetyRouter);   // Co-op emergency & safety alert network (/coop/safety)
+router.use(emergencyRouter); // Co-op emergency & crisis network broadcasts (/coop/emergency)
 
 export default router;

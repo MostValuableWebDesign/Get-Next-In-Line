@@ -37,4 +37,5 @@
 - [Co-op redemption integrity](coop-network.md) — every redemption write path (native route AND POS webhooks) must enforce scanner-is-participant + direction-correct tracking codes before writing redemption/attribution rows; code review rejects any new path that skips this.
 - [Franchise co-op controller](franchise-controller.md) — org-scoped roles resolve in lib/franchise; HQ template perks are self-paired partnership rows (host===partner) deliberately exempt from the co-op firewall filter.
 - [Neighborhood Passport](passport.md) — global (non-tenant) identities: tests must clean by phone block; every new redemption path must call recordPassportStampSafe.
+- Coop route convention: when x-tenant-id is present, treat the caller strictly as that tenant — no platform-admin bypass on visibility/resolve checks; admin superpowers apply only to unscoped requests. Tests rely on this.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.

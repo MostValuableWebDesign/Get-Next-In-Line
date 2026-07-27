@@ -32,6 +32,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { EmergencyBroadcastContent } from '@/components/sos/emergency-broadcast-content';
 import {
   AlertTriangle, ArrowLeftRight, Ban, Gavel, Handshake, MapPin, NotebookPen, Plus, Power,
   RotateCcw, Ticket, Unlock,
@@ -203,6 +204,10 @@ export default function CoopPartnerships() {
 
       <DisputeQueue />
       <PlazaConflictsSection />
+
+      {/* Co-Op Emergency & Crisis Network Broadcast — admin console (unscoped):
+          platform-wide or selected-tenant crisis alerts with live check-ins. */}
+      <EmergencyBroadcastContent tenantId={null} />
     </div>
   );
 }

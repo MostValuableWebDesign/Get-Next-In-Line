@@ -1391,6 +1391,193 @@ export const ValidateCoopRedemptionCodeResponse = zod.object({
 
 
 /**
+ * @summary Emergency broadcasts visible to the scoped tenant (sent or received); platform admins without a tenant scope see all broadcasts
+ */
+export const ListEmergencyBroadcastsResponseItem = zod.object({
+  "id": zod.number(),
+  "senderTenantId": zod.number().nullable().describe('NULL when a platform admin sent the broadcast.'),
+  "senderName": zod.string().describe('Sender business name, or \"Platform Administration\" for admin broadcasts.'),
+  "scope": zod.enum(['network', 'platform', 'selected']),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "alertType": zod.enum(['weather_closure', 'power_outage', 'safety_alert', 'schedule_change', 'other']),
+  "headline": zod.string(),
+  "message": zod.string(),
+  "status": zod.enum(['active', 'resolved']),
+  "resolvedAt": zod.string().nullable(),
+  "targetCount": zod.number(),
+  "checkedInCount": zod.number(),
+  "smsSentCount": zod.number().describe('Subscriber SMS alerts recorded so far across all targets (sent or simulated).'),
+  "myCheckinStatus": zod.string().nullable().describe('The requesting tenant\'s own check-in status, when scoped and targeted.'),
+  "myCheckinNote": zod.string().nullable(),
+  "roster": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.string().nullable().describe('open | temporarily_closed | safe — null while the tenant hasn\'t checked in yet.'),
+  "note": zod.string().nullable(),
+  "checkedInAt": zod.string().nullable()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListEmergencyBroadcastsResponse = zod.array(ListEmergencyBroadcastsResponseItem)
+
+
+/**
+ * @summary Compose and send an emergency broadcast — merchant local leaders (x-tenant-id scope) reach their accepted co-op partner network; platform admins (no scope) reach the whole platform or selected tenants
+ */
+export const createEmergencyBroadcastBodyHeadlineMax = 120;
+
+export const createEmergencyBroadcastBodyMessageMax = 1000;
+
+
+
+export const CreateEmergencyBroadcastBody = zod.object({
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "alertType": zod.enum(['weather_closure', 'power_outage', 'safety_alert', 'schedule_change', 'other']),
+  "headline": zod.string().min(1).max(createEmergencyBroadcastBodyHeadlineMax),
+  "message": zod.string().min(1).max(createEmergencyBroadcastBodyMessageMax),
+  "scope": zod.enum(['platform', 'selected']).optional().describe('Admin-only targeting; merchant broadcasts always use their co-op network.'),
+  "targetTenantIds": zod.array(zod.number()).optional().describe('Required when scope is \"selected\".')
+})
+
+export const CreateEmergencyBroadcastResponse = zod.object({
+  "id": zod.number(),
+  "senderTenantId": zod.number().nullable().describe('NULL when a platform admin sent the broadcast.'),
+  "senderName": zod.string().describe('Sender business name, or \"Platform Administration\" for admin broadcasts.'),
+  "scope": zod.enum(['network', 'platform', 'selected']),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "alertType": zod.enum(['weather_closure', 'power_outage', 'safety_alert', 'schedule_change', 'other']),
+  "headline": zod.string(),
+  "message": zod.string(),
+  "status": zod.enum(['active', 'resolved']),
+  "resolvedAt": zod.string().nullable(),
+  "targetCount": zod.number(),
+  "checkedInCount": zod.number(),
+  "smsSentCount": zod.number().describe('Subscriber SMS alerts recorded so far across all targets (sent or simulated).'),
+  "myCheckinStatus": zod.string().nullable().describe('The requesting tenant\'s own check-in status, when scoped and targeted.'),
+  "myCheckinNote": zod.string().nullable(),
+  "roster": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.string().nullable().describe('open | temporarily_closed | safe — null while the tenant hasn\'t checked in yet.'),
+  "note": zod.string().nullable(),
+  "checkedInAt": zod.string().nullable()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Resolve an active broadcast — sender tenant or a platform admin only; check-in banners and landing statuses clear
+ */
+export const ResolveEmergencyBroadcastParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ResolveEmergencyBroadcastResponse = zod.object({
+  "id": zod.number(),
+  "senderTenantId": zod.number().nullable().describe('NULL when a platform admin sent the broadcast.'),
+  "senderName": zod.string().describe('Sender business name, or \"Platform Administration\" for admin broadcasts.'),
+  "scope": zod.enum(['network', 'platform', 'selected']),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "alertType": zod.enum(['weather_closure', 'power_outage', 'safety_alert', 'schedule_change', 'other']),
+  "headline": zod.string(),
+  "message": zod.string(),
+  "status": zod.enum(['active', 'resolved']),
+  "resolvedAt": zod.string().nullable(),
+  "targetCount": zod.number(),
+  "checkedInCount": zod.number(),
+  "smsSentCount": zod.number().describe('Subscriber SMS alerts recorded so far across all targets (sent or simulated).'),
+  "myCheckinStatus": zod.string().nullable().describe('The requesting tenant\'s own check-in status, when scoped and targeted.'),
+  "myCheckinNote": zod.string().nullable(),
+  "roster": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.string().nullable().describe('open | temporarily_closed | safe — null while the tenant hasn\'t checked in yet.'),
+  "note": zod.string().nullable(),
+  "checkedInAt": zod.string().nullable()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Targeted tenant submits or updates its status (open / temporarily_closed / safe) for an active broadcast
+ */
+export const SubmitEmergencyCheckinParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const submitEmergencyCheckinBodyNoteMax = 300;
+
+
+
+export const SubmitEmergencyCheckinBody = zod.object({
+  "status": zod.enum(['open', 'temporarily_closed', 'safe']),
+  "note": zod.string().max(submitEmergencyCheckinBodyNoteMax).nullish()
+})
+
+export const SubmitEmergencyCheckinResponse = zod.object({
+  "broadcastId": zod.number(),
+  "tenantId": zod.number(),
+  "status": zod.enum(['open', 'temporarily_closed', 'safe']),
+  "note": zod.string().nullable(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Network status roster for a broadcast — every targeted tenant with its latest check-in; visible to the sender, targets, and platform admins
+ */
+export const ListEmergencyCheckinsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListEmergencyCheckinsResponseItem = zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.string().nullable().describe('open | temporarily_closed | safe — null while the tenant hasn\'t checked in yet.'),
+  "note": zod.string().nullable(),
+  "checkedInAt": zod.string().nullable()
+})
+export const ListEmergencyCheckinsResponse = zod.array(ListEmergencyCheckinsResponseItem)
+
+
+/**
+ * @summary Active broadcasts targeting the scoped tenant, for the dashboard check-in banner; tenant scope via x-tenant-id
+ */
+export const GetActiveEmergencyBroadcastsResponseItem = zod.object({
+  "id": zod.number(),
+  "senderTenantId": zod.number().nullable().describe('NULL when a platform admin sent the broadcast.'),
+  "senderName": zod.string().describe('Sender business name, or \"Platform Administration\" for admin broadcasts.'),
+  "scope": zod.enum(['network', 'platform', 'selected']),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "alertType": zod.enum(['weather_closure', 'power_outage', 'safety_alert', 'schedule_change', 'other']),
+  "headline": zod.string(),
+  "message": zod.string(),
+  "status": zod.enum(['active', 'resolved']),
+  "resolvedAt": zod.string().nullable(),
+  "targetCount": zod.number(),
+  "checkedInCount": zod.number(),
+  "smsSentCount": zod.number().describe('Subscriber SMS alerts recorded so far across all targets (sent or simulated).'),
+  "myCheckinStatus": zod.string().nullable().describe('The requesting tenant\'s own check-in status, when scoped and targeted.'),
+  "myCheckinNote": zod.string().nullable(),
+  "roster": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.string().nullable().describe('open | temporarily_closed | safe — null while the tenant hasn\'t checked in yet.'),
+  "note": zod.string().nullable(),
+  "checkedInAt": zod.string().nullable()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const GetActiveEmergencyBroadcastsResponse = zod.array(GetActiveEmergencyBroadcastsResponseItem)
+
+
+/**
  * @summary Merchant-facing — safety incidents raised by this business and received from co-op partners; tenant scope via x-tenant-id
  */
 export const ListSafetyIncidentsResponseItem = zod.object({
@@ -2771,7 +2958,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -2800,7 +2987,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

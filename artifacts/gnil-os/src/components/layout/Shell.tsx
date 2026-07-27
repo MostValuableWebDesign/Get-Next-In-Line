@@ -64,6 +64,7 @@ const SOS_NAV_ITEMS: NavItem[] = [
 ];
 
 import { useOnlineStatus } from '@/hooks/use-online';
+import { EmergencyCheckinBanner } from '@/components/layout/EmergencyCheckinBanner';
 
 /** Nav list — closes the mobile drawer after each click */
 function NavMenu({ location, items }: { location: string; items: typeof NAV_ITEMS }) {
@@ -181,6 +182,7 @@ export function Shell({ children }: { children: ReactNode }) {
             </div>
           </header>
           <ConnectionBanner isOnline={isOnline} settled={settled} />
+          <EmergencyCheckinBanner />
           <div className="flex-1 overflow-auto p-8 bg-background">
             <div className="max-w-7xl mx-auto">
               {children}

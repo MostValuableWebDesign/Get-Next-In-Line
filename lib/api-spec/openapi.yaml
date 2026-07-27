@@ -1143,6 +1143,140 @@ paths:
               schema:
                 $ref: "#/components/schemas/CoopRedemptionValidation"
 
+  /coop/emergency/broadcasts:
+    get:
+      operationId: listEmergencyBroadcasts
+      tags: [coop]
+      summary: Emergency broadcasts visible to the scoped tenant (sent or received); platform admins without a tenant scope see all broadcasts
+      responses:
+        "200":
+          description: Broadcasts, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmergencyBroadcast"
+        "400":
+          description: Missing tenant scope for a non-admin caller
+    post:
+      operationId: createEmergencyBroadcast
+      tags: [coop]
+      summary: Compose and send an emergency broadcast — merchant local leaders (x-tenant-id scope) reach their accepted co-op partner network; platform admins (no scope) reach the whole platform or selected tenants
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmergencyBroadcastCreate"
+      responses:
+        "201":
+          description: Created broadcast (SMS fan-out to each target's subscribers runs asynchronously)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmergencyBroadcast"
+        "400":
+          description: Invalid body
+        "403":
+          description: Not authorized to broadcast at the requested scope
+
+  /coop/emergency/broadcasts/{id}/resolve:
+    post:
+      operationId: resolveEmergencyBroadcast
+      tags: [coop]
+      summary: Resolve an active broadcast — sender tenant or a platform admin only; check-in banners and landing statuses clear
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resolved broadcast
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmergencyBroadcast"
+        "403":
+          description: Only the sender or a platform admin may resolve
+        "404":
+          description: Not found
+        "409":
+          description: Already resolved
+
+  /coop/emergency/broadcasts/{id}/checkin:
+    post:
+      operationId: submitEmergencyCheckin
+      tags: [coop]
+      summary: Targeted tenant submits or updates its status (open / temporarily_closed / safe) for an active broadcast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmergencyCheckinCreate"
+      responses:
+        "200":
+          description: The recorded check-in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmergencyCheckin"
+        "400":
+          description: Invalid body or missing x-tenant-id scope
+        "404":
+          description: Broadcast not found or this tenant is not targeted
+        "409":
+          description: Broadcast already resolved
+
+  /coop/emergency/broadcasts/{id}/checkins:
+    get:
+      operationId: listEmergencyCheckins
+      tags: [coop]
+      summary: Network status roster for a broadcast — every targeted tenant with its latest check-in; visible to the sender, targets, and platform admins
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Roster entries, one per targeted tenant
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmergencyRosterEntry"
+        "404":
+          description: Not found (or not visible to this tenant)
+
+  /coop/emergency/active:
+    get:
+      operationId: getActiveEmergencyBroadcasts
+      tags: [coop]
+      summary: Active broadcasts targeting the scoped tenant, for the dashboard check-in banner; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Active broadcasts (with this tenant's own check-in and the network roster)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmergencyBroadcast"
+        "400":
+          description: Missing x-tenant-id scope
+
   /coop/safety/incidents:
     get:
       operationId: listSafetyIncidents
@@ -6776,7 +6910,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]
@@ -7379,6 +7513,148 @@ components:
         modulesSkipped:
           type: integer
         message:
+          type: string
+
+    EmergencyBroadcast:
+      type: object
+      required:
+        [
+          id,
+          senderTenantId,
+          senderName,
+          scope,
+          severity,
+          alertType,
+          headline,
+          message,
+          status,
+          resolvedAt,
+          targetCount,
+          checkedInCount,
+          smsSentCount,
+          myCheckinStatus,
+          myCheckinNote,
+          roster,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id:
+          type: integer
+        senderTenantId:
+          type: ["integer", "null"]
+          description: NULL when a platform admin sent the broadcast.
+        senderName:
+          type: string
+          description: Sender business name, or "Platform Administration" for admin broadcasts.
+        scope:
+          type: string
+          enum: [network, platform, selected]
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        alertType:
+          type: string
+          enum: [weather_closure, power_outage, safety_alert, schedule_change, other]
+        headline:
+          type: string
+        message:
+          type: string
+        status:
+          type: string
+          enum: [active, resolved]
+        resolvedAt:
+          type: ["string", "null"]
+        targetCount:
+          type: integer
+        checkedInCount:
+          type: integer
+        smsSentCount:
+          type: integer
+          description: Subscriber SMS alerts recorded so far across all targets (sent or simulated).
+        myCheckinStatus:
+          type: ["string", "null"]
+          description: The requesting tenant's own check-in status, when scoped and targeted.
+        myCheckinNote:
+          type: ["string", "null"]
+        roster:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmergencyRosterEntry"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    EmergencyRosterEntry:
+      type: object
+      required: [tenantId, tenantName, status, note, checkedInAt]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        status:
+          type: ["string", "null"]
+          description: open | temporarily_closed | safe — null while the tenant hasn't checked in yet.
+        note:
+          type: ["string", "null"]
+        checkedInAt:
+          type: ["string", "null"]
+
+    EmergencyBroadcastCreate:
+      type: object
+      required: [severity, alertType, headline, message]
+      properties:
+        severity:
+          type: string
+          enum: [info, warning, critical]
+        alertType:
+          type: string
+          enum: [weather_closure, power_outage, safety_alert, schedule_change, other]
+        headline:
+          type: string
+          minLength: 1
+          maxLength: 120
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        scope:
+          type: string
+          enum: [platform, selected]
+          description: Admin-only targeting; merchant broadcasts always use their co-op network.
+        targetTenantIds:
+          type: array
+          items:
+            type: integer
+          description: Required when scope is "selected".
+
+    EmergencyCheckinCreate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [open, temporarily_closed, safe]
+        note:
+          type: ["string", "null"]
+          maxLength: 300
+
+    EmergencyCheckin:
+      type: object
+      required: [broadcastId, tenantId, status, note, updatedAt]
+      properties:
+        broadcastId:
+          type: integer
+        tenantId:
+          type: integer
+        status:
+          type: string
+          enum: [open, temporarily_closed, safe]
+        note:
+          type: ["string", "null"]
+        updatedAt:
           type: string
 
     SafetyIncident:

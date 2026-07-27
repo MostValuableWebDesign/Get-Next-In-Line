@@ -28,6 +28,7 @@ import { StaffContent } from '@/components/sos/staff-content';
 import { CoopNetworkContent } from '@/components/sos/coop-network-content';
 import { PosIntegrationsContent } from '@/components/sos/pos-integrations-content';
 import { SafetyAlertsContent } from '@/components/sos/safety-alerts-content';
+import { EmergencyBroadcastContent } from '@/components/sos/emergency-broadcast-content';
 import {
   useListCoopPartnerships, getListCoopPartnershipsQueryKey,
 } from '@workspace/api-client-react';
@@ -325,6 +326,13 @@ export function BookingsPage() {
               active-incidents feed (fast polling), audit trail, emergency
               contacts, and broadcast templates for the selected business */}
           <SafetyAlertsContent tenantId={selectedTenant} />
+          {/* Co-Op Emergency & Crisis Network Broadcast console — compose a
+              network-wide crisis alert, watch check-ins roll in, resolve. */}
+          {selectedTenant != null && (
+            <div className="mt-8">
+              <EmergencyBroadcastContent tenantId={selectedTenant} />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="pos-sync" className="mt-0">

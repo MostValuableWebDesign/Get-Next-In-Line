@@ -69,6 +69,11 @@ import type {
   CoopSuggestion,
   CoopSuggestionDismissResult,
   CoopTaxonomyIndustry,
+  EmergencyBroadcast,
+  EmergencyBroadcastCreate,
+  EmergencyCheckin,
+  EmergencyCheckinCreate,
+  EmergencyRosterEntry,
   EngagementRule,
   EngagementRuleInput,
   EngagementRuleUpdate,
@@ -4055,6 +4060,451 @@ export function useValidateCoopRedemptionCode<TData = Awaited<ReturnType<typeof 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getValidateCoopRedemptionCodeQueryOptions(code,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListEmergencyBroadcastsUrl = () => {
+
+
+
+
+  return `/api/coop/emergency/broadcasts`
+}
+
+/**
+ * @summary Emergency broadcasts visible to the scoped tenant (sent or received); platform admins without a tenant scope see all broadcasts
+ */
+export const listEmergencyBroadcasts = async ( options?: RequestInit): Promise<EmergencyBroadcast[]> => {
+
+  return customFetch<EmergencyBroadcast[]>(getListEmergencyBroadcastsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEmergencyBroadcastsQueryKey = () => {
+    return [
+    `/api/coop/emergency/broadcasts`
+    ] as const;
+    }
+
+
+export const getListEmergencyBroadcastsQueryOptions = <TData = Awaited<ReturnType<typeof listEmergencyBroadcasts>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmergencyBroadcasts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEmergencyBroadcastsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEmergencyBroadcasts>>> = ({ signal }) => listEmergencyBroadcasts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEmergencyBroadcasts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEmergencyBroadcastsQueryResult = NonNullable<Awaited<ReturnType<typeof listEmergencyBroadcasts>>>
+export type ListEmergencyBroadcastsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Emergency broadcasts visible to the scoped tenant (sent or received); platform admins without a tenant scope see all broadcasts
+ */
+
+export function useListEmergencyBroadcasts<TData = Awaited<ReturnType<typeof listEmergencyBroadcasts>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmergencyBroadcasts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEmergencyBroadcastsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateEmergencyBroadcastUrl = () => {
+
+
+
+
+  return `/api/coop/emergency/broadcasts`
+}
+
+/**
+ * @summary Compose and send an emergency broadcast — merchant local leaders (x-tenant-id scope) reach their accepted co-op partner network; platform admins (no scope) reach the whole platform or selected tenants
+ */
+export const createEmergencyBroadcast = async (emergencyBroadcastCreate: EmergencyBroadcastCreate, options?: RequestInit): Promise<EmergencyBroadcast> => {
+
+  return customFetch<EmergencyBroadcast>(getCreateEmergencyBroadcastUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(emergencyBroadcastCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateEmergencyBroadcastMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEmergencyBroadcast>>, TError,{data: BodyType<EmergencyBroadcastCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEmergencyBroadcast>>, TError,{data: BodyType<EmergencyBroadcastCreate>}, TContext> => {
+
+const mutationKey = ['createEmergencyBroadcast'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEmergencyBroadcast>>, {data: BodyType<EmergencyBroadcastCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createEmergencyBroadcast(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateEmergencyBroadcastMutationResult = NonNullable<Awaited<ReturnType<typeof createEmergencyBroadcast>>>
+    export type CreateEmergencyBroadcastMutationBody = BodyType<EmergencyBroadcastCreate>
+    export type CreateEmergencyBroadcastMutationError = ErrorType<void>
+
+    /**
+ * @summary Compose and send an emergency broadcast — merchant local leaders (x-tenant-id scope) reach their accepted co-op partner network; platform admins (no scope) reach the whole platform or selected tenants
+ */
+export const useCreateEmergencyBroadcast = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEmergencyBroadcast>>, TError,{data: BodyType<EmergencyBroadcastCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createEmergencyBroadcast>>,
+        TError,
+        {data: BodyType<EmergencyBroadcastCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateEmergencyBroadcastMutationOptions(options));
+    }
+
+export const getResolveEmergencyBroadcastUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/emergency/broadcasts/${id}/resolve`
+}
+
+/**
+ * @summary Resolve an active broadcast — sender tenant or a platform admin only; check-in banners and landing statuses clear
+ */
+export const resolveEmergencyBroadcast = async (id: number, options?: RequestInit): Promise<EmergencyBroadcast> => {
+
+  return customFetch<EmergencyBroadcast>(getResolveEmergencyBroadcastUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResolveEmergencyBroadcastMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveEmergencyBroadcast>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveEmergencyBroadcast>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['resolveEmergencyBroadcast'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveEmergencyBroadcast>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  resolveEmergencyBroadcast(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveEmergencyBroadcastMutationResult = NonNullable<Awaited<ReturnType<typeof resolveEmergencyBroadcast>>>
+
+    export type ResolveEmergencyBroadcastMutationError = ErrorType<void>
+
+    /**
+ * @summary Resolve an active broadcast — sender tenant or a platform admin only; check-in banners and landing statuses clear
+ */
+export const useResolveEmergencyBroadcast = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveEmergencyBroadcast>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolveEmergencyBroadcast>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getResolveEmergencyBroadcastMutationOptions(options));
+    }
+
+export const getSubmitEmergencyCheckinUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/emergency/broadcasts/${id}/checkin`
+}
+
+/**
+ * @summary Targeted tenant submits or updates its status (open / temporarily_closed / safe) for an active broadcast
+ */
+export const submitEmergencyCheckin = async (id: number,
+    emergencyCheckinCreate: EmergencyCheckinCreate, options?: RequestInit): Promise<EmergencyCheckin> => {
+
+  return customFetch<EmergencyCheckin>(getSubmitEmergencyCheckinUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(emergencyCheckinCreate)
+  }
+);}
+
+
+
+
+
+export const getSubmitEmergencyCheckinMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitEmergencyCheckin>>, TError,{id: number;data: BodyType<EmergencyCheckinCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitEmergencyCheckin>>, TError,{id: number;data: BodyType<EmergencyCheckinCreate>}, TContext> => {
+
+const mutationKey = ['submitEmergencyCheckin'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitEmergencyCheckin>>, {id: number;data: BodyType<EmergencyCheckinCreate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  submitEmergencyCheckin(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitEmergencyCheckinMutationResult = NonNullable<Awaited<ReturnType<typeof submitEmergencyCheckin>>>
+    export type SubmitEmergencyCheckinMutationBody = BodyType<EmergencyCheckinCreate>
+    export type SubmitEmergencyCheckinMutationError = ErrorType<void>
+
+    /**
+ * @summary Targeted tenant submits or updates its status (open / temporarily_closed / safe) for an active broadcast
+ */
+export const useSubmitEmergencyCheckin = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitEmergencyCheckin>>, TError,{id: number;data: BodyType<EmergencyCheckinCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitEmergencyCheckin>>,
+        TError,
+        {id: number;data: BodyType<EmergencyCheckinCreate>},
+        TContext
+      > => {
+      return useMutation(getSubmitEmergencyCheckinMutationOptions(options));
+    }
+
+export const getListEmergencyCheckinsUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/emergency/broadcasts/${id}/checkins`
+}
+
+/**
+ * @summary Network status roster for a broadcast — every targeted tenant with its latest check-in; visible to the sender, targets, and platform admins
+ */
+export const listEmergencyCheckins = async (id: number, options?: RequestInit): Promise<EmergencyRosterEntry[]> => {
+
+  return customFetch<EmergencyRosterEntry[]>(getListEmergencyCheckinsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEmergencyCheckinsQueryKey = (id: number,) => {
+    return [
+    `/api/coop/emergency/broadcasts/${id}/checkins`
+    ] as const;
+    }
+
+
+export const getListEmergencyCheckinsQueryOptions = <TData = Awaited<ReturnType<typeof listEmergencyCheckins>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmergencyCheckins>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEmergencyCheckinsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEmergencyCheckins>>> = ({ signal }) => listEmergencyCheckins(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEmergencyCheckins>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEmergencyCheckinsQueryResult = NonNullable<Awaited<ReturnType<typeof listEmergencyCheckins>>>
+export type ListEmergencyCheckinsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Network status roster for a broadcast — every targeted tenant with its latest check-in; visible to the sender, targets, and platform admins
+ */
+
+export function useListEmergencyCheckins<TData = Awaited<ReturnType<typeof listEmergencyCheckins>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEmergencyCheckins>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEmergencyCheckinsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetActiveEmergencyBroadcastsUrl = () => {
+
+
+
+
+  return `/api/coop/emergency/active`
+}
+
+/**
+ * @summary Active broadcasts targeting the scoped tenant, for the dashboard check-in banner; tenant scope via x-tenant-id
+ */
+export const getActiveEmergencyBroadcasts = async ( options?: RequestInit): Promise<EmergencyBroadcast[]> => {
+
+  return customFetch<EmergencyBroadcast[]>(getGetActiveEmergencyBroadcastsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetActiveEmergencyBroadcastsQueryKey = () => {
+    return [
+    `/api/coop/emergency/active`
+    ] as const;
+    }
+
+
+export const getGetActiveEmergencyBroadcastsQueryOptions = <TData = Awaited<ReturnType<typeof getActiveEmergencyBroadcasts>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getActiveEmergencyBroadcasts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetActiveEmergencyBroadcastsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getActiveEmergencyBroadcasts>>> = ({ signal }) => getActiveEmergencyBroadcasts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getActiveEmergencyBroadcasts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetActiveEmergencyBroadcastsQueryResult = NonNullable<Awaited<ReturnType<typeof getActiveEmergencyBroadcasts>>>
+export type GetActiveEmergencyBroadcastsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Active broadcasts targeting the scoped tenant, for the dashboard check-in banner; tenant scope via x-tenant-id
+ */
+
+export function useGetActiveEmergencyBroadcasts<TData = Awaited<ReturnType<typeof getActiveEmergencyBroadcasts>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getActiveEmergencyBroadcasts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetActiveEmergencyBroadcastsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

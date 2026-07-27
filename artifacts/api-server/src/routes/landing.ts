@@ -13,6 +13,7 @@ import { filterPartnershipsForConsumerSurface } from "../lib/coopFirewall";
 import { recordCoopEventsSafe } from "../lib/coopEvents";
 import { recordCoopTrafficEvent } from "../lib/coopTraffic";
 import { listServicesForScope } from "../lib/serviceCatalog";
+import { activeEmergencyStatusForTenant } from "../lib/emergencyBroadcasts";
 import { parseServiceNames } from "../lib/receptionist";
 
 // ── Public SEO landing page ──────────────────────────────────────────────────
@@ -257,6 +258,12 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
   const perks = await getPublicCoopPerkRows(tenant.id);
   await recordPerkImpressions(tenant.id, perks);
 
+  // Live emergency status: while an emergency broadcast targeting this
+  // business is active, surface its latest check-in (Open / Temporarily
+  // Closed / Safe) so customers see up-to-date information. Renders nothing
+  // once the alert is resolved.
+  const emergency = await activeEmergencyStatusForTenant(tenant.id);
+
   const reviews = await db
     .select()
     .from(sosReviewsTable)
@@ -434,6 +441,19 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
       `<p class="detail">🕒 Open daily ${escapeHtml(settings.openTime)}–${escapeHtml(settings.closeTime)}</p>`,
     );
 
+  const emergencyHtml = emergency
+    ? `<section id="status" class="emergency ${emergency.status ? `emergency-${escapeHtml(emergency.status)}` : "emergency-unknown"}" data-testid="section-emergency-status">
+    <h2>Community Alert</h2>
+    <p class="emergency-headline">${escapeHtml(emergency.headline)}</p>
+    <p class="emergency-state" data-testid="text-emergency-status">${
+      emergency.statusLabel
+        ? `Current status: <strong>${escapeHtml(emergency.statusLabel)}</strong>`
+        : "This business has not posted a status update yet."
+    }</p>
+    ${emergency.note ? `<p class="emergency-note">${escapeHtml(emergency.note)}</p>` : ""}
+  </section>`
+    : "";
+
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -475,6 +495,15 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
   .perk p{margin:.15rem 0;color:#4a4a68}
   .perk footer{color:#92400e;font-size:.9rem;font-weight:600}
   .perk-disclaimer{color:#6b6b8a;font-size:.75rem;margin-top:.75rem}
+  .emergency{border-radius:.6rem;padding:1rem 1.2rem;margin:1rem 0;border:1px solid}
+  .emergency h2{margin:0 0 .35rem;border:none;padding:0;font-size:1rem;text-transform:uppercase;letter-spacing:.06em}
+  .emergency-headline{font-weight:600;margin:.15rem 0}
+  .emergency-state{margin:.15rem 0}
+  .emergency-note{margin:.15rem 0;font-size:.95rem}
+  .emergency-open{background:#ecfdf5;border-color:#6ee7b7;color:#065f46}
+  .emergency-safe{background:#eff6ff;border-color:#93c5fd;color:#1e3a8a}
+  .emergency-temporarily_closed{background:#fef2f2;border-color:#fca5a5;color:#7f1d1d}
+  .emergency-unknown{background:#fffbeb;border-color:#fde68a;color:#78350f}
 </style>
 </head>
 <body>
@@ -485,6 +514,7 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
     ${detailRows.join("\n    ")}
     <a class="book-btn" href="#book" data-testid="link-book-anchor">Book Now</a>
   </header>
+  ${emergencyHtml}
   ${bookingHtml}
   ${perksHtml}
   ${servicesHtml}

@@ -358,6 +358,13 @@
       "when": 1785137941850,
       "tag": "0050_known_vivisector",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1785138296088,
+      "tag": "0051_robust_rocket_racer",
+      "breakpoints": true
     }
   ]
 }

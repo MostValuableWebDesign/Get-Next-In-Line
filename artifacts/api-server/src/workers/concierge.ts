@@ -24,6 +24,7 @@ import { resolveSettings } from "../lib/settings";
 import { generateCoopMonthlyReports } from "../lib/coopEvents";
 import { sweepCampaignAutoBlasts } from "../lib/coopCampaigns";
 import { evaluateCoopPartnershipTiers } from "../lib/coopTiers";
+import { sweepEmergencyBroadcastFanout } from "../lib/emergencyBroadcasts";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -385,6 +386,8 @@ export interface ConciergeTickResult {
   campaignBlasts: number;
   /** Co-op partnership tier transitions (pause/downgrade/promote/reactivate) applied this tick. */
   tierTransitions: number;
+  /** Emergency broadcast targets whose subscriber SMS fan-out ran this tick. */
+  emergencyFanouts: number;
 }
 
 /**
@@ -402,7 +405,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, tierTransitions: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, tierTransitions: 0, emergencyFanouts: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
     const expiredPerks = await sweepExpiredCoopPerks(now);
@@ -421,9 +424,13 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const tierResult = await evaluateCoopPartnershipTiers(now);
     const tierTransitions =
       tierResult.paused + tierResult.reactivated + tierResult.downgraded + tierResult.promoted;
+    // Emergency broadcast SMS fan-out: the per-target sms_dispatched_at claim
+    // is the send-once lock, so this is safe to run on every tick — it is the
+    // reliability net behind the immediate post-create kick.
+    const emergencyFanouts = await sweepEmergencyBroadcastFanout(now);
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
-    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, tierTransitions };
+    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, tierTransitions, emergencyFanouts };
   });
 }
 
@@ -465,6 +472,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       await escalateExpiredCoopDisputes();
       await sweepCampaignAutoBlasts();
       await evaluateCoopPartnershipTiers();
+      await sweepEmergencyBroadcastFanout();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;
@@ -491,10 +499,10 @@ function startIntervalWorker(): ConciergeWorkerHandle {
     if (running) return; // don't overlap slow ticks
     running = true;
     try {
-      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts } = await runConciergeTick();
-      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts > 0) {
+      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts } = await runConciergeTick();
+      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts + emergencyFanouts > 0) {
         logger.info(
-          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts },
+          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts },
           "Concierge interval tick dispatched messages",
         );
       }
