@@ -20,6 +20,8 @@ tags:
     description: Billing and checkout simulation
   - name: admin
     description: Admin-only operations (never exposed to tenants)
+  - name: partners
+    description: Partner-Direct Integrations — connection handshakes and status (webhook listener is server-to-server only, outside this spec)
   - name: sos
     description: SOS operations platform — resources, visits, waitlist, appointments, AI receptionist
 
@@ -1388,8 +1390,205 @@ paths:
         "409":
           description: Client cannot receive messages (opted out or missing contact info)
 
+  /v1/partners:
+    get:
+      operationId: listPartnerConnections
+      tags: [partners]
+      summary: List all partner-direct modules with the tenant's connection state
+      responses:
+        "200":
+          description: Partner modules with connection state
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PartnerConnectionSummary"
+
+  /v1/partners/{partnerId}/connect:
+    post:
+      operationId: connectPartner
+      tags: [partners]
+      summary: Initiate the OAuth-style handshake for a partner module
+      parameters:
+        - name: partnerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Handshake initiated — connection is pending authorization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerConnectResult"
+        "404":
+          description: Partner not found
+
+  /v1/partners/{partnerId}/callback:
+    post:
+      operationId: completePartnerAuthorization
+      tags: [partners]
+      summary: OAuth authorization callback — exchanges the code and activates the connection
+      parameters:
+        - name: partnerId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PartnerCallbackBody"
+      responses:
+        "200":
+          description: Connection activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerConnectionStatus"
+        "400":
+          description: Invalid or expired handshake state
+        "404":
+          description: Partner not found
+
+  /v1/partners/{partnerId}/status:
+    get:
+      operationId: getPartnerConnectionStatus
+      tags: [partners]
+      summary: Connection status, last sync, and audit history for a partner
+      parameters:
+        - name: partnerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Connection status with recent audit events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerConnectionStatus"
+        "404":
+          description: Partner not found
+
+  /v1/partners/{partnerId}/disconnect:
+    post:
+      operationId: disconnectPartner
+      tags: [partners]
+      summary: Disconnect a partner integration and purge stored credentials
+      parameters:
+        - name: partnerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Connection disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PartnerConnectionStatus"
+        "404":
+          description: Partner not found
+
 components:
   schemas:
+    PartnerConnectionSummary:
+      type: object
+      required: [partnerId, moduleId, moduleName, partnerBrand, isActive, status, lastSyncAt, connectedAt]
+      properties:
+        partnerId:
+          # URL-safe key derived from the customer-facing partner brand
+          # (e.g. "deel", "next-insurance"). No internal slugs or connector
+          # details are exposed here.
+          type: string
+        moduleId:
+          type: integer
+        moduleName:
+          type: string
+        partnerBrand:
+          type: string
+        isActive:
+          type: boolean
+        status:
+          type: string
+          enum: [not_connected, pending, active, error]
+        lastSyncAt:
+          type: ["string", "null"]
+        connectedAt:
+          type: ["string", "null"]
+
+    PartnerConnectResult:
+      type: object
+      required: [partnerId, status, authorizationUrl, state]
+      properties:
+        partnerId:
+          type: string
+        status:
+          type: string
+          enum: [pending]
+        authorizationUrl:
+          # Simulated/sandbox authorization URL — real partner OAuth endpoints
+          # drop in here once live credentials exist.
+          type: string
+        state:
+          # One-time handshake state token the authorization step must echo back.
+          type: string
+
+    PartnerCallbackBody:
+      type: object
+      required: [state, code]
+      properties:
+        state:
+          type: string
+        code:
+          type: string
+
+    PartnerConnectionEvent:
+      type: object
+      required: [id, eventType, details, createdAt]
+      properties:
+        id:
+          type: integer
+        eventType:
+          type: string
+        details:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    PartnerConnectionStatus:
+      type: object
+      required: [partnerId, moduleId, moduleName, partnerBrand, status, lastSyncAt, connectedAt, lastError, events]
+      properties:
+        partnerId:
+          type: string
+        moduleId:
+          type: integer
+        moduleName:
+          type: string
+        partnerBrand:
+          type: string
+        status:
+          type: string
+          enum: [not_connected, pending, active, error]
+        lastSyncAt:
+          type: ["string", "null"]
+        connectedAt:
+          type: ["string", "null"]
+        lastError:
+          type: ["string", "null"]
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/PartnerConnectionEvent"
+
     ConciergeSuggestUpsellsInput:
       type: object
       required: [tenantId, serviceName]

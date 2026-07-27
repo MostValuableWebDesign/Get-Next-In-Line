@@ -3,6 +3,7 @@ import { useListModules } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckoutSimulationDialog } from '@/components/checkout/CheckoutSimulationDialog';
+import { PartnerConnectDialog, PartnerStatusBadge } from '@/components/partners/PartnerConnectDialog';
 import { Badge } from '@/components/ui/badge';
 import { Zap } from 'lucide-react';
 
@@ -14,8 +15,9 @@ interface StaticPageProps {
   /**
    * Display name of the marketplace module backing this partner offering
    * (as seeded in the modules table — /api/modules intentionally exposes no
-   * machine slug). Activate opens the shared checkout-simulation flow locked
-   * to that module.
+   * machine slug). Activate opens the partner integration workflow when a
+   * partnerId is provided, otherwise the shared checkout-simulation flow
+   * locked to that module.
    */
   moduleName: string;
   /**
@@ -23,13 +25,25 @@ interface StaticPageProps {
    * backing module's active state.
    */
   available?: boolean;
+  /**
+   * Partner connection key (from /api/v1/partners). When set, the Activate
+   * CTA launches the connect → authorize → active integration workflow and
+   * the card reflects the live connection state.
+   */
+  partnerId?: string;
+  /** Live connection state for this partner (not_connected | pending | active | error). */
+  connectionStatus?: string;
 }
 
-export function StaticPlaceholderPage({ title, description, partner, features, moduleName, available }: StaticPageProps) {
+export function StaticPlaceholderPage({
+  title, description, partner, features, moduleName, available, partnerId, connectionStatus,
+}: StaticPageProps) {
   const { data: modules, isLoading } = useListModules();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
 
   const module = modules?.find((m) => m.name === moduleName && m.isActive);
+  const testKey = title.toLowerCase().replace(/\s+/g, '-');
 
   return (
     <div className="p-8 max-w-4xl mx-auto mt-12">
@@ -38,15 +52,20 @@ export function StaticPlaceholderPage({ title, description, partner, features, m
           <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4 text-primary">
             <Zap className="h-6 w-6" />
           </div>
-          {available !== undefined && (
-            <Badge
-              variant={available ? 'default' : 'secondary'}
-              className="mx-auto uppercase text-[10px] tracking-wider mb-2"
-              data-testid={`badge-availability-${partner.toLowerCase().replace(/\s+/g, '-')}`}
-            >
-              {available ? 'Available' : 'Coming Soon'}
-            </Badge>
-          )}
+          <div className="mx-auto flex items-center gap-2 mb-2">
+            {available !== undefined && (
+              <Badge
+                variant={available ? 'default' : 'secondary'}
+                className="uppercase text-[10px] tracking-wider"
+                data-testid={`badge-availability-${partner.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                {available ? 'Available' : 'Coming Soon'}
+              </Badge>
+            )}
+            {partnerId && connectionStatus && connectionStatus !== 'not_connected' && (
+              <PartnerStatusBadge status={connectionStatus} />
+            )}
+          </div>
           <CardTitle className="text-3xl font-bold tracking-tight">{title}</CardTitle>
           <CardDescription className="text-lg mt-2">
             Powered by <span className="font-semibold text-foreground">{partner}</span>
@@ -56,7 +75,7 @@ export function StaticPlaceholderPage({ title, description, partner, features, m
           <p className="text-muted-foreground text-center mb-10 max-w-2xl mx-auto">
             {description}
           </p>
-          
+
           <div className="grid sm:grid-cols-2 gap-4 mb-10">
             {features.map((feature, i) => (
               <div key={i} className="flex items-center gap-3 p-4 rounded-lg bg-muted/50 border border-border/50">
@@ -66,19 +85,47 @@ export function StaticPlaceholderPage({ title, description, partner, features, m
             ))}
           </div>
 
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-3">
             <Button
               size="lg"
               disabled={isLoading || !module}
-              onClick={() => setCheckoutOpen(true)}
-              data-testid={`btn-activate-${title.toLowerCase().replace(/\s+/g, '-')}`}
+              onClick={() => (partnerId ? setConnectOpen(true) : setCheckoutOpen(true))}
+              data-testid={`btn-activate-${testKey}`}
             >
-              {isLoading ? 'Loading…' : module ? 'Activate Module' : 'Module Unavailable'}
+              {isLoading
+                ? 'Loading…'
+                : !module
+                  ? 'Module Unavailable'
+                  : partnerId && connectionStatus === 'active'
+                    ? 'Manage Connection'
+                    : partnerId && connectionStatus === 'pending'
+                      ? 'Continue Activation'
+                      : 'Activate Module'}
             </Button>
+            {partnerId && module && connectionStatus === 'active' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground"
+                onClick={() => setCheckoutOpen(true)}
+                data-testid={`btn-provision-${testKey}`}
+              >
+                Provision for a tenant
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
 
+      {partnerId && (
+        <PartnerConnectDialog
+          open={connectOpen}
+          onOpenChange={setConnectOpen}
+          partnerId={partnerId}
+          partnerBrand={partner}
+          title={`Activate ${title}`}
+        />
+      )}
       {module && (
         <CheckoutSimulationDialog
           open={checkoutOpen}

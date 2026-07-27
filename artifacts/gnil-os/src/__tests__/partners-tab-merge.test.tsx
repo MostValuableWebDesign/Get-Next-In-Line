@@ -38,6 +38,8 @@ vi.mock('@workspace/api-client-react', async (importOriginal) => {
     }),
     useListModules: () => ({ data: PARTNER_MODULES, isLoading: false }),
     useGetModulesPricing: () => ({ data: [], isLoading: false }),
+    useListPartnerConnections: () => ({ data: [], isLoading: false }),
+    getListPartnerConnectionsQueryKey: () => ['partner-connections'],
   };
 });
 

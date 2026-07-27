@@ -9,6 +9,7 @@ import billingRouter from "./billing";
 import adminRouter from "./admin";
 import sosRouter from "./sos";
 import conciergeRouter from "./concierge";
+import partnersRouter from "./partners";
 
 const router: IRouter = Router();
 
@@ -27,8 +28,16 @@ export const SESSION_EXEMPT_PATHS = new Set([
   "/sos/twilio/inbound",
   "/sos/twilio/status",
 ]);
+// Parameterized session-auth bypasses (paths with dynamic segments that a
+// static Set can't express). Same guarded-growth rule applies: every pattern
+// here is a session-auth bypass and must carry its own authentication story.
+// Partner webhooks are server-to-server calls from partner platforms (no
+// session; sandbox pattern — signature verification drops in with real creds).
+export const SESSION_EXEMPT_PATTERNS: RegExp[] = [
+  /^\/v1\/partners\/[a-z0-9-]+\/webhook$/,
+];
 router.use((req, res, next) => {
-  if (SESSION_EXEMPT_PATHS.has(req.path)) {
+  if (SESSION_EXEMPT_PATHS.has(req.path) || SESSION_EXEMPT_PATTERNS.some((p) => p.test(req.path))) {
     next();
     return;
   }
@@ -41,5 +50,6 @@ router.use(modulesRouter);
 router.use(billingRouter);
 router.use(adminRouter);
 router.use(conciergeRouter); // AI Concierge & Automation module
+router.use(partnersRouter); // Partner-Direct Integrations proxy engine (/v1/partners)
 
 export default router;

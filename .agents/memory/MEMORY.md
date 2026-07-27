@@ -23,4 +23,5 @@
 - [Realized margin reporting](realized-margin-reporting.md) — profit figures must come from charged_wholesale/charged_resale persisted at checkout, never wholesale × current markup% (except legacy NULL rows).
 - [Dev DB checkpoint rollback self-heal](dev-db-checkpoint-rollback.md) — recurring "unstamped migrations" drift = checkpoint DB restore, not data loss; server startup now auto-reconciles then seeds.
 - After repairing DB drift, restart the API server — its start-time connector seed backfills columns (e.g. partner_brand) that silently stayed null while the column was missing.
+- [Partner-Direct Integrations](partner-integrations.md) — partners category always bills pass-through (0%) in pricing.ts; partnerId keys derive from brand, never slug; tokens encrypted, never in responses.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.

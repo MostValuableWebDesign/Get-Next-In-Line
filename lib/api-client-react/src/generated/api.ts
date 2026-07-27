@@ -49,6 +49,10 @@ import type {
   ModulePricing,
   ModuleTenantCount,
   ModuleTenantSubscriber,
+  PartnerCallbackBody,
+  PartnerConnectResult,
+  PartnerConnectionStatus,
+  PartnerConnectionSummary,
   SosAppointment,
   SosAppointmentInput,
   SosCall,
@@ -5113,5 +5117,373 @@ export const useDispatchConciergeMessage = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDispatchConciergeMessageMutationOptions(options));
+    }
+
+export const getListPartnerConnectionsUrl = () => {
+
+
+
+
+  return `/api/v1/partners`
+}
+
+/**
+ * @summary List all partner-direct modules with the tenant's connection state
+ */
+export const listPartnerConnections = async ( options?: RequestInit): Promise<PartnerConnectionSummary[]> => {
+
+  return customFetch<PartnerConnectionSummary[]>(getListPartnerConnectionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPartnerConnectionsQueryKey = () => {
+    return [
+    `/api/v1/partners`
+    ] as const;
+    }
+
+
+export const getListPartnerConnectionsQueryOptions = <TData = Awaited<ReturnType<typeof listPartnerConnections>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPartnerConnections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPartnerConnectionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPartnerConnections>>> = ({ signal }) => listPartnerConnections({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPartnerConnections>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPartnerConnectionsQueryResult = NonNullable<Awaited<ReturnType<typeof listPartnerConnections>>>
+export type ListPartnerConnectionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all partner-direct modules with the tenant's connection state
+ */
+
+export function useListPartnerConnections<TData = Awaited<ReturnType<typeof listPartnerConnections>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPartnerConnections>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPartnerConnectionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getConnectPartnerUrl = (partnerId: string,) => {
+
+
+
+
+  return `/api/v1/partners/${partnerId}/connect`
+}
+
+/**
+ * @summary Initiate the OAuth-style handshake for a partner module
+ */
+export const connectPartner = async (partnerId: string, options?: RequestInit): Promise<PartnerConnectResult> => {
+
+  return customFetch<PartnerConnectResult>(getConnectPartnerUrl(partnerId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getConnectPartnerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof connectPartner>>, TError,{partnerId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof connectPartner>>, TError,{partnerId: string}, TContext> => {
+
+const mutationKey = ['connectPartner'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof connectPartner>>, {partnerId: string}> = (props) => {
+          const {partnerId} = props ?? {};
+
+          return  connectPartner(partnerId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConnectPartnerMutationResult = NonNullable<Awaited<ReturnType<typeof connectPartner>>>
+
+    export type ConnectPartnerMutationError = ErrorType<void>
+
+    /**
+ * @summary Initiate the OAuth-style handshake for a partner module
+ */
+export const useConnectPartner = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof connectPartner>>, TError,{partnerId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof connectPartner>>,
+        TError,
+        {partnerId: string},
+        TContext
+      > => {
+      return useMutation(getConnectPartnerMutationOptions(options));
+    }
+
+export const getCompletePartnerAuthorizationUrl = (partnerId: string,) => {
+
+
+
+
+  return `/api/v1/partners/${partnerId}/callback`
+}
+
+/**
+ * @summary OAuth authorization callback — exchanges the code and activates the connection
+ */
+export const completePartnerAuthorization = async (partnerId: string,
+    partnerCallbackBody: PartnerCallbackBody, options?: RequestInit): Promise<PartnerConnectionStatus> => {
+
+  return customFetch<PartnerConnectionStatus>(getCompletePartnerAuthorizationUrl(partnerId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(partnerCallbackBody)
+  }
+);}
+
+
+
+
+
+export const getCompletePartnerAuthorizationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completePartnerAuthorization>>, TError,{partnerId: string;data: BodyType<PartnerCallbackBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completePartnerAuthorization>>, TError,{partnerId: string;data: BodyType<PartnerCallbackBody>}, TContext> => {
+
+const mutationKey = ['completePartnerAuthorization'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completePartnerAuthorization>>, {partnerId: string;data: BodyType<PartnerCallbackBody>}> = (props) => {
+          const {partnerId,data} = props ?? {};
+
+          return  completePartnerAuthorization(partnerId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompletePartnerAuthorizationMutationResult = NonNullable<Awaited<ReturnType<typeof completePartnerAuthorization>>>
+    export type CompletePartnerAuthorizationMutationBody = BodyType<PartnerCallbackBody>
+    export type CompletePartnerAuthorizationMutationError = ErrorType<void>
+
+    /**
+ * @summary OAuth authorization callback — exchanges the code and activates the connection
+ */
+export const useCompletePartnerAuthorization = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completePartnerAuthorization>>, TError,{partnerId: string;data: BodyType<PartnerCallbackBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completePartnerAuthorization>>,
+        TError,
+        {partnerId: string;data: BodyType<PartnerCallbackBody>},
+        TContext
+      > => {
+      return useMutation(getCompletePartnerAuthorizationMutationOptions(options));
+    }
+
+export const getGetPartnerConnectionStatusUrl = (partnerId: string,) => {
+
+
+
+
+  return `/api/v1/partners/${partnerId}/status`
+}
+
+/**
+ * @summary Connection status, last sync, and audit history for a partner
+ */
+export const getPartnerConnectionStatus = async (partnerId: string, options?: RequestInit): Promise<PartnerConnectionStatus> => {
+
+  return customFetch<PartnerConnectionStatus>(getGetPartnerConnectionStatusUrl(partnerId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPartnerConnectionStatusQueryKey = (partnerId: string,) => {
+    return [
+    `/api/v1/partners/${partnerId}/status`
+    ] as const;
+    }
+
+
+export const getGetPartnerConnectionStatusQueryOptions = <TData = Awaited<ReturnType<typeof getPartnerConnectionStatus>>, TError = ErrorType<void>>(partnerId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPartnerConnectionStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPartnerConnectionStatusQueryKey(partnerId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPartnerConnectionStatus>>> = ({ signal }) => getPartnerConnectionStatus(partnerId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: partnerId !== null && partnerId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPartnerConnectionStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPartnerConnectionStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getPartnerConnectionStatus>>>
+export type GetPartnerConnectionStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Connection status, last sync, and audit history for a partner
+ */
+
+export function useGetPartnerConnectionStatus<TData = Awaited<ReturnType<typeof getPartnerConnectionStatus>>, TError = ErrorType<void>>(
+ partnerId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPartnerConnectionStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPartnerConnectionStatusQueryOptions(partnerId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDisconnectPartnerUrl = (partnerId: string,) => {
+
+
+
+
+  return `/api/v1/partners/${partnerId}/disconnect`
+}
+
+/**
+ * @summary Disconnect a partner integration and purge stored credentials
+ */
+export const disconnectPartner = async (partnerId: string, options?: RequestInit): Promise<PartnerConnectionStatus> => {
+
+  return customFetch<PartnerConnectionStatus>(getDisconnectPartnerUrl(partnerId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDisconnectPartnerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectPartner>>, TError,{partnerId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof disconnectPartner>>, TError,{partnerId: string}, TContext> => {
+
+const mutationKey = ['disconnectPartner'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof disconnectPartner>>, {partnerId: string}> = (props) => {
+          const {partnerId} = props ?? {};
+
+          return  disconnectPartner(partnerId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DisconnectPartnerMutationResult = NonNullable<Awaited<ReturnType<typeof disconnectPartner>>>
+
+    export type DisconnectPartnerMutationError = ErrorType<void>
+
+    /**
+ * @summary Disconnect a partner integration and purge stored credentials
+ */
+export const useDisconnectPartner = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectPartner>>, TError,{partnerId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof disconnectPartner>>,
+        TError,
+        {partnerId: string},
+        TContext
+      > => {
+      return useMutation(getDisconnectPartnerMutationOptions(options));
     }
 

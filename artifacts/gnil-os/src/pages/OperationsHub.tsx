@@ -1,5 +1,9 @@
 import { Link, useLocation } from 'wouter';
-import { useListModules } from '@workspace/api-client-react';
+import {
+  useListModules,
+  useListPartnerConnections,
+  getListPartnerConnectionsQueryKey,
+} from '@workspace/api-client-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -129,6 +133,11 @@ const PARTNER_ORDER = [
  */
 function PartnerSections() {
   const { data: modules, isLoading, isError, refetch } = useListModules();
+  // Live per-partner connection state (not connected / pending / active /
+  // error). Non-blocking: cards render even while this loads or if it fails.
+  const { data: connections } = useListPartnerConnections({
+    query: { queryKey: getListPartnerConnectionsQueryKey() },
+  });
 
   if (isError) {
     return (
@@ -176,6 +185,7 @@ function PartnerSections() {
       {partners.map((module) => {
         const brand = module.partnerBrand ?? 'Partner';
         const content = PARTNER_OFFERINGS[brand];
+        const connection = connections?.find((c) => c.moduleId === module.id);
         return (
           <StaticPlaceholderPage
             key={module.id}
@@ -185,6 +195,8 @@ function PartnerSections() {
             description={content?.description ?? module.description}
             features={content?.features ?? []}
             available={module.isActive}
+            partnerId={connection?.partnerId}
+            connectionStatus={connection?.status}
           />
         );
       })}

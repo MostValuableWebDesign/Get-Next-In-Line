@@ -1711,3 +1711,114 @@ export const DispatchConciergeMessageResponse = zod.object({
 })
 
 
+/**
+ * @summary List all partner-direct modules with the tenant's connection state
+ */
+export const ListPartnerConnectionsResponseItem = zod.object({
+  "partnerId": zod.string(),
+  "moduleId": zod.number(),
+  "moduleName": zod.string(),
+  "partnerBrand": zod.string(),
+  "isActive": zod.boolean(),
+  "status": zod.enum(['not_connected', 'pending', 'active', 'error']),
+  "lastSyncAt": zod.string().nullable(),
+  "connectedAt": zod.string().nullable()
+})
+export const ListPartnerConnectionsResponse = zod.array(ListPartnerConnectionsResponseItem)
+
+
+/**
+ * @summary Initiate the OAuth-style handshake for a partner module
+ */
+export const ConnectPartnerParams = zod.object({
+  "partnerId": zod.coerce.string()
+})
+
+export const ConnectPartnerResponse = zod.object({
+  "partnerId": zod.string(),
+  "status": zod.enum(['pending']),
+  "authorizationUrl": zod.string(),
+  "state": zod.string()
+})
+
+
+/**
+ * @summary OAuth authorization callback — exchanges the code and activates the connection
+ */
+export const CompletePartnerAuthorizationParams = zod.object({
+  "partnerId": zod.coerce.string()
+})
+
+export const CompletePartnerAuthorizationBody = zod.object({
+  "state": zod.string(),
+  "code": zod.string()
+})
+
+export const CompletePartnerAuthorizationResponse = zod.object({
+  "partnerId": zod.string(),
+  "moduleId": zod.number(),
+  "moduleName": zod.string(),
+  "partnerBrand": zod.string(),
+  "status": zod.enum(['not_connected', 'pending', 'active', 'error']),
+  "lastSyncAt": zod.string().nullable(),
+  "connectedAt": zod.string().nullable(),
+  "lastError": zod.string().nullable(),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "details": zod.string().nullable(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Connection status, last sync, and audit history for a partner
+ */
+export const GetPartnerConnectionStatusParams = zod.object({
+  "partnerId": zod.coerce.string()
+})
+
+export const GetPartnerConnectionStatusResponse = zod.object({
+  "partnerId": zod.string(),
+  "moduleId": zod.number(),
+  "moduleName": zod.string(),
+  "partnerBrand": zod.string(),
+  "status": zod.enum(['not_connected', 'pending', 'active', 'error']),
+  "lastSyncAt": zod.string().nullable(),
+  "connectedAt": zod.string().nullable(),
+  "lastError": zod.string().nullable(),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "details": zod.string().nullable(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Disconnect a partner integration and purge stored credentials
+ */
+export const DisconnectPartnerParams = zod.object({
+  "partnerId": zod.coerce.string()
+})
+
+export const DisconnectPartnerResponse = zod.object({
+  "partnerId": zod.string(),
+  "moduleId": zod.number(),
+  "moduleName": zod.string(),
+  "partnerBrand": zod.string(),
+  "status": zod.enum(['not_connected', 'pending', 'active', 'error']),
+  "lastSyncAt": zod.string().nullable(),
+  "connectedAt": zod.string().nullable(),
+  "lastError": zod.string().nullable(),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "details": zod.string().nullable(),
+  "createdAt": zod.string()
+}))
+})
+
+

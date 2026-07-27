@@ -204,6 +204,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "deel",
+    markupPercentOverride: "0",
     partnerBrand: "Deel",
     name: "Global Team & HR Management",
     category: "Partner-Direct Integrations",
@@ -217,6 +218,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "next_insurance",
+    markupPercentOverride: "0",
     partnerBrand: "Next Insurance",
     name: "Small Business Insurance & COI",
     category: "Partner-Direct Integrations",
@@ -230,6 +232,7 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   {
     slug: "guideline",
+    markupPercentOverride: "0",
     partnerBrand: "Guideline",
     name: "401(k) & Employee Benefits",
     category: "Partner-Direct Integrations",

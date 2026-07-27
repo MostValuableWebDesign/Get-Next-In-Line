@@ -58,6 +58,8 @@ const pricing = modules.map((m) => ({
 vi.mock('@workspace/api-client-react', () => ({
   useListModules: () => ({ data: modules, isLoading: false }),
   useGetModulesPricing: () => ({ data: pricing, isLoading: false }),
+  useListPartnerConnections: () => ({ data: undefined, isLoading: false }),
+  getListPartnerConnectionsQueryKey: () => ['partner-connections'],
 }));
 
 // The Operations hub pulls in the full SOS operations + partner pages; they

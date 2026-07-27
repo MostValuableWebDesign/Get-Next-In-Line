@@ -5,6 +5,81 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+export type PartnerConnectionSummaryStatus = typeof PartnerConnectionSummaryStatus[keyof typeof PartnerConnectionSummaryStatus];
+
+
+export const PartnerConnectionSummaryStatus = {
+  not_connected: 'not_connected',
+  pending: 'pending',
+  active: 'active',
+  error: 'error',
+} as const;
+
+export interface PartnerConnectionSummary {
+  partnerId: string;
+  moduleId: number;
+  moduleName: string;
+  partnerBrand: string;
+  isActive: boolean;
+  status: PartnerConnectionSummaryStatus;
+  /** @nullable */
+  lastSyncAt: string | null;
+  /** @nullable */
+  connectedAt: string | null;
+}
+
+export type PartnerConnectResultStatus = typeof PartnerConnectResultStatus[keyof typeof PartnerConnectResultStatus];
+
+
+export const PartnerConnectResultStatus = {
+  pending: 'pending',
+} as const;
+
+export interface PartnerConnectResult {
+  partnerId: string;
+  status: PartnerConnectResultStatus;
+  authorizationUrl: string;
+  state: string;
+}
+
+export interface PartnerCallbackBody {
+  state: string;
+  code: string;
+}
+
+export interface PartnerConnectionEvent {
+  id: number;
+  eventType: string;
+  /** @nullable */
+  details: string | null;
+  createdAt: string;
+}
+
+export type PartnerConnectionStatusStatus = typeof PartnerConnectionStatusStatus[keyof typeof PartnerConnectionStatusStatus];
+
+
+export const PartnerConnectionStatusStatus = {
+  not_connected: 'not_connected',
+  pending: 'pending',
+  active: 'active',
+  error: 'error',
+} as const;
+
+export interface PartnerConnectionStatus {
+  partnerId: string;
+  moduleId: number;
+  moduleName: string;
+  partnerBrand: string;
+  status: PartnerConnectionStatusStatus;
+  /** @nullable */
+  lastSyncAt: string | null;
+  /** @nullable */
+  connectedAt: string | null;
+  /** @nullable */
+  lastError: string | null;
+  events: PartnerConnectionEvent[];
+}
+
 export interface ConciergeSuggestUpsellsInput {
   tenantId: number;
   /** @minLength 1 */

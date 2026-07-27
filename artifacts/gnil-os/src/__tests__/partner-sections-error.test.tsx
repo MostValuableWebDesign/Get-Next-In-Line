@@ -28,6 +28,8 @@ vi.mock('@workspace/api-client-react', () => ({
   getGetBillingSummaryQueryKey: () => ['billing'],
   getGetAgencyDashboardQueryKey: () => ['dashboard'],
   getGetTenantActivityQueryKey: () => ['activity'],
+  useListPartnerConnections: () => ({ data: undefined, isLoading: false }),
+  getListPartnerConnectionsQueryKey: () => ['partner-connections'],
 }));
 
 vi.mock('@/hooks/use-online', () => ({
