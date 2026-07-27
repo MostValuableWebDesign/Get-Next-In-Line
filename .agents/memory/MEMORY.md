@@ -35,4 +35,5 @@
 - drizzle-orm wraps pg errors in DrizzleQueryError: `err.code` is undefined on the wrapper — check `err.cause?.code` (e.g. "23503") when catching SQLSTATE codes.
 - [Co-op campaign blasts](coop-campaigns.md) — blast_triggered_at conditional claim is the send-once lock; cap ledger written pre-dispatch; "marketing" origin is hidden from operational message lists by design.
 - [Co-op redemption integrity](coop-network.md) — every redemption write path (native route AND POS webhooks) must enforce scanner-is-participant + direction-correct tracking codes before writing redemption/attribution rows; code review rejects any new path that skips this.
+- [Franchise co-op controller](franchise-controller.md) — org-scoped roles resolve in lib/franchise; HQ template perks are self-paired partnership rows (host===partner) deliberately exempt from the co-op firewall filter.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.

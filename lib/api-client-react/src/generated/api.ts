@@ -69,6 +69,24 @@ import type {
   EngagementRuleInput,
   EngagementRuleUpdate,
   ExportAdminComplianceReportParams,
+  FranchiseOrg,
+  FranchiseOrgCreate,
+  FranchiseOrgDetail,
+  FranchiseOrgUpdate,
+  FranchisePartnershipRequest,
+  FranchiseRegion,
+  FranchiseRegionCreate,
+  FranchiseRequestCreate,
+  FranchiseRequestDecision,
+  FranchiseRoleAssign,
+  FranchiseRoleEntry,
+  FranchiseRollup,
+  FranchiseStorefront,
+  FranchiseStorefrontAttach,
+  FranchiseStorefrontUpdate,
+  FranchiseTemplate,
+  FranchiseTemplateCreate,
+  FranchiseTemplateUpdate,
   GetAdminComplianceSummaryParams,
   GetCoopStatsParams,
   GetSosStaffEarningsParams,
@@ -11147,6 +11165,1339 @@ export function useGetWalletPass<TData = Awaited<ReturnType<typeof getWalletPass
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetWalletPassQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListFranchiseOrgsUrl = () => {
+
+
+
+
+  return `/api/franchise/orgs`
+}
+
+/**
+ * @summary Organizations the caller can see (platform admins see all; users see orgs where they hold a role)
+ */
+export const listFranchiseOrgs = async ( options?: RequestInit): Promise<FranchiseOrg[]> => {
+
+  return customFetch<FranchiseOrg[]>(getListFranchiseOrgsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFranchiseOrgsQueryKey = () => {
+    return [
+    `/api/franchise/orgs`
+    ] as const;
+    }
+
+
+export const getListFranchiseOrgsQueryOptions = <TData = Awaited<ReturnType<typeof listFranchiseOrgs>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFranchiseOrgs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFranchiseOrgsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFranchiseOrgs>>> = ({ signal }) => listFranchiseOrgs({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFranchiseOrgs>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFranchiseOrgsQueryResult = NonNullable<Awaited<ReturnType<typeof listFranchiseOrgs>>>
+export type ListFranchiseOrgsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Organizations the caller can see (platform admins see all; users see orgs where they hold a role)
+ */
+
+export function useListFranchiseOrgs<TData = Awaited<ReturnType<typeof listFranchiseOrgs>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFranchiseOrgs>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFranchiseOrgsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateFranchiseOrgUrl = () => {
+
+
+
+
+  return `/api/franchise/orgs`
+}
+
+/**
+ * @summary Create a franchise organization (creator becomes its Super Admin)
+ */
+export const createFranchiseOrg = async (franchiseOrgCreate: FranchiseOrgCreate, options?: RequestInit): Promise<FranchiseOrg> => {
+
+  return customFetch<FranchiseOrg>(getCreateFranchiseOrgUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(franchiseOrgCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateFranchiseOrgMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFranchiseOrg>>, TError,{data: BodyType<FranchiseOrgCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createFranchiseOrg>>, TError,{data: BodyType<FranchiseOrgCreate>}, TContext> => {
+
+const mutationKey = ['createFranchiseOrg'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFranchiseOrg>>, {data: BodyType<FranchiseOrgCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createFranchiseOrg(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateFranchiseOrgMutationResult = NonNullable<Awaited<ReturnType<typeof createFranchiseOrg>>>
+    export type CreateFranchiseOrgMutationBody = BodyType<FranchiseOrgCreate>
+    export type CreateFranchiseOrgMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a franchise organization (creator becomes its Super Admin)
+ */
+export const useCreateFranchiseOrg = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFranchiseOrg>>, TError,{data: BodyType<FranchiseOrgCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createFranchiseOrg>>,
+        TError,
+        {data: BodyType<FranchiseOrgCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateFranchiseOrgMutationOptions(options));
+    }
+
+export const getGetFranchiseOrgUrl = (orgId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}`
+}
+
+/**
+ * @summary Org detail (regions + storefronts), scoped to the caller's role
+ */
+export const getFranchiseOrg = async (orgId: number, options?: RequestInit): Promise<FranchiseOrgDetail> => {
+
+  return customFetch<FranchiseOrgDetail>(getGetFranchiseOrgUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFranchiseOrgQueryKey = (orgId: number,) => {
+    return [
+    `/api/franchise/orgs/${orgId}`
+    ] as const;
+    }
+
+
+export const getGetFranchiseOrgQueryOptions = <TData = Awaited<ReturnType<typeof getFranchiseOrg>>, TError = ErrorType<void>>(orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFranchiseOrg>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFranchiseOrgQueryKey(orgId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFranchiseOrg>>> = ({ signal }) => getFranchiseOrg(orgId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFranchiseOrg>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFranchiseOrgQueryResult = NonNullable<Awaited<ReturnType<typeof getFranchiseOrg>>>
+export type GetFranchiseOrgQueryError = ErrorType<void>
+
+
+/**
+ * @summary Org detail (regions + storefronts), scoped to the caller's role
+ */
+
+export function useGetFranchiseOrg<TData = Awaited<ReturnType<typeof getFranchiseOrg>>, TError = ErrorType<void>>(
+ orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFranchiseOrg>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFranchiseOrgQueryOptions(orgId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateFranchiseOrgUrl = (orgId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}`
+}
+
+/**
+ * @summary Update org name / local-autonomy policy (Super Admin only)
+ */
+export const updateFranchiseOrg = async (orgId: number,
+    franchiseOrgUpdate: FranchiseOrgUpdate, options?: RequestInit): Promise<FranchiseOrg> => {
+
+  return customFetch<FranchiseOrg>(getUpdateFranchiseOrgUrl(orgId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(franchiseOrgUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateFranchiseOrgMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFranchiseOrg>>, TError,{orgId: number;data: BodyType<FranchiseOrgUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateFranchiseOrg>>, TError,{orgId: number;data: BodyType<FranchiseOrgUpdate>}, TContext> => {
+
+const mutationKey = ['updateFranchiseOrg'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateFranchiseOrg>>, {orgId: number;data: BodyType<FranchiseOrgUpdate>}> = (props) => {
+          const {orgId,data} = props ?? {};
+
+          return  updateFranchiseOrg(orgId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateFranchiseOrgMutationResult = NonNullable<Awaited<ReturnType<typeof updateFranchiseOrg>>>
+    export type UpdateFranchiseOrgMutationBody = BodyType<FranchiseOrgUpdate>
+    export type UpdateFranchiseOrgMutationError = ErrorType<void>
+
+    /**
+ * @summary Update org name / local-autonomy policy (Super Admin only)
+ */
+export const useUpdateFranchiseOrg = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFranchiseOrg>>, TError,{orgId: number;data: BodyType<FranchiseOrgUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateFranchiseOrg>>,
+        TError,
+        {orgId: number;data: BodyType<FranchiseOrgUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateFranchiseOrgMutationOptions(options));
+    }
+
+export const getCreateFranchiseRegionUrl = (orgId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/regions`
+}
+
+/**
+ * @summary Create a region (Super Admin only)
+ */
+export const createFranchiseRegion = async (orgId: number,
+    franchiseRegionCreate: FranchiseRegionCreate, options?: RequestInit): Promise<FranchiseRegion> => {
+
+  return customFetch<FranchiseRegion>(getCreateFranchiseRegionUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(franchiseRegionCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateFranchiseRegionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFranchiseRegion>>, TError,{orgId: number;data: BodyType<FranchiseRegionCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createFranchiseRegion>>, TError,{orgId: number;data: BodyType<FranchiseRegionCreate>}, TContext> => {
+
+const mutationKey = ['createFranchiseRegion'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFranchiseRegion>>, {orgId: number;data: BodyType<FranchiseRegionCreate>}> = (props) => {
+          const {orgId,data} = props ?? {};
+
+          return  createFranchiseRegion(orgId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateFranchiseRegionMutationResult = NonNullable<Awaited<ReturnType<typeof createFranchiseRegion>>>
+    export type CreateFranchiseRegionMutationBody = BodyType<FranchiseRegionCreate>
+    export type CreateFranchiseRegionMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a region (Super Admin only)
+ */
+export const useCreateFranchiseRegion = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFranchiseRegion>>, TError,{orgId: number;data: BodyType<FranchiseRegionCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createFranchiseRegion>>,
+        TError,
+        {orgId: number;data: BodyType<FranchiseRegionCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateFranchiseRegionMutationOptions(options));
+    }
+
+export const getAttachFranchiseStorefrontUrl = (orgId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/storefronts`
+}
+
+/**
+ * @summary Attach an existing tenant as a storefront (Super Admin only)
+ */
+export const attachFranchiseStorefront = async (orgId: number,
+    franchiseStorefrontAttach: FranchiseStorefrontAttach, options?: RequestInit): Promise<FranchiseStorefront> => {
+
+  return customFetch<FranchiseStorefront>(getAttachFranchiseStorefrontUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(franchiseStorefrontAttach)
+  }
+);}
+
+
+
+
+
+export const getAttachFranchiseStorefrontMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachFranchiseStorefront>>, TError,{orgId: number;data: BodyType<FranchiseStorefrontAttach>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof attachFranchiseStorefront>>, TError,{orgId: number;data: BodyType<FranchiseStorefrontAttach>}, TContext> => {
+
+const mutationKey = ['attachFranchiseStorefront'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof attachFranchiseStorefront>>, {orgId: number;data: BodyType<FranchiseStorefrontAttach>}> = (props) => {
+          const {orgId,data} = props ?? {};
+
+          return  attachFranchiseStorefront(orgId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AttachFranchiseStorefrontMutationResult = NonNullable<Awaited<ReturnType<typeof attachFranchiseStorefront>>>
+    export type AttachFranchiseStorefrontMutationBody = BodyType<FranchiseStorefrontAttach>
+    export type AttachFranchiseStorefrontMutationError = ErrorType<void>
+
+    /**
+ * @summary Attach an existing tenant as a storefront (Super Admin only)
+ */
+export const useAttachFranchiseStorefront = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachFranchiseStorefront>>, TError,{orgId: number;data: BodyType<FranchiseStorefrontAttach>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof attachFranchiseStorefront>>,
+        TError,
+        {orgId: number;data: BodyType<FranchiseStorefrontAttach>},
+        TContext
+      > => {
+      return useMutation(getAttachFranchiseStorefrontMutationOptions(options));
+    }
+
+export const getUpdateFranchiseStorefrontUrl = (orgId: number,
+    tenantId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/storefronts/${tenantId}`
+}
+
+/**
+ * @summary Move a storefront between regions (Super Admin only)
+ */
+export const updateFranchiseStorefront = async (orgId: number,
+    tenantId: number,
+    franchiseStorefrontUpdate: FranchiseStorefrontUpdate, options?: RequestInit): Promise<FranchiseStorefront> => {
+
+  return customFetch<FranchiseStorefront>(getUpdateFranchiseStorefrontUrl(orgId,tenantId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(franchiseStorefrontUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateFranchiseStorefrontMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFranchiseStorefront>>, TError,{orgId: number;tenantId: number;data: BodyType<FranchiseStorefrontUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateFranchiseStorefront>>, TError,{orgId: number;tenantId: number;data: BodyType<FranchiseStorefrontUpdate>}, TContext> => {
+
+const mutationKey = ['updateFranchiseStorefront'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateFranchiseStorefront>>, {orgId: number;tenantId: number;data: BodyType<FranchiseStorefrontUpdate>}> = (props) => {
+          const {orgId,tenantId,data} = props ?? {};
+
+          return  updateFranchiseStorefront(orgId,tenantId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateFranchiseStorefrontMutationResult = NonNullable<Awaited<ReturnType<typeof updateFranchiseStorefront>>>
+    export type UpdateFranchiseStorefrontMutationBody = BodyType<FranchiseStorefrontUpdate>
+    export type UpdateFranchiseStorefrontMutationError = ErrorType<void>
+
+    /**
+ * @summary Move a storefront between regions (Super Admin only)
+ */
+export const useUpdateFranchiseStorefront = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFranchiseStorefront>>, TError,{orgId: number;tenantId: number;data: BodyType<FranchiseStorefrontUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateFranchiseStorefront>>,
+        TError,
+        {orgId: number;tenantId: number;data: BodyType<FranchiseStorefrontUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateFranchiseStorefrontMutationOptions(options));
+    }
+
+export const getDetachFranchiseStorefrontUrl = (orgId: number,
+    tenantId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/storefronts/${tenantId}`
+}
+
+/**
+ * @summary Detach a storefront (its template-derived perks are retired)
+ */
+export const detachFranchiseStorefront = async (orgId: number,
+    tenantId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDetachFranchiseStorefrontUrl(orgId,tenantId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDetachFranchiseStorefrontMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof detachFranchiseStorefront>>, TError,{orgId: number;tenantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof detachFranchiseStorefront>>, TError,{orgId: number;tenantId: number}, TContext> => {
+
+const mutationKey = ['detachFranchiseStorefront'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof detachFranchiseStorefront>>, {orgId: number;tenantId: number}> = (props) => {
+          const {orgId,tenantId} = props ?? {};
+
+          return  detachFranchiseStorefront(orgId,tenantId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DetachFranchiseStorefrontMutationResult = NonNullable<Awaited<ReturnType<typeof detachFranchiseStorefront>>>
+
+    export type DetachFranchiseStorefrontMutationError = ErrorType<void>
+
+    /**
+ * @summary Detach a storefront (its template-derived perks are retired)
+ */
+export const useDetachFranchiseStorefront = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof detachFranchiseStorefront>>, TError,{orgId: number;tenantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof detachFranchiseStorefront>>,
+        TError,
+        {orgId: number;tenantId: number},
+        TContext
+      > => {
+      return useMutation(getDetachFranchiseStorefrontMutationOptions(options));
+    }
+
+export const getListFranchiseRolesUrl = (orgId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/roles`
+}
+
+/**
+ * @summary List role assignments (Super Admin only)
+ */
+export const listFranchiseRoles = async (orgId: number, options?: RequestInit): Promise<FranchiseRoleEntry[]> => {
+
+  return customFetch<FranchiseRoleEntry[]>(getListFranchiseRolesUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFranchiseRolesQueryKey = (orgId: number,) => {
+    return [
+    `/api/franchise/orgs/${orgId}/roles`
+    ] as const;
+    }
+
+
+export const getListFranchiseRolesQueryOptions = <TData = Awaited<ReturnType<typeof listFranchiseRoles>>, TError = ErrorType<void>>(orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFranchiseRoles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFranchiseRolesQueryKey(orgId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFranchiseRoles>>> = ({ signal }) => listFranchiseRoles(orgId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFranchiseRoles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFranchiseRolesQueryResult = NonNullable<Awaited<ReturnType<typeof listFranchiseRoles>>>
+export type ListFranchiseRolesQueryError = ErrorType<void>
+
+
+/**
+ * @summary List role assignments (Super Admin only)
+ */
+
+export function useListFranchiseRoles<TData = Awaited<ReturnType<typeof listFranchiseRoles>>, TError = ErrorType<void>>(
+ orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFranchiseRoles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFranchiseRolesQueryOptions(orgId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAssignFranchiseRoleUrl = (orgId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/roles`
+}
+
+/**
+ * @summary Assign an org role to a user (Super Admin only)
+ */
+export const assignFranchiseRole = async (orgId: number,
+    franchiseRoleAssign: FranchiseRoleAssign, options?: RequestInit): Promise<FranchiseRoleEntry> => {
+
+  return customFetch<FranchiseRoleEntry>(getAssignFranchiseRoleUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(franchiseRoleAssign)
+  }
+);}
+
+
+
+
+
+export const getAssignFranchiseRoleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignFranchiseRole>>, TError,{orgId: number;data: BodyType<FranchiseRoleAssign>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignFranchiseRole>>, TError,{orgId: number;data: BodyType<FranchiseRoleAssign>}, TContext> => {
+
+const mutationKey = ['assignFranchiseRole'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignFranchiseRole>>, {orgId: number;data: BodyType<FranchiseRoleAssign>}> = (props) => {
+          const {orgId,data} = props ?? {};
+
+          return  assignFranchiseRole(orgId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignFranchiseRoleMutationResult = NonNullable<Awaited<ReturnType<typeof assignFranchiseRole>>>
+    export type AssignFranchiseRoleMutationBody = BodyType<FranchiseRoleAssign>
+    export type AssignFranchiseRoleMutationError = ErrorType<void>
+
+    /**
+ * @summary Assign an org role to a user (Super Admin only)
+ */
+export const useAssignFranchiseRole = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignFranchiseRole>>, TError,{orgId: number;data: BodyType<FranchiseRoleAssign>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignFranchiseRole>>,
+        TError,
+        {orgId: number;data: BodyType<FranchiseRoleAssign>},
+        TContext
+      > => {
+      return useMutation(getAssignFranchiseRoleMutationOptions(options));
+    }
+
+export const getRemoveFranchiseRoleUrl = (orgId: number,
+    roleId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/roles/${roleId}`
+}
+
+/**
+ * @summary Remove a role assignment (Super Admin only)
+ */
+export const removeFranchiseRole = async (orgId: number,
+    roleId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRemoveFranchiseRoleUrl(orgId,roleId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemoveFranchiseRoleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeFranchiseRole>>, TError,{orgId: number;roleId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeFranchiseRole>>, TError,{orgId: number;roleId: number}, TContext> => {
+
+const mutationKey = ['removeFranchiseRole'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeFranchiseRole>>, {orgId: number;roleId: number}> = (props) => {
+          const {orgId,roleId} = props ?? {};
+
+          return  removeFranchiseRole(orgId,roleId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveFranchiseRoleMutationResult = NonNullable<Awaited<ReturnType<typeof removeFranchiseRole>>>
+
+    export type RemoveFranchiseRoleMutationError = ErrorType<void>
+
+    /**
+ * @summary Remove a role assignment (Super Admin only)
+ */
+export const useRemoveFranchiseRole = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeFranchiseRole>>, TError,{orgId: number;roleId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeFranchiseRole>>,
+        TError,
+        {orgId: number;roleId: number},
+        TContext
+      > => {
+      return useMutation(getRemoveFranchiseRoleMutationOptions(options));
+    }
+
+export const getListFranchiseTemplatesUrl = (orgId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/templates`
+}
+
+/**
+ * @summary Perk templates with per-location deployment status (scoped to the caller's role)
+ */
+export const listFranchiseTemplates = async (orgId: number, options?: RequestInit): Promise<FranchiseTemplate[]> => {
+
+  return customFetch<FranchiseTemplate[]>(getListFranchiseTemplatesUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFranchiseTemplatesQueryKey = (orgId: number,) => {
+    return [
+    `/api/franchise/orgs/${orgId}/templates`
+    ] as const;
+    }
+
+
+export const getListFranchiseTemplatesQueryOptions = <TData = Awaited<ReturnType<typeof listFranchiseTemplates>>, TError = ErrorType<void>>(orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFranchiseTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFranchiseTemplatesQueryKey(orgId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFranchiseTemplates>>> = ({ signal }) => listFranchiseTemplates(orgId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFranchiseTemplates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFranchiseTemplatesQueryResult = NonNullable<Awaited<ReturnType<typeof listFranchiseTemplates>>>
+export type ListFranchiseTemplatesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Perk templates with per-location deployment status (scoped to the caller's role)
+ */
+
+export function useListFranchiseTemplates<TData = Awaited<ReturnType<typeof listFranchiseTemplates>>, TError = ErrorType<void>>(
+ orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFranchiseTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFranchiseTemplatesQueryOptions(orgId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateFranchiseTemplateUrl = (orgId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/templates`
+}
+
+/**
+ * @summary Define & deploy a global perk template to every storefront (Super Admin only)
+ */
+export const createFranchiseTemplate = async (orgId: number,
+    franchiseTemplateCreate: FranchiseTemplateCreate, options?: RequestInit): Promise<FranchiseTemplate> => {
+
+  return customFetch<FranchiseTemplate>(getCreateFranchiseTemplateUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(franchiseTemplateCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateFranchiseTemplateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFranchiseTemplate>>, TError,{orgId: number;data: BodyType<FranchiseTemplateCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createFranchiseTemplate>>, TError,{orgId: number;data: BodyType<FranchiseTemplateCreate>}, TContext> => {
+
+const mutationKey = ['createFranchiseTemplate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFranchiseTemplate>>, {orgId: number;data: BodyType<FranchiseTemplateCreate>}> = (props) => {
+          const {orgId,data} = props ?? {};
+
+          return  createFranchiseTemplate(orgId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateFranchiseTemplateMutationResult = NonNullable<Awaited<ReturnType<typeof createFranchiseTemplate>>>
+    export type CreateFranchiseTemplateMutationBody = BodyType<FranchiseTemplateCreate>
+    export type CreateFranchiseTemplateMutationError = ErrorType<void>
+
+    /**
+ * @summary Define & deploy a global perk template to every storefront (Super Admin only)
+ */
+export const useCreateFranchiseTemplate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFranchiseTemplate>>, TError,{orgId: number;data: BodyType<FranchiseTemplateCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createFranchiseTemplate>>,
+        TError,
+        {orgId: number;data: BodyType<FranchiseTemplateCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateFranchiseTemplateMutationOptions(options));
+    }
+
+export const getUpdateFranchiseTemplateUrl = (orgId: number,
+    templateId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/templates/${templateId}`
+}
+
+/**
+ * @summary Update or retire/reactivate a template — changes propagate to every deployed location (Super Admin only)
+ */
+export const updateFranchiseTemplate = async (orgId: number,
+    templateId: number,
+    franchiseTemplateUpdate: FranchiseTemplateUpdate, options?: RequestInit): Promise<FranchiseTemplate> => {
+
+  return customFetch<FranchiseTemplate>(getUpdateFranchiseTemplateUrl(orgId,templateId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(franchiseTemplateUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateFranchiseTemplateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFranchiseTemplate>>, TError,{orgId: number;templateId: number;data: BodyType<FranchiseTemplateUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateFranchiseTemplate>>, TError,{orgId: number;templateId: number;data: BodyType<FranchiseTemplateUpdate>}, TContext> => {
+
+const mutationKey = ['updateFranchiseTemplate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateFranchiseTemplate>>, {orgId: number;templateId: number;data: BodyType<FranchiseTemplateUpdate>}> = (props) => {
+          const {orgId,templateId,data} = props ?? {};
+
+          return  updateFranchiseTemplate(orgId,templateId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateFranchiseTemplateMutationResult = NonNullable<Awaited<ReturnType<typeof updateFranchiseTemplate>>>
+    export type UpdateFranchiseTemplateMutationBody = BodyType<FranchiseTemplateUpdate>
+    export type UpdateFranchiseTemplateMutationError = ErrorType<void>
+
+    /**
+ * @summary Update or retire/reactivate a template — changes propagate to every deployed location (Super Admin only)
+ */
+export const useUpdateFranchiseTemplate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateFranchiseTemplate>>, TError,{orgId: number;templateId: number;data: BodyType<FranchiseTemplateUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateFranchiseTemplate>>,
+        TError,
+        {orgId: number;templateId: number;data: BodyType<FranchiseTemplateUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateFranchiseTemplateMutationOptions(options));
+    }
+
+export const getListFranchiseRequestsUrl = (orgId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/requests`
+}
+
+/**
+ * @summary Local-partnership approval queue, scoped to the caller's role
+ */
+export const listFranchiseRequests = async (orgId: number, options?: RequestInit): Promise<FranchisePartnershipRequest[]> => {
+
+  return customFetch<FranchisePartnershipRequest[]>(getListFranchiseRequestsUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListFranchiseRequestsQueryKey = (orgId: number,) => {
+    return [
+    `/api/franchise/orgs/${orgId}/requests`
+    ] as const;
+    }
+
+
+export const getListFranchiseRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listFranchiseRequests>>, TError = ErrorType<void>>(orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFranchiseRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListFranchiseRequestsQueryKey(orgId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listFranchiseRequests>>> = ({ signal }) => listFranchiseRequests(orgId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listFranchiseRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListFranchiseRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listFranchiseRequests>>>
+export type ListFranchiseRequestsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Local-partnership approval queue, scoped to the caller's role
+ */
+
+export function useListFranchiseRequests<TData = Awaited<ReturnType<typeof listFranchiseRequests>>, TError = ErrorType<void>>(
+ orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listFranchiseRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListFranchiseRequestsQueryOptions(orgId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateFranchiseRequestUrl = (orgId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/requests`
+}
+
+/**
+ * @summary Storefront-initiated local partnership (zip-code proximity enforced; outcome depends on the org autonomy policy)
+ */
+export const createFranchiseRequest = async (orgId: number,
+    franchiseRequestCreate: FranchiseRequestCreate, options?: RequestInit): Promise<FranchisePartnershipRequest> => {
+
+  return customFetch<FranchisePartnershipRequest>(getCreateFranchiseRequestUrl(orgId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(franchiseRequestCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateFranchiseRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFranchiseRequest>>, TError,{orgId: number;data: BodyType<FranchiseRequestCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createFranchiseRequest>>, TError,{orgId: number;data: BodyType<FranchiseRequestCreate>}, TContext> => {
+
+const mutationKey = ['createFranchiseRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFranchiseRequest>>, {orgId: number;data: BodyType<FranchiseRequestCreate>}> = (props) => {
+          const {orgId,data} = props ?? {};
+
+          return  createFranchiseRequest(orgId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateFranchiseRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createFranchiseRequest>>>
+    export type CreateFranchiseRequestMutationBody = BodyType<FranchiseRequestCreate>
+    export type CreateFranchiseRequestMutationError = ErrorType<void>
+
+    /**
+ * @summary Storefront-initiated local partnership (zip-code proximity enforced; outcome depends on the org autonomy policy)
+ */
+export const useCreateFranchiseRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFranchiseRequest>>, TError,{orgId: number;data: BodyType<FranchiseRequestCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createFranchiseRequest>>,
+        TError,
+        {orgId: number;data: BodyType<FranchiseRequestCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateFranchiseRequestMutationOptions(options));
+    }
+
+export const getDecideFranchiseRequestUrl = (orgId: number,
+    requestId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/requests/${requestId}/decide`
+}
+
+/**
+ * @summary Approve or reject a queued local-partnership request (Regional Manager of that region or Super Admin)
+ */
+export const decideFranchiseRequest = async (orgId: number,
+    requestId: number,
+    franchiseRequestDecision: FranchiseRequestDecision, options?: RequestInit): Promise<FranchisePartnershipRequest> => {
+
+  return customFetch<FranchisePartnershipRequest>(getDecideFranchiseRequestUrl(orgId,requestId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(franchiseRequestDecision)
+  }
+);}
+
+
+
+
+
+export const getDecideFranchiseRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideFranchiseRequest>>, TError,{orgId: number;requestId: number;data: BodyType<FranchiseRequestDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof decideFranchiseRequest>>, TError,{orgId: number;requestId: number;data: BodyType<FranchiseRequestDecision>}, TContext> => {
+
+const mutationKey = ['decideFranchiseRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideFranchiseRequest>>, {orgId: number;requestId: number;data: BodyType<FranchiseRequestDecision>}> = (props) => {
+          const {orgId,requestId,data} = props ?? {};
+
+          return  decideFranchiseRequest(orgId,requestId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DecideFranchiseRequestMutationResult = NonNullable<Awaited<ReturnType<typeof decideFranchiseRequest>>>
+    export type DecideFranchiseRequestMutationBody = BodyType<FranchiseRequestDecision>
+    export type DecideFranchiseRequestMutationError = ErrorType<void>
+
+    /**
+ * @summary Approve or reject a queued local-partnership request (Regional Manager of that region or Super Admin)
+ */
+export const useDecideFranchiseRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideFranchiseRequest>>, TError,{orgId: number;requestId: number;data: BodyType<FranchiseRequestDecision>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof decideFranchiseRequest>>,
+        TError,
+        {orgId: number;requestId: number;data: BodyType<FranchiseRequestDecision>},
+        TContext
+      > => {
+      return useMutation(getDecideFranchiseRequestMutationOptions(options));
+    }
+
+export const getGetFranchiseRollupUrl = (orgId: number,) => {
+
+
+
+
+  return `/api/franchise/orgs/${orgId}/rollup`
+}
+
+/**
+ * @summary Consolidated cross-promotion / redemption / revenue roll-up, region- and storefront-broken-down, scoped to the caller's role
+ */
+export const getFranchiseRollup = async (orgId: number, options?: RequestInit): Promise<FranchiseRollup> => {
+
+  return customFetch<FranchiseRollup>(getGetFranchiseRollupUrl(orgId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFranchiseRollupQueryKey = (orgId: number,) => {
+    return [
+    `/api/franchise/orgs/${orgId}/rollup`
+    ] as const;
+    }
+
+
+export const getGetFranchiseRollupQueryOptions = <TData = Awaited<ReturnType<typeof getFranchiseRollup>>, TError = ErrorType<void>>(orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFranchiseRollup>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFranchiseRollupQueryKey(orgId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFranchiseRollup>>> = ({ signal }) => getFranchiseRollup(orgId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: orgId !== null && orgId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFranchiseRollup>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFranchiseRollupQueryResult = NonNullable<Awaited<ReturnType<typeof getFranchiseRollup>>>
+export type GetFranchiseRollupQueryError = ErrorType<void>
+
+
+/**
+ * @summary Consolidated cross-promotion / redemption / revenue roll-up, region- and storefront-broken-down, scoped to the caller's role
+ */
+
+export function useGetFranchiseRollup<TData = Awaited<ReturnType<typeof getFranchiseRollup>>, TError = ErrorType<void>>(
+ orgId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFranchiseRollup>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFranchiseRollupQueryOptions(orgId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

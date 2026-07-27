@@ -138,6 +138,18 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     proxyNotes: null,
   },
   {
+    slug: "franchise_coop_controller",
+    name: "Multi-Location Franchise Co-Op Controller",
+    category: "Public Core Service Modules",
+    categorySlug: "operations",
+    description:
+      "Enterprise franchise governance: organization hierarchy (HQ → region → storefront), global perk template propagation, local-autonomy policy with approval queue, and consolidated roll-up reporting.",
+    wholesalePrice: "199.00",
+    upstreamVendor: null,
+    hiddenConnector: null,
+    proxyNotes: null,
+  },
+  {
     slug: "payroll_hub",
     name: "Service Payroll Hub",
     category: "Public Core Service Modules",

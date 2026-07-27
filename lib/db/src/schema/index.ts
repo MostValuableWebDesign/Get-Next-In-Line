@@ -7,3 +7,4 @@ export * from "./pos";
 export * from "./wallet";
 export * from "./safety";
 export * from "./users";
+export * from "./franchise";

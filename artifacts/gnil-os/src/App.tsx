@@ -114,6 +114,7 @@ function ProtectedApp() {
         <Route path="/billing" component={CommandCenter} />
         <Route path="/compliance" component={CommandCenter} />
         <Route path="/partnerships" component={CommandCenter} />
+        <Route path="/franchise" component={CommandCenter} />
         {/* Connector Registry is folded into Configuration — old links land
             on its Connectors section. */}
         <Route path="/connectors">

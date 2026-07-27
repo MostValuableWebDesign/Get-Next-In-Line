@@ -20,6 +20,7 @@ import Tenants from '@/pages/Tenants';
 import Billing from '@/pages/Billing';
 import Settings from '@/pages/Settings';
 import CoopPartnerships from '@/pages/CoopPartnerships';
+import FranchiseController from '@/pages/FranchiseController';
 import Compliance from '@/pages/Compliance';
 
 /**
@@ -39,6 +40,7 @@ const TAB_ROUTES: Record<string, string> = {
   billing: '/billing',
   compliance: '/compliance',
   partnerships: '/partnerships',
+  franchise: '/franchise',
   settings: '/settings',
 };
 
@@ -68,6 +70,7 @@ export default function CommandCenter() {
           <TabsTrigger value="billing" data-testid="tab-billing">Billing</TabsTrigger>
           <TabsTrigger value="compliance" data-testid="tab-compliance">Compliance</TabsTrigger>
           <TabsTrigger value="partnerships" data-testid="tab-partnerships">Partnerships</TabsTrigger>
+          <TabsTrigger value="franchise" data-testid="tab-franchise">Franchise</TabsTrigger>
           <TabsTrigger value="settings" data-testid="tab-agency-settings">Agency Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard" className="mt-4">
@@ -86,6 +89,9 @@ export default function CommandCenter() {
         </TabsContent>
         <TabsContent value="partnerships" className="mt-4">
           <CoopPartnerships />
+        </TabsContent>
+        <TabsContent value="franchise" className="mt-4">
+          <FranchiseController />
         </TabsContent>
         <TabsContent value="settings" className="mt-4">
           <Settings />

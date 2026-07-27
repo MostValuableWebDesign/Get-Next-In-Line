@@ -402,6 +402,10 @@ export async function filterPartnershipsForConsumerSurface<
   ]);
   const viewer = profiles.get(viewerTenantId)!;
   return partnerships.filter((p) => {
+    // Franchise HQ template perks are self-scoped (host === partner): the
+    // business promotes its own franchise-wide perk, so there is no
+    // counterpart competitor to firewall against.
+    if (p.hostTenantId === p.partnerTenantId) return true;
     const otherId = p.hostTenantId === viewerTenantId ? p.partnerTenantId : p.hostTenantId;
     const other = profiles.get(otherId)!;
     return !isBlockedPair(viewer, other, isolated.has(otherId));

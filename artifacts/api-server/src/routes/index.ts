@@ -19,6 +19,7 @@ import landingRouter from "./landing";
 import campaignRedirectRouter from "./campaignRedirect";
 import platformInviteJoinRouter from "./platformInviteJoin";
 import walletRouter from "./wallet";
+import franchiseRouter from "./franchise";
 import reviewsRouter from "./reviews";
 
 const router: IRouter = Router();
@@ -95,6 +96,7 @@ router.use(adminRouter);
 router.use(conciergeRouter); // AI Concierge & Automation module
 router.use(partnersRouter); // Partner-Direct Integrations proxy engine (/v1/partners)
 router.use(coopRouter);     // Merchant co-op partnerships (/coop)
+router.use(franchiseRouter); // Multi-Location Franchise Co-Op Controller (/franchise)
 router.use(posRouter);      // External POS webhook connectors (/pos)
 router.use(safetyRouter);   // Co-op emergency & safety alert network (/coop/safety)
 

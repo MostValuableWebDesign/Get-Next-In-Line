@@ -2736,6 +2736,267 @@ export interface SafetyBroadcastTemplateUpdate {
   body?: string;
 }
 
+export type FranchiseOrgAutonomyPolicy = typeof FranchiseOrgAutonomyPolicy[keyof typeof FranchiseOrgAutonomyPolicy];
+
+
+export const FranchiseOrgAutonomyPolicy = {
+  allowed: 'allowed',
+  approval_required: 'approval_required',
+  locked: 'locked',
+} as const;
+
+export type FranchiseOrgMyRole = typeof FranchiseOrgMyRole[keyof typeof FranchiseOrgMyRole] | null;
+
+
+export const FranchiseOrgMyRole = {
+  super_admin: 'super_admin',
+  regional_manager: 'regional_manager',
+  storefront_operator: 'storefront_operator',
+} as const;
+
+export interface FranchiseOrg {
+  id: number;
+  name: string;
+  autonomyPolicy: FranchiseOrgAutonomyPolicy;
+  myRole: FranchiseOrgMyRole;
+  createdAt: string;
+}
+
+export interface FranchiseOrgCreate {
+  /** @minLength 1 */
+  name: string;
+}
+
+export type FranchiseOrgUpdateAutonomyPolicy = typeof FranchiseOrgUpdateAutonomyPolicy[keyof typeof FranchiseOrgUpdateAutonomyPolicy];
+
+
+export const FranchiseOrgUpdateAutonomyPolicy = {
+  allowed: 'allowed',
+  approval_required: 'approval_required',
+  locked: 'locked',
+} as const;
+
+export interface FranchiseOrgUpdate {
+  /** @minLength 1 */
+  name?: string;
+  autonomyPolicy?: FranchiseOrgUpdateAutonomyPolicy;
+}
+
+export interface FranchiseRegion {
+  id: number;
+  orgId: number;
+  name: string;
+}
+
+export interface FranchiseRegionCreate {
+  /** @minLength 1 */
+  name: string;
+}
+
+export interface FranchiseStorefront {
+  id: number;
+  orgId: number;
+  tenantId: number;
+  tenantName: string;
+  regionId: number | null;
+  postalCode: string | null;
+}
+
+export interface FranchiseStorefrontAttach {
+  storefrontTenantId: number;
+  regionId?: number;
+}
+
+export interface FranchiseStorefrontUpdate {
+  regionId?: number | null;
+}
+
+export type FranchiseOrgDetailAutonomyPolicy = typeof FranchiseOrgDetailAutonomyPolicy[keyof typeof FranchiseOrgDetailAutonomyPolicy];
+
+
+export const FranchiseOrgDetailAutonomyPolicy = {
+  allowed: 'allowed',
+  approval_required: 'approval_required',
+  locked: 'locked',
+} as const;
+
+export type FranchiseOrgDetailMyRole = typeof FranchiseOrgDetailMyRole[keyof typeof FranchiseOrgDetailMyRole];
+
+
+export const FranchiseOrgDetailMyRole = {
+  super_admin: 'super_admin',
+  regional_manager: 'regional_manager',
+  storefront_operator: 'storefront_operator',
+} as const;
+
+export interface FranchiseOrgDetail {
+  id: number;
+  name: string;
+  autonomyPolicy: FranchiseOrgDetailAutonomyPolicy;
+  myRole: FranchiseOrgDetailMyRole;
+  regions: FranchiseRegion[];
+  storefronts: FranchiseStorefront[];
+}
+
+export type FranchiseRoleEntryRole = typeof FranchiseRoleEntryRole[keyof typeof FranchiseRoleEntryRole];
+
+
+export const FranchiseRoleEntryRole = {
+  super_admin: 'super_admin',
+  regional_manager: 'regional_manager',
+  storefront_operator: 'storefront_operator',
+} as const;
+
+export interface FranchiseRoleEntry {
+  id: number;
+  orgId: number;
+  userId: number;
+  username: string;
+  role: FranchiseRoleEntryRole;
+  regionId: number | null;
+  tenantId: number | null;
+}
+
+export type FranchiseRoleAssignRole = typeof FranchiseRoleAssignRole[keyof typeof FranchiseRoleAssignRole];
+
+
+export const FranchiseRoleAssignRole = {
+  super_admin: 'super_admin',
+  regional_manager: 'regional_manager',
+  storefront_operator: 'storefront_operator',
+} as const;
+
+export interface FranchiseRoleAssign {
+  userId: number;
+  role: FranchiseRoleAssignRole;
+  regionId?: number;
+  tenantId?: number;
+}
+
+export type FranchiseTemplateDeploymentStatus = typeof FranchiseTemplateDeploymentStatus[keyof typeof FranchiseTemplateDeploymentStatus];
+
+
+export const FranchiseTemplateDeploymentStatus = {
+  deployed: 'deployed',
+  retired: 'retired',
+} as const;
+
+export interface FranchiseTemplateDeployment {
+  tenantId: number;
+  tenantName: string;
+  status: FranchiseTemplateDeploymentStatus;
+  partnershipId: number | null;
+}
+
+export type FranchiseTemplateStatus = typeof FranchiseTemplateStatus[keyof typeof FranchiseTemplateStatus];
+
+
+export const FranchiseTemplateStatus = {
+  active: 'active',
+  retired: 'retired',
+} as const;
+
+export interface FranchiseTemplate {
+  id: number;
+  orgId: number;
+  title: string;
+  redemptionTerms: string | null;
+  status: FranchiseTemplateStatus;
+  deployments: FranchiseTemplateDeployment[];
+  createdAt: string;
+}
+
+export interface FranchiseTemplateCreate {
+  /** @minLength 1 */
+  title: string;
+  redemptionTerms?: string;
+}
+
+export type FranchiseTemplateUpdateStatus = typeof FranchiseTemplateUpdateStatus[keyof typeof FranchiseTemplateUpdateStatus];
+
+
+export const FranchiseTemplateUpdateStatus = {
+  active: 'active',
+  retired: 'retired',
+} as const;
+
+export interface FranchiseTemplateUpdate {
+  /** @minLength 1 */
+  title?: string;
+  redemptionTerms?: string | null;
+  status?: FranchiseTemplateUpdateStatus;
+}
+
+export type FranchisePartnershipRequestStatus = typeof FranchisePartnershipRequestStatus[keyof typeof FranchisePartnershipRequestStatus];
+
+
+export const FranchisePartnershipRequestStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface FranchisePartnershipRequest {
+  id: number;
+  orgId: number;
+  storefrontTenantId: number;
+  storefrontTenantName: string;
+  targetTenantId: number;
+  targetTenantName: string;
+  perkTitle: string;
+  perkDescription?: string | null;
+  status: FranchisePartnershipRequestStatus;
+  partnershipId: number | null;
+  createdAt: string;
+}
+
+export interface FranchiseRequestCreate {
+  storefrontTenantId: number;
+  targetTenantId: number;
+  /** @minLength 1 */
+  perkTitle: string;
+  perkDescription?: string;
+}
+
+export type FranchiseRequestDecisionAction = typeof FranchiseRequestDecisionAction[keyof typeof FranchiseRequestDecisionAction];
+
+
+export const FranchiseRequestDecisionAction = {
+  approve: 'approve',
+  reject: 'reject',
+} as const;
+
+export interface FranchiseRequestDecision {
+  action: FranchiseRequestDecisionAction;
+}
+
+export interface FranchiseRollupTotals {
+  impressions: number;
+  claims: number;
+  crossovers: number;
+  redemptions: number;
+  revenueInfluenced: number;
+  ledgerRevenue: number;
+}
+
+export interface FranchiseRollupStorefront {
+  tenantId: number;
+  tenantName: string;
+  totals: FranchiseRollupTotals;
+}
+
+export interface FranchiseRollupRegion {
+  regionId: number | null;
+  regionName: string;
+  totals: FranchiseRollupTotals;
+  storefronts: FranchiseRollupStorefront[];
+}
+
+export interface FranchiseRollup {
+  totals: FranchiseRollupTotals;
+  regions: FranchiseRollupRegion[];
+}
+
 export type GetTenantActivityParams = {
 /**
  * Filter activity to a single tenant

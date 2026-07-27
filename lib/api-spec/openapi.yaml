@@ -3177,6 +3177,469 @@ paths:
         "404":
           description: Pass not found (or not owned by this session)
 
+  # ── Franchise Co-Op Controller ──────────────────────────────────────────
+  /franchise/orgs:
+    get:
+      operationId: listFranchiseOrgs
+      tags: [franchise]
+      summary: Organizations the caller can see (platform admins see all; users see orgs where they hold a role)
+      responses:
+        "200":
+          description: Organizations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FranchiseOrg"
+    post:
+      operationId: createFranchiseOrg
+      tags: [franchise]
+      summary: Create a franchise organization (creator becomes its Super Admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FranchiseOrgCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchiseOrg"
+        "400":
+          description: Invalid body
+
+  /franchise/orgs/{orgId}:
+    get:
+      operationId: getFranchiseOrg
+      tags: [franchise]
+      summary: Org detail (regions + storefronts), scoped to the caller's role
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Org detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchiseOrgDetail"
+        "403":
+          description: No role in this org
+        "404":
+          description: Not found
+    patch:
+      operationId: updateFranchiseOrg
+      tags: [franchise]
+      summary: Update org name / local-autonomy policy (Super Admin only)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FranchiseOrgUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchiseOrg"
+        "403":
+          description: Requires Super Admin
+        "404":
+          description: Not found
+
+  /franchise/orgs/{orgId}/regions:
+    post:
+      operationId: createFranchiseRegion
+      tags: [franchise]
+      summary: Create a region (Super Admin only)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FranchiseRegionCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchiseRegion"
+        "403":
+          description: Requires Super Admin
+        "409":
+          description: Region name already exists in this org
+
+  /franchise/orgs/{orgId}/storefronts:
+    post:
+      operationId: attachFranchiseStorefront
+      tags: [franchise]
+      summary: Attach an existing tenant as a storefront (Super Admin only)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FranchiseStorefrontAttach"
+      responses:
+        "201":
+          description: Attached (active templates deploy automatically)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchiseStorefront"
+        "403":
+          description: Requires Super Admin
+        "409":
+          description: Tenant already belongs to an organization
+
+  /franchise/orgs/{orgId}/storefronts/{tenantId}:
+    patch:
+      operationId: updateFranchiseStorefront
+      tags: [franchise]
+      summary: Move a storefront between regions (Super Admin only)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FranchiseStorefrontUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchiseStorefront"
+        "403":
+          description: Requires Super Admin
+        "404":
+          description: Not found
+    delete:
+      operationId: detachFranchiseStorefront
+      tags: [franchise]
+      summary: Detach a storefront (its template-derived perks are retired)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Detached
+        "403":
+          description: Requires Super Admin
+        "404":
+          description: Not found
+
+  /franchise/orgs/{orgId}/roles:
+    get:
+      operationId: listFranchiseRoles
+      tags: [franchise]
+      summary: List role assignments (Super Admin only)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FranchiseRoleEntry"
+        "403":
+          description: Requires Super Admin
+    post:
+      operationId: assignFranchiseRole
+      tags: [franchise]
+      summary: Assign an org role to a user (Super Admin only)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FranchiseRoleAssign"
+      responses:
+        "201":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchiseRoleEntry"
+        "403":
+          description: Requires Super Admin
+        "409":
+          description: User already has a role in this org
+
+  /franchise/orgs/{orgId}/roles/{roleId}:
+    delete:
+      operationId: removeFranchiseRole
+      tags: [franchise]
+      summary: Remove a role assignment (Super Admin only)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+        "403":
+          description: Requires Super Admin
+        "404":
+          description: Not found
+
+  /franchise/orgs/{orgId}/templates:
+    get:
+      operationId: listFranchiseTemplates
+      tags: [franchise]
+      summary: Perk templates with per-location deployment status (scoped to the caller's role)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FranchiseTemplate"
+        "403":
+          description: No role in this org
+    post:
+      operationId: createFranchiseTemplate
+      tags: [franchise]
+      summary: Define & deploy a global perk template to every storefront (Super Admin only)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FranchiseTemplateCreate"
+      responses:
+        "201":
+          description: Created & deployed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchiseTemplate"
+        "403":
+          description: Requires Super Admin
+
+  /franchise/orgs/{orgId}/templates/{templateId}:
+    patch:
+      operationId: updateFranchiseTemplate
+      tags: [franchise]
+      summary: Update or retire/reactivate a template — changes propagate to every deployed location (Super Admin only)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FranchiseTemplateUpdate"
+      responses:
+        "200":
+          description: Updated & propagated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchiseTemplate"
+        "403":
+          description: Requires Super Admin
+        "404":
+          description: Not found
+
+  /franchise/orgs/{orgId}/requests:
+    get:
+      operationId: listFranchiseRequests
+      tags: [franchise]
+      summary: Local-partnership approval queue, scoped to the caller's role
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FranchisePartnershipRequest"
+        "403":
+          description: No role in this org
+    post:
+      operationId: createFranchiseRequest
+      tags: [franchise]
+      summary: Storefront-initiated local partnership (zip-code proximity enforced; outcome depends on the org autonomy policy)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FranchiseRequestCreate"
+      responses:
+        "201":
+          description: Created — approved immediately under the allowed policy, queued under approval_required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchisePartnershipRequest"
+        "400":
+          description: Zip-code mismatch or invalid body
+        "403":
+          description: Autonomy locked, or storefront outside the caller's scope
+
+  /franchise/orgs/{orgId}/requests/{requestId}/decide:
+    post:
+      operationId: decideFranchiseRequest
+      tags: [franchise]
+      summary: Approve or reject a queued local-partnership request (Regional Manager of that region or Super Admin)
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FranchiseRequestDecision"
+      responses:
+        "200":
+          description: Decided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchisePartnershipRequest"
+        "403":
+          description: Outside the caller's scope
+        "404":
+          description: Not found
+        "409":
+          description: Already decided
+
+  /franchise/orgs/{orgId}/rollup:
+    get:
+      operationId: getFranchiseRollup
+      tags: [franchise]
+      summary: Consolidated cross-promotion / redemption / revenue roll-up, region- and storefront-broken-down, scoped to the caller's role
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Roll-up report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FranchiseRollup"
+        "403":
+          description: No role in this org
+
+
 components:
   schemas:
     PosIntegration:
@@ -6410,3 +6873,321 @@ components:
         body:
           type: string
           minLength: 1
+
+    # ── Franchise Co-Op Controller ─────────────────────────────────────────
+    FranchiseOrg:
+      type: object
+      required: [id, name, autonomyPolicy, myRole, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        autonomyPolicy:
+          type: string
+          enum: [allowed, approval_required, locked]
+        myRole:
+          type: string
+          nullable: true
+          enum: [super_admin, regional_manager, storefront_operator]
+        createdAt:
+          type: string
+
+    FranchiseOrgCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+
+    FranchiseOrgUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        autonomyPolicy:
+          type: string
+          enum: [allowed, approval_required, locked]
+
+    FranchiseRegion:
+      type: object
+      required: [id, orgId, name]
+      properties:
+        id:
+          type: integer
+        orgId:
+          type: integer
+        name:
+          type: string
+
+    FranchiseRegionCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+
+    FranchiseStorefront:
+      type: object
+      required: [id, orgId, tenantId, tenantName, regionId, postalCode]
+      properties:
+        id:
+          type: integer
+        orgId:
+          type: integer
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        regionId:
+          type: integer
+          nullable: true
+        postalCode:
+          type: string
+          nullable: true
+
+    FranchiseStorefrontAttach:
+      type: object
+      required: [storefrontTenantId]
+      properties:
+        storefrontTenantId:
+          type: integer
+        regionId:
+          type: integer
+
+    FranchiseStorefrontUpdate:
+      type: object
+      properties:
+        regionId:
+          type: integer
+          nullable: true
+
+    FranchiseOrgDetail:
+      type: object
+      required: [id, name, autonomyPolicy, myRole, regions, storefronts]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        autonomyPolicy:
+          type: string
+          enum: [allowed, approval_required, locked]
+        myRole:
+          type: string
+          enum: [super_admin, regional_manager, storefront_operator]
+        regions:
+          type: array
+          items:
+            $ref: "#/components/schemas/FranchiseRegion"
+        storefronts:
+          type: array
+          items:
+            $ref: "#/components/schemas/FranchiseStorefront"
+
+    FranchiseRoleEntry:
+      type: object
+      required: [id, orgId, userId, username, role, regionId, tenantId]
+      properties:
+        id:
+          type: integer
+        orgId:
+          type: integer
+        userId:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+          enum: [super_admin, regional_manager, storefront_operator]
+        regionId:
+          type: integer
+          nullable: true
+        tenantId:
+          type: integer
+          nullable: true
+
+    FranchiseRoleAssign:
+      type: object
+      required: [userId, role]
+      properties:
+        userId:
+          type: integer
+        role:
+          type: string
+          enum: [super_admin, regional_manager, storefront_operator]
+        regionId:
+          type: integer
+        tenantId:
+          type: integer
+
+    FranchiseTemplateDeployment:
+      type: object
+      required: [tenantId, tenantName, status, partnershipId]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        status:
+          type: string
+          enum: [deployed, retired]
+        partnershipId:
+          type: integer
+          nullable: true
+
+    FranchiseTemplate:
+      type: object
+      required: [id, orgId, title, redemptionTerms, status, deployments, createdAt]
+      properties:
+        id:
+          type: integer
+        orgId:
+          type: integer
+        title:
+          type: string
+        redemptionTerms:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, retired]
+        deployments:
+          type: array
+          items:
+            $ref: "#/components/schemas/FranchiseTemplateDeployment"
+        createdAt:
+          type: string
+
+    FranchiseTemplateCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        redemptionTerms:
+          type: string
+
+    FranchiseTemplateUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        redemptionTerms:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, retired]
+
+    FranchisePartnershipRequest:
+      type: object
+      required: [id, orgId, storefrontTenantId, storefrontTenantName, targetTenantId, targetTenantName, perkTitle, status, partnershipId, createdAt]
+      properties:
+        id:
+          type: integer
+        orgId:
+          type: integer
+        storefrontTenantId:
+          type: integer
+        storefrontTenantName:
+          type: string
+        targetTenantId:
+          type: integer
+        targetTenantName:
+          type: string
+        perkTitle:
+          type: string
+        perkDescription:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        partnershipId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+
+    FranchiseRequestCreate:
+      type: object
+      required: [storefrontTenantId, targetTenantId, perkTitle]
+      properties:
+        storefrontTenantId:
+          type: integer
+        targetTenantId:
+          type: integer
+        perkTitle:
+          type: string
+          minLength: 1
+        perkDescription:
+          type: string
+
+    FranchiseRequestDecision:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [approve, reject]
+
+    FranchiseRollupTotals:
+      type: object
+      required: [impressions, claims, crossovers, redemptions, revenueInfluenced, ledgerRevenue]
+      properties:
+        impressions:
+          type: integer
+        claims:
+          type: integer
+        crossovers:
+          type: integer
+        redemptions:
+          type: integer
+        revenueInfluenced:
+          type: number
+        ledgerRevenue:
+          type: number
+
+    FranchiseRollupStorefront:
+      type: object
+      required: [tenantId, tenantName, totals]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        totals:
+          $ref: "#/components/schemas/FranchiseRollupTotals"
+
+    FranchiseRollupRegion:
+      type: object
+      required: [regionId, regionName, totals, storefronts]
+      properties:
+        regionId:
+          type: integer
+          nullable: true
+        regionName:
+          type: string
+        totals:
+          $ref: "#/components/schemas/FranchiseRollupTotals"
+        storefronts:
+          type: array
+          items:
+            $ref: "#/components/schemas/FranchiseRollupStorefront"
+
+    FranchiseRollup:
+      type: object
+      required: [totals, regions]
+      properties:
+        totals:
+          $ref: "#/components/schemas/FranchiseRollupTotals"
+        regions:
+          type: array
+          items:
+            $ref: "#/components/schemas/FranchiseRollupRegion"

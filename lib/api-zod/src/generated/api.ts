@@ -3838,3 +3838,431 @@ export const GetWalletPassResponse = zod.object({
 }))
 
 
+/**
+ * @summary Organizations the caller can see (platform admins see all; users see orgs where they hold a role)
+ */
+export const ListFranchiseOrgsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "autonomyPolicy": zod.enum(['allowed', 'approval_required', 'locked']),
+  "myRole": zod.enum(['super_admin', 'regional_manager', 'storefront_operator']).nullable(),
+  "createdAt": zod.string()
+})
+export const ListFranchiseOrgsResponse = zod.array(ListFranchiseOrgsResponseItem)
+
+
+/**
+ * @summary Create a franchise organization (creator becomes its Super Admin)
+ */
+
+
+
+export const CreateFranchiseOrgBody = zod.object({
+  "name": zod.string().min(1)
+})
+
+export const CreateFranchiseOrgResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "autonomyPolicy": zod.enum(['allowed', 'approval_required', 'locked']),
+  "myRole": zod.enum(['super_admin', 'regional_manager', 'storefront_operator']).nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Org detail (regions + storefronts), scoped to the caller's role
+ */
+export const GetFranchiseOrgParams = zod.object({
+  "orgId": zod.coerce.number()
+})
+
+export const GetFranchiseOrgResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "autonomyPolicy": zod.enum(['allowed', 'approval_required', 'locked']),
+  "myRole": zod.enum(['super_admin', 'regional_manager', 'storefront_operator']),
+  "regions": zod.array(zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "name": zod.string()
+})),
+  "storefronts": zod.array(zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "regionId": zod.number().nullable(),
+  "postalCode": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Update org name / local-autonomy policy (Super Admin only)
+ */
+export const UpdateFranchiseOrgParams = zod.object({
+  "orgId": zod.coerce.number()
+})
+
+
+
+
+export const UpdateFranchiseOrgBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "autonomyPolicy": zod.enum(['allowed', 'approval_required', 'locked']).optional()
+})
+
+export const UpdateFranchiseOrgResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "autonomyPolicy": zod.enum(['allowed', 'approval_required', 'locked']),
+  "myRole": zod.enum(['super_admin', 'regional_manager', 'storefront_operator']).nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Create a region (Super Admin only)
+ */
+export const CreateFranchiseRegionParams = zod.object({
+  "orgId": zod.coerce.number()
+})
+
+
+
+
+export const CreateFranchiseRegionBody = zod.object({
+  "name": zod.string().min(1)
+})
+
+export const CreateFranchiseRegionResponse = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "name": zod.string()
+})
+
+
+/**
+ * @summary Attach an existing tenant as a storefront (Super Admin only)
+ */
+export const AttachFranchiseStorefrontParams = zod.object({
+  "orgId": zod.coerce.number()
+})
+
+export const AttachFranchiseStorefrontBody = zod.object({
+  "storefrontTenantId": zod.number(),
+  "regionId": zod.number().optional()
+})
+
+export const AttachFranchiseStorefrontResponse = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "regionId": zod.number().nullable(),
+  "postalCode": zod.string().nullable()
+})
+
+
+/**
+ * @summary Move a storefront between regions (Super Admin only)
+ */
+export const UpdateFranchiseStorefrontParams = zod.object({
+  "orgId": zod.coerce.number(),
+  "tenantId": zod.coerce.number()
+})
+
+export const UpdateFranchiseStorefrontBody = zod.object({
+  "regionId": zod.number().nullish()
+})
+
+export const UpdateFranchiseStorefrontResponse = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "regionId": zod.number().nullable(),
+  "postalCode": zod.string().nullable()
+})
+
+
+/**
+ * @summary Detach a storefront (its template-derived perks are retired)
+ */
+export const DetachFranchiseStorefrontParams = zod.object({
+  "orgId": zod.coerce.number(),
+  "tenantId": zod.coerce.number()
+})
+
+export const DetachFranchiseStorefrontResponse = zod.void()
+
+
+/**
+ * @summary List role assignments (Super Admin only)
+ */
+export const ListFranchiseRolesParams = zod.object({
+  "orgId": zod.coerce.number()
+})
+
+export const ListFranchiseRolesResponseItem = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "userId": zod.number(),
+  "username": zod.string(),
+  "role": zod.enum(['super_admin', 'regional_manager', 'storefront_operator']),
+  "regionId": zod.number().nullable(),
+  "tenantId": zod.number().nullable()
+})
+export const ListFranchiseRolesResponse = zod.array(ListFranchiseRolesResponseItem)
+
+
+/**
+ * @summary Assign an org role to a user (Super Admin only)
+ */
+export const AssignFranchiseRoleParams = zod.object({
+  "orgId": zod.coerce.number()
+})
+
+export const AssignFranchiseRoleBody = zod.object({
+  "userId": zod.number(),
+  "role": zod.enum(['super_admin', 'regional_manager', 'storefront_operator']),
+  "regionId": zod.number().optional(),
+  "tenantId": zod.number().optional()
+})
+
+export const AssignFranchiseRoleResponse = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "userId": zod.number(),
+  "username": zod.string(),
+  "role": zod.enum(['super_admin', 'regional_manager', 'storefront_operator']),
+  "regionId": zod.number().nullable(),
+  "tenantId": zod.number().nullable()
+})
+
+
+/**
+ * @summary Remove a role assignment (Super Admin only)
+ */
+export const RemoveFranchiseRoleParams = zod.object({
+  "orgId": zod.coerce.number(),
+  "roleId": zod.coerce.number()
+})
+
+export const RemoveFranchiseRoleResponse = zod.void()
+
+
+/**
+ * @summary Perk templates with per-location deployment status (scoped to the caller's role)
+ */
+export const ListFranchiseTemplatesParams = zod.object({
+  "orgId": zod.coerce.number()
+})
+
+export const ListFranchiseTemplatesResponseItem = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "title": zod.string(),
+  "redemptionTerms": zod.string().nullable(),
+  "status": zod.enum(['active', 'retired']),
+  "deployments": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['deployed', 'retired']),
+  "partnershipId": zod.number().nullable()
+})),
+  "createdAt": zod.string()
+})
+export const ListFranchiseTemplatesResponse = zod.array(ListFranchiseTemplatesResponseItem)
+
+
+/**
+ * @summary Define & deploy a global perk template to every storefront (Super Admin only)
+ */
+export const CreateFranchiseTemplateParams = zod.object({
+  "orgId": zod.coerce.number()
+})
+
+
+
+
+export const CreateFranchiseTemplateBody = zod.object({
+  "title": zod.string().min(1),
+  "redemptionTerms": zod.string().optional()
+})
+
+export const CreateFranchiseTemplateResponse = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "title": zod.string(),
+  "redemptionTerms": zod.string().nullable(),
+  "status": zod.enum(['active', 'retired']),
+  "deployments": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['deployed', 'retired']),
+  "partnershipId": zod.number().nullable()
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update or retire/reactivate a template — changes propagate to every deployed location (Super Admin only)
+ */
+export const UpdateFranchiseTemplateParams = zod.object({
+  "orgId": zod.coerce.number(),
+  "templateId": zod.coerce.number()
+})
+
+
+
+
+export const UpdateFranchiseTemplateBody = zod.object({
+  "title": zod.string().min(1).optional(),
+  "redemptionTerms": zod.string().nullish(),
+  "status": zod.enum(['active', 'retired']).optional()
+})
+
+export const UpdateFranchiseTemplateResponse = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "title": zod.string(),
+  "redemptionTerms": zod.string().nullable(),
+  "status": zod.enum(['active', 'retired']),
+  "deployments": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['deployed', 'retired']),
+  "partnershipId": zod.number().nullable()
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Local-partnership approval queue, scoped to the caller's role
+ */
+export const ListFranchiseRequestsParams = zod.object({
+  "orgId": zod.coerce.number()
+})
+
+export const ListFranchiseRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "storefrontTenantId": zod.number(),
+  "storefrontTenantName": zod.string(),
+  "targetTenantId": zod.number(),
+  "targetTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "partnershipId": zod.number().nullable(),
+  "createdAt": zod.string()
+})
+export const ListFranchiseRequestsResponse = zod.array(ListFranchiseRequestsResponseItem)
+
+
+/**
+ * @summary Storefront-initiated local partnership (zip-code proximity enforced; outcome depends on the org autonomy policy)
+ */
+export const CreateFranchiseRequestParams = zod.object({
+  "orgId": zod.coerce.number()
+})
+
+
+
+
+export const CreateFranchiseRequestBody = zod.object({
+  "storefrontTenantId": zod.number(),
+  "targetTenantId": zod.number(),
+  "perkTitle": zod.string().min(1),
+  "perkDescription": zod.string().optional()
+})
+
+export const CreateFranchiseRequestResponse = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "storefrontTenantId": zod.number(),
+  "storefrontTenantName": zod.string(),
+  "targetTenantId": zod.number(),
+  "targetTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "partnershipId": zod.number().nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Approve or reject a queued local-partnership request (Regional Manager of that region or Super Admin)
+ */
+export const DecideFranchiseRequestParams = zod.object({
+  "orgId": zod.coerce.number(),
+  "requestId": zod.coerce.number()
+})
+
+export const DecideFranchiseRequestBody = zod.object({
+  "action": zod.enum(['approve', 'reject'])
+})
+
+export const DecideFranchiseRequestResponse = zod.object({
+  "id": zod.number(),
+  "orgId": zod.number(),
+  "storefrontTenantId": zod.number(),
+  "storefrontTenantName": zod.string(),
+  "targetTenantId": zod.number(),
+  "targetTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullish(),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "partnershipId": zod.number().nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Consolidated cross-promotion / redemption / revenue roll-up, region- and storefront-broken-down, scoped to the caller's role
+ */
+export const GetFranchiseRollupParams = zod.object({
+  "orgId": zod.coerce.number()
+})
+
+export const GetFranchiseRollupResponse = zod.object({
+  "totals": zod.object({
+  "impressions": zod.number(),
+  "claims": zod.number(),
+  "crossovers": zod.number(),
+  "redemptions": zod.number(),
+  "revenueInfluenced": zod.number(),
+  "ledgerRevenue": zod.number()
+}),
+  "regions": zod.array(zod.object({
+  "regionId": zod.number().nullable(),
+  "regionName": zod.string(),
+  "totals": zod.object({
+  "impressions": zod.number(),
+  "claims": zod.number(),
+  "crossovers": zod.number(),
+  "redemptions": zod.number(),
+  "revenueInfluenced": zod.number(),
+  "ledgerRevenue": zod.number()
+}),
+  "storefronts": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "totals": zod.object({
+  "impressions": zod.number(),
+  "claims": zod.number(),
+  "crossovers": zod.number(),
+  "redemptions": zod.number(),
+  "revenueInfluenced": zod.number(),
+  "ledgerRevenue": zod.number()
+})
+}))
+}))
+})
+
+
