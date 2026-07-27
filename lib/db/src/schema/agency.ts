@@ -621,6 +621,124 @@ export const coopCampaignBlastsTable = pgTable(
 
 export type CoopCampaignBlast = typeof coopCampaignBlastsTable.$inferSelect;
 
+// ── Co-op community events & sponsorship sync ────────────────────────────────
+// Joint neighborhood events planned by connected co-op partners: a host
+// business creates the event and invites its accepted partners; accepted
+// participants share an event calendar, pool sponsorship costs through the
+// expense ledger (split evenly or by host-set weights), and track foot
+// traffic back to each storefront via per-storefront check-in codes (plus a
+// unified event code). No real money moves — the ledger is internal.
+export const coopCommunityEventsTable = pgTable(
+  "coop_community_events",
+  {
+    id: serial("id").primaryKey(),
+    hostTenantId: integer("host_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    location: text("location"),
+    startsAt: timestamp("starts_at").notNull(),
+    endsAt: timestamp("ends_at").notNull(),
+    // Unified event check-in code — attributes foot traffic to the event as a
+    // whole rather than a single storefront.
+    unifiedCode: text("unified_code").notNull().unique(),
+    // Stamped when the host fires the one-time joint announcement broadcast.
+    // The conditional `IS NULL` claim on this column is the send-once lock.
+    broadcastTriggeredAt: timestamp("broadcast_triggered_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_community_events_host_idx").on(t.hostTenantId)],
+);
+
+export type CoopCommunityEvent = typeof coopCommunityEventsTable.$inferSelect;
+
+// Per-business participation: invited partners accept or decline. Only
+// accepted participants appear on shared calendars, event materials, and the
+// broadcast — pending/declined never surface (mirrors the co-op perks rule).
+export const coopCommunityEventParticipantsTable = pgTable(
+  "coop_community_event_participants",
+  {
+    id: serial("id").primaryKey(),
+    eventId: integer("event_id")
+      .notNull()
+      .references(() => coopCommunityEventsTable.id, { onDelete: "cascade" }),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // invited | accepted | declined. The host's own row is created accepted.
+    status: text("status").notNull().default("invited"),
+    // Host-set cost-share weight for proportional expense splits. Even splits
+    // ignore it. Only accepted participants ever enter a split.
+    shareWeight: numeric("share_weight", { precision: 8, scale: 2 }).notNull().default("1"),
+    // Per-storefront check-in code. Assigned when the participant becomes
+    // accepted (host at creation, partners on accept) — a pending or declined
+    // participant never has a scannable code.
+    checkinCode: text("checkin_code").unique(),
+    respondedAt: timestamp("responded_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("coop_community_event_participants_event_tenant_uq").on(t.eventId, t.tenantId),
+    index("coop_community_event_participants_tenant_idx").on(t.tenantId),
+  ],
+);
+
+export type CoopCommunityEventParticipant =
+  typeof coopCommunityEventParticipantsTable.$inferSelect;
+
+// Shared expense ledger: any accepted participant logs a cost; the split
+// (even or proportional by weight) is computed at read time across the
+// participants accepted at that moment, so settlement always reflects the
+// current roster. Amounts are tracked internally — no money movement.
+export const coopCommunityEventExpensesTable = pgTable(
+  "coop_community_event_expenses",
+  {
+    id: serial("id").primaryKey(),
+    eventId: integer("event_id")
+      .notNull()
+      .references(() => coopCommunityEventsTable.id, { onDelete: "cascade" }),
+    paidByTenantId: integer("paid_by_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    // even | proportional — how this cost is split across accepted participants.
+    splitMethod: text("split_method").notNull().default("even"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_community_event_expenses_event_idx").on(t.eventId)],
+);
+
+export type CoopCommunityEventExpense = typeof coopCommunityEventExpensesTable.$inferSelect;
+
+// Check-ins / attributions: one row per scanned/entered check-in. The
+// attributed tenant is the storefront whose code was used; NULL means the
+// unified event code (community-level foot traffic, no storefront credit).
+export const coopCommunityEventCheckinsTable = pgTable(
+  "coop_community_event_checkins",
+  {
+    id: serial("id").primaryKey(),
+    eventId: integer("event_id")
+      .notNull()
+      .references(() => coopCommunityEventsTable.id, { onDelete: "cascade" }),
+    attributedTenantId: integer("attributed_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    // The exact code that was scanned/entered (storefront or unified).
+    code: text("code").notNull(),
+    attendeeName: text("attendee_name"),
+    checkedInAt: timestamp("checked_in_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_community_event_checkins_event_idx").on(t.eventId),
+    index("coop_community_event_checkins_tenant_idx").on(t.attributedTenantId),
+  ],
+);
+
+export type CoopCommunityEventCheckin = typeof coopCommunityEventCheckinsTable.$inferSelect;
+
 export const insertCoopDisputeSchema = createInsertSchema(coopDisputesTable).omit({
   id: true,
   createdAt: true,

@@ -29,4 +29,5 @@ export const SosMessageKind = {
   coop_tier_change: 'coop_tier_change',
   passport_reward: 'passport_reward',
   emergency_broadcast: 'emergency_broadcast',
+  coop_event_broadcast: 'coop_event_broadcast',
 } as const;

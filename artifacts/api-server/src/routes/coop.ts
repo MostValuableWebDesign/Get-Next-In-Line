@@ -84,6 +84,19 @@ import {
   RespondToCoopCampaignBody,
   RespondToCoopCampaignResponse,
   TriggerCoopCampaignBlastResponse,
+  ListCoopEventsResponse,
+  CreateCoopEventBody,
+  CreateCoopEventResponse,
+  GetCoopEventResponse,
+  RespondToCoopEventBody,
+  RespondToCoopEventResponse,
+  CreateCoopEventExpenseBody,
+  CreateCoopEventExpenseResponse,
+  UpdateCoopEventParticipantBody,
+  UpdateCoopEventParticipantResponse,
+  TriggerCoopEventBroadcastResponse,
+  CheckInCoopEventBody,
+  CheckInCoopEventResponse,
   GetCoopStatsResponse,
   ListCoopPlazaNotificationsResponse,
   ListCoopPlazaConflictsResponse,
@@ -110,7 +123,20 @@ import { resolveSettings } from "../lib/settings";
 import {
   coopCampaignsTable,
   coopCampaignParticipantsTable,
+  coopCommunityEventsTable,
+  coopCommunityEventParticipantsTable,
+  coopCommunityEventExpensesTable,
+  coopCommunityEventCheckinsTable,
 } from "@workspace/db";
+import {
+  eventPhase,
+  loadEventRows,
+  serializeEvent,
+  serializeEventDetail,
+  newUnifiedEventCode,
+  newStorefrontCode,
+  runEventBroadcast,
+} from "../lib/coopCommunityEvents";
 import {
   CAMPAIGN_TEMPLATES,
   CAMPAIGN_TEMPLATE_SLUGS,
@@ -2021,6 +2047,398 @@ router.post("/coop/partnerships/:id/resume", async (req, res): Promise<void> => 
     .set({ isActive: true, updatedAt: new Date() })
     .where(eq(merchantCoopPartnershipsTable.id, p.id));
   await respondWithPartnership(res, p.id, ResumeCoopPartnershipResponse);
+});
+
+// ---------------------------------------------------------------------------
+// Co-op community events & sponsorship sync — /api/coop/events
+//
+// Connected partner businesses jointly plan neighborhood events: a host
+// invites its accepted co-op partners, accepted participants share the event
+// calendar and materials, pool sponsorship costs through an internal ledger
+// (even or weight-proportional splits — no real money movement), broadcast
+// the initiative through each business's own messaging channel, and track
+// foot traffic back to each storefront via per-storefront check-in codes.
+// Pending/declined participants never surface anywhere customer-facing,
+// mirroring the co-op perks rule. Tenant scope via x-tenant-id.
+// ---------------------------------------------------------------------------
+
+/** Load an event and assert the scoped tenant is a participant. */
+async function loadEventForParticipant(
+  eventId: number,
+  tenantId: number,
+): Promise<
+  | { ok: true; row: Awaited<ReturnType<typeof loadEventRows>>[number] }
+  | { ok: false; status: 403 | 404; message: string }
+> {
+  if (!Number.isInteger(eventId)) return { ok: false, status: 404, message: "Not found" };
+  const [row] = await loadEventRows([eventId]);
+  if (!row) return { ok: false, status: 404, message: "Not found" };
+  if (!row.participants.some((p) => p.tenantId === tenantId)) {
+    return { ok: false, status: 403, message: "Only a participating business can view this event" };
+  }
+  return { ok: true, row };
+}
+
+// ── GET /coop/events — shared co-op event calendar for the scoped tenant ────
+router.get("/coop/events", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const mine = await db
+    .select({ eventId: coopCommunityEventParticipantsTable.eventId })
+    .from(coopCommunityEventParticipantsTable)
+    .where(eq(coopCommunityEventParticipantsTable.tenantId, tenantId));
+  const rows = await loadEventRows(mine.map((r) => r.eventId));
+  const now = new Date();
+  res.json(ListCoopEventsResponse.parse(rows.map((row) => serializeEvent(row, tenantId, now))));
+});
+
+// ── POST /coop/events — host a joint event inviting current partners ────────
+router.post("/coop/events", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = CreateCoopEventBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const startsAt = new Date(parsed.data.startsAt);
+  const endsAt = new Date(parsed.data.endsAt);
+  const now = new Date();
+  if (!(startsAt < endsAt)) {
+    res.status(400).json({ message: "The event start must be before its end" });
+    return;
+  }
+  if (endsAt <= now) {
+    res.status(400).json({ message: "The event must end in the future" });
+    return;
+  }
+  const inviteeIds = [...new Set(parsed.data.partnerTenantIds)].filter((id) => id !== tenantId);
+  if (inviteeIds.length === 0) {
+    res.status(400).json({ message: "Invite at least one partner business" });
+    return;
+  }
+  // Gate: same rule as campaigns — hosts need at least one accepted, active
+  // partnership, and every invitee must be one of those current partners.
+  const partnerIds = await activePartnerIdsOf(tenantId);
+  if (partnerIds.size === 0) {
+    res.status(403).json({
+      message: "You need at least one accepted, active co-op partnership to host a joint event",
+    });
+    return;
+  }
+  const outsiders = inviteeIds.filter((id) => !partnerIds.has(id));
+  if (outsiders.length > 0) {
+    res.status(403).json({
+      message: "Events can only invite your current accepted, active co-op partners",
+    });
+    return;
+  }
+  const created = await db.transaction(async (tx) => {
+    const [event] = await tx
+      .insert(coopCommunityEventsTable)
+      .values({
+        hostTenantId: tenantId,
+        name: parsed.data.name.trim(),
+        description: parsed.data.description?.trim() || null,
+        location: parsed.data.location?.trim() || null,
+        startsAt,
+        endsAt,
+        unifiedCode: newUnifiedEventCode(),
+      })
+      .returning();
+    // The host joins its own event at birth, already accepted and holding a
+    // live storefront check-in code. Invitees get theirs when they accept.
+    await tx.insert(coopCommunityEventParticipantsTable).values([
+      {
+        eventId: event.id,
+        tenantId,
+        status: "accepted",
+        checkinCode: newStorefrontCode(),
+        respondedAt: now,
+      },
+      ...inviteeIds.map((id) => ({ eventId: event.id, tenantId: id, status: "invited" })),
+    ]);
+    return event;
+  });
+  const [row] = await loadEventRows([created.id]);
+  res.status(201).json(CreateCoopEventResponse.parse(serializeEvent(row, tenantId, now)));
+});
+
+// ── GET /coop/events/:id — full detail: ledger, settlement, passes, stats ───
+router.get("/coop/events/:id", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const loaded = await loadEventForParticipant(Number(req.params.id), tenantId);
+  if (!loaded.ok) {
+    res.status(loaded.status).json({ message: loaded.message });
+    return;
+  }
+  res.json(GetCoopEventResponse.parse(await serializeEventDetail(loaded.row, tenantId)));
+});
+
+// ── POST /coop/events/:id/respond — invited partner accepts or declines ─────
+router.post("/coop/events/:id/respond", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = RespondToCoopEventBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const loaded = await loadEventForParticipant(Number(req.params.id), tenantId);
+  if (!loaded.ok) {
+    // A non-participant can't respond — but keep 404 for unknown events.
+    res.status(loaded.status).json({
+      message: loaded.status === 403 ? "Only an invited partner can respond to this event" : loaded.message,
+    });
+    return;
+  }
+  const { row } = loaded;
+  const me = row.participants.find((p) => p.tenantId === tenantId)!;
+  if (row.event.hostTenantId === tenantId) {
+    res.status(403).json({ message: "Only an invited partner can respond to this event" });
+    return;
+  }
+  const now = new Date();
+  if (eventPhase(row.event, now) === "ended") {
+    res.status(409).json({ message: "This event has already ended" });
+    return;
+  }
+  if (me.status !== "invited") {
+    res.status(409).json({
+      message: `You already ${me.status === "accepted" ? "accepted" : "declined"} this event`,
+    });
+    return;
+  }
+  const accepting = parsed.data.action === "accept";
+  // Conditional update guards against a concurrent double-respond. Accepting
+  // is the moment the storefront check-in code comes to life — a pending or
+  // declined participant never holds a scannable code.
+  const [updated] = await db
+    .update(coopCommunityEventParticipantsTable)
+    .set({
+      status: accepting ? "accepted" : "declined",
+      checkinCode: accepting ? newStorefrontCode() : null,
+      respondedAt: now,
+    })
+    .where(
+      and(
+        eq(coopCommunityEventParticipantsTable.id, me.id),
+        eq(coopCommunityEventParticipantsTable.status, "invited"),
+      ),
+    )
+    .returning();
+  if (!updated) {
+    res.status(409).json({ message: "This invite was already responded to" });
+    return;
+  }
+  const [fresh] = await loadEventRows([row.event.id]);
+  res.json(RespondToCoopEventResponse.parse(serializeEvent(fresh, tenantId, now)));
+});
+
+// ── POST /coop/events/:id/expenses — accepted participant logs a shared cost ─
+router.post("/coop/events/:id/expenses", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = CreateCoopEventExpenseBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const amountCents = Math.round(parsed.data.amount * 100);
+  if (amountCents <= 0 || Math.abs(parsed.data.amount * 100 - amountCents) > 1e-6) {
+    res.status(400).json({ message: "Amount must be a positive dollar value with at most 2 decimals" });
+    return;
+  }
+  const loaded = await loadEventForParticipant(Number(req.params.id), tenantId);
+  if (!loaded.ok) {
+    res.status(loaded.status).json({ message: loaded.message });
+    return;
+  }
+  const me = loaded.row.participants.find((p) => p.tenantId === tenantId)!;
+  if (me.status !== "accepted") {
+    res.status(403).json({ message: "Only an accepted participant can log event expenses" });
+    return;
+  }
+  await db.insert(coopCommunityEventExpensesTable).values({
+    eventId: loaded.row.event.id,
+    paidByTenantId: tenantId,
+    description: parsed.data.description.trim(),
+    amount: (amountCents / 100).toFixed(2),
+    splitMethod: parsed.data.splitMethod ?? "even",
+  });
+  const [fresh] = await loadEventRows([loaded.row.event.id]);
+  res.status(201).json(CreateCoopEventExpenseResponse.parse(await serializeEventDetail(fresh, tenantId)));
+});
+
+// ── PATCH /coop/events/:id/participants/:tenantId — host sets share weight ──
+router.patch("/coop/events/:id/participants/:tenantId", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = UpdateCoopEventParticipantBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const weightHundredths = Math.round(parsed.data.shareWeight * 100);
+  if (weightHundredths <= 0 || Math.abs(parsed.data.shareWeight * 100 - weightHundredths) > 1e-6) {
+    res.status(400).json({ message: "Share weight must be positive with at most 2 decimals" });
+    return;
+  }
+  const loaded = await loadEventForParticipant(Number(req.params.id), tenantId);
+  if (!loaded.ok) {
+    res.status(loaded.status).json({ message: loaded.message });
+    return;
+  }
+  if (loaded.row.event.hostTenantId !== tenantId) {
+    res.status(403).json({ message: "Only the event host can set cost-share weights" });
+    return;
+  }
+  const targetTenantId = Number(req.params.tenantId);
+  const target = loaded.row.participants.find((p) => p.tenantId === targetTenantId);
+  if (!target) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  await db
+    .update(coopCommunityEventParticipantsTable)
+    .set({ shareWeight: (weightHundredths / 100).toFixed(2) })
+    .where(eq(coopCommunityEventParticipantsTable.id, target.id));
+  const [fresh] = await loadEventRows([loaded.row.event.id]);
+  res.json(UpdateCoopEventParticipantResponse.parse(await serializeEventDetail(fresh, tenantId)));
+});
+
+// ── POST /coop/events/:id/broadcast — host fires the one-time announcement ──
+router.post("/coop/events/:id/broadcast", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const loaded = await loadEventForParticipant(Number(req.params.id), tenantId);
+  if (!loaded.ok) {
+    res.status(loaded.status).json({ message: loaded.message });
+    return;
+  }
+  if (loaded.row.event.hostTenantId !== tenantId) {
+    res.status(403).json({ message: "Only the event host can trigger the broadcast" });
+    return;
+  }
+  const now = new Date();
+  if (eventPhase(loaded.row.event, now) === "ended") {
+    res.status(409).json({ message: "This event has already ended" });
+    return;
+  }
+  // Conditional claim = send-once lock: concurrent triggers can never
+  // double-text the combined customer bases.
+  const [claimed] = await db
+    .update(coopCommunityEventsTable)
+    .set({ broadcastTriggeredAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(coopCommunityEventsTable.id, loaded.row.event.id),
+        isNull(coopCommunityEventsTable.broadcastTriggeredAt),
+      ),
+    )
+    .returning({ id: coopCommunityEventsTable.id });
+  if (!claimed) {
+    res.status(409).json({ message: "The announcement for this event was already sent" });
+    return;
+  }
+  const summary = await runEventBroadcast(loaded.row.event.id, now);
+  res.json(TriggerCoopEventBroadcastResponse.parse(summary));
+});
+
+// ── POST /coop/events/checkin — record a scanned/entered check-in code ──────
+router.post("/coop/events/checkin", async (req, res): Promise<void> => {
+  const parsed = CheckInCoopEventBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const code = parsed.data.code.trim();
+  // Resolve the code: a storefront code attributes the sign-up to that
+  // participant's business; the unified code counts community-level only.
+  // Only accepted participants ever hold a code, so pending/declined codes
+  // simply don't exist — unknown codes fail closed.
+  let event: typeof coopCommunityEventsTable.$inferSelect | undefined;
+  let attributedTenantId: number | null = null;
+  const [byUnified] = await db
+    .select()
+    .from(coopCommunityEventsTable)
+    .where(eq(coopCommunityEventsTable.unifiedCode, code));
+  if (byUnified) {
+    event = byUnified;
+  } else {
+    const [participant] = await db
+      .select({
+        participant: coopCommunityEventParticipantsTable,
+        event: coopCommunityEventsTable,
+      })
+      .from(coopCommunityEventParticipantsTable)
+      .innerJoin(
+        coopCommunityEventsTable,
+        eq(coopCommunityEventParticipantsTable.eventId, coopCommunityEventsTable.id),
+      )
+      .where(eq(coopCommunityEventParticipantsTable.checkinCode, code));
+    if (participant && participant.participant.status === "accepted") {
+      event = participant.event;
+      attributedTenantId = participant.participant.tenantId;
+    }
+  }
+  if (!event) {
+    res.status(400).json({ message: "Unknown or inactive check-in code" });
+    return;
+  }
+  const now = new Date();
+  if (now >= event.endsAt) {
+    res.status(409).json({ message: "This event has already ended" });
+    return;
+  }
+  const [checkin] = await db
+    .insert(coopCommunityEventCheckinsTable)
+    .values({
+      eventId: event.id,
+      attributedTenantId,
+      code,
+      attendeeName: parsed.data.attendeeName?.trim() || null,
+    })
+    .returning();
+  let attributedTenantName: string | null = null;
+  if (attributedTenantId != null) {
+    const [t] = await db
+      .select({ brandName: tenantsTable.brandName })
+      .from(tenantsTable)
+      .where(eq(tenantsTable.id, attributedTenantId));
+    attributedTenantName = t?.brandName ?? null;
+  }
+  res.status(201).json(
+    CheckInCoopEventResponse.parse({
+      eventId: event.id,
+      eventName: event.name,
+      attributedTenantId,
+      attributedTenantName,
+      checkedInAt: checkin.checkedInAt.toISOString(),
+    }),
+  );
 });
 
 // ── GET /coop/perks — live partner perks for the scoped tenant ──────────────

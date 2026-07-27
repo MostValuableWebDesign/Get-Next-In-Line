@@ -622,6 +622,229 @@ export interface CoopCampaignBlastResult {
   totalCandidates: number;
 }
 
+export type CoopEventParticipantStatus = typeof CoopEventParticipantStatus[keyof typeof CoopEventParticipantStatus];
+
+
+export const CoopEventParticipantStatus = {
+  invited: 'invited',
+  accepted: 'accepted',
+  declined: 'declined',
+} as const;
+
+export interface CoopEventParticipant {
+  tenantId: number;
+  tenantName: string;
+  status: CoopEventParticipantStatus;
+  /** Host-set proportional cost-share weight; even splits ignore it. */
+  shareWeight: number;
+  /** @nullable */
+  respondedAt: string | null;
+}
+
+/**
+ * Derived from the event window at read time.
+ */
+export type CoopEventPhase = typeof CoopEventPhase[keyof typeof CoopEventPhase];
+
+
+export const CoopEventPhase = {
+  upcoming: 'upcoming',
+  live: 'live',
+  ended: 'ended',
+} as const;
+
+/**
+ * The scoped tenant's own participation status.
+ */
+export type CoopEventMyStatus = typeof CoopEventMyStatus[keyof typeof CoopEventMyStatus];
+
+
+export const CoopEventMyStatus = {
+  invited: 'invited',
+  accepted: 'accepted',
+  declined: 'declined',
+} as const;
+
+export interface CoopEvent {
+  id: number;
+  name: string;
+  /** @nullable */
+  description: string | null;
+  /** @nullable */
+  location: string | null;
+  startsAt: string;
+  endsAt: string;
+  hostTenantId: number;
+  hostTenantName: string;
+  /** Derived from the event window at read time. */
+  phase: CoopEventPhase;
+  /** @nullable */
+  broadcastTriggeredAt: string | null;
+  /** The scoped tenant's own participation status. */
+  myStatus: CoopEventMyStatus;
+  isHost: boolean;
+  /** Full roster with statuses — merchant hub view only; customer-facing surfaces receive accepted participants exclusively. */
+  participants: CoopEventParticipant[];
+  acceptedCount: number;
+  createdAt: string;
+}
+
+export interface CoopEventCreate {
+  /** @minLength 1 */
+  name: string;
+  description?: string;
+  location?: string;
+  startsAt: string;
+  endsAt: string;
+  /** @minItems 1 */
+  partnerTenantIds: number[];
+}
+
+export type CoopEventRespondAction = typeof CoopEventRespondAction[keyof typeof CoopEventRespondAction];
+
+
+export const CoopEventRespondAction = {
+  accept: 'accept',
+  decline: 'decline',
+} as const;
+
+export interface CoopEventRespond {
+  action: CoopEventRespondAction;
+}
+
+/**
+ * Defaults to even.
+ */
+export type CoopEventExpenseCreateSplitMethod = typeof CoopEventExpenseCreateSplitMethod[keyof typeof CoopEventExpenseCreateSplitMethod];
+
+
+export const CoopEventExpenseCreateSplitMethod = {
+  even: 'even',
+  proportional: 'proportional',
+} as const;
+
+export interface CoopEventExpenseCreate {
+  /** @minLength 1 */
+  description: string;
+  /**
+     * Cost in dollars (max 2 decimal places).
+     * @exclusiveMinimum 0
+     */
+  amount: number;
+  /** Defaults to even. */
+  splitMethod?: CoopEventExpenseCreateSplitMethod;
+}
+
+export interface CoopEventParticipantUpdate {
+  /**
+     * Proportional cost-share weight (max 2 decimal places).
+     * @exclusiveMinimum 0
+     */
+  shareWeight: number;
+}
+
+export interface CoopEventExpenseShare {
+  tenantId: number;
+  tenantName: string;
+  /** This participant's share of the expense, in dollars. */
+  amount: number;
+}
+
+export type CoopEventExpenseSplitMethod = typeof CoopEventExpenseSplitMethod[keyof typeof CoopEventExpenseSplitMethod];
+
+
+export const CoopEventExpenseSplitMethod = {
+  even: 'even',
+  proportional: 'proportional',
+} as const;
+
+export interface CoopEventExpense {
+  id: number;
+  description: string;
+  amount: number;
+  splitMethod: CoopEventExpenseSplitMethod;
+  paidByTenantId: number;
+  paidByTenantName: string;
+  /** Computed split across currently accepted participants. */
+  shares: CoopEventExpenseShare[];
+  createdAt: string;
+}
+
+export interface CoopEventSettlementEntry {
+  tenantId: number;
+  tenantName: string;
+  /** Total this business has paid out of pocket. */
+  paid: number;
+  /** Total of this business's computed shares. */
+  owes: number;
+  /** paid − owes; positive means the network owes this business. */
+  net: number;
+}
+
+export interface CoopEventPass {
+  /**
+     * Null for the unified event pass.
+     * @nullable
+     */
+  tenantId: number | null;
+  /** @nullable */
+  tenantName: string | null;
+  code: string;
+}
+
+export interface CoopEventStorefrontStat {
+  tenantId: number;
+  tenantName: string;
+  checkins: number;
+}
+
+export interface CoopEventAttendance {
+  totalCheckins: number;
+  /** Check-ins via the unified event code (no storefront credit). */
+  unifiedCheckins: number;
+  byStorefront: CoopEventStorefrontStat[];
+}
+
+export type CoopEventDetail = CoopEvent & {
+  expenses: CoopEventExpense[];
+  settlement: CoopEventSettlementEntry[];
+  /** Check-in passes visible to the viewer — its own storefront pass plus the unified pass; the host sees every accepted storefront's pass. */
+  passes: CoopEventPass[];
+  attendance: CoopEventAttendance;
+};
+
+export interface CoopEventBroadcastTenantResult {
+  tenantId: number;
+  tenantName: string;
+  sent: number;
+  skipped: number;
+  totalCandidates: number;
+}
+
+export interface CoopEventBroadcastResult {
+  sent: number;
+  /** Recipients skipped for opt-out, unusable phone numbers, or duplicates across businesses. */
+  skipped: number;
+  totalCandidates: number;
+  perTenant: CoopEventBroadcastTenantResult[];
+}
+
+export interface CoopEventCheckinCreate {
+  /** @minLength 1 */
+  code: string;
+  attendeeName?: string;
+}
+
+export interface CoopEventCheckinResult {
+  eventId: number;
+  eventName: string;
+  /** @nullable */
+  attributedTenantId: number | null;
+  /** @nullable */
+  attributedTenantName: string | null;
+  checkedInAt: string;
+}
+
 export interface WalletLoginRequest {
   /**
      * The customer's mobile phone number (any common format; normalized server-side).
@@ -2408,6 +2631,7 @@ export const SosMessageKind = {
   coop_tier_change: 'coop_tier_change',
   passport_reward: 'passport_reward',
   emergency_broadcast: 'emergency_broadcast',
+  coop_event_broadcast: 'coop_event_broadcast',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];

@@ -1272,6 +1272,377 @@ export const TriggerCoopCampaignBlastResponse = zod.object({
 
 
 /**
+ * @summary Merchant-facing — shared co-op event calendar; joint events the scoped tenant hosts or was invited to, soonest first; tenant scope via x-tenant-id
+ */
+export const ListCoopEventsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "location": zod.string().nullable(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "phase": zod.enum(['upcoming', 'live', 'ended']).describe('Derived from the event window at read time.'),
+  "broadcastTriggeredAt": zod.string().nullable(),
+  "myStatus": zod.enum(['invited', 'accepted', 'declined']).describe('The scoped tenant\'s own participation status.'),
+  "isHost": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['invited', 'accepted', 'declined']),
+  "shareWeight": zod.number().describe('Host-set proportional cost-share weight; even splits ignore it.'),
+  "respondedAt": zod.string().nullable()
+})).describe('Full roster with statuses — merchant hub view only; customer-facing surfaces receive accepted participants exclusively.'),
+  "acceptedCount": zod.number(),
+  "createdAt": zod.string()
+})
+export const ListCoopEventsResponse = zod.array(ListCoopEventsResponseItem)
+
+
+/**
+ * @summary Merchant-facing — host a joint community event and invite current accepted, active co-op partners; tenant scope via x-tenant-id
+ */
+
+
+
+
+export const CreateCoopEventBody = zod.object({
+  "name": zod.string().min(1),
+  "description": zod.string().optional(),
+  "location": zod.string().optional(),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date(),
+  "partnerTenantIds": zod.array(zod.number()).min(1)
+})
+
+export const CreateCoopEventResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "location": zod.string().nullable(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "phase": zod.enum(['upcoming', 'live', 'ended']).describe('Derived from the event window at read time.'),
+  "broadcastTriggeredAt": zod.string().nullable(),
+  "myStatus": zod.enum(['invited', 'accepted', 'declined']).describe('The scoped tenant\'s own participation status.'),
+  "isHost": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['invited', 'accepted', 'declined']),
+  "shareWeight": zod.number().describe('Host-set proportional cost-share weight; even splits ignore it.'),
+  "respondedAt": zod.string().nullable()
+})).describe('Full roster with statuses — merchant hub view only; customer-facing surfaces receive accepted participants exclusively.'),
+  "acceptedCount": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — full event detail for a participant; expense ledger with computed splits, settlement summary, check-in passes, and attendance stats; tenant scope via x-tenant-id
+ */
+export const GetCoopEventParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCoopEventResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "location": zod.string().nullable(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "phase": zod.enum(['upcoming', 'live', 'ended']).describe('Derived from the event window at read time.'),
+  "broadcastTriggeredAt": zod.string().nullable(),
+  "myStatus": zod.enum(['invited', 'accepted', 'declined']).describe('The scoped tenant\'s own participation status.'),
+  "isHost": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['invited', 'accepted', 'declined']),
+  "shareWeight": zod.number().describe('Host-set proportional cost-share weight; even splits ignore it.'),
+  "respondedAt": zod.string().nullable()
+})).describe('Full roster with statuses — merchant hub view only; customer-facing surfaces receive accepted participants exclusively.'),
+  "acceptedCount": zod.number(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "expenses": zod.array(zod.object({
+  "id": zod.number(),
+  "description": zod.string(),
+  "amount": zod.number(),
+  "splitMethod": zod.enum(['even', 'proportional']),
+  "paidByTenantId": zod.number(),
+  "paidByTenantName": zod.string(),
+  "shares": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "amount": zod.number().describe('This participant\'s share of the expense, in dollars.')
+})).describe('Computed split across currently accepted participants.'),
+  "createdAt": zod.string()
+})),
+  "settlement": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "paid": zod.number().describe('Total this business has paid out of pocket.'),
+  "owes": zod.number().describe('Total of this business\'s computed shares.'),
+  "net": zod.number().describe('paid − owes; positive means the network owes this business.')
+})),
+  "passes": zod.array(zod.object({
+  "tenantId": zod.number().nullable().describe('Null for the unified event pass.'),
+  "tenantName": zod.string().nullable(),
+  "code": zod.string()
+})).describe('Check-in passes visible to the viewer — its own storefront pass plus the unified pass; the host sees every accepted storefront\'s pass.'),
+  "attendance": zod.object({
+  "totalCheckins": zod.number(),
+  "unifiedCheckins": zod.number().describe('Check-ins via the unified event code (no storefront credit).'),
+  "byStorefront": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "checkins": zod.number()
+}))
+})
+}))
+
+
+/**
+ * @summary Merchant-facing — an invited partner accepts or declines the event invitation; accepting assigns the storefront check-in code; tenant scope via x-tenant-id
+ */
+export const RespondToCoopEventParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RespondToCoopEventBody = zod.object({
+  "action": zod.enum(['accept', 'decline'])
+})
+
+export const RespondToCoopEventResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "location": zod.string().nullable(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "phase": zod.enum(['upcoming', 'live', 'ended']).describe('Derived from the event window at read time.'),
+  "broadcastTriggeredAt": zod.string().nullable(),
+  "myStatus": zod.enum(['invited', 'accepted', 'declined']).describe('The scoped tenant\'s own participation status.'),
+  "isHost": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['invited', 'accepted', 'declined']),
+  "shareWeight": zod.number().describe('Host-set proportional cost-share weight; even splits ignore it.'),
+  "respondedAt": zod.string().nullable()
+})).describe('Full roster with statuses — merchant hub view only; customer-facing surfaces receive accepted participants exclusively.'),
+  "acceptedCount": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — an accepted participant logs a shared event cost (permits, rentals, promo materials), split evenly or proportionally; tenant scope via x-tenant-id
+ */
+export const CreateCoopEventExpenseParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const createCoopEventExpenseBodyAmountExclusiveMin = 0;
+
+
+
+export const CreateCoopEventExpenseBody = zod.object({
+  "description": zod.string().min(1),
+  "amount": zod.number().gt(createCoopEventExpenseBodyAmountExclusiveMin).describe('Cost in dollars (max 2 decimal places).'),
+  "splitMethod": zod.enum(['even', 'proportional']).optional().describe('Defaults to even.')
+})
+
+export const CreateCoopEventExpenseResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "location": zod.string().nullable(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "phase": zod.enum(['upcoming', 'live', 'ended']).describe('Derived from the event window at read time.'),
+  "broadcastTriggeredAt": zod.string().nullable(),
+  "myStatus": zod.enum(['invited', 'accepted', 'declined']).describe('The scoped tenant\'s own participation status.'),
+  "isHost": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['invited', 'accepted', 'declined']),
+  "shareWeight": zod.number().describe('Host-set proportional cost-share weight; even splits ignore it.'),
+  "respondedAt": zod.string().nullable()
+})).describe('Full roster with statuses — merchant hub view only; customer-facing surfaces receive accepted participants exclusively.'),
+  "acceptedCount": zod.number(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "expenses": zod.array(zod.object({
+  "id": zod.number(),
+  "description": zod.string(),
+  "amount": zod.number(),
+  "splitMethod": zod.enum(['even', 'proportional']),
+  "paidByTenantId": zod.number(),
+  "paidByTenantName": zod.string(),
+  "shares": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "amount": zod.number().describe('This participant\'s share of the expense, in dollars.')
+})).describe('Computed split across currently accepted participants.'),
+  "createdAt": zod.string()
+})),
+  "settlement": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "paid": zod.number().describe('Total this business has paid out of pocket.'),
+  "owes": zod.number().describe('Total of this business\'s computed shares.'),
+  "net": zod.number().describe('paid − owes; positive means the network owes this business.')
+})),
+  "passes": zod.array(zod.object({
+  "tenantId": zod.number().nullable().describe('Null for the unified event pass.'),
+  "tenantName": zod.string().nullable(),
+  "code": zod.string()
+})).describe('Check-in passes visible to the viewer — its own storefront pass plus the unified pass; the host sees every accepted storefront\'s pass.'),
+  "attendance": zod.object({
+  "totalCheckins": zod.number(),
+  "unifiedCheckins": zod.number().describe('Check-ins via the unified event code (no storefront credit).'),
+  "byStorefront": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "checkins": zod.number()
+}))
+})
+}))
+
+
+/**
+ * @summary Merchant-facing — the host sets a participant's proportional cost-share weight; tenant scope via x-tenant-id
+ */
+export const UpdateCoopEventParticipantParams = zod.object({
+  "id": zod.coerce.number(),
+  "tenantId": zod.coerce.number()
+})
+
+export const updateCoopEventParticipantBodyShareWeightExclusiveMin = 0;
+
+
+
+export const UpdateCoopEventParticipantBody = zod.object({
+  "shareWeight": zod.number().gt(updateCoopEventParticipantBodyShareWeightExclusiveMin).describe('Proportional cost-share weight (max 2 decimal places).')
+})
+
+export const UpdateCoopEventParticipantResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "description": zod.string().nullable(),
+  "location": zod.string().nullable(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "phase": zod.enum(['upcoming', 'live', 'ended']).describe('Derived from the event window at read time.'),
+  "broadcastTriggeredAt": zod.string().nullable(),
+  "myStatus": zod.enum(['invited', 'accepted', 'declined']).describe('The scoped tenant\'s own participation status.'),
+  "isHost": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['invited', 'accepted', 'declined']),
+  "shareWeight": zod.number().describe('Host-set proportional cost-share weight; even splits ignore it.'),
+  "respondedAt": zod.string().nullable()
+})).describe('Full roster with statuses — merchant hub view only; customer-facing surfaces receive accepted participants exclusively.'),
+  "acceptedCount": zod.number(),
+  "createdAt": zod.string()
+}).and(zod.object({
+  "expenses": zod.array(zod.object({
+  "id": zod.number(),
+  "description": zod.string(),
+  "amount": zod.number(),
+  "splitMethod": zod.enum(['even', 'proportional']),
+  "paidByTenantId": zod.number(),
+  "paidByTenantName": zod.string(),
+  "shares": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "amount": zod.number().describe('This participant\'s share of the expense, in dollars.')
+})).describe('Computed split across currently accepted participants.'),
+  "createdAt": zod.string()
+})),
+  "settlement": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "paid": zod.number().describe('Total this business has paid out of pocket.'),
+  "owes": zod.number().describe('Total of this business\'s computed shares.'),
+  "net": zod.number().describe('paid − owes; positive means the network owes this business.')
+})),
+  "passes": zod.array(zod.object({
+  "tenantId": zod.number().nullable().describe('Null for the unified event pass.'),
+  "tenantName": zod.string().nullable(),
+  "code": zod.string()
+})).describe('Check-in passes visible to the viewer — its own storefront pass plus the unified pass; the host sees every accepted storefront\'s pass.'),
+  "attendance": zod.object({
+  "totalCheckins": zod.number(),
+  "unifiedCheckins": zod.number().describe('Check-ins via the unified event code (no storefront credit).'),
+  "byStorefront": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "checkins": zod.number()
+}))
+})
+}))
+
+
+/**
+ * @summary Merchant-facing — the host fires the one-time joint announcement to every accepted participant's opted-in customers through each business's own messaging channel; tenant scope via x-tenant-id
+ */
+export const TriggerCoopEventBroadcastParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const TriggerCoopEventBroadcastResponse = zod.object({
+  "sent": zod.number(),
+  "skipped": zod.number().describe('Recipients skipped for opt-out, unusable phone numbers, or duplicates across businesses.'),
+  "totalCandidates": zod.number(),
+  "perTenant": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "sent": zod.number(),
+  "skipped": zod.number(),
+  "totalCandidates": zod.number()
+}))
+})
+
+
+/**
+ * @summary Merchant-facing — record a check-in from a scanned/entered code; attributes the sign-up to the storefront whose code was used (unified codes count community-level only)
+ */
+
+
+
+export const CheckInCoopEventBody = zod.object({
+  "code": zod.string().min(1),
+  "attendeeName": zod.string().optional()
+})
+
+export const CheckInCoopEventResponse = zod.object({
+  "eventId": zod.number(),
+  "eventName": zod.string(),
+  "attributedTenantId": zod.number().nullable(),
+  "attributedTenantName": zod.string().nullable(),
+  "checkedInAt": zod.string()
+})
+
+
+/**
  * @summary Public — validate a platform-invite token for the fast-track registration page (marks the invite clicked)
  */
 export const GetPublicPlatformInviteParams = zod.object({
@@ -2958,7 +3329,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -2987,7 +3358,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

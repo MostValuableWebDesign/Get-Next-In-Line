@@ -1046,6 +1046,213 @@ paths:
         "409":
           description: Blast already fired, or the campaign window is not open
 
+  /coop/events:
+    get:
+      operationId: listCoopEvents
+      tags: [coop]
+      summary: Merchant-facing — shared co-op event calendar; joint events the scoped tenant hosts or was invited to, soonest first; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Events the tenant participates in (any status, so pending invitations surface too)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopEvent"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createCoopEvent
+      tags: [coop]
+      summary: Merchant-facing — host a joint community event and invite current accepted, active co-op partners; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopEventCreate"
+      responses:
+        "201":
+          description: Event created; invited partners must accept before appearing on shared surfaces
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopEvent"
+        "400":
+          description: Invalid body/window or missing x-tenant-id header
+        "403":
+          description: Host has no accepted active partnership, or an invitee is not a current partner
+
+  /coop/events/{id}:
+    get:
+      operationId: getCoopEvent
+      tags: [coop]
+      summary: Merchant-facing — full event detail for a participant; expense ledger with computed splits, settlement summary, check-in passes, and attendance stats; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Event detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopEventDetail"
+        "403":
+          description: Only a participant business can view event details
+        "404":
+          description: Not found
+
+  /coop/events/{id}/respond:
+    post:
+      operationId: respondToCoopEvent
+      tags: [coop]
+      summary: Merchant-facing — an invited partner accepts or declines the event invitation; accepting assigns the storefront check-in code; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopEventRespond"
+      responses:
+        "200":
+          description: Updated event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopEvent"
+        "403":
+          description: Only an invited participant can respond
+        "404":
+          description: Not found
+        "409":
+          description: Already responded, or the event has ended
+
+  /coop/events/{id}/expenses:
+    post:
+      operationId: createCoopEventExpense
+      tags: [coop]
+      summary: Merchant-facing — an accepted participant logs a shared event cost (permits, rentals, promo materials), split evenly or proportionally; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopEventExpenseCreate"
+      responses:
+        "201":
+          description: Updated event detail including the new expense's computed splits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopEventDetail"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+        "403":
+          description: Only an accepted participant can log expenses
+        "404":
+          description: Not found
+
+  /coop/events/{id}/participants/{tenantId}:
+    patch:
+      operationId: updateCoopEventParticipant
+      tags: [coop]
+      summary: Merchant-facing — the host sets a participant's proportional cost-share weight; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopEventParticipantUpdate"
+      responses:
+        "200":
+          description: Updated event detail with recomputed splits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopEventDetail"
+        "400":
+          description: Invalid weight or missing x-tenant-id header
+        "403":
+          description: Only the event host can set cost-share weights
+        "404":
+          description: Not found
+
+  /coop/events/{id}/broadcast:
+    post:
+      operationId: triggerCoopEventBroadcast
+      tags: [coop]
+      summary: Merchant-facing — the host fires the one-time joint announcement to every accepted participant's opted-in customers through each business's own messaging channel; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Per-tenant send summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopEventBroadcastResult"
+        "403":
+          description: Only the event host can trigger the broadcast
+        "404":
+          description: Not found
+        "409":
+          description: Broadcast already sent, or the event has ended
+
+  /coop/events/checkin:
+    post:
+      operationId: checkInCoopEvent
+      tags: [coop]
+      summary: Merchant-facing — record a check-in from a scanned/entered code; attributes the sign-up to the storefront whose code was used (unified codes count community-level only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopEventCheckinCreate"
+      responses:
+        "201":
+          description: Recorded check-in with attribution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopEventCheckinResult"
+        "400":
+          description: Unknown or inactive check-in code
+        "409":
+          description: The event has not started or has already ended
+
   /public/coop/invites/{token}:
     get:
       operationId: getPublicPlatformInvite
@@ -4859,6 +5066,308 @@ components:
         totalCandidates:
           type: integer
 
+    CoopEventParticipant:
+      type: object
+      required: [tenantId, tenantName, status, shareWeight, respondedAt]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        status:
+          type: string
+          enum: [invited, accepted, declined]
+        shareWeight:
+          type: number
+          description: Host-set proportional cost-share weight; even splits ignore it.
+        respondedAt:
+          type: ["string", "null"]
+
+    CoopEvent:
+      type: object
+      required:
+        [
+          id,
+          name,
+          description,
+          location,
+          startsAt,
+          endsAt,
+          hostTenantId,
+          hostTenantName,
+          phase,
+          broadcastTriggeredAt,
+          myStatus,
+          isHost,
+          participants,
+          acceptedCount,
+          createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+        hostTenantId:
+          type: integer
+        hostTenantName:
+          type: string
+        phase:
+          type: string
+          description: Derived from the event window at read time.
+          enum: [upcoming, live, ended]
+        broadcastTriggeredAt:
+          type: ["string", "null"]
+        myStatus:
+          type: string
+          description: The scoped tenant's own participation status.
+          enum: [invited, accepted, declined]
+        isHost:
+          type: boolean
+        participants:
+          type: array
+          description: Full roster with statuses — merchant hub view only; customer-facing surfaces receive accepted participants exclusively.
+          items:
+            $ref: "#/components/schemas/CoopEventParticipant"
+        acceptedCount:
+          type: integer
+        createdAt:
+          type: string
+
+    CoopEventCreate:
+      type: object
+      required: [name, startsAt, endsAt, partnerTenantIds]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        location:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        partnerTenantIds:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+
+    CoopEventRespond:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [accept, decline]
+
+    CoopEventExpenseCreate:
+      type: object
+      required: [description, amount]
+      properties:
+        description:
+          type: string
+          minLength: 1
+        amount:
+          type: number
+          exclusiveMinimum: 0
+          description: Cost in dollars (max 2 decimal places).
+        splitMethod:
+          type: string
+          enum: [even, proportional]
+          description: Defaults to even.
+
+    CoopEventParticipantUpdate:
+      type: object
+      required: [shareWeight]
+      properties:
+        shareWeight:
+          type: number
+          exclusiveMinimum: 0
+          description: Proportional cost-share weight (max 2 decimal places).
+
+    CoopEventExpenseShare:
+      type: object
+      required: [tenantId, tenantName, amount]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        amount:
+          type: number
+          description: This participant's share of the expense, in dollars.
+
+    CoopEventExpense:
+      type: object
+      required: [id, description, amount, splitMethod, paidByTenantId, paidByTenantName, shares, createdAt]
+      properties:
+        id:
+          type: integer
+        description:
+          type: string
+        amount:
+          type: number
+        splitMethod:
+          type: string
+          enum: [even, proportional]
+        paidByTenantId:
+          type: integer
+        paidByTenantName:
+          type: string
+        shares:
+          type: array
+          description: Computed split across currently accepted participants.
+          items:
+            $ref: "#/components/schemas/CoopEventExpenseShare"
+        createdAt:
+          type: string
+
+    CoopEventSettlementEntry:
+      type: object
+      required: [tenantId, tenantName, paid, owes, net]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        paid:
+          type: number
+          description: Total this business has paid out of pocket.
+        owes:
+          type: number
+          description: Total of this business's computed shares.
+        net:
+          type: number
+          description: paid − owes; positive means the network owes this business.
+
+    CoopEventPass:
+      type: object
+      required: [tenantId, tenantName, code]
+      properties:
+        tenantId:
+          type: ["integer", "null"]
+          description: Null for the unified event pass.
+        tenantName:
+          type: ["string", "null"]
+        code:
+          type: string
+
+    CoopEventStorefrontStat:
+      type: object
+      required: [tenantId, tenantName, checkins]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        checkins:
+          type: integer
+
+    CoopEventAttendance:
+      type: object
+      required: [totalCheckins, unifiedCheckins, byStorefront]
+      properties:
+        totalCheckins:
+          type: integer
+        unifiedCheckins:
+          type: integer
+          description: Check-ins via the unified event code (no storefront credit).
+        byStorefront:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopEventStorefrontStat"
+
+    CoopEventDetail:
+      allOf:
+        - $ref: "#/components/schemas/CoopEvent"
+        - type: object
+          required: [expenses, settlement, passes, attendance]
+          properties:
+            expenses:
+              type: array
+              items:
+                $ref: "#/components/schemas/CoopEventExpense"
+            settlement:
+              type: array
+              items:
+                $ref: "#/components/schemas/CoopEventSettlementEntry"
+            passes:
+              type: array
+              description: Check-in passes visible to the viewer — its own storefront pass plus the unified pass; the host sees every accepted storefront's pass.
+              items:
+                $ref: "#/components/schemas/CoopEventPass"
+            attendance:
+              $ref: "#/components/schemas/CoopEventAttendance"
+
+    CoopEventBroadcastTenantResult:
+      type: object
+      required: [tenantId, tenantName, sent, skipped, totalCandidates]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        sent:
+          type: integer
+        skipped:
+          type: integer
+        totalCandidates:
+          type: integer
+
+    CoopEventBroadcastResult:
+      type: object
+      required: [sent, skipped, totalCandidates, perTenant]
+      properties:
+        sent:
+          type: integer
+        skipped:
+          type: integer
+          description: Recipients skipped for opt-out, unusable phone numbers, or duplicates across businesses.
+        totalCandidates:
+          type: integer
+        perTenant:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopEventBroadcastTenantResult"
+
+    CoopEventCheckinCreate:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 1
+        attendeeName:
+          type: string
+
+    CoopEventCheckinResult:
+      type: object
+      required: [eventId, eventName, attributedTenantId, attributedTenantName, checkedInAt]
+      properties:
+        eventId:
+          type: integer
+        eventName:
+          type: string
+        attributedTenantId:
+          type: ["integer", "null"]
+        attributedTenantName:
+          type: ["string", "null"]
+        checkedInAt:
+          type: string
+
     WalletLoginRequest:
       type: object
       required: [phone]
@@ -6910,7 +7419,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

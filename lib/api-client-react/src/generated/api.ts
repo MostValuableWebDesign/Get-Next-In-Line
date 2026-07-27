@@ -50,6 +50,15 @@ import type {
   CoopDispute,
   CoopDisputeCreate,
   CoopDisputeMediationNote,
+  CoopEvent,
+  CoopEventBroadcastResult,
+  CoopEventCheckinCreate,
+  CoopEventCheckinResult,
+  CoopEventCreate,
+  CoopEventDetail,
+  CoopEventExpenseCreate,
+  CoopEventParticipantUpdate,
+  CoopEventRespond,
   CoopIndustryBarrierError,
   CoopInviteCreate,
   CoopInviteRespond,
@@ -3760,6 +3769,591 @@ export const useTriggerCoopCampaignBlast = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getTriggerCoopCampaignBlastMutationOptions(options));
+    }
+
+export const getListCoopEventsUrl = () => {
+
+
+
+
+  return `/api/coop/events`
+}
+
+/**
+ * @summary Merchant-facing — shared co-op event calendar; joint events the scoped tenant hosts or was invited to, soonest first; tenant scope via x-tenant-id
+ */
+export const listCoopEvents = async ( options?: RequestInit): Promise<CoopEvent[]> => {
+
+  return customFetch<CoopEvent[]>(getListCoopEventsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopEventsQueryKey = () => {
+    return [
+    `/api/coop/events`
+    ] as const;
+    }
+
+
+export const getListCoopEventsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopEvents>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopEventsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopEvents>>> = ({ signal }) => listCoopEvents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopEvents>>>
+export type ListCoopEventsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — shared co-op event calendar; joint events the scoped tenant hosts or was invited to, soonest first; tenant scope via x-tenant-id
+ */
+
+export function useListCoopEvents<TData = Awaited<ReturnType<typeof listCoopEvents>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopEventsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopEventUrl = () => {
+
+
+
+
+  return `/api/coop/events`
+}
+
+/**
+ * @summary Merchant-facing — host a joint community event and invite current accepted, active co-op partners; tenant scope via x-tenant-id
+ */
+export const createCoopEvent = async (coopEventCreate: CoopEventCreate, options?: RequestInit): Promise<CoopEvent> => {
+
+  return customFetch<CoopEvent>(getCreateCoopEventUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopEventCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopEventMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopEvent>>, TError,{data: BodyType<CoopEventCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopEvent>>, TError,{data: BodyType<CoopEventCreate>}, TContext> => {
+
+const mutationKey = ['createCoopEvent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopEvent>>, {data: BodyType<CoopEventCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopEvent(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopEventMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopEvent>>>
+    export type CreateCoopEventMutationBody = BodyType<CoopEventCreate>
+    export type CreateCoopEventMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — host a joint community event and invite current accepted, active co-op partners; tenant scope via x-tenant-id
+ */
+export const useCreateCoopEvent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopEvent>>, TError,{data: BodyType<CoopEventCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopEvent>>,
+        TError,
+        {data: BodyType<CoopEventCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopEventMutationOptions(options));
+    }
+
+export const getGetCoopEventUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/events/${id}`
+}
+
+/**
+ * @summary Merchant-facing — full event detail for a participant; expense ledger with computed splits, settlement summary, check-in passes, and attendance stats; tenant scope via x-tenant-id
+ */
+export const getCoopEvent = async (id: number, options?: RequestInit): Promise<CoopEventDetail> => {
+
+  return customFetch<CoopEventDetail>(getGetCoopEventUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopEventQueryKey = (id: number,) => {
+    return [
+    `/api/coop/events/${id}`
+    ] as const;
+    }
+
+
+export const getGetCoopEventQueryOptions = <TData = Awaited<ReturnType<typeof getCoopEvent>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopEvent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopEventQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopEvent>>> = ({ signal }) => getCoopEvent(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopEvent>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopEventQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopEvent>>>
+export type GetCoopEventQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — full event detail for a participant; expense ledger with computed splits, settlement summary, check-in passes, and attendance stats; tenant scope via x-tenant-id
+ */
+
+export function useGetCoopEvent<TData = Awaited<ReturnType<typeof getCoopEvent>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopEvent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopEventQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRespondToCoopEventUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/events/${id}/respond`
+}
+
+/**
+ * @summary Merchant-facing — an invited partner accepts or declines the event invitation; accepting assigns the storefront check-in code; tenant scope via x-tenant-id
+ */
+export const respondToCoopEvent = async (id: number,
+    coopEventRespond: CoopEventRespond, options?: RequestInit): Promise<CoopEvent> => {
+
+  return customFetch<CoopEvent>(getRespondToCoopEventUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopEventRespond)
+  }
+);}
+
+
+
+
+
+export const getRespondToCoopEventMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopEvent>>, TError,{id: number;data: BodyType<CoopEventRespond>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondToCoopEvent>>, TError,{id: number;data: BodyType<CoopEventRespond>}, TContext> => {
+
+const mutationKey = ['respondToCoopEvent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondToCoopEvent>>, {id: number;data: BodyType<CoopEventRespond>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  respondToCoopEvent(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondToCoopEventMutationResult = NonNullable<Awaited<ReturnType<typeof respondToCoopEvent>>>
+    export type RespondToCoopEventMutationBody = BodyType<CoopEventRespond>
+    export type RespondToCoopEventMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — an invited partner accepts or declines the event invitation; accepting assigns the storefront check-in code; tenant scope via x-tenant-id
+ */
+export const useRespondToCoopEvent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopEvent>>, TError,{id: number;data: BodyType<CoopEventRespond>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondToCoopEvent>>,
+        TError,
+        {id: number;data: BodyType<CoopEventRespond>},
+        TContext
+      > => {
+      return useMutation(getRespondToCoopEventMutationOptions(options));
+    }
+
+export const getCreateCoopEventExpenseUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/events/${id}/expenses`
+}
+
+/**
+ * @summary Merchant-facing — an accepted participant logs a shared event cost (permits, rentals, promo materials), split evenly or proportionally; tenant scope via x-tenant-id
+ */
+export const createCoopEventExpense = async (id: number,
+    coopEventExpenseCreate: CoopEventExpenseCreate, options?: RequestInit): Promise<CoopEventDetail> => {
+
+  return customFetch<CoopEventDetail>(getCreateCoopEventExpenseUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopEventExpenseCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopEventExpenseMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopEventExpense>>, TError,{id: number;data: BodyType<CoopEventExpenseCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopEventExpense>>, TError,{id: number;data: BodyType<CoopEventExpenseCreate>}, TContext> => {
+
+const mutationKey = ['createCoopEventExpense'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopEventExpense>>, {id: number;data: BodyType<CoopEventExpenseCreate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createCoopEventExpense(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopEventExpenseMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopEventExpense>>>
+    export type CreateCoopEventExpenseMutationBody = BodyType<CoopEventExpenseCreate>
+    export type CreateCoopEventExpenseMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — an accepted participant logs a shared event cost (permits, rentals, promo materials), split evenly or proportionally; tenant scope via x-tenant-id
+ */
+export const useCreateCoopEventExpense = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopEventExpense>>, TError,{id: number;data: BodyType<CoopEventExpenseCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopEventExpense>>,
+        TError,
+        {id: number;data: BodyType<CoopEventExpenseCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopEventExpenseMutationOptions(options));
+    }
+
+export const getUpdateCoopEventParticipantUrl = (id: number,
+    tenantId: number,) => {
+
+
+
+
+  return `/api/coop/events/${id}/participants/${tenantId}`
+}
+
+/**
+ * @summary Merchant-facing — the host sets a participant's proportional cost-share weight; tenant scope via x-tenant-id
+ */
+export const updateCoopEventParticipant = async (id: number,
+    tenantId: number,
+    coopEventParticipantUpdate: CoopEventParticipantUpdate, options?: RequestInit): Promise<CoopEventDetail> => {
+
+  return customFetch<CoopEventDetail>(getUpdateCoopEventParticipantUrl(id,tenantId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopEventParticipantUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCoopEventParticipantMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopEventParticipant>>, TError,{id: number;tenantId: number;data: BodyType<CoopEventParticipantUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCoopEventParticipant>>, TError,{id: number;tenantId: number;data: BodyType<CoopEventParticipantUpdate>}, TContext> => {
+
+const mutationKey = ['updateCoopEventParticipant'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCoopEventParticipant>>, {id: number;tenantId: number;data: BodyType<CoopEventParticipantUpdate>}> = (props) => {
+          const {id,tenantId,data} = props ?? {};
+
+          return  updateCoopEventParticipant(id,tenantId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCoopEventParticipantMutationResult = NonNullable<Awaited<ReturnType<typeof updateCoopEventParticipant>>>
+    export type UpdateCoopEventParticipantMutationBody = BodyType<CoopEventParticipantUpdate>
+    export type UpdateCoopEventParticipantMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — the host sets a participant's proportional cost-share weight; tenant scope via x-tenant-id
+ */
+export const useUpdateCoopEventParticipant = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopEventParticipant>>, TError,{id: number;tenantId: number;data: BodyType<CoopEventParticipantUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCoopEventParticipant>>,
+        TError,
+        {id: number;tenantId: number;data: BodyType<CoopEventParticipantUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCoopEventParticipantMutationOptions(options));
+    }
+
+export const getTriggerCoopEventBroadcastUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/events/${id}/broadcast`
+}
+
+/**
+ * @summary Merchant-facing — the host fires the one-time joint announcement to every accepted participant's opted-in customers through each business's own messaging channel; tenant scope via x-tenant-id
+ */
+export const triggerCoopEventBroadcast = async (id: number, options?: RequestInit): Promise<CoopEventBroadcastResult> => {
+
+  return customFetch<CoopEventBroadcastResult>(getTriggerCoopEventBroadcastUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getTriggerCoopEventBroadcastMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof triggerCoopEventBroadcast>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof triggerCoopEventBroadcast>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['triggerCoopEventBroadcast'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof triggerCoopEventBroadcast>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  triggerCoopEventBroadcast(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TriggerCoopEventBroadcastMutationResult = NonNullable<Awaited<ReturnType<typeof triggerCoopEventBroadcast>>>
+
+    export type TriggerCoopEventBroadcastMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — the host fires the one-time joint announcement to every accepted participant's opted-in customers through each business's own messaging channel; tenant scope via x-tenant-id
+ */
+export const useTriggerCoopEventBroadcast = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof triggerCoopEventBroadcast>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof triggerCoopEventBroadcast>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getTriggerCoopEventBroadcastMutationOptions(options));
+    }
+
+export const getCheckInCoopEventUrl = () => {
+
+
+
+
+  return `/api/coop/events/checkin`
+}
+
+/**
+ * @summary Merchant-facing — record a check-in from a scanned/entered code; attributes the sign-up to the storefront whose code was used (unified codes count community-level only)
+ */
+export const checkInCoopEvent = async (coopEventCheckinCreate: CoopEventCheckinCreate, options?: RequestInit): Promise<CoopEventCheckinResult> => {
+
+  return customFetch<CoopEventCheckinResult>(getCheckInCoopEventUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopEventCheckinCreate)
+  }
+);}
+
+
+
+
+
+export const getCheckInCoopEventMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkInCoopEvent>>, TError,{data: BodyType<CoopEventCheckinCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof checkInCoopEvent>>, TError,{data: BodyType<CoopEventCheckinCreate>}, TContext> => {
+
+const mutationKey = ['checkInCoopEvent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkInCoopEvent>>, {data: BodyType<CoopEventCheckinCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  checkInCoopEvent(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckInCoopEventMutationResult = NonNullable<Awaited<ReturnType<typeof checkInCoopEvent>>>
+    export type CheckInCoopEventMutationBody = BodyType<CoopEventCheckinCreate>
+    export type CheckInCoopEventMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — record a check-in from a scanned/entered code; attributes the sign-up to the storefront whose code was used (unified codes count community-level only)
+ */
+export const useCheckInCoopEvent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkInCoopEvent>>, TError,{data: BodyType<CoopEventCheckinCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof checkInCoopEvent>>,
+        TError,
+        {data: BodyType<CoopEventCheckinCreate>},
+        TContext
+      > => {
+      return useMutation(getCheckInCoopEventMutationOptions(options));
     }
 
 export const getGetPublicPlatformInviteUrl = (token: string,) => {
