@@ -38,7 +38,7 @@ export function OpenTicketsPanel() {
   const { toast } = useToast();
   // Live co-op partner perks — deployed automatically while a partnership is
   // accepted and active; disappear the moment it's deactivated or declined.
-  const { perks } = usePartnerPerks();
+  const { perks, disclaimer } = usePartnerPerks();
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
   const openTickets = visits?.filter(v => v.status === 'payment') || [];
@@ -60,6 +60,7 @@ export function OpenTicketsPanel() {
           key={ticket.id}
           ticket={ticket}
           perks={perks}
+          disclaimer={disclaimer}
           isPending={advance.isPending}
           onCheckout={(amount, benefit, staffId) => {
             advance.mutate(
@@ -104,7 +105,7 @@ export function OpenTicketsPanel() {
           }}
         />
       ))}
-      <ReceiptDialog receipt={receipt} perks={perks} onClose={() => setReceipt(null)} />
+      <ReceiptDialog receipt={receipt} perks={perks} disclaimer={disclaimer} onClose={() => setReceipt(null)} />
     </div>
   );
 }
@@ -116,10 +117,11 @@ type ReceiptData = { customerName: string; serviceType: string; amount: number }
  * partnerships are printed on every receipt automatically.
  */
 function ReceiptDialog({
-  receipt, perks, onClose,
+  receipt, perks, disclaimer, onClose,
 }: {
   receipt: ReceiptData | null;
   perks: CoopActivePerk[];
+  disclaimer: string | null;
   onClose: () => void;
 }) {
   return (
@@ -143,7 +145,7 @@ function ReceiptDialog({
               <span className="text-muted-foreground">Total paid</span>
               <span className="font-bold">${receipt.amount.toFixed(2)}</span>
             </div>
-            <PartnerPerksBlock perks={perks} staffFacing title="Your Partner Perks" />
+            <PartnerPerksBlock perks={perks} disclaimer={disclaimer} staffFacing title="Your Partner Perks" />
           </div>
         )}
         <DialogFooter>
@@ -158,10 +160,11 @@ function ReceiptDialog({
 }
 
 function TicketCard({
-  ticket, perks, onCheckout, isPending,
+  ticket, perks, disclaimer, onCheckout, isPending,
 }: {
   ticket: any;
   perks: CoopActivePerk[];
+  disclaimer: string | null;
   onCheckout: (amt: number, benefit: Benefit | null, staffId: number | null) => void;
   isPending: boolean;
 }) {
@@ -257,7 +260,7 @@ function TicketCard({
         </div>
 
         {/* Co-op partner perks — staff-facing (includes redemption codes) */}
-        <PartnerPerksBlock perks={perks} staffFacing />
+        <PartnerPerksBlock perks={perks} disclaimer={disclaimer} staffFacing />
 
         {activeStaff.length > 0 && (
           <div className="space-y-1.5">

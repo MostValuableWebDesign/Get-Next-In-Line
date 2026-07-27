@@ -190,6 +190,11 @@ export const merchantCoopPartnershipsTable = pgTable(
     }),
     // Free-form description of what each side owes the other (mutual terms).
     mutualRewardTerms: text("mutual_reward_terms"),
+    // Optional perk availability window. NULL = always active on that side.
+    // Outside the window the perk never appears on customer-facing surfaces
+    // and its redemption code fails validation.
+    perkStartsAt: timestamp("perk_starts_at"),
+    perkEndsAt: timestamp("perk_ends_at"),
     respondedAt: timestamp("responded_at"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -206,6 +211,32 @@ export const insertMerchantCoopPartnershipSchema = createInsertSchema(
 ).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertMerchantCoopPartnership = z.infer<typeof insertMerchantCoopPartnershipSchema>;
 export type MerchantCoopPartnership = typeof merchantCoopPartnershipsTable.$inferSelect;
+
+// ── Co-op perk redemptions ───────────────────────────────────────────────────
+// One row per redeemed pass/code instance. The unique (partnership, passCode)
+// pair is the double-redemption lock: a second scan of the same customer's
+// pass hits the constraint and is rejected as already redeemed, even under
+// concurrent double-scans.
+export const coopPerkRedemptionsTable = pgTable(
+  "coop_perk_redemptions",
+  {
+    id: serial("id").primaryKey(),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    // Identifies the specific customer pass instance (e.g. "C123" from the
+    // pass QR payload). Locked per partnership once redeemed.
+    passCode: text("pass_code").notNull(),
+    // Tenant whose staff scanned/redeemed the perk (NULL if tenant deleted).
+    redeemedByTenantId: integer("redeemed_by_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    redeemedAt: timestamp("redeemed_at").notNull().defaultNow(),
+  },
+  (t) => [unique("coop_perk_redemptions_partnership_pass_uq").on(t.partnershipId, t.passCode)]
+);
+
+export type CoopPerkRedemption = typeof coopPerkRedemptionsTable.$inferSelect;
 
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,

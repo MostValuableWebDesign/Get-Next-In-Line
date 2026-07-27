@@ -198,7 +198,7 @@ describe("co-op invite lifecycle", () => {
         .get("/api/coop/perks")
         .set("x-tenant-id", String(t))
         .expect(200);
-      expect(perks.body.length).toBe(0);
+      expect(perks.body.perks.length).toBe(0);
     }
     const redemption = await agent.get(`/api/coop/redemptions/${inviteCode}`).expect(200);
     expect(redemption.body.valid).toBe(false);
@@ -233,16 +233,16 @@ describe("co-op invite lifecycle", () => {
       .get("/api/coop/perks")
       .set("x-tenant-id", String(salonAId))
       .expect(200);
-    expect(salonPerks.body.length).toBe(1);
-    expect(salonPerks.body[0].partnerName).toBe(`Net Cafe ${RUN}`);
-    expect(salonPerks.body[0].redemptionCode).toBe(inviteCode);
+    expect(salonPerks.body.perks.length).toBe(1);
+    expect(salonPerks.body.perks[0].partnerName).toBe(`Net Cafe ${RUN}`);
+    expect(salonPerks.body.perks[0].redemptionCode).toBe(inviteCode);
 
     const cafePerks = await agent
       .get("/api/coop/perks")
       .set("x-tenant-id", String(cafeId))
       .expect(200);
-    expect(cafePerks.body.length).toBe(1);
-    expect(cafePerks.body[0].partnerName).toBe(`Net Salon A ${RUN}`);
+    expect(cafePerks.body.perks.length).toBe(1);
+    expect(cafePerks.body.perks[0].partnerName).toBe(`Net Salon A ${RUN}`);
 
     const redemption = await agent.get(`/api/coop/redemptions/${inviteCode}`).expect(200);
     expect(redemption.body.valid).toBe(true);
@@ -263,7 +263,7 @@ describe("co-op invite lifecycle", () => {
         .get("/api/coop/perks")
         .set("x-tenant-id", String(t))
         .expect(200);
-      expect(perks.body.length).toBe(0);
+      expect(perks.body.perks.length).toBe(0);
     }
     const redemption = await agent.get(`/api/coop/redemptions/${inviteCode}`).expect(200);
     expect(redemption.body.valid).toBe(false);
@@ -289,7 +289,7 @@ describe("co-op invite lifecycle", () => {
       .get("/api/coop/perks")
       .set("x-tenant-id", String(gymId))
       .expect(200);
-    expect(gymPerks.body.length).toBe(0);
+    expect(gymPerks.body.perks.length).toBe(0);
     const code = await agent
       .get(`/api/coop/redemptions/${created.body.redemptionCode}`)
       .expect(200);
@@ -316,7 +316,7 @@ describe("co-op invite lifecycle", () => {
       .get("/api/coop/perks")
       .set("x-tenant-id", String(gymId))
       .expect(200);
-    expect(perks.body.some((p: { id: number }) => p.id === res.body.id)).toBe(true);
+    expect(perks.body.perks.some((p: { id: number }) => p.id === res.body.id)).toBe(true);
     await db
       .delete(merchantCoopPartnershipsTable)
       .where(inArray(merchantCoopPartnershipsTable.id, [res.body.id]));

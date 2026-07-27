@@ -384,6 +384,8 @@ export const ListCoopPartnershipsResponseItem = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -403,7 +405,9 @@ export const CreateCoopPartnershipBody = zod.object({
   "perkTitle": zod.string().min(1),
   "perkDescription": zod.string().optional(),
   "redemptionCode": zod.string().regex(createCoopPartnershipBodyRedemptionCodeRegExp).optional().describe('Optional explicit redemption code; auto-generated when omitted.'),
-  "overrideIndustryBarrier": zod.boolean().optional().describe('Explicitly bypass the same-category (competitor) block.')
+  "overrideIndustryBarrier": zod.boolean().optional().describe('Explicitly bypass the same-category (competitor) block.'),
+  "perkStartsAt": zod.coerce.date().optional(),
+  "perkEndsAt": zod.coerce.date().optional()
 })
 
 export const CreateCoopPartnershipResponse = zod.object({
@@ -419,6 +423,8 @@ export const CreateCoopPartnershipResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -439,7 +445,9 @@ export const UpdateCoopPartnershipBody = zod.object({
   "perkTitle": zod.string().min(1).optional(),
   "perkDescription": zod.string().nullish(),
   "redemptionCode": zod.string().regex(updateCoopPartnershipBodyRedemptionCodeRegExp).optional(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "perkStartsAt": zod.coerce.date().nullish(),
+  "perkEndsAt": zod.coerce.date().nullish()
 })
 
 export const UpdateCoopPartnershipResponse = zod.object({
@@ -455,6 +463,8 @@ export const UpdateCoopPartnershipResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -489,7 +499,9 @@ export const CreateCoopInviteBody = zod.object({
   "partnerTenantId": zod.number(),
   "perkTitle": zod.string().min(1),
   "perkDescription": zod.string().optional(),
-  "mutualRewardTerms": zod.string().optional()
+  "mutualRewardTerms": zod.string().optional(),
+  "perkStartsAt": zod.coerce.date().optional(),
+  "perkEndsAt": zod.coerce.date().optional()
 })
 
 export const CreateCoopInviteResponse = zod.object({
@@ -505,6 +517,8 @@ export const CreateCoopInviteResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -534,6 +548,8 @@ export const RespondToCoopInviteResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -542,15 +558,55 @@ export const RespondToCoopInviteResponse = zod.object({
 /**
  * @summary Merchant-facing — live partner perks for the scoped tenant (accepted + active partnerships only); tenant scope via x-tenant-id
  */
-export const ListCoopActivePerksResponseItem = zod.object({
+export const ListCoopActivePerksResponse = zod.object({
+  "disclaimer": zod.string().describe('Platform liability disclaimer that must accompany every displayed perk.'),
+  "perks": zod.array(zod.object({
   "id": zod.number(),
   "perkTitle": zod.string(),
   "perkDescription": zod.string().nullable(),
   "mutualRewardTerms": zod.string().nullable(),
   "partnerName": zod.string(),
-  "redemptionCode": zod.string()
+  "redemptionCode": zod.string(),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.')
+}))
 })
-export const ListCoopActivePerksResponse = zod.array(ListCoopActivePerksResponseItem)
+
+
+/**
+ * @summary Merchant-facing — redeem a scanned perk pass, locking that pass instance against double redemption; tenant scope via x-tenant-id
+ */
+
+
+
+
+export const RedeemCoopPerkBody = zod.object({
+  "code": zod.string().min(1).describe('The partnership\'s redemption code (from the QR payload or typed manually).'),
+  "passCode": zod.string().min(1).describe('The specific customer pass\/code instance being redeemed (locked after one use).')
+})
+
+export const RedeemCoopPerkResponse = zod.object({
+  "valid": zod.boolean(),
+  "reason": zod.string().nullable().describe('Why redemption failed (unknown code, inactive, not started, expired, already redeemed); null when valid.'),
+  "partnership": zod.union([zod.object({
+  "id": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "partnerTenantId": zod.number(),
+  "partnerTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redemptionCode": zod.string(),
+  "industryBarrierOverridden": zod.boolean(),
+  "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
+  "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
+  "mutualRewardTerms": zod.string().nullable(),
+  "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "redeemedAt": zod.string().nullable().describe('When this pass instance was redeemed; set on success and on already-redeemed rejections.')
+})
 
 
 /**
@@ -576,6 +632,8 @@ export const ValidateCoopRedemptionCodeResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 }),zod.null()])

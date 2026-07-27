@@ -550,11 +550,30 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/CoopActivePerk"
+                $ref: "#/components/schemas/CoopActivePerksResponse"
         "400":
           description: Missing x-tenant-id header
+
+  /coop/redemptions:
+    post:
+      operationId: redeemCoopPerk
+      tags: [coop]
+      summary: Merchant-facing — redeem a scanned perk pass, locking that pass instance against double redemption; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopPerkRedeemRequest"
+      responses:
+        "200":
+          description: Redemption result — valid is false for unknown/inactive/out-of-window codes and already-redeemed pass instances
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPerkRedeemResult"
+        "400":
+          description: Missing x-tenant-id header or invalid body
 
   /coop/redemptions/{code}:
     get:
@@ -2155,6 +2174,8 @@ components:
           status,
           requestedByTenantId,
           mutualRewardTerms,
+          perkStartsAt,
+          perkEndsAt,
           isActive,
           createdAt,
         ]
@@ -2186,6 +2207,12 @@ components:
           description: Tenant that initiated the invite; null for admin-created partnerships.
         mutualRewardTerms:
           type: ["string", "null"]
+        perkStartsAt:
+          type: ["string", "null"]
+          description: ISO timestamp the perk goes live; null = active immediately.
+        perkEndsAt:
+          type: ["string", "null"]
+          description: ISO timestamp the perk expires; null = never expires.
         isActive:
           type: boolean
         createdAt:
@@ -2220,6 +2247,12 @@ components:
           type: string
         mutualRewardTerms:
           type: string
+        perkStartsAt:
+          type: string
+          format: date-time
+        perkEndsAt:
+          type: string
+          format: date-time
 
     CoopInviteRespond:
       type: object
@@ -2231,7 +2264,7 @@ components:
 
     CoopActivePerk:
       type: object
-      required: [id, perkTitle, perkDescription, mutualRewardTerms, partnerName, redemptionCode]
+      required: [id, perkTitle, perkDescription, mutualRewardTerms, partnerName, redemptionCode, perkEndsAt]
       properties:
         id:
           type: integer
@@ -2245,6 +2278,51 @@ components:
           type: string
         redemptionCode:
           type: string
+        perkEndsAt:
+          type: ["string", "null"]
+          description: ISO timestamp the perk expires; null = never expires.
+
+    CoopActivePerksResponse:
+      type: object
+      required: [disclaimer, perks]
+      properties:
+        disclaimer:
+          type: string
+          description: Platform liability disclaimer that must accompany every displayed perk.
+        perks:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopActivePerk"
+
+    CoopPerkRedeemRequest:
+      type: object
+      required: [code, passCode]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          description: The partnership's redemption code (from the QR payload or typed manually).
+        passCode:
+          type: string
+          minLength: 1
+          description: The specific customer pass/code instance being redeemed (locked after one use).
+
+    CoopPerkRedeemResult:
+      type: object
+      required: [valid, reason, partnership, redeemedAt]
+      properties:
+        valid:
+          type: boolean
+        reason:
+          type: ["string", "null"]
+          description: Why redemption failed (unknown code, inactive, not started, expired, already redeemed); null when valid.
+        partnership:
+          oneOf:
+            - $ref: "#/components/schemas/CoopPartnership"
+            - type: "null"
+        redeemedAt:
+          type: ["string", "null"]
+          description: When this pass instance was redeemed; set on success and on already-redeemed rejections.
 
     CoopPartnershipCreate:
       type: object
@@ -2266,6 +2344,12 @@ components:
         overrideIndustryBarrier:
           type: boolean
           description: Explicitly bypass the same-category (competitor) block.
+        perkStartsAt:
+          type: string
+          format: date-time
+        perkEndsAt:
+          type: string
+          format: date-time
 
     CoopPartnershipUpdate:
       type: object
@@ -2280,6 +2364,12 @@ components:
           pattern: "^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$"
         isActive:
           type: boolean
+        perkStartsAt:
+          type: ["string", "null"]
+          format: date-time
+        perkEndsAt:
+          type: ["string", "null"]
+          format: date-time
 
     CoopIndustryBarrierError:
       type: object

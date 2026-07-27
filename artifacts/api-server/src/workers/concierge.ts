@@ -3,6 +3,7 @@ import {
   clientProfilesTable,
   engagementRulesTable,
   messagesTable,
+  merchantCoopPartnershipsTable,
   type ClientProfile,
   type EngagementRule,
 } from "@workspace/db";
@@ -227,12 +228,40 @@ export async function reapStalePendingMessages(
   return reaped.length;
 }
 
+/**
+ * Flip co-op perks whose end date has passed to inactive (archived). Expired
+ * perks stop being served by the date-window query filters immediately; this
+ * sweep just makes the archived state durable so hubs list them as "Expired"
+ * rather than "Live". Idempotent and safe to run on every tick.
+ */
+export async function sweepExpiredCoopPerks(now: Date = new Date()): Promise<number> {
+  const expired = await db
+    .update(merchantCoopPartnershipsTable)
+    .set({ isActive: false, updatedAt: now })
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.isActive, true),
+        isNotNull(merchantCoopPartnershipsTable.perkEndsAt),
+        lte(merchantCoopPartnershipsTable.perkEndsAt, now),
+      ),
+    )
+    .returning({ id: merchantCoopPartnershipsTable.id });
+  if (expired.length > 0) {
+    logger.info(
+      { count: expired.length, ids: expired.map((r) => r.id) },
+      "Archived expired co-op perks",
+    );
+  }
+  return expired.length;
+}
+
 export interface ConciergeTickResult {
   /** False when another instance held the advisory lock and this tick was skipped. */
   ran: boolean;
   reaped: number;
   reminders: number;
   nudges: number;
+  expiredPerks: number;
 }
 
 /**
@@ -250,12 +279,13 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
+    const expiredPerks = await sweepExpiredCoopPerks(now);
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
-    return { ran: true, reaped, reminders, nudges };
+    return { ran: true, reaped, reminders, nudges, expiredPerks };
   });
 }
 
@@ -289,8 +319,9 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
         logger.warn({ jobName: job.name }, "Unknown concierge job");
         return 0;
       }
-      // Crash-mid-send recovery applies on this path too.
+      // Crash-mid-send recovery and the perk-expiry sweep apply on this path too.
       await reapStalePendingMessages();
+      await sweepExpiredCoopPerks();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;
@@ -317,10 +348,10 @@ function startIntervalWorker(): ConciergeWorkerHandle {
     if (running) return; // don't overlap slow ticks
     running = true;
     try {
-      const { ran, reaped, reminders, nudges } = await runConciergeTick();
-      if (ran && reaped + reminders + nudges > 0) {
+      const { ran, reaped, reminders, nudges, expiredPerks } = await runConciergeTick();
+      if (ran && reaped + reminders + nudges + expiredPerks > 0) {
         logger.info(
-          { reaped, reminders, nudges },
+          { reaped, reminders, nudges, expiredPerks },
           "Concierge interval tick dispatched messages",
         );
       }

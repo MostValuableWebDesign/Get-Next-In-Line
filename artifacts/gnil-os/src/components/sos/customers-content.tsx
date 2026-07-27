@@ -218,11 +218,16 @@ function CustomerPlansSection({ customerId }: { customerId: number }) {
   });
   // Live co-op partner perks ride along on the customer's digital pass —
   // deployed automatically while a partnership is accepted and active.
-  const { perks } = usePartnerPerks();
+  const { perks, disclaimer } = usePartnerPerks();
 
   return (
     <div className="space-y-3">
-      <PartnerPerksBlock perks={perks} title="Partner Perks on this pass" />
+      <PartnerPerksBlock
+        perks={perks}
+        disclaimer={disclaimer}
+        passCode={`C${customerId}`}
+        title="Partner Perks on this pass"
+      />
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
         Memberships & Credits
       </h3>

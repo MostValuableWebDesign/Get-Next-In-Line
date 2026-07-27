@@ -15,4 +15,9 @@ export interface CoopActivePerk {
   mutualRewardTerms: string | null;
   partnerName: string;
   redemptionCode: string;
+  /**
+     * ISO timestamp the perk expires; null = never expires.
+     * @nullable
+     */
+  perkEndsAt: string | null;
 }

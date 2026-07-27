@@ -37,6 +37,16 @@ export interface CoopPartnership {
   requestedByTenantId: number | null;
   /** @nullable */
   mutualRewardTerms: string | null;
+  /**
+     * ISO timestamp the perk goes live; null = active immediately.
+     * @nullable
+     */
+  perkStartsAt: string | null;
+  /**
+     * ISO timestamp the perk expires; null = never expires.
+     * @nullable
+     */
+  perkEndsAt: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -58,6 +68,8 @@ export interface CoopInviteCreate {
   perkTitle: string;
   perkDescription?: string;
   mutualRewardTerms?: string;
+  perkStartsAt?: string;
+  perkEndsAt?: string;
 }
 
 export type CoopInviteRespondAction = typeof CoopInviteRespondAction[keyof typeof CoopInviteRespondAction];
@@ -81,6 +93,45 @@ export interface CoopActivePerk {
   mutualRewardTerms: string | null;
   partnerName: string;
   redemptionCode: string;
+  /**
+     * ISO timestamp the perk expires; null = never expires.
+     * @nullable
+     */
+  perkEndsAt: string | null;
+}
+
+export interface CoopActivePerksResponse {
+  /** Platform liability disclaimer that must accompany every displayed perk. */
+  disclaimer: string;
+  perks: CoopActivePerk[];
+}
+
+export interface CoopPerkRedeemRequest {
+  /**
+     * The partnership's redemption code (from the QR payload or typed manually).
+     * @minLength 1
+     */
+  code: string;
+  /**
+     * The specific customer pass/code instance being redeemed (locked after one use).
+     * @minLength 1
+     */
+  passCode: string;
+}
+
+export interface CoopPerkRedeemResult {
+  valid: boolean;
+  /**
+     * Why redemption failed (unknown code, inactive, not started, expired, already redeemed); null when valid.
+     * @nullable
+     */
+  reason: string | null;
+  partnership: CoopPartnership | null;
+  /**
+     * When this pass instance was redeemed; set on success and on already-redeemed rejections.
+     * @nullable
+     */
+  redeemedAt: string | null;
 }
 
 export interface CoopPartnershipCreate {
@@ -96,6 +147,8 @@ export interface CoopPartnershipCreate {
   redemptionCode?: string;
   /** Explicitly bypass the same-category (competitor) block. */
   overrideIndustryBarrier?: boolean;
+  perkStartsAt?: string;
+  perkEndsAt?: string;
 }
 
 export interface CoopPartnershipUpdate {
@@ -106,6 +159,10 @@ export interface CoopPartnershipUpdate {
   /** @pattern ^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$ */
   redemptionCode?: string;
   isActive?: boolean;
+  /** @nullable */
+  perkStartsAt?: string | null;
+  /** @nullable */
+  perkEndsAt?: string | null;
 }
 
 export interface CoopIndustryBarrierError {

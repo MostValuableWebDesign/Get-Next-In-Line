@@ -19,4 +19,6 @@ export interface CoopPartnershipCreate {
   redemptionCode?: string;
   /** Explicitly bypass the same-category (competitor) block. */
   overrideIndustryBarrier?: boolean;
+  perkStartsAt?: Date;
+  perkEndsAt?: Date;
 }

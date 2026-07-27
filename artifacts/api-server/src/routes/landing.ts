@@ -8,6 +8,7 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, or } from "drizzle-orm";
 import { getSettingsForTenant } from "../lib/settings";
+import { COOP_PERK_DISCLAIMER, perkWindowOpen } from "../lib/coopPerks";
 import { listServicesForScope } from "../lib/serviceCatalog";
 import { parseServiceNames } from "../lib/receptionist";
 
@@ -69,6 +70,9 @@ export async function getPublicCoopPerks(
     .where(
       and(
         eq(merchantCoopPartnershipsTable.isActive, true),
+        eq(merchantCoopPartnershipsTable.status, "accepted"),
+        // Perks outside their optional date window never render publicly.
+        perkWindowOpen(),
         or(
           eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
           eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId),
@@ -107,7 +111,7 @@ router.get("/public/landing/:slug/perks", async (req, res): Promise<void> => {
     return;
   }
   const perks = await getPublicCoopPerks(tenant.id);
-  res.json({ perks });
+  res.json({ perks, disclaimer: COOP_PERK_DISCLAIMER });
 });
 
 router.get("/public/landing/:slug", async (req, res): Promise<void> => {
@@ -299,6 +303,7 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
           }<footer>with ${escapeHtml(p.partnerBusinessName)}</footer></article>`,
       )
       .join("\n    ")}
+    <p class="perk-disclaimer" data-testid="text-perk-disclaimer">${escapeHtml(COOP_PERK_DISCLAIMER)}</p>
   </section>`
       : "";
 
@@ -360,6 +365,7 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
   .perk h3{margin:0 0 .25rem;font-size:1.05rem}
   .perk p{margin:.15rem 0;color:#4a4a68}
   .perk footer{color:#92400e;font-size:.9rem;font-weight:600}
+  .perk-disclaimer{color:#6b6b8a;font-size:.75rem;margin-top:.75rem}
 </style>
 </head>
 <body>

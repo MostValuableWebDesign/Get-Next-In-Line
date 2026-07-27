@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useListCoopDirectory, getListCoopDirectoryQueryKey,
   useListCoopPartnerships, getListCoopPartnershipsQueryKey,
   useCreateCoopInvite, useRespondToCoopInvite,
   useListCoopActivePerks, getListCoopActivePerksQueryKey,
-  type CoopDirectoryEntry, type CoopPartnership,
+  useRedeemCoopPerk,
+  type CoopDirectoryEntry, type CoopPartnership, type CoopPerkRedeemResult,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,8 +23,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
-  AlertTriangle, ArrowLeftRight, Bell, Check, Handshake, MapPin, Search,
-  Send, Store, Ticket, X,
+  AlertTriangle, ArrowLeftRight, Bell, CalendarClock, Check, Handshake, Keyboard,
+  MapPin, ScanLine, Search, Send, Store, Ticket, X, XCircle,
 } from 'lucide-react';
 
 const SAME_INDUSTRY_MESSAGE = 'Same-industry pairings are restricted by platform guidelines.';
@@ -66,7 +67,14 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
   const sent = (partnerships ?? []).filter(
     p => p.status === 'pending' && p.requestedByTenantId === tenantId,
   );
-  const active = (partnerships ?? []).filter(p => p.status === 'accepted' && p.isActive);
+  const now = Date.now();
+  const isExpired = (p: CoopPartnership) =>
+    p.perkEndsAt != null && new Date(p.perkEndsAt).getTime() <= now;
+  const active = (partnerships ?? []).filter(
+    p => p.status === 'accepted' && p.isActive && !isExpired(p),
+  );
+  // Expired perks are archived, never deleted — shown under an Expired state.
+  const expired = (partnerships ?? []).filter(p => p.status === 'accepted' && isExpired(p));
   const partneredTenantIds = useMemo(
     () =>
       new Set(
@@ -87,6 +95,10 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
           Partner with non-competing local businesses. Accepted perks go live automatically on both
           businesses' checkout, receipts, and customer passes.
         </p>
+      </div>
+
+      <div>
+        <ScanPerkDialog />
       </div>
 
       {received.length > 0 && (
@@ -110,7 +122,12 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
           <div className="space-y-6">
             <ReceivedInvites invites={received} />
             <SentInvites invites={sent} />
-            <ActivePartnerships partnerships={active} perks={perks ?? []} tenantId={tenantId} />
+            <ActivePartnerships
+              partnerships={active}
+              expired={expired}
+              disclaimer={perks?.disclaimer ?? null}
+              tenantId={tenantId}
+            />
           </div>
           <Directory tenantId={tenantId} partneredTenantIds={partneredTenantIds} />
         </div>
@@ -240,11 +257,20 @@ function SentInvites({ invites }: { invites: CoopPartnership[] }) {
 
 // ── Active partnerships ──────────────────────────────────────────────────────
 
+function perkWindowLabel(p: CoopPartnership): string | null {
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString();
+  if (p.perkStartsAt && p.perkEndsAt) return `${fmt(p.perkStartsAt)} – ${fmt(p.perkEndsAt)}`;
+  if (p.perkStartsAt) return `From ${fmt(p.perkStartsAt)}`;
+  if (p.perkEndsAt) return `Through ${fmt(p.perkEndsAt)}`;
+  return null;
+}
+
 function ActivePartnerships({
-  partnerships, perks, tenantId,
+  partnerships, expired, disclaimer, tenantId,
 }: {
   partnerships: CoopPartnership[];
-  perks: { id: number; redemptionCode: string }[];
+  expired: CoopPartnership[];
+  disclaimer: string | null;
   tenantId: number;
 }) {
   return (
@@ -265,16 +291,27 @@ function ActivePartnerships({
         ) : (
           partnerships.map(p => {
             const otherName = p.hostTenantId === tenantId ? p.partnerTenantName : p.hostTenantName;
+            const window = perkWindowLabel(p);
+            const scheduled = p.perkStartsAt != null && new Date(p.perkStartsAt).getTime() > Date.now();
             return (
               <div key={p.id} className="border rounded-lg p-3 space-y-1" data-testid={`row-active-partnership-${p.id}`}>
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <ArrowLeftRight className="w-3.5 h-3.5 text-muted-foreground" /> {otherName}
-                  <Badge className="ml-auto" data-testid={`badge-partnership-live-${p.id}`}>Live</Badge>
+                  {scheduled ? (
+                    <Badge variant="secondary" className="ml-auto" data-testid={`badge-partnership-scheduled-${p.id}`}>Scheduled</Badge>
+                  ) : (
+                    <Badge className="ml-auto" data-testid={`badge-partnership-live-${p.id}`}>Live</Badge>
+                  )}
                 </div>
                 <div className="text-sm">{p.perkTitle}</div>
                 {p.mutualRewardTerms && (
                   <div className="text-xs text-muted-foreground">
                     <span className="font-medium">Mutual terms:</span> {p.mutualRewardTerms}
+                  </div>
+                )}
+                {window && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-1" data-testid={`text-perk-window-${p.id}`}>
+                    <CalendarClock className="w-3 h-3" /> {window}
                   </div>
                 )}
                 <div className="text-xs text-muted-foreground font-mono flex items-center gap-1">
@@ -284,8 +321,230 @@ function ActivePartnerships({
             );
           })
         )}
+        {expired.length > 0 && (
+          <div className="pt-2 space-y-2" data-testid="list-expired-partnerships">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Expired
+            </div>
+            {expired.map(p => {
+              const otherName = p.hostTenantId === tenantId ? p.partnerTenantName : p.hostTenantName;
+              return (
+                <div key={p.id} className="border rounded-lg p-3 space-y-1 opacity-60" data-testid={`row-expired-partnership-${p.id}`}>
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <ArrowLeftRight className="w-3.5 h-3.5 text-muted-foreground" /> {otherName}
+                    <Badge variant="outline" className="ml-auto" data-testid={`badge-partnership-expired-${p.id}`}>Expired</Badge>
+                  </div>
+                  <div className="text-sm">{p.perkTitle}</div>
+                  {p.perkEndsAt && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      <CalendarClock className="w-3 h-3" /> Ended {new Date(p.perkEndsAt).toLocaleDateString()}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {disclaimer && (partnerships.length > 0 || expired.length > 0) && (
+          <p className="text-[10px] leading-snug text-muted-foreground pt-2 border-t" data-testid="text-hub-perk-disclaimer">
+            {disclaimer}
+          </p>
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+// ── Scan Perk — camera QR validation of a customer's co-op pass ─────────────
+
+function ScanPerkDialog() {
+  const [open, setOpen] = useState(false);
+  const [manual, setManual] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [manualCode, setManualCode] = useState('');
+  const [manualPass, setManualPass] = useState('');
+  const [result, setResult] = useState<CoopPerkRedeemResult | null>(null);
+  const queryClient = useQueryClient();
+  const redeem = useRedeemCoopPerk();
+  const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
+  const scanningRef = useRef(false);
+  const regionId = 'coop-scan-region';
+
+  const stopScanner = () => {
+    const s = scannerRef.current;
+    scannerRef.current = null;
+    if (s) s.stop().then(() => s.clear()).catch(() => undefined);
+  };
+
+  const handlePayload = (payload: string) => {
+    if (scanningRef.current) return;
+    scanningRef.current = true;
+    stopScanner();
+    // QR payload: "<redemptionCode>|<passCode>"; a bare code is accepted but
+    // the server requires a pass instance, so route it to manual entry.
+    const [code, passCode] = payload.split('|').map(s => s.trim());
+    if (!code || !passCode) {
+      setManual(true);
+      setManualCode(code ?? '');
+      setCameraError('That QR code is missing the pass details — enter them manually.');
+      scanningRef.current = false;
+      return;
+    }
+    submit(code, passCode);
+  };
+
+  const submit = (code: string, passCode: string) => {
+    redeem.mutate(
+      { data: { code, passCode } },
+      {
+        onSuccess: r => {
+          setResult(r);
+          queryClient.invalidateQueries({
+            predicate: q => typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('/api/coop/'),
+          });
+        },
+        onError: () => {
+          setResult({ valid: false, reason: 'Could not reach the server — try again.', partnership: null, redeemedAt: null });
+        },
+        onSettled: () => { scanningRef.current = false; },
+      },
+    );
+  };
+
+  // Start/stop the camera scanner while the dialog is open in camera mode.
+  useEffect(() => {
+    if (!open || manual || result != null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { Html5Qrcode } = await import('html5-qrcode');
+        if (cancelled) return;
+        const scanner = new Html5Qrcode(regionId);
+        scannerRef.current = scanner;
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          decoded => handlePayload(decoded),
+          () => undefined, // per-frame decode misses are normal
+        );
+      } catch {
+        if (!cancelled) {
+          setCameraError('Camera unavailable — use manual entry below.');
+          setManual(true);
+        }
+      }
+    })();
+    return () => { cancelled = true; stopScanner(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, manual, result]);
+
+  const reset = () => {
+    stopScanner();
+    setManual(false);
+    setCameraError(null);
+    setManualCode('');
+    setManualPass('');
+    setResult(null);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => { setOpen(o); if (!o) reset(); }}>
+      <Button className="gap-2" onClick={() => setOpen(true)} data-testid="button-scan-perk">
+        <ScanLine className="w-4 h-4" /> Scan Perk
+      </Button>
+      <DialogContent data-testid="dialog-scan-perk">
+        <DialogHeader>
+          <DialogTitle>Scan a Co-Op Pass</DialogTitle>
+          <DialogDescription>
+            Point the camera at the QR code on the customer's pass. Each pass can be redeemed once.
+          </DialogDescription>
+        </DialogHeader>
+
+        {result ? (
+          <div
+            className={`rounded-lg border p-4 space-y-2 ${result.valid ? 'border-emerald-400 bg-emerald-500/10' : 'border-destructive/50 bg-destructive/10'}`}
+            data-testid={result.valid ? 'result-scan-valid' : 'result-scan-invalid'}
+          >
+            <div className="flex items-center gap-2 font-semibold">
+              {result.valid ? (
+                <><Check className="w-5 h-5 text-emerald-600" /> Perk redeemed</>
+              ) : (
+                <><XCircle className="w-5 h-5 text-destructive" /> Not valid</>
+              )}
+            </div>
+            {!result.valid && result.reason && (
+              <p className="text-sm" data-testid="text-scan-reason">{result.reason}</p>
+            )}
+            {result.partnership && (
+              <div className="text-sm space-y-0.5">
+                <div className="font-medium">{result.partnership.perkTitle}</div>
+                {result.partnership.perkDescription && (
+                  <div className="text-muted-foreground">{result.partnership.perkDescription}</div>
+                )}
+                <div className="text-xs text-muted-foreground">
+                  {result.partnership.hostTenantName} × {result.partnership.partnerTenantName}
+                </div>
+              </div>
+            )}
+            {result.valid && (
+              <p className="text-xs text-muted-foreground">
+                This pass is now locked — scanning it again will be rejected.
+              </p>
+            )}
+            <Button size="sm" variant="outline" onClick={reset} data-testid="button-scan-again">
+              Scan another
+            </Button>
+          </div>
+        ) : manual ? (
+          <div className="space-y-3">
+            {cameraError && (
+              <p className="text-sm text-muted-foreground" data-testid="text-camera-error">{cameraError}</p>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="scan-manual-code">Redemption code</Label>
+              <Input
+                id="scan-manual-code"
+                placeholder="COOP-XXXXXXXX"
+                className="font-mono"
+                value={manualCode}
+                onChange={e => setManualCode(e.target.value)}
+                data-testid="input-manual-code"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="scan-manual-pass">Pass ID (printed under the QR code)</Label>
+              <Input
+                id="scan-manual-pass"
+                placeholder="e.g. C123"
+                className="font-mono"
+                value={manualPass}
+                onChange={e => setManualPass(e.target.value)}
+                data-testid="input-manual-pass"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => submit(manualCode.trim(), manualPass.trim())}
+                disabled={!manualCode.trim() || !manualPass.trim() || redeem.isPending}
+                data-testid="button-manual-redeem"
+              >
+                Validate & Redeem
+              </Button>
+              <Button variant="outline" onClick={() => { setManual(false); setCameraError(null); }} data-testid="button-back-to-camera">
+                Use camera
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div id={regionId} className="rounded-lg overflow-hidden bg-black/90 min-h-[240px]" data-testid="scan-camera-region" />
+            <Button variant="outline" className="gap-2" onClick={() => setManual(true)} data-testid="button-manual-entry">
+              <Keyboard className="w-4 h-4" /> Enter code manually
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -446,14 +705,21 @@ function PerkBuilderDialog({
   const [perkTitle, setPerkTitle] = useState('');
   const [perkDescription, setPerkDescription] = useState('');
   const [mutualRewardTerms, setMutualRewardTerms] = useState('');
+  const [startsAt, setStartsAt] = useState('');
+  const [endsAt, setEndsAt] = useState('');
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const createInvite = useCreateCoopInvite();
+
+  const windowInvalid =
+    startsAt !== '' && endsAt !== '' && new Date(endsAt) <= new Date(startsAt);
 
   const close = () => {
     setPerkTitle('');
     setPerkDescription('');
     setMutualRewardTerms('');
+    setStartsAt('');
+    setEndsAt('');
     onClose();
   };
 
@@ -466,6 +732,8 @@ function PerkBuilderDialog({
           perkTitle: perkTitle.trim(),
           ...(perkDescription.trim() ? { perkDescription: perkDescription.trim() } : {}),
           ...(mutualRewardTerms.trim() ? { mutualRewardTerms: mutualRewardTerms.trim() } : {}),
+          ...(startsAt ? { perkStartsAt: new Date(startsAt).toISOString() } : {}),
+          ...(endsAt ? { perkEndsAt: new Date(endsAt).toISOString() } : {}),
         },
       },
       {
@@ -535,11 +803,38 @@ function PerkBuilderDialog({
               data-testid="input-invite-mutual-terms"
             />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="coop-invite-starts">Starts (optional)</Label>
+              <Input
+                id="coop-invite-starts"
+                type="date"
+                value={startsAt}
+                onChange={e => setStartsAt(e.target.value)}
+                data-testid="input-invite-perk-starts"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="coop-invite-ends">Ends (optional)</Label>
+              <Input
+                id="coop-invite-ends"
+                type="date"
+                value={endsAt}
+                onChange={e => setEndsAt(e.target.value)}
+                data-testid="input-invite-perk-ends"
+              />
+            </div>
+          </div>
+          {windowInvalid && (
+            <p className="text-sm text-destructive" data-testid="text-invite-window-error">
+              The end date must be after the start date.
+            </p>
+          )}
         </div>
         <DialogFooter>
           <Button
             onClick={send}
-            disabled={perkTitle.trim() === '' || createInvite.isPending}
+            disabled={perkTitle.trim() === '' || windowInvalid || createInvite.isPending}
             className="gap-2"
             data-testid="button-send-partnership-invite"
           >

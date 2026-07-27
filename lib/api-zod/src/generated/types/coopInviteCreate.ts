@@ -12,4 +12,6 @@ export interface CoopInviteCreate {
   perkTitle: string;
   perkDescription?: string;
   mutualRewardTerms?: string;
+  perkStartsAt?: Date;
+  perkEndsAt?: Date;
 }

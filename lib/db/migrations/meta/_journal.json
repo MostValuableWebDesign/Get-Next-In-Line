@@ -218,6 +218,13 @@
       "when": 1785118918445,
       "tag": "0030_foamy_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1785120098108,
+      "tag": "0031_curious_senator_kelly",
+      "breakpoints": true
     }
   ]
 }

@@ -39,7 +39,7 @@ import type {
   ConciergeSuggestUpsellsResult,
   ConnectorRegistryEntry,
   ConnectorRegistryEntryUpdate,
-  CoopActivePerk,
+  CoopActivePerksResponse,
   CoopDirectoryEntry,
   CoopIndustryBarrierError,
   CoopInviteCreate,
@@ -47,6 +47,8 @@ import type {
   CoopPartnership,
   CoopPartnershipCreate,
   CoopPartnershipUpdate,
+  CoopPerkRedeemRequest,
+  CoopPerkRedeemResult,
   CoopRedemptionValidation,
   EngagementRule,
   EngagementRuleInput,
@@ -1977,9 +1979,9 @@ export const getListCoopActivePerksUrl = () => {
 /**
  * @summary Merchant-facing — live partner perks for the scoped tenant (accepted + active partnerships only); tenant scope via x-tenant-id
  */
-export const listCoopActivePerks = async ( options?: RequestInit): Promise<CoopActivePerk[]> => {
+export const listCoopActivePerks = async ( options?: RequestInit): Promise<CoopActivePerksResponse> => {
 
-  return customFetch<CoopActivePerk[]>(getListCoopActivePerksUrl(),
+  return customFetch<CoopActivePerksResponse>(getListCoopActivePerksUrl(),
   {
     ...options,
     method: 'GET'
@@ -2042,6 +2044,77 @@ export function useListCoopActivePerks<TData = Awaited<ReturnType<typeof listCoo
 
 
 
+
+export const getRedeemCoopPerkUrl = () => {
+
+
+
+
+  return `/api/coop/redemptions`
+}
+
+/**
+ * @summary Merchant-facing — redeem a scanned perk pass, locking that pass instance against double redemption; tenant scope via x-tenant-id
+ */
+export const redeemCoopPerk = async (coopPerkRedeemRequest: CoopPerkRedeemRequest, options?: RequestInit): Promise<CoopPerkRedeemResult> => {
+
+  return customFetch<CoopPerkRedeemResult>(getRedeemCoopPerkUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopPerkRedeemRequest)
+  }
+);}
+
+
+
+
+
+export const getRedeemCoopPerkMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof redeemCoopPerk>>, TError,{data: BodyType<CoopPerkRedeemRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof redeemCoopPerk>>, TError,{data: BodyType<CoopPerkRedeemRequest>}, TContext> => {
+
+const mutationKey = ['redeemCoopPerk'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof redeemCoopPerk>>, {data: BodyType<CoopPerkRedeemRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  redeemCoopPerk(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RedeemCoopPerkMutationResult = NonNullable<Awaited<ReturnType<typeof redeemCoopPerk>>>
+    export type RedeemCoopPerkMutationBody = BodyType<CoopPerkRedeemRequest>
+    export type RedeemCoopPerkMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — redeem a scanned perk pass, locking that pass instance against double redemption; tenant scope via x-tenant-id
+ */
+export const useRedeemCoopPerk = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof redeemCoopPerk>>, TError,{data: BodyType<CoopPerkRedeemRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof redeemCoopPerk>>,
+        TError,
+        {data: BodyType<CoopPerkRedeemRequest>},
+        TContext
+      > => {
+      return useMutation(getRedeemCoopPerkMutationOptions(options));
+    }
 
 export const getValidateCoopRedemptionCodeUrl = (code: string,) => {
 

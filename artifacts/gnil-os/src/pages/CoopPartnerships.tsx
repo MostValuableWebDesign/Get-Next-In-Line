@@ -95,9 +95,15 @@ export default function CoopPartnerships() {
                     </span>
                     <ArrowLeftRight className="w-4 h-4 text-muted-foreground shrink-0" />
                     <span className="font-semibold">{p.partnerTenantName}</span>
-                    <Badge variant={p.isActive ? 'default' : 'secondary'} data-testid={`badge-partnership-status-${p.id}`}>
-                      {p.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
+                    {p.perkEndsAt != null && new Date(p.perkEndsAt).getTime() <= Date.now() ? (
+                      <Badge variant="outline" data-testid={`badge-partnership-status-${p.id}`}>
+                        Expired
+                      </Badge>
+                    ) : (
+                      <Badge variant={p.isActive ? 'default' : 'secondary'} data-testid={`badge-partnership-status-${p.id}`}>
+                        {p.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    )}
                     {p.industryBarrierOverridden && (
                       <Badge variant="outline" className="text-amber-600 border-amber-300">
                         <AlertTriangle className="w-3 h-3 mr-1" /> Barrier overridden
@@ -112,6 +118,12 @@ export default function CoopPartnerships() {
                     <Ticket className="w-3.5 h-3.5" />
                     <span data-testid={`text-redemption-code-${p.id}`}>{p.redemptionCode}</span>
                   </div>
+                  {(p.perkStartsAt || p.perkEndsAt) && (
+                    <div className="text-xs text-muted-foreground" data-testid={`text-perk-window-${p.id}`}>
+                      {p.perkStartsAt ? new Date(p.perkStartsAt).toLocaleDateString() : 'Now'} –{' '}
+                      {p.perkEndsAt ? new Date(p.perkEndsAt).toLocaleDateString() : 'no end date'}
+                    </div>
+                  )}
                 </div>
                 <Button
                   variant="outline"
@@ -140,9 +152,13 @@ function CreatePartnershipDialog() {
   const [perkTitle, setPerkTitle] = useState('');
   const [perkDescription, setPerkDescription] = useState('');
   const [redemptionCode, setRedemptionCode] = useState('');
+  const [startsAt, setStartsAt] = useState('');
+  const [endsAt, setEndsAt] = useState('');
   // Set when the server rejects with the industry barrier; the admin must
   // confirm the override explicitly before we retry.
   const [barrierMessage, setBarrierMessage] = useState<string | null>(null);
+
+  const windowInvalid = startsAt !== '' && endsAt !== '' && new Date(endsAt) <= new Date(startsAt);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -157,6 +173,8 @@ function CreatePartnershipDialog() {
     setPerkTitle('');
     setPerkDescription('');
     setRedemptionCode('');
+    setStartsAt('');
+    setEndsAt('');
     setBarrierMessage(null);
   };
 
@@ -169,6 +187,8 @@ function CreatePartnershipDialog() {
           perkTitle: perkTitle.trim(),
           ...(perkDescription.trim() ? { perkDescription: perkDescription.trim() } : {}),
           ...(redemptionCode.trim() ? { redemptionCode: redemptionCode.trim() } : {}),
+          ...(startsAt ? { perkStartsAt: new Date(startsAt).toISOString() } : {}),
+          ...(endsAt ? { perkEndsAt: new Date(endsAt).toISOString() } : {}),
           ...(override ? { overrideIndustryBarrier: true } : {}),
         },
       },
@@ -196,7 +216,8 @@ function CreatePartnershipDialog() {
   };
 
   const canSubmit =
-    hostTenantId !== '' && partnerTenantId !== '' && hostTenantId !== partnerTenantId && perkTitle.trim() !== '';
+    hostTenantId !== '' && partnerTenantId !== '' && hostTenantId !== partnerTenantId &&
+    perkTitle.trim() !== '' && !windowInvalid;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
@@ -272,6 +293,33 @@ function CreatePartnershipDialog() {
               data-testid="input-redemption-code"
             />
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="coop-perk-starts">Start date (optional)</Label>
+              <Input
+                id="coop-perk-starts"
+                type="date"
+                value={startsAt}
+                onChange={(e) => setStartsAt(e.target.value)}
+                data-testid="input-perk-starts"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="coop-perk-ends">End date (optional)</Label>
+              <Input
+                id="coop-perk-ends"
+                type="date"
+                value={endsAt}
+                onChange={(e) => setEndsAt(e.target.value)}
+                data-testid="input-perk-ends"
+              />
+            </div>
+          </div>
+          {windowInvalid && (
+            <p className="text-sm text-destructive" data-testid="text-perk-window-error">
+              The end date must be after the start date.
+            </p>
+          )}
           {barrierMessage && (
             <div
               className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm space-y-2"

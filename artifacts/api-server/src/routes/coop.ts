@@ -6,11 +6,18 @@ import {
   modulesTable,
   tenantModulesTable,
   merchantCoopPartnershipsTable,
+  coopPerkRedemptionsTable,
   sosSettingsTable,
   type MerchantCoopPartnership,
 } from "@workspace/db";
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, inArray, ne, or } from "drizzle-orm";
+import {
+  COOP_PERK_DISCLAIMER,
+  perkWindowOpen,
+  perkWindowState,
+  validatePerkWindow,
+} from "../lib/coopPerks";
 import {
   ListCoopPartnershipsResponse,
   CreateCoopPartnershipBody,
@@ -24,6 +31,8 @@ import {
   RespondToCoopInviteBody,
   RespondToCoopInviteResponse,
   ListCoopActivePerksResponse,
+  RedeemCoopPerkBody,
+  RedeemCoopPerkResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -66,6 +75,8 @@ function serialize(
     status: p.status,
     requestedByTenantId: p.requestedByTenantId,
     mutualRewardTerms: p.mutualRewardTerms,
+    perkStartsAt: p.perkStartsAt ? p.perkStartsAt.toISOString() : null,
+    perkEndsAt: p.perkEndsAt ? p.perkEndsAt.toISOString() : null,
     isActive: p.isActive,
     createdAt: p.createdAt.toISOString(),
   };
@@ -169,6 +180,11 @@ router.post("/coop/partnerships", async (req, res): Promise<void> => {
     res.status(400).json({ message: "A business cannot partner with itself" });
     return;
   }
+  const windowError = validatePerkWindow(parsed.data.perkStartsAt, parsed.data.perkEndsAt);
+  if (windowError) {
+    res.status(400).json({ message: windowError });
+    return;
+  }
 
   const tenants = await db
     .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
@@ -216,6 +232,8 @@ router.post("/coop/partnerships", async (req, res): Promise<void> => {
           perkDescription: parsed.data.perkDescription ?? null,
           redemptionCode: code,
           industryBarrierOverridden: override,
+          perkStartsAt: parsed.data.perkStartsAt ? new Date(parsed.data.perkStartsAt) : null,
+          perkEndsAt: parsed.data.perkEndsAt ? new Date(parsed.data.perkEndsAt) : null,
         })
         .returning();
       res
@@ -253,26 +271,53 @@ router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
   if (parsed.data.perkDescription !== undefined) updates.perkDescription = parsed.data.perkDescription;
   if (parsed.data.redemptionCode !== undefined) updates.redemptionCode = parsed.data.redemptionCode;
   if (parsed.data.isActive !== undefined) updates.isActive = parsed.data.isActive;
+  if (parsed.data.perkStartsAt !== undefined)
+    updates.perkStartsAt = parsed.data.perkStartsAt ? new Date(parsed.data.perkStartsAt) : null;
+  if (parsed.data.perkEndsAt !== undefined)
+    updates.perkEndsAt = parsed.data.perkEndsAt ? new Date(parsed.data.perkEndsAt) : null;
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ message: "No fields to update" });
     return;
   }
-  // A perk can only be (re)activated on an accepted partnership — pending and
-  // declined invites must never surface anywhere.
-  if (updates.isActive === true) {
+  // Fetch the existing row when needed to validate the merged date window or
+  // the activation transition.
+  const touchesWindow =
+    parsed.data.perkStartsAt !== undefined || parsed.data.perkEndsAt !== undefined;
+  if (updates.isActive === true || touchesWindow) {
     const [existing] = await db
-      .select({ status: merchantCoopPartnershipsTable.status })
+      .select({
+        status: merchantCoopPartnershipsTable.status,
+        perkStartsAt: merchantCoopPartnershipsTable.perkStartsAt,
+        perkEndsAt: merchantCoopPartnershipsTable.perkEndsAt,
+      })
       .from(merchantCoopPartnershipsTable)
       .where(eq(merchantCoopPartnershipsTable.id, id));
     if (!existing) {
       res.status(404).json({ message: "Not found" });
       return;
     }
-    if (existing.status !== "accepted") {
+    // A perk can only be (re)activated on an accepted partnership — pending
+    // and declined invites must never surface anywhere.
+    if (updates.isActive === true && existing.status !== "accepted") {
       res.status(409).json({
         message: "Only accepted partnerships can be activated",
       });
       return;
+    }
+    if (touchesWindow) {
+      const mergedStart =
+        parsed.data.perkStartsAt !== undefined
+          ? parsed.data.perkStartsAt
+          : existing.perkStartsAt?.toISOString();
+      const mergedEnd =
+        parsed.data.perkEndsAt !== undefined
+          ? parsed.data.perkEndsAt
+          : existing.perkEndsAt?.toISOString();
+      const windowError = validatePerkWindow(mergedStart, mergedEnd);
+      if (windowError) {
+        res.status(400).json({ message: windowError });
+        return;
+      }
     }
   }
   updates.updatedAt = new Date();
@@ -387,6 +432,11 @@ router.post("/coop/invites", async (req, res): Promise<void> => {
     res.status(400).json({ message: "A business cannot partner with itself" });
     return;
   }
+  const inviteWindowError = validatePerkWindow(parsed.data.perkStartsAt, parsed.data.perkEndsAt);
+  if (inviteWindowError) {
+    res.status(400).json({ message: inviteWindowError });
+    return;
+  }
   const tenants = await db
     .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
     .from(tenantsTable)
@@ -424,6 +474,8 @@ router.post("/coop/invites", async (req, res): Promise<void> => {
           perkTitle,
           perkDescription: parsed.data.perkDescription?.trim() || null,
           mutualRewardTerms: parsed.data.mutualRewardTerms?.trim() || null,
+          perkStartsAt: parsed.data.perkStartsAt ? new Date(parsed.data.perkStartsAt) : null,
+          perkEndsAt: parsed.data.perkEndsAt ? new Date(parsed.data.perkEndsAt) : null,
           redemptionCode: generateCode(),
           requestedByTenantId: tenantId,
           status: "pending",
@@ -520,6 +572,8 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
       and(
         eq(merchantCoopPartnershipsTable.status, "accepted"),
         eq(merchantCoopPartnershipsTable.isActive, true),
+        // Perks outside their optional date window never reach any surface.
+        perkWindowOpen(),
         or(
           eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
           eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId)
@@ -528,8 +582,9 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
     )
     .orderBy(desc(merchantCoopPartnershipsTable.createdAt), desc(merchantCoopPartnershipsTable.id));
   res.json(
-    ListCoopActivePerksResponse.parse(
-      rows.map((r) => ({
+    ListCoopActivePerksResponse.parse({
+      disclaimer: COOP_PERK_DISCLAIMER,
+      perks: rows.map((r) => ({
         id: r.partnership.id,
         perkTitle: r.partnership.perkTitle,
         perkDescription: r.partnership.perkDescription,
@@ -537,8 +592,9 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
         partnerName:
           r.partnership.hostTenantId === tenantId ? r.partnerTenantName : r.hostTenantName,
         redemptionCode: r.partnership.redemptionCode,
-      }))
-    )
+        perkEndsAt: r.partnership.perkEndsAt ? r.partnership.perkEndsAt.toISOString() : null,
+      })),
+    })
   );
 });
 
@@ -570,11 +626,113 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
     );
     return;
   }
+  const windowState = perkWindowState(row.partnership);
+  if (windowState !== "open") {
+    res.json(
+      ValidateCoopRedemptionCodeResponse.parse({
+        valid: false,
+        reason:
+          windowState === "expired"
+            ? "This perk has expired"
+            : "This perk is not active yet",
+        partnership: serialize(row.partnership, row.hostTenantName, row.partnerTenantName),
+      })
+    );
+    return;
+  }
   res.json(
     ValidateCoopRedemptionCodeResponse.parse({
       valid: true,
       reason: null,
       partnership: serialize(row.partnership, row.hostTenantName, row.partnerTenantName),
+    })
+  );
+});
+
+// ── POST /coop/redemptions — redeem a scanned pass, locking the instance ────
+// Records which partnership + pass/code instance was redeemed, when, and by
+// which tenant. The unique (partnership, passCode) constraint is the lock:
+// a second scan of the same instance — even a concurrent double-scan — hits
+// the constraint and is rejected as already redeemed. Always 200 with a
+// valid flag, mirroring the validation endpoint.
+router.post("/coop/redemptions", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = RedeemCoopPerkBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const code = parsed.data.code.trim();
+  const passCode = parsed.data.passCode.trim();
+  if (!code || !passCode) {
+    res.status(400).json({ message: "Both code and passCode are required" });
+    return;
+  }
+
+  const fail = (reason: string, row?: Awaited<ReturnType<typeof partnershipRows>>[number], redeemedAt: Date | null = null) => {
+    res.json(
+      RedeemCoopPerkResponse.parse({
+        valid: false,
+        reason,
+        partnership: row
+          ? serialize(row.partnership, row.hostTenantName, row.partnerTenantName)
+          : null,
+        redeemedAt: redeemedAt ? redeemedAt.toISOString() : null,
+      })
+    );
+  };
+
+  const [row] = await partnershipRows().where(
+    eq(merchantCoopPartnershipsTable.redemptionCode, code)
+  );
+  if (!row) {
+    fail("Unknown redemption code");
+    return;
+  }
+  if (!row.partnership.isActive || row.partnership.status !== "accepted") {
+    fail("This partnership is no longer active", row);
+    return;
+  }
+  const windowState = perkWindowState(row.partnership);
+  if (windowState !== "open") {
+    fail(windowState === "expired" ? "This perk has expired" : "This perk is not active yet", row);
+    return;
+  }
+
+  // onConflictDoNothing + returning(): exactly one of two concurrent scans
+  // gets a row back; the loser sees the existing redemption instead.
+  const [redemption] = await db
+    .insert(coopPerkRedemptionsTable)
+    .values({
+      partnershipId: row.partnership.id,
+      passCode,
+      redeemedByTenantId: tenantId,
+    })
+    .onConflictDoNothing()
+    .returning();
+  if (!redemption) {
+    const [existing] = await db
+      .select({ redeemedAt: coopPerkRedemptionsTable.redeemedAt })
+      .from(coopPerkRedemptionsTable)
+      .where(
+        and(
+          eq(coopPerkRedemptionsTable.partnershipId, row.partnership.id),
+          eq(coopPerkRedemptionsTable.passCode, passCode)
+        )
+      );
+    fail("This pass was already redeemed", row, existing?.redeemedAt ?? null);
+    return;
+  }
+  res.json(
+    RedeemCoopPerkResponse.parse({
+      valid: true,
+      reason: null,
+      partnership: serialize(row.partnership, row.hostTenantName, row.partnerTenantName),
+      redeemedAt: redemption.redeemedAt.toISOString(),
     })
   );
 });

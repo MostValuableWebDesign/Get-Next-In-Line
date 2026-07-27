@@ -27,6 +27,16 @@ export interface CoopPartnership {
   requestedByTenantId: number | null;
   /** @nullable */
   mutualRewardTerms: string | null;
+  /**
+     * ISO timestamp the perk goes live; null = active immediately.
+     * @nullable
+     */
+  perkStartsAt: string | null;
+  /**
+     * ISO timestamp the perk expires; null = never expires.
+     * @nullable
+     */
+  perkEndsAt: string | null;
   isActive: boolean;
   createdAt: string;
 }
