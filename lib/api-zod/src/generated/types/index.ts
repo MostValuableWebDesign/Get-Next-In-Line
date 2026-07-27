@@ -217,6 +217,7 @@ export * from './sosServiceInput';
 export * from './sosServiceReorderInput';
 export * from './sosServiceUpdate';
 export * from './sosSettings';
+export * from './sosSettingsDensityClassification';
 export * from './sosSettingsSmsMode';
 export * from './sosSettingsUpdate';
 export * from './sosStaffEarningsRow';

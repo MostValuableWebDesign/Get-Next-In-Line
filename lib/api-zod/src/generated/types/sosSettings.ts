@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { SosSettingsDensityClassification } from './sosSettingsDensityClassification';
 import type { SosSettingsSmsMode } from './sosSettingsSmsMode';
 
 export interface SosSettings {
@@ -58,5 +59,16 @@ export interface SosSettings {
   coopSubCategory?: string;
   /** Co-op local discovery radius in miles (1–15). */
   coopRadiusMiles?: number;
+  /** Auto-detected commercial density around the business address. Suburban is the fallback when detection can't run. */
+  densityClassification: SosSettingsDensityClassification;
+  /** Auto-assigned co-op cross-promotion radius (miles) from the density classification. */
+  coopRadiusAutoMiles: number;
+  /**
+     * Merchant override of the co-op radius (miles). Null = automatic.
+     * @nullable
+     */
+  coopRadiusOverrideMiles: number | null;
+  /** Effective co-op radius — the override when set, else the auto default. */
+  coopRadiusEffectiveMiles: number;
   updatedAt: string;
 }

@@ -3,6 +3,7 @@ import { eq, isNull } from "drizzle-orm";
 import { getSmsStatus, getTwilioAuthToken } from "./sms";
 import { getInboundWebhookUrl } from "./inboundSms";
 import { effectiveSubCategory } from "./coopFirewall";
+import { effectiveCoopRadiusMiles } from "./geoDensity";
 
 export type SosSettingsRow = typeof sosSettingsTable.$inferSelect;
 
@@ -82,17 +83,61 @@ export async function resolveSettings(
  * amounts arrive as numbers but are stored as numeric strings.
  */
 export function toSettingsColumnUpdates<
-  T extends { noShowDepositAmount?: number; noShowFee?: number },
->(body: T): Omit<T, "noShowDepositAmount" | "noShowFee"> &
-  Partial<Pick<typeof sosSettingsTable.$inferInsert, "noShowDepositAmount" | "noShowFee">> {
-  const { noShowDepositAmount, noShowFee, ...rest } = body;
+  T extends {
+    noShowDepositAmount?: number;
+    noShowFee?: number;
+    coopRadiusOverrideMiles?: number | null;
+    latitude?: string;
+    longitude?: string;
+  },
+>(body: T): Omit<T, "noShowDepositAmount" | "noShowFee" | "coopRadiusOverrideMiles"> &
+  Partial<
+    Pick<
+      typeof sosSettingsTable.$inferInsert,
+      "noShowDepositAmount" | "noShowFee" | "coopRadiusOverrideMiles" | "coordinatesSource"
+    >
+  > {
+  const { noShowDepositAmount, noShowFee, coopRadiusOverrideMiles, ...rest } = body;
+  // Explicitly typed lat/lng mark the coordinates as manual — automatic
+  // geocoding must never overwrite them. Clearing both reverts to auto.
+  const latProvided = body.latitude !== undefined;
+  const lngProvided = body.longitude !== undefined;
+  const coordsTouched = latProvided || lngProvided;
+  const coordsNonEmpty =
+    (body.latitude ?? "").trim() !== "" || (body.longitude ?? "").trim() !== "";
   return {
     ...rest,
     ...(noShowDepositAmount != null
       ? { noShowDepositAmount: noShowDepositAmount.toFixed(2) }
       : {}),
     ...(noShowFee != null ? { noShowFee: noShowFee.toFixed(2) } : {}),
+    ...(coopRadiusOverrideMiles !== undefined
+      ? {
+          coopRadiusOverrideMiles:
+            coopRadiusOverrideMiles == null ? null : coopRadiusOverrideMiles.toFixed(1),
+        }
+      : {}),
+    ...(coordsTouched ? { coordinatesSource: coordsNonEmpty ? "manual" : "" } : {}),
   };
+}
+
+/** True when a settings-update body touches any address or coordinate field. */
+export function addressFieldsTouched(body: {
+  streetAddress?: string;
+  addressLocality?: string;
+  addressRegion?: string;
+  postalCode?: string;
+  latitude?: string;
+  longitude?: string;
+}): boolean {
+  return (
+    body.streetAddress !== undefined ||
+    body.addressLocality !== undefined ||
+    body.addressRegion !== undefined ||
+    body.postalCode !== undefined ||
+    body.latitude !== undefined ||
+    body.longitude !== undefined
+  );
 }
 
 /** Serialize a settings row into the SosSettings API shape. */
@@ -136,6 +181,11 @@ export async function serializeSettings(s: SosSettingsRow) {
     businessCategory: s.businessCategory,
     coopSubCategory: effectiveSubCategory(s).subCategory ?? "",
     coopRadiusMiles: s.coopRadiusMiles,
+    densityClassification: s.densityClassification,
+    coopRadiusAutoMiles: parseFloat(s.coopRadiusAutoMiles),
+    coopRadiusOverrideMiles:
+      s.coopRadiusOverrideMiles != null ? parseFloat(s.coopRadiusOverrideMiles) : null,
+    coopRadiusEffectiveMiles: effectiveCoopRadiusMiles(s),
     updatedAt: s.updatedAt.toISOString(),
   };
 }

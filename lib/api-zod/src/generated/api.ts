@@ -365,10 +365,10 @@ export const GetAdminModuleDetailResponse = zod.object({
 
 
 /**
- * @summary List merchant co-op partnerships, optionally filtered to one tenant (as host or partner)
+ * @summary List the scoped tenant's co-op partnerships (as host or partner); tenant context required via x-tenant-id header or tenantId query
  */
 export const ListCoopPartnershipsQueryParams = zod.object({
-  "tenantId": zod.coerce.number().optional()
+  "tenantId": zod.coerce.number().optional().describe('Tenant scope fallback when no x-tenant-id header is set; must match the header when both are present.')
 })
 
 export const ListCoopPartnershipsResponseItem = zod.object({
@@ -1691,6 +1691,10 @@ export const GetSosSettingsResponse = zod.object({
   "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
   "coopSubCategory": zod.string().optional().describe('Effective Level 2 co-op sub-category key (explicit or auto-derived from the business category); empty when unclassifiable.'),
   "coopRadiusMiles": zod.number().optional().describe('Co-op local discovery radius in miles (1–15).'),
+  "densityClassification": zod.enum(['dense_urban', 'suburban', 'rural']).describe('Auto-detected commercial density around the business address. Suburban is the fallback when detection can\'t run.'),
+  "coopRadiusAutoMiles": zod.number().describe('Auto-assigned co-op cross-promotion radius (miles) from the density classification.'),
+  "coopRadiusOverrideMiles": zod.number().nullable().describe('Merchant override of the co-op radius (miles). Null = automatic.'),
+  "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
   "updatedAt": zod.string()
 })
 
@@ -1710,6 +1714,9 @@ export const updateSosSettingsBodyNoShowFeeMin = 0;
 export const updateSosSettingsBodyLatitudeRegExp = new RegExp('^$|^-?\\d{1,2}(\\.\\d+)?$');
 export const updateSosSettingsBodyLongitudeRegExp = new RegExp('^$|^-?\\d{1,3}(\\.\\d+)?$');
 export const updateSosSettingsBodyCoopRadiusMilesMax = 15;
+
+export const updateSosSettingsBodyCoopRadiusOverrideMilesMin = 0.5;
+export const updateSosSettingsBodyCoopRadiusOverrideMilesMax = 50;
 
 
 
@@ -1738,7 +1745,8 @@ export const UpdateSosSettingsBody = zod.object({
   "longitude": zod.string().regex(updateSosSettingsBodyLongitudeRegExp).optional(),
   "businessCategory": zod.string().optional(),
   "coopSubCategory": zod.string().optional().describe('Curated Level 2 sub-category slug; empty string switches back to auto-derivation.'),
-  "coopRadiusMiles": zod.number().min(1).max(updateSosSettingsBodyCoopRadiusMilesMax).optional()
+  "coopRadiusMiles": zod.number().min(1).max(updateSosSettingsBodyCoopRadiusMilesMax).optional(),
+  "coopRadiusOverrideMiles": zod.number().min(updateSosSettingsBodyCoopRadiusOverrideMilesMin).max(updateSosSettingsBodyCoopRadiusOverrideMilesMax).nullish().describe('Merchant override of the co-op radius (miles). Send null to revert to automatic.')
 })
 
 export const UpdateSosSettingsResponse = zod.object({
@@ -1774,6 +1782,10 @@ export const UpdateSosSettingsResponse = zod.object({
   "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
   "coopSubCategory": zod.string().optional().describe('Effective Level 2 co-op sub-category key (explicit or auto-derived from the business category); empty when unclassifiable.'),
   "coopRadiusMiles": zod.number().optional().describe('Co-op local discovery radius in miles (1–15).'),
+  "densityClassification": zod.enum(['dense_urban', 'suburban', 'rural']).describe('Auto-detected commercial density around the business address. Suburban is the fallback when detection can\'t run.'),
+  "coopRadiusAutoMiles": zod.number().describe('Auto-assigned co-op cross-promotion radius (miles) from the density classification.'),
+  "coopRadiusOverrideMiles": zod.number().nullable().describe('Merchant override of the co-op radius (miles). Null = automatic.'),
+  "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
   "updatedAt": zod.string()
 })
 
@@ -2925,6 +2937,10 @@ export const GetTenantSettingsResponse = zod.object({
   "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
   "coopSubCategory": zod.string().optional().describe('Effective Level 2 co-op sub-category key (explicit or auto-derived from the business category); empty when unclassifiable.'),
   "coopRadiusMiles": zod.number().optional().describe('Co-op local discovery radius in miles (1–15).'),
+  "densityClassification": zod.enum(['dense_urban', 'suburban', 'rural']).describe('Auto-detected commercial density around the business address. Suburban is the fallback when detection can\'t run.'),
+  "coopRadiusAutoMiles": zod.number().describe('Auto-assigned co-op cross-promotion radius (miles) from the density classification.'),
+  "coopRadiusOverrideMiles": zod.number().nullable().describe('Merchant override of the co-op radius (miles). Null = automatic.'),
+  "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
   "updatedAt": zod.string()
 })
 
@@ -2948,6 +2964,9 @@ export const updateTenantSettingsBodyNoShowFeeMin = 0;
 export const updateTenantSettingsBodyLatitudeRegExp = new RegExp('^$|^-?\\d{1,2}(\\.\\d+)?$');
 export const updateTenantSettingsBodyLongitudeRegExp = new RegExp('^$|^-?\\d{1,3}(\\.\\d+)?$');
 export const updateTenantSettingsBodyCoopRadiusMilesMax = 15;
+
+export const updateTenantSettingsBodyCoopRadiusOverrideMilesMin = 0.5;
+export const updateTenantSettingsBodyCoopRadiusOverrideMilesMax = 50;
 
 
 
@@ -2976,7 +2995,8 @@ export const UpdateTenantSettingsBody = zod.object({
   "longitude": zod.string().regex(updateTenantSettingsBodyLongitudeRegExp).optional(),
   "businessCategory": zod.string().optional(),
   "coopSubCategory": zod.string().optional().describe('Curated Level 2 sub-category slug; empty string switches back to auto-derivation.'),
-  "coopRadiusMiles": zod.number().min(1).max(updateTenantSettingsBodyCoopRadiusMilesMax).optional()
+  "coopRadiusMiles": zod.number().min(1).max(updateTenantSettingsBodyCoopRadiusMilesMax).optional(),
+  "coopRadiusOverrideMiles": zod.number().min(updateTenantSettingsBodyCoopRadiusOverrideMilesMin).max(updateTenantSettingsBodyCoopRadiusOverrideMilesMax).nullish().describe('Merchant override of the co-op radius (miles). Send null to revert to automatic.')
 })
 
 export const UpdateTenantSettingsResponse = zod.object({
@@ -3012,6 +3032,10 @@ export const UpdateTenantSettingsResponse = zod.object({
   "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
   "coopSubCategory": zod.string().optional().describe('Effective Level 2 co-op sub-category key (explicit or auto-derived from the business category); empty when unclassifiable.'),
   "coopRadiusMiles": zod.number().optional().describe('Co-op local discovery radius in miles (1–15).'),
+  "densityClassification": zod.enum(['dense_urban', 'suburban', 'rural']).describe('Auto-detected commercial density around the business address. Suburban is the fallback when detection can\'t run.'),
+  "coopRadiusAutoMiles": zod.number().describe('Auto-assigned co-op cross-promotion radius (miles) from the density classification.'),
+  "coopRadiusOverrideMiles": zod.number().nullable().describe('Merchant override of the co-op radius (miles). Null = automatic.'),
+  "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
   "updatedAt": zod.string()
 })
 

@@ -7,5 +7,8 @@
  */
 
 export type ListCoopPartnershipsParams = {
+/**
+ * Tenant scope fallback when no x-tenant-id header is set; must match the header when both are present.
+ */
 tenantId?: number;
 };

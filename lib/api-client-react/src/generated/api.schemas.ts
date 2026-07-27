@@ -1140,6 +1140,18 @@ export const SosSettingsSmsMode = {
   simulated: 'simulated',
 } as const;
 
+/**
+ * Auto-detected commercial density around the business address. Suburban is the fallback when detection can't run.
+ */
+export type SosSettingsDensityClassification = typeof SosSettingsDensityClassification[keyof typeof SosSettingsDensityClassification];
+
+
+export const SosSettingsDensityClassification = {
+  dense_urban: 'dense_urban',
+  suburban: 'suburban',
+  rural: 'rural',
+} as const;
+
 export interface SosSettings {
   id: number;
   /** @nullable */
@@ -1191,6 +1203,17 @@ export interface SosSettings {
   coopSubCategory?: string;
   /** Co-op local discovery radius in miles (1–15). */
   coopRadiusMiles?: number;
+  /** Auto-detected commercial density around the business address. Suburban is the fallback when detection can't run. */
+  densityClassification: SosSettingsDensityClassification;
+  /** Auto-assigned co-op cross-promotion radius (miles) from the density classification. */
+  coopRadiusAutoMiles: number;
+  /**
+     * Merchant override of the co-op radius (miles). Null = automatic.
+     * @nullable
+     */
+  coopRadiusOverrideMiles: number | null;
+  /** Effective co-op radius — the override when set, else the auto default. */
+  coopRadiusEffectiveMiles: number;
   updatedAt: string;
 }
 
@@ -1233,6 +1256,13 @@ export interface SosSettingsUpdate {
      * @maximum 15
      */
   coopRadiusMiles?: number;
+  /**
+     * Merchant override of the co-op radius (miles). Send null to revert to automatic.
+     * @minimum 0.5
+     * @maximum 50
+     * @nullable
+     */
+  coopRadiusOverrideMiles?: number | null;
 }
 
 export interface SosReview {
@@ -2692,6 +2722,9 @@ before_id?: number;
 };
 
 export type ListCoopPartnershipsParams = {
+/**
+ * Tenant scope fallback when no x-tenant-id header is set; must match the header when both are present.
+ */
 tenantId?: number;
 };
 

@@ -22,12 +22,14 @@ import {
 } from "@workspace/api-zod";
 import { sosSettingsTable } from "@workspace/db";
 import {
+  addressFieldsTouched,
   getSettingsForTenant,
   serializeSettings,
   toSettingsColumnUpdates,
 } from "../lib/settings";
 import { runCoopConflictCheck } from "../lib/coopFirewall";
 import { refreshCoopSuggestionsSafe } from "../lib/coopMatchmaking";
+import { scheduleDensityDetection } from "../lib/geoDensity";
 
 const router: IRouter = Router();
 
@@ -77,6 +79,9 @@ router.patch("/tenants/:id/settings", async (req, res): Promise<void> => {
     // recompute and persist the Suggested Partners feed automatically.
     await refreshCoopSuggestionsSafe(tenantId);
   }
+  // Address changed → re-run density detection in the background (never
+  // blocks the save; never clobbers a merchant radius override).
+  if (addressFieldsTouched(body)) scheduleDensityDetection(updated.id);
   res.json(UpdateTenantSettingsResponse.parse(await serializeSettings(updated)));
 });
 

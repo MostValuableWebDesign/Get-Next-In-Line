@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Activity, ArrowLeft, Bot, Building2, ExternalLink, MessageSquare, Search, ShieldCheck, Star, Trash2 } from 'lucide-react';
+import { Activity, ArrowLeft, Bot, Building2, ExternalLink, MapPin, MessageSquare, Search, ShieldCheck, Star, Trash2 } from 'lucide-react';
 import { ConnectorRegistrySection } from '@/pages/ConnectorRegistry';
 import { TenantCoopPartnershipsSection } from '@/pages/CoopPartnerships';
 
@@ -191,6 +191,7 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       businessCategory: string;
       coopSubCategory: string;
       coopRadiusMiles: number;
+      coopRadiusOverrideMiles: number | null;
     }>,
   ) => {
     const onSuccess = () => {
@@ -426,6 +427,17 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
           coop={coop}
           setCoop={setCoop}
           onSave={() => saveSection('Co-Op Network', coop)}
+          isPending={isPending}
+        />
+      )}
+
+      {/* ── Co-Op Search Radius (tenant-scoped only) ────────────────── */}
+      {isTenantScoped && settings && (
+        <CoopRadiusCard
+          settings={settings}
+          onSave={(overrideMiles) =>
+            saveSection('Co-Op search radius', { coopRadiusOverrideMiles: overrideMiles })
+          }
           isPending={isPending}
         />
       )}
@@ -758,6 +770,104 @@ function LocalSeoCard({
           ) : <span />}
           <Button onClick={onSave} disabled={isPending} data-testid="button-save-local-seo">
             Save SEO Profile
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+const DENSITY_LABELS: Record<string, string> = {
+  dense_urban: 'Dense Urban',
+  suburban: 'Suburban',
+  rural: 'Rural',
+};
+
+/**
+ * Co-Op Search Radius section (tenant-scoped only). Shows the auto-detected
+ * density classification and radius, with a slider override the merchant can
+ * set (persists, never clobbered by re-detection) or revert to automatic.
+ */
+function CoopRadiusCard({
+  settings, onSave, isPending,
+}: {
+  settings: SosSettings;
+  onSave: (overrideMiles: number | null) => void;
+  isPending: boolean;
+}) {
+  const hasOverride = settings.coopRadiusOverrideMiles != null;
+  const [sliderMiles, setSliderMiles] = React.useState<number>(settings.coopRadiusEffectiveMiles);
+  React.useEffect(() => {
+    setSliderMiles(settings.coopRadiusEffectiveMiles);
+  }, [settings.coopRadiusEffectiveMiles]);
+
+  const densityLabel = DENSITY_LABELS[settings.densityClassification] ?? 'Suburban';
+  const dirty = sliderMiles !== (settings.coopRadiusOverrideMiles ?? settings.coopRadiusAutoMiles);
+
+  return (
+    <Card id="coop-radius" className="scroll-mt-6" data-testid="section-coop-radius">
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-primary" /> Co-Op Search Radius
+          </CardTitle>
+          <Badge variant={hasOverride ? 'secondary' : 'default'} data-testid="badge-coop-radius-mode">
+            {hasOverride ? 'Manual override' : 'Automatic'}
+          </Badge>
+        </div>
+        <CardDescription>
+          How far the Co-Op Partner Hub looks for nearby businesses to partner with.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="p-4 border rounded-lg space-y-1">
+          <div className="text-sm">
+            Detected area type:{' '}
+            <span className="font-medium" data-testid="text-density-classification">{densityLabel}</span>
+          </div>
+          <p className="text-sm text-muted-foreground" data-testid="text-coop-radius-auto">
+            Auto-assigned radius: {settings.coopRadiusAutoMiles} miles — set automatically from the
+            commercial density around your address, and refreshed whenever your address changes.
+          </p>
+        </div>
+        <div className="grid gap-3">
+          <div className="flex items-center justify-between">
+            <Label>Search radius</Label>
+            <span className="text-sm font-medium" data-testid="text-coop-radius-value">
+              {sliderMiles} miles
+            </span>
+          </div>
+          <Slider
+            min={0.5}
+            max={25}
+            step={0.5}
+            value={[sliderMiles]}
+            onValueChange={(v) => setSliderMiles(v[0])}
+            data-testid="slider-coop-radius"
+          />
+          <p className="text-xs text-muted-foreground">
+            Moving the slider sets a manual override; automatic re-detection never changes it.
+          </p>
+        </div>
+        <div className="flex justify-between items-center gap-3">
+          {hasOverride ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground -ml-2"
+              onClick={() => onSave(null)}
+              disabled={isPending}
+              data-testid="button-coop-radius-revert"
+            >
+              Revert to automatic ({settings.coopRadiusAutoMiles} mi)
+            </Button>
+          ) : <span />}
+          <Button
+            onClick={() => onSave(sliderMiles)}
+            disabled={isPending || !dirty}
+            data-testid="button-save-coop-radius"
+          >
+            Save Radius
           </Button>
         </div>
       </CardContent>

@@ -1574,7 +1574,7 @@ export const getListCoopPartnershipsUrl = (params?: ListCoopPartnershipsParams,)
 }
 
 /**
- * @summary List merchant co-op partnerships, optionally filtered to one tenant (as host or partner)
+ * @summary List the scoped tenant's co-op partnerships (as host or partner); tenant context required via x-tenant-id header or tenantId query
  */
 export const listCoopPartnerships = async (params?: ListCoopPartnershipsParams, options?: RequestInit): Promise<CoopPartnership[]> => {
 
@@ -1621,7 +1621,7 @@ export type ListCoopPartnershipsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List merchant co-op partnerships, optionally filtered to one tenant (as host or partner)
+ * @summary List the scoped tenant's co-op partnerships (as host or partner); tenant context required via x-tenant-id header or tenantId query
  */
 
 export function useListCoopPartnerships<TData = Awaited<ReturnType<typeof listCoopPartnerships>>, TError = ErrorType<unknown>>(

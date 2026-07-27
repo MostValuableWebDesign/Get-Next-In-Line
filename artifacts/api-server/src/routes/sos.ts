@@ -108,11 +108,13 @@ import {
 import { logger } from "../lib/logger";
 import { attachRevenueToRecentCrossoverSafe } from "../lib/coopEvents";
 import {
+  addressFieldsTouched,
   getLegacySettings,
   resolveSettings,
   serializeSettings,
   toSettingsColumnUpdates,
 } from "../lib/settings";
+import { scheduleDensityDetection } from "../lib/geoDensity";
 import type { Request } from "express";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { grantPerkPassesSafe } from "../lib/perkPasses";
@@ -415,6 +417,8 @@ router.patch("/sos/settings", async (req, res): Promise<void> => {
     .set({ ...toSettingsColumnUpdates(body), updatedAt: new Date() })
     .where(eq(sosSettingsTable.id, s.id))
     .returning();
+  // Address changed → re-run co-op density detection in the background.
+  if (addressFieldsTouched(body)) scheduleDensityDetection(updated.id);
   res.json(UpdateSosSettingsResponse.parse(await serializeSettings(updated)));
 });
 

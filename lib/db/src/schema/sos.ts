@@ -76,6 +76,22 @@ export const sosSettingsTable = pgTable("sos_settings", {
   // Co-op local discovery radius in miles (1–15). Every business gets the
   // smart default automatically at onboarding; owners adjust via a slider.
   coopRadiusMiles: integer("coop_radius_miles").notNull().default(4),
+  // ── Co-op geographic radius ────────────────────────────────────────────────
+  // How lat/lng were set: "" (unset), "manual" (typed by the merchant — never
+  // overwritten by auto-detection) or "auto" (geocoded from the address).
+  coordinatesSource: text("coordinates_source").notNull().default(""),
+  // Auto-detected commercial density around the address: dense_urban |
+  // suburban | rural. Suburban is the documented fallback when the address is
+  // missing or geocoding/POI lookup fails.
+  densityClassification: text("density_classification").notNull().default("suburban"),
+  // Auto-assigned co-op cross-promotion radius (miles) from the density
+  // classification. Suburban default until detection runs.
+  coopRadiusAutoMiles: numeric("coop_radius_auto_miles", { precision: 5, scale: 1 })
+    .notNull()
+    .default("4.0"),
+  // Merchant override (miles). NULL = automatic. Once set, automatic
+  // re-detection never clobbers it; the effective radius is override ?? auto.
+  coopRadiusOverrideMiles: numeric("coop_radius_override_miles", { precision: 5, scale: 1 }),
   // Business-specific service names the AI receptionist should recognize,
   // in addition to the generic industry-neutral terms.
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

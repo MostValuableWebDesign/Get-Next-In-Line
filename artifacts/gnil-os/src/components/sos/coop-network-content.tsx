@@ -1248,6 +1248,11 @@ function Directory({
                       <MapPin className="w-3 h-3" /> {biz.city}
                     </span>
                   )}
+                  {biz.distanceMiles != null && (
+                    <span data-testid={`text-directory-distance-${biz.id}`}>
+                      {biz.distanceMiles} mi away
+                    </span>
+                  )}
                 </div>
                 {biz.sameIndustry && (
                   <Badge

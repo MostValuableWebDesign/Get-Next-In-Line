@@ -45,4 +45,11 @@ export interface SosSettingsUpdate {
      * @maximum 15
      */
   coopRadiusMiles?: number;
+  /**
+     * Merchant override of the co-op radius (miles). Send null to revert to automatic.
+     * @minimum 0.5
+     * @maximum 50
+     * @nullable
+     */
+  coopRadiusOverrideMiles?: number | null;
 }

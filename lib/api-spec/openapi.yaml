@@ -4635,7 +4635,7 @@ components:
 
     SosSettings:
       type: object
-      required: [id, businessName, industryType, resourceLabel, openTime, closeTime, aiReceptionistEnabled, waitlistAutoFillEnabled, serviceNames, noShowShieldEnabled, noShowShieldProvisioned, noShowDepositAmount, noShowCancellationWindowHours, noShowFee, defaultCycleDays, seoDescription, publicPhone, streetAddress, addressLocality, addressRegion, postalCode, latitude, longitude, businessCategory, updatedAt]
+      required: [id, businessName, industryType, resourceLabel, openTime, closeTime, aiReceptionistEnabled, waitlistAutoFillEnabled, serviceNames, noShowShieldEnabled, noShowShieldProvisioned, noShowDepositAmount, noShowCancellationWindowHours, noShowFee, defaultCycleDays, seoDescription, publicPhone, streetAddress, addressLocality, addressRegion, postalCode, latitude, longitude, businessCategory, densityClassification, coopRadiusAutoMiles, coopRadiusOverrideMiles, coopRadiusEffectiveMiles, updatedAt]
       properties:
         id:
           type: integer
@@ -4716,6 +4716,19 @@ components:
         coopRadiusMiles:
           type: integer
           description: Co-op local discovery radius in miles (1–15).
+        densityClassification:
+          type: string
+          enum: [dense_urban, suburban, rural]
+          description: Auto-detected commercial density around the business address. Suburban is the fallback when detection can't run.
+        coopRadiusAutoMiles:
+          type: number
+          description: Auto-assigned co-op cross-promotion radius (miles) from the density classification.
+        coopRadiusOverrideMiles:
+          type: ["number", "null"]
+          description: Merchant override of the co-op radius (miles). Null = automatic.
+        coopRadiusEffectiveMiles:
+          type: number
+          description: Effective co-op radius — the override when set, else the auto default.
         updatedAt:
           type: string
 
@@ -4783,6 +4796,11 @@ components:
           type: integer
           minimum: 1
           maximum: 15
+        coopRadiusOverrideMiles:
+          type: ["number", "null"]
+          minimum: 0.5
+          maximum: 50
+          description: Merchant override of the co-op radius (miles). Send null to revert to automatic.
 
     SosReview:
       type: object

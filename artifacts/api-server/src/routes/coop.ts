@@ -24,6 +24,7 @@ import {
   perkWindowState,
   validatePerkWindow,
 } from "../lib/coopPerks";
+import { effectiveCoopRadiusMiles } from "../lib/geoDensity";
 import {
   recordCoopEventsSafe,
   recordPerkImpressionsSafe,
@@ -561,6 +562,11 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
     .from(sosSettingsTable)
     .where(eq(sosSettingsTable.tenantId, tenantId));
   const me = toCoopProfile(meRow ?? null);
+  // Effective co-op radius: merchant override wins, else the density-derived
+  // auto default. Feed it into the discovery profile so proximity scoping and
+  // the explicit distance filter below share one radius.
+  const radiusMiles = meRow != null ? effectiveCoopRadiusMiles(meRow) : null;
+  if (radiusMiles != null) me.radiusMiles = radiusMiles;
   const isolated = await isolationPartnersOf(tenantId);
 
   const rows = await db
@@ -625,7 +631,21 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
     .map(({ entry }) => entry)
     .filter((e) => !search || e.name.toLowerCase().includes(search))
     .filter((e) => !cityFilter || (e.city ?? "").toLowerCase() === cityFilter)
-    .filter((e) => !categoryFilter || (e.category ?? "").toLowerCase() === categoryFilter);
+    .filter((e) => !categoryFilter || (e.category ?? "").toLowerCase() === categoryFilter)
+    // Effective co-op radius: exclude businesses with known coordinates that
+    // fall outside it; coordinate-less entries are kept (city filter still
+    // applies to those).
+    .filter(
+      (e) => e.distanceMiles == null || radiusMiles == null || e.distanceMiles <= radiusMiles
+    )
+    // Nearest first; coordinate-less entries after, alphabetically.
+    .sort((a, b) => {
+      if (a.distanceMiles != null && b.distanceMiles != null)
+        return a.distanceMiles - b.distanceMiles || a.name.localeCompare(b.name);
+      if (a.distanceMiles != null) return -1;
+      if (b.distanceMiles != null) return 1;
+      return a.name.localeCompare(b.name);
+    });
 
   res.json(ListCoopDirectoryResponse.parse(entries));
 });
