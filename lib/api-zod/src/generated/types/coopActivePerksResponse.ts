@@ -6,9 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CoopActivePerk } from './coopActivePerk';
+import type { CoopFlashPerk } from './coopFlashPerk';
 
 export interface CoopActivePerksResponse {
   /** Platform liability disclaimer that must accompany every displayed perk. */
   disclaimer: string;
   perks: CoopActivePerk[];
+  /** Boosted flash offers from live campaigns this business joined — present only while each campaign window is open. */
+  flashPerks: CoopFlashPerk[];
 }

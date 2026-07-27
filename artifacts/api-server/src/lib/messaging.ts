@@ -31,9 +31,10 @@ export type OutboundMessageKind =
   | "coop_monthly_report"
   | "safety_alert"
   | "coop_dispute"
-  | "coop_invite";
+  | "coop_invite"
+  | "coop_campaign_blast";
 
-export type MessageOrigin = "operational" | "concierge";
+export type MessageOrigin = "operational" | "concierge" | "marketing";
 
 export interface SendMessageOptions {
   /** Tenant scope; null/omitted for legacy single-tenant SOS operational sends. */

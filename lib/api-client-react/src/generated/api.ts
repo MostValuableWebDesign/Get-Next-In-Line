@@ -41,6 +41,11 @@ import type {
   ConnectorRegistryEntry,
   ConnectorRegistryEntryUpdate,
   CoopActivePerksResponse,
+  CoopCampaign,
+  CoopCampaignBlastResult,
+  CoopCampaignCreate,
+  CoopCampaignRespond,
+  CoopCampaignTemplate,
   CoopDirectoryEntry,
   CoopDispute,
   CoopDisputeCreate,
@@ -2687,6 +2692,374 @@ export const useCreatePlatformInvite = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getCreatePlatformInviteMutationOptions(options));
+    }
+
+export const getListCoopCampaignTemplatesUrl = () => {
+
+
+
+
+  return `/api/coop/campaigns/templates`
+}
+
+/**
+ * @summary Merchant-facing — preset flash-campaign templates with suggested windows and boost copy
+ */
+export const listCoopCampaignTemplates = async ( options?: RequestInit): Promise<CoopCampaignTemplate[]> => {
+
+  return customFetch<CoopCampaignTemplate[]>(getListCoopCampaignTemplatesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopCampaignTemplatesQueryKey = () => {
+    return [
+    `/api/coop/campaigns/templates`
+    ] as const;
+    }
+
+
+export const getListCoopCampaignTemplatesQueryOptions = <TData = Awaited<ReturnType<typeof listCoopCampaignTemplates>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopCampaignTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopCampaignTemplatesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopCampaignTemplates>>> = ({ signal }) => listCoopCampaignTemplates({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopCampaignTemplates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopCampaignTemplatesQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopCampaignTemplates>>>
+export type ListCoopCampaignTemplatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Merchant-facing — preset flash-campaign templates with suggested windows and boost copy
+ */
+
+export function useListCoopCampaignTemplates<TData = Awaited<ReturnType<typeof listCoopCampaignTemplates>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopCampaignTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopCampaignTemplatesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCoopCampaignsUrl = () => {
+
+
+
+
+  return `/api/coop/campaigns`
+}
+
+/**
+ * @summary Merchant-facing — campaigns the scoped tenant participates in (invited, joined, or created), newest first; tenant scope via x-tenant-id
+ */
+export const listCoopCampaigns = async ( options?: RequestInit): Promise<CoopCampaign[]> => {
+
+  return customFetch<CoopCampaign[]>(getListCoopCampaignsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopCampaignsQueryKey = () => {
+    return [
+    `/api/coop/campaigns`
+    ] as const;
+    }
+
+
+export const getListCoopCampaignsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopCampaigns>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopCampaigns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopCampaignsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopCampaigns>>> = ({ signal }) => listCoopCampaigns({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopCampaigns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopCampaignsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopCampaigns>>>
+export type ListCoopCampaignsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — campaigns the scoped tenant participates in (invited, joined, or created), newest first; tenant scope via x-tenant-id
+ */
+
+export function useListCoopCampaigns<TData = Awaited<ReturnType<typeof listCoopCampaigns>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopCampaigns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopCampaignsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopCampaignUrl = () => {
+
+
+
+
+  return `/api/coop/campaigns`
+}
+
+/**
+ * @summary Merchant-facing — launch a flash campaign inviting current accepted, active partners; the uniform window applies identically to every participant; tenant scope via x-tenant-id
+ */
+export const createCoopCampaign = async (coopCampaignCreate: CoopCampaignCreate, options?: RequestInit): Promise<CoopCampaign> => {
+
+  return customFetch<CoopCampaign>(getCreateCoopCampaignUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopCampaignCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopCampaignMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopCampaign>>, TError,{data: BodyType<CoopCampaignCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopCampaign>>, TError,{data: BodyType<CoopCampaignCreate>}, TContext> => {
+
+const mutationKey = ['createCoopCampaign'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopCampaign>>, {data: BodyType<CoopCampaignCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopCampaign(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopCampaignMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopCampaign>>>
+    export type CreateCoopCampaignMutationBody = BodyType<CoopCampaignCreate>
+    export type CreateCoopCampaignMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — launch a flash campaign inviting current accepted, active partners; the uniform window applies identically to every participant; tenant scope via x-tenant-id
+ */
+export const useCreateCoopCampaign = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopCampaign>>, TError,{data: BodyType<CoopCampaignCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopCampaign>>,
+        TError,
+        {data: BodyType<CoopCampaignCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopCampaignMutationOptions(options));
+    }
+
+export const getRespondToCoopCampaignUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/campaigns/${id}/respond`
+}
+
+/**
+ * @summary Merchant-facing — an invited partner joins or declines a pending campaign; tenant scope via x-tenant-id
+ */
+export const respondToCoopCampaign = async (id: number,
+    coopCampaignRespond: CoopCampaignRespond, options?: RequestInit): Promise<CoopCampaign> => {
+
+  return customFetch<CoopCampaign>(getRespondToCoopCampaignUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopCampaignRespond)
+  }
+);}
+
+
+
+
+
+export const getRespondToCoopCampaignMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopCampaign>>, TError,{id: number;data: BodyType<CoopCampaignRespond>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondToCoopCampaign>>, TError,{id: number;data: BodyType<CoopCampaignRespond>}, TContext> => {
+
+const mutationKey = ['respondToCoopCampaign'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondToCoopCampaign>>, {id: number;data: BodyType<CoopCampaignRespond>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  respondToCoopCampaign(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondToCoopCampaignMutationResult = NonNullable<Awaited<ReturnType<typeof respondToCoopCampaign>>>
+    export type RespondToCoopCampaignMutationBody = BodyType<CoopCampaignRespond>
+    export type RespondToCoopCampaignMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — an invited partner joins or declines a pending campaign; tenant scope via x-tenant-id
+ */
+export const useRespondToCoopCampaign = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopCampaign>>, TError,{id: number;data: BodyType<CoopCampaignRespond>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondToCoopCampaign>>,
+        TError,
+        {id: number;data: BodyType<CoopCampaignRespond>},
+        TContext
+      > => {
+      return useMutation(getRespondToCoopCampaignMutationOptions(options));
+    }
+
+export const getTriggerCoopCampaignBlastUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/campaigns/${id}/blast`
+}
+
+/**
+ * @summary Merchant-facing — the creator fires the one-time joint SMS blast to every joined participant's opted-in customers, with rolling 7-day network-wide frequency capping; tenant scope via x-tenant-id
+ */
+export const triggerCoopCampaignBlast = async (id: number, options?: RequestInit): Promise<CoopCampaignBlastResult> => {
+
+  return customFetch<CoopCampaignBlastResult>(getTriggerCoopCampaignBlastUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getTriggerCoopCampaignBlastMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof triggerCoopCampaignBlast>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof triggerCoopCampaignBlast>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['triggerCoopCampaignBlast'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof triggerCoopCampaignBlast>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  triggerCoopCampaignBlast(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TriggerCoopCampaignBlastMutationResult = NonNullable<Awaited<ReturnType<typeof triggerCoopCampaignBlast>>>
+
+    export type TriggerCoopCampaignBlastMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — the creator fires the one-time joint SMS blast to every joined participant's opted-in customers, with rolling 7-day network-wide frequency capping; tenant scope via x-tenant-id
+ */
+export const useTriggerCoopCampaignBlast = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof triggerCoopCampaignBlast>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof triggerCoopCampaignBlast>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getTriggerCoopCampaignBlastMutationOptions(options));
     }
 
 export const getGetPublicPlatformInviteUrl = (token: string,) => {

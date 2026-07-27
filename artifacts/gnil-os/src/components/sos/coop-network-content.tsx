@@ -35,6 +35,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { CoopCampaignsSection } from '@/components/sos/coop-campaigns-content';
 import {
   AlertTriangle, ArrowLeftRight, ArrowUpDown, BarChart3, Bell, CalendarClock, Check, Copy,
   DollarSign, Eye, Flag, Handshake, Keyboard, Link2, MapPin, PauseCircle, ScanLine, Search,
@@ -139,6 +140,10 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
       )}
 
       <SuggestedPartners tenantId={tenantId} />
+
+      {/* Flash campaigns & seasonal blasts — synchronized limited-time perks
+          across the partner network with one frequency-capped joint SMS. */}
+      <CoopCampaignsSection tenantId={tenantId} />
 
       {isLoading ? (
         <Skeleton className="h-24 w-full rounded-xl" />

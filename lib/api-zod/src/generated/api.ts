@@ -627,7 +627,16 @@ export const ListCoopActivePerksResponse = zod.object({
   "partnerName": zod.string(),
   "redemptionCode": zod.string(),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.')
-}))
+})),
+  "flashPerks": zod.array(zod.object({
+  "campaignId": zod.number(),
+  "campaignName": zod.string(),
+  "template": zod.string(),
+  "perkBoostText": zod.string(),
+  "partnerNames": zod.array(zod.string()).describe('Other joined participants\' business names.'),
+  "startsAt": zod.string(),
+  "endsAt": zod.string()
+})).describe('Boosted flash offers from live campaigns this business joined — present only while each campaign window is open.')
 })
 
 
@@ -749,6 +758,135 @@ export const CreatePlatformInviteResponse = zod.object({
   "resultingTenantId": zod.number().nullable().describe('Tenant created through this invite, once registered.'),
   "expiresAt": zod.string(),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — preset flash-campaign templates with suggested windows and boost copy
+ */
+export const ListCoopCampaignTemplatesResponseItem = zod.object({
+  "slug": zod.string(),
+  "label": zod.string(),
+  "description": zod.string(),
+  "defaultDurationDays": zod.number(),
+  "suggestedPerkBoost": zod.string()
+})
+export const ListCoopCampaignTemplatesResponse = zod.array(ListCoopCampaignTemplatesResponseItem)
+
+
+/**
+ * @summary Merchant-facing — campaigns the scoped tenant participates in (invited, joined, or created), newest first; tenant scope via x-tenant-id
+ */
+export const ListCoopCampaignsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "template": zod.string(),
+  "perkBoostText": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "creatorTenantId": zod.number(),
+  "creatorTenantName": zod.string(),
+  "phase": zod.enum(['upcoming', 'live', 'ended']).describe('Derived from the uniform window at read time.'),
+  "blastTriggeredAt": zod.string().nullable(),
+  "myStatus": zod.enum(['invited', 'joined', 'declined']).describe('The scoped tenant\'s own participation status.'),
+  "isCreator": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['invited', 'joined', 'declined']),
+  "respondedAt": zod.string().nullable()
+})),
+  "createdAt": zod.string()
+})
+export const ListCoopCampaignsResponse = zod.array(ListCoopCampaignsResponseItem)
+
+
+/**
+ * @summary Merchant-facing — launch a flash campaign inviting current accepted, active partners; the uniform window applies identically to every participant; tenant scope via x-tenant-id
+ */
+
+
+
+
+
+export const CreateCoopCampaignBody = zod.object({
+  "name": zod.string().min(1),
+  "template": zod.string().optional().describe('Preset template slug; defaults to custom.'),
+  "perkBoostText": zod.string().min(1),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date(),
+  "partnerTenantIds": zod.array(zod.number()).min(1)
+})
+
+export const CreateCoopCampaignResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "template": zod.string(),
+  "perkBoostText": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "creatorTenantId": zod.number(),
+  "creatorTenantName": zod.string(),
+  "phase": zod.enum(['upcoming', 'live', 'ended']).describe('Derived from the uniform window at read time.'),
+  "blastTriggeredAt": zod.string().nullable(),
+  "myStatus": zod.enum(['invited', 'joined', 'declined']).describe('The scoped tenant\'s own participation status.'),
+  "isCreator": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['invited', 'joined', 'declined']),
+  "respondedAt": zod.string().nullable()
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — an invited partner joins or declines a pending campaign; tenant scope via x-tenant-id
+ */
+export const RespondToCoopCampaignParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RespondToCoopCampaignBody = zod.object({
+  "action": zod.enum(['join', 'decline'])
+})
+
+export const RespondToCoopCampaignResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "template": zod.string(),
+  "perkBoostText": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "creatorTenantId": zod.number(),
+  "creatorTenantName": zod.string(),
+  "phase": zod.enum(['upcoming', 'live', 'ended']).describe('Derived from the uniform window at read time.'),
+  "blastTriggeredAt": zod.string().nullable(),
+  "myStatus": zod.enum(['invited', 'joined', 'declined']).describe('The scoped tenant\'s own participation status.'),
+  "isCreator": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['invited', 'joined', 'declined']),
+  "respondedAt": zod.string().nullable()
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — the creator fires the one-time joint SMS blast to every joined participant's opted-in customers, with rolling 7-day network-wide frequency capping; tenant scope via x-tenant-id
+ */
+export const TriggerCoopCampaignBlastParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const TriggerCoopCampaignBlastResponse = zod.object({
+  "sent": zod.number().describe('Messages dispatched (live or simulated).'),
+  "capped": zod.number().describe('Recipients skipped by the rolling 7-day network-wide frequency cap.'),
+  "skipped": zod.number().describe('Recipients skipped for opt-out or unusable phone numbers.'),
+  "totalCandidates": zod.number()
 })
 
 
@@ -2192,7 +2330,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -2221,7 +2359,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

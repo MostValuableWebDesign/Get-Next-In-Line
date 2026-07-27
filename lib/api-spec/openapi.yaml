@@ -714,6 +714,115 @@ paths:
         "400":
           description: Missing x-tenant-id header or invalid body
 
+  /coop/campaigns/templates:
+    get:
+      operationId: listCoopCampaignTemplates
+      tags: [coop]
+      summary: Merchant-facing — preset flash-campaign templates with suggested windows and boost copy
+      responses:
+        "200":
+          description: Preset templates (plus the custom option)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopCampaignTemplate"
+
+  /coop/campaigns:
+    get:
+      operationId: listCoopCampaigns
+      tags: [coop]
+      summary: Merchant-facing — campaigns the scoped tenant participates in (invited, joined, or created), newest first; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Campaigns, newest first (frontend splits active vs. past by the window)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopCampaign"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createCoopCampaign
+      tags: [coop]
+      summary: Merchant-facing — launch a flash campaign inviting current accepted, active partners; the uniform window applies identically to every participant; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopCampaignCreate"
+      responses:
+        "201":
+          description: Campaign created; invited partners must join before it goes live for them
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCampaign"
+        "400":
+          description: Invalid body/window or missing x-tenant-id header
+        "403":
+          description: Creator has no accepted active partnership, or an invitee is not a current partner
+
+  /coop/campaigns/{id}/respond:
+    post:
+      operationId: respondToCoopCampaign
+      tags: [coop]
+      summary: Merchant-facing — an invited partner joins or declines a pending campaign; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopCampaignRespond"
+      responses:
+        "200":
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCampaign"
+        "403":
+          description: Only an invited participant can respond
+        "404":
+          description: Not found
+        "409":
+          description: Already responded, or the campaign has ended
+
+  /coop/campaigns/{id}/blast:
+    post:
+      operationId: triggerCoopCampaignBlast
+      tags: [coop]
+      summary: Merchant-facing — the creator fires the one-time joint SMS blast to every joined participant's opted-in customers, with rolling 7-day network-wide frequency capping; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sent vs. capped vs. skipped summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCampaignBlastResult"
+        "403":
+          description: Only the campaign creator can trigger the blast
+        "404":
+          description: Not found
+        "409":
+          description: Blast already fired, or the campaign window is not open
+
   /public/coop/invites/{token}:
     get:
       operationId: getPublicPlatformInvite
@@ -3458,7 +3567,7 @@ components:
 
     CoopActivePerksResponse:
       type: object
-      required: [disclaimer, perks]
+      required: [disclaimer, perks, flashPerks]
       properties:
         disclaimer:
           type: string
@@ -3467,6 +3576,166 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CoopActivePerk"
+        flashPerks:
+          type: array
+          description: Boosted flash offers from live campaigns this business joined — present only while each campaign window is open.
+          items:
+            $ref: "#/components/schemas/CoopFlashPerk"
+
+    CoopFlashPerk:
+      type: object
+      required: [campaignId, campaignName, template, perkBoostText, partnerNames, startsAt, endsAt]
+      properties:
+        campaignId:
+          type: integer
+        campaignName:
+          type: string
+        template:
+          type: string
+        perkBoostText:
+          type: string
+        partnerNames:
+          type: array
+          description: Other joined participants' business names.
+          items:
+            type: string
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+
+    CoopCampaignTemplate:
+      type: object
+      required: [slug, label, description, defaultDurationDays, suggestedPerkBoost]
+      properties:
+        slug:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        defaultDurationDays:
+          type: integer
+        suggestedPerkBoost:
+          type: string
+
+    CoopCampaignParticipant:
+      type: object
+      required: [tenantId, tenantName, status, respondedAt]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        status:
+          type: string
+          enum: [invited, joined, declined]
+        respondedAt:
+          type: ["string", "null"]
+
+    CoopCampaign:
+      type: object
+      required:
+        [
+          id,
+          name,
+          template,
+          perkBoostText,
+          startsAt,
+          endsAt,
+          creatorTenantId,
+          creatorTenantName,
+          phase,
+          blastTriggeredAt,
+          myStatus,
+          isCreator,
+          participants,
+          createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        template:
+          type: string
+        perkBoostText:
+          type: string
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+        creatorTenantId:
+          type: integer
+        creatorTenantName:
+          type: string
+        phase:
+          type: string
+          description: Derived from the uniform window at read time.
+          enum: [upcoming, live, ended]
+        blastTriggeredAt:
+          type: ["string", "null"]
+        myStatus:
+          type: string
+          description: The scoped tenant's own participation status.
+          enum: [invited, joined, declined]
+        isCreator:
+          type: boolean
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopCampaignParticipant"
+        createdAt:
+          type: string
+
+    CoopCampaignCreate:
+      type: object
+      required: [name, perkBoostText, startsAt, endsAt, partnerTenantIds]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        template:
+          type: string
+          description: Preset template slug; defaults to custom.
+        perkBoostText:
+          type: string
+          minLength: 1
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        partnerTenantIds:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+
+    CoopCampaignRespond:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [join, decline]
+
+    CoopCampaignBlastResult:
+      type: object
+      required: [sent, capped, skipped, totalCandidates]
+      properties:
+        sent:
+          type: integer
+          description: Messages dispatched (live or simulated).
+        capped:
+          type: integer
+          description: Recipients skipped by the rolling 7-day network-wide frequency cap.
+        skipped:
+          type: integer
+          description: Recipients skipped for opt-out or unusable phone numbers.
+        totalCandidates:
+          type: integer
 
     WalletLoginRequest:
       type: object
@@ -5256,7 +5525,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

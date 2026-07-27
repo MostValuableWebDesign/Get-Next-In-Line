@@ -322,10 +322,127 @@ export interface CoopActivePerk {
   perkEndsAt: string | null;
 }
 
+export interface CoopFlashPerk {
+  campaignId: number;
+  campaignName: string;
+  template: string;
+  perkBoostText: string;
+  /** Other joined participants' business names. */
+  partnerNames: string[];
+  startsAt: string;
+  endsAt: string;
+}
+
 export interface CoopActivePerksResponse {
   /** Platform liability disclaimer that must accompany every displayed perk. */
   disclaimer: string;
   perks: CoopActivePerk[];
+  /** Boosted flash offers from live campaigns this business joined — present only while each campaign window is open. */
+  flashPerks: CoopFlashPerk[];
+}
+
+export interface CoopCampaignTemplate {
+  slug: string;
+  label: string;
+  description: string;
+  defaultDurationDays: number;
+  suggestedPerkBoost: string;
+}
+
+export type CoopCampaignParticipantStatus = typeof CoopCampaignParticipantStatus[keyof typeof CoopCampaignParticipantStatus];
+
+
+export const CoopCampaignParticipantStatus = {
+  invited: 'invited',
+  joined: 'joined',
+  declined: 'declined',
+} as const;
+
+export interface CoopCampaignParticipant {
+  tenantId: number;
+  tenantName: string;
+  status: CoopCampaignParticipantStatus;
+  /** @nullable */
+  respondedAt: string | null;
+}
+
+/**
+ * Derived from the uniform window at read time.
+ */
+export type CoopCampaignPhase = typeof CoopCampaignPhase[keyof typeof CoopCampaignPhase];
+
+
+export const CoopCampaignPhase = {
+  upcoming: 'upcoming',
+  live: 'live',
+  ended: 'ended',
+} as const;
+
+/**
+ * The scoped tenant's own participation status.
+ */
+export type CoopCampaignMyStatus = typeof CoopCampaignMyStatus[keyof typeof CoopCampaignMyStatus];
+
+
+export const CoopCampaignMyStatus = {
+  invited: 'invited',
+  joined: 'joined',
+  declined: 'declined',
+} as const;
+
+export interface CoopCampaign {
+  id: number;
+  name: string;
+  template: string;
+  perkBoostText: string;
+  startsAt: string;
+  endsAt: string;
+  creatorTenantId: number;
+  creatorTenantName: string;
+  /** Derived from the uniform window at read time. */
+  phase: CoopCampaignPhase;
+  /** @nullable */
+  blastTriggeredAt: string | null;
+  /** The scoped tenant's own participation status. */
+  myStatus: CoopCampaignMyStatus;
+  isCreator: boolean;
+  participants: CoopCampaignParticipant[];
+  createdAt: string;
+}
+
+export interface CoopCampaignCreate {
+  /** @minLength 1 */
+  name: string;
+  /** Preset template slug; defaults to custom. */
+  template?: string;
+  /** @minLength 1 */
+  perkBoostText: string;
+  startsAt: string;
+  endsAt: string;
+  /** @minItems 1 */
+  partnerTenantIds: number[];
+}
+
+export type CoopCampaignRespondAction = typeof CoopCampaignRespondAction[keyof typeof CoopCampaignRespondAction];
+
+
+export const CoopCampaignRespondAction = {
+  join: 'join',
+  decline: 'decline',
+} as const;
+
+export interface CoopCampaignRespond {
+  action: CoopCampaignRespondAction;
+}
+
+export interface CoopCampaignBlastResult {
+  /** Messages dispatched (live or simulated). */
+  sent: number;
+  /** Recipients skipped by the rolling 7-day network-wide frequency cap. */
+  capped: number;
+  /** Recipients skipped for opt-out or unusable phone numbers. */
+  skipped: number;
+  totalCandidates: number;
 }
 
 export interface WalletLoginRequest {
@@ -1859,6 +1976,7 @@ export const SosMessageKind = {
   safety_alert: 'safety_alert',
   coop_dispute: 'coop_dispute',
   coop_invite: 'coop_invite',
+  coop_campaign_blast: 'coop_campaign_blast',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];

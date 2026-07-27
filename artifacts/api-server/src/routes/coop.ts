@@ -57,7 +57,27 @@ import {
   WithdrawCoopDisputeResponse,
   ListCoopSuggestionsResponse,
   DismissCoopSuggestionResponse,
+  ListCoopCampaignTemplatesResponse,
+  ListCoopCampaignsResponse,
+  CreateCoopCampaignBody,
+  CreateCoopCampaignResponse,
+  RespondToCoopCampaignBody,
+  RespondToCoopCampaignResponse,
+  TriggerCoopCampaignBlastResponse,
 } from "@workspace/api-zod";
+import {
+  coopCampaignsTable,
+  coopCampaignParticipantsTable,
+} from "@workspace/db";
+import {
+  CAMPAIGN_TEMPLATES,
+  CAMPAIGN_TEMPLATE_SLUGS,
+  campaignPhase,
+  loadCampaignRows,
+  serializeCampaign,
+  flashPerksForTenant,
+  runCampaignBlast,
+} from "../lib/coopCampaigns";
 import { coopSuggestionsTable, coopSuggestionDismissalsTable } from "@workspace/db";
 import {
   computeSuggestions,
@@ -980,6 +1000,260 @@ router.post("/coop/invites/:id/respond", async (req, res): Promise<void> => {
   );
 });
 
+// ---------------------------------------------------------------------------
+// Co-op promotional campaigns & seasonal blasts — /api/coop/campaigns
+//
+// Partner businesses in an active co-op network launch synchronized flash
+// perks under one uniform start/end window and coordinate a single joint SMS
+// blast (rolling 7-day network-wide frequency cap). Creation is gated on
+// having at least one accepted, active partnership, and only current partners
+// can be invited. Tenant scope via x-tenant-id, same as the rest of /coop.
+// ---------------------------------------------------------------------------
+
+/** Tenant ids of the scoped tenant's current accepted, active partners. */
+async function activePartnerIdsOf(tenantId: number): Promise<Set<number>> {
+  const rows = await db
+    .select({
+      hostTenantId: merchantCoopPartnershipsTable.hostTenantId,
+      partnerTenantId: merchantCoopPartnershipsTable.partnerTenantId,
+    })
+    .from(merchantCoopPartnershipsTable)
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.status, "accepted"),
+        eq(merchantCoopPartnershipsTable.isActive, true),
+        eq(merchantCoopPartnershipsTable.disputeSuspended, false),
+        isNull(merchantCoopPartnershipsTable.bannedAt),
+        or(
+          eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
+          eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId)
+        )
+      )
+    );
+  return new Set(
+    rows.map((r) => (r.hostTenantId === tenantId ? r.partnerTenantId : r.hostTenantId))
+  );
+}
+
+/** Serialize one campaign for the scoped viewer, resolving the creator name. */
+function campaignToJson(
+  row: Awaited<ReturnType<typeof loadCampaignRows>>[number],
+  viewerTenantId: number,
+  now: Date
+) {
+  const creator = row.participants.find((p) => p.tenantId === row.campaign.creatorTenantId);
+  return serializeCampaign(row, viewerTenantId, creator?.tenantName ?? "Unknown business", now);
+}
+
+// ── GET /coop/campaigns/templates — preset flash-campaign templates ─────────
+router.get("/coop/campaigns/templates", async (_req, res): Promise<void> => {
+  res.json(ListCoopCampaignTemplatesResponse.parse(CAMPAIGN_TEMPLATES));
+});
+
+// ── GET /coop/campaigns — campaigns the scoped tenant participates in ───────
+router.get("/coop/campaigns", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const mine = await db
+    .select({ campaignId: coopCampaignParticipantsTable.campaignId })
+    .from(coopCampaignParticipantsTable)
+    .where(eq(coopCampaignParticipantsTable.tenantId, tenantId));
+  const rows = await loadCampaignRows(mine.map((r) => r.campaignId));
+  const now = new Date();
+  res.json(
+    ListCoopCampaignsResponse.parse(rows.map((row) => campaignToJson(row, tenantId, now)))
+  );
+});
+
+// ── POST /coop/campaigns — launch a flash campaign inviting current partners ─
+router.post("/coop/campaigns", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = CreateCoopCampaignBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const template = parsed.data.template ?? "custom";
+  if (!CAMPAIGN_TEMPLATE_SLUGS.has(template)) {
+    res.status(400).json({ message: "Unknown campaign template" });
+    return;
+  }
+  const startsAt = new Date(parsed.data.startsAt);
+  const endsAt = new Date(parsed.data.endsAt);
+  const now = new Date();
+  if (!(startsAt < endsAt)) {
+    res.status(400).json({ message: "The campaign start must be before its end" });
+    return;
+  }
+  if (endsAt <= now) {
+    res.status(400).json({ message: "The campaign window must end in the future" });
+    return;
+  }
+  const inviteeIds = [...new Set(parsed.data.partnerTenantIds)].filter((id) => id !== tenantId);
+  if (inviteeIds.length === 0) {
+    res.status(400).json({ message: "Invite at least one partner business" });
+    return;
+  }
+  // Gate: creator needs at least one accepted, active partnership, and every
+  // invitee must be one of those current partners.
+  const partnerIds = await activePartnerIdsOf(tenantId);
+  if (partnerIds.size === 0) {
+    res.status(403).json({
+      message: "You need at least one accepted, active co-op partnership to launch a campaign",
+    });
+    return;
+  }
+  const outsiders = inviteeIds.filter((id) => !partnerIds.has(id));
+  if (outsiders.length > 0) {
+    res.status(403).json({
+      message: "Campaigns can only invite your current accepted, active co-op partners",
+    });
+    return;
+  }
+  const created = await db.transaction(async (tx) => {
+    const [campaign] = await tx
+      .insert(coopCampaignsTable)
+      .values({
+        creatorTenantId: tenantId,
+        template,
+        name: parsed.data.name.trim(),
+        perkBoostText: parsed.data.perkBoostText.trim(),
+        startsAt,
+        endsAt,
+      })
+      .returning();
+    // The uniform window lives on the campaign row itself — every participant
+    // shares it identically by construction. Creator joins at birth.
+    await tx.insert(coopCampaignParticipantsTable).values([
+      { campaignId: campaign.id, tenantId, status: "joined", respondedAt: now },
+      ...inviteeIds.map((id) => ({ campaignId: campaign.id, tenantId: id, status: "invited" })),
+    ]);
+    return campaign;
+  });
+  const [row] = await loadCampaignRows([created.id]);
+  res.status(201).json(CreateCoopCampaignResponse.parse(campaignToJson(row, tenantId, now)));
+});
+
+// ── POST /coop/campaigns/:id/respond — invited partner joins or declines ────
+router.post("/coop/campaigns/:id/respond", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const parsed = RespondToCoopCampaignBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const [campaign] = await db
+    .select()
+    .from(coopCampaignsTable)
+    .where(eq(coopCampaignsTable.id, id));
+  if (!campaign) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const [me] = await db
+    .select()
+    .from(coopCampaignParticipantsTable)
+    .where(
+      and(
+        eq(coopCampaignParticipantsTable.campaignId, id),
+        eq(coopCampaignParticipantsTable.tenantId, tenantId)
+      )
+    );
+  if (!me || campaign.creatorTenantId === tenantId) {
+    res.status(403).json({ message: "Only an invited partner can respond to this campaign" });
+    return;
+  }
+  const now = new Date();
+  if (campaignPhase(campaign, now) === "ended") {
+    res.status(409).json({ message: "This campaign has already ended" });
+    return;
+  }
+  if (me.status !== "invited") {
+    res.status(409).json({ message: `You already ${me.status === "joined" ? "joined" : "declined"} this campaign` });
+    return;
+  }
+  // Conditional update guards against a concurrent double-respond.
+  const [updated] = await db
+    .update(coopCampaignParticipantsTable)
+    .set({
+      status: parsed.data.action === "join" ? "joined" : "declined",
+      respondedAt: now,
+    })
+    .where(
+      and(
+        eq(coopCampaignParticipantsTable.id, me.id),
+        eq(coopCampaignParticipantsTable.status, "invited")
+      )
+    )
+    .returning();
+  if (!updated) {
+    res.status(409).json({ message: "This invite was already responded to" });
+    return;
+  }
+  const [row] = await loadCampaignRows([id]);
+  res.json(RespondToCoopCampaignResponse.parse(campaignToJson(row, tenantId, now)));
+});
+
+// ── POST /coop/campaigns/:id/blast — creator fires the one-time joint blast ─
+router.post("/coop/campaigns/:id/blast", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const [campaign] = await db
+    .select()
+    .from(coopCampaignsTable)
+    .where(eq(coopCampaignsTable.id, id));
+  if (!campaign) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  if (campaign.creatorTenantId !== tenantId) {
+    res.status(403).json({ message: "Only the campaign creator can trigger the blast" });
+    return;
+  }
+  const now = new Date();
+  if (campaignPhase(campaign, now) === "ended") {
+    res.status(409).json({ message: "This campaign has already ended" });
+    return;
+  }
+  // Conditional claim = send-once lock: a concurrent manual trigger or the
+  // worker's auto-fire sweep can never double-blast the network.
+  const [claimed] = await db
+    .update(coopCampaignsTable)
+    .set({ blastTriggeredAt: now, updatedAt: now })
+    .where(and(eq(coopCampaignsTable.id, id), isNull(coopCampaignsTable.blastTriggeredAt)))
+    .returning({ id: coopCampaignsTable.id });
+  if (!claimed) {
+    res.status(409).json({ message: "The blast for this campaign was already sent" });
+    return;
+  }
+  const summary = await runCampaignBlast(id, now);
+  res.json(TriggerCoopCampaignBlastResponse.parse(summary));
+});
+
 // ── GET /coop/perks — live partner perks for the scoped tenant ──────────────
 // The single source every customer surface (checkout, receipts, pass/plan
 // views) reads: only accepted AND active partnerships ever appear, so perks
@@ -1025,9 +1299,13 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
     tenantId,
     rows.map((r) => r.partnership),
   );
+  // Boosted flash offers from live campaigns this business joined — shown on
+  // the same storefront perk surfaces, only while the campaign window is open.
+  const flashPerks = await flashPerksForTenant(tenantId);
   res.json(
     ListCoopActivePerksResponse.parse({
       disclaimer: COOP_PERK_DISCLAIMER,
+      flashPerks,
       perks: rows.map((r) => ({
         id: r.partnership.id,
         perkTitle: r.partnership.perkTitle,

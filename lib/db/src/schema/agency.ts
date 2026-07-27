@@ -490,6 +490,97 @@ export const coopDisputesTable = pgTable(
   ]
 );
 
+// ── Co-op promotional campaigns (seasonal flash blasts) ──────────────────────
+// A merchant with at least one accepted, active partnership launches a
+// synchronized limited-time flash campaign: a uniform start/end window that
+// applies identically to every participating partner, plus a boosted perk
+// description shown on each participant's co-op perks surface only while the
+// window is open. The creator can trigger (or the worker auto-fires at start)
+// one joint SMS blast to every joined participant's opted-in customers.
+export const coopCampaignsTable = pgTable(
+  "coop_campaigns",
+  {
+    id: serial("id").primaryKey(),
+    creatorTenantId: integer("creator_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // Preset template slug (back_to_school | holiday_weekend | community_event
+    // | custom). Presentation + defaults only; the window below is canonical.
+    template: text("template").notNull().default("custom"),
+    name: text("name").notNull(),
+    // The boosted flash-offer text shown on every participant's perk surface.
+    perkBoostText: text("perk_boost_text").notNull(),
+    // Uniform campaign window — identical for every participant by design.
+    startsAt: timestamp("starts_at").notNull(),
+    endsAt: timestamp("ends_at").notNull(),
+    // Stamped when the joint blast fires (manually or by the worker at
+    // campaign start). The conditional `IS NULL` claim on this column is the
+    // send-once lock: the network blast can never double-fire.
+    blastTriggeredAt: timestamp("blast_triggered_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_campaigns_creator_idx").on(t.creatorTenantId),
+    // Worker sweep: due campaigns with an unfired blast.
+    index("coop_campaigns_blast_due_idx").on(t.startsAt).where(sql`blast_triggered_at is null`),
+  ],
+);
+
+export type CoopCampaign = typeof coopCampaignsTable.$inferSelect;
+
+// Per-partner participation: invited partners join or decline; the campaign
+// only goes live (perk boost + blast inclusion) for tenants who joined. The
+// creator's own row is created as "joined".
+export const coopCampaignParticipantsTable = pgTable(
+  "coop_campaign_participants",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => coopCampaignsTable.id, { onDelete: "cascade" }),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // invited | joined | declined
+    status: text("status").notNull().default("invited"),
+    respondedAt: timestamp("responded_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("coop_campaign_participants_campaign_tenant_uq").on(t.campaignId, t.tenantId),
+    index("coop_campaign_participants_tenant_idx").on(t.tenantId),
+  ],
+);
+
+export type CoopCampaignParticipant = typeof coopCampaignParticipantsTable.$inferSelect;
+
+// Blast log — one row per customer send, keyed by normalized phone. This is
+// the frequency-cap ledger: a phone that appears here within the rolling
+// 7-day window (from ANY campaign across the network) is skipped by every
+// subsequent campaign blast, so shared local customers are never spammed.
+export const coopCampaignBlastsTable = pgTable(
+  "coop_campaign_blasts",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => coopCampaignsTable.id, { onDelete: "cascade" }),
+    // Participating merchant whose customer list this send came from.
+    tenantId: integer("tenant_id").references(() => tenantsTable.id, { onDelete: "set null" }),
+    customerId: integer("customer_id"),
+    // Normalized E.164 recipient — the frequency-cap key.
+    phone: text("phone").notNull(),
+    sentAt: timestamp("sent_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_campaign_blasts_phone_sent_idx").on(t.phone, t.sentAt.desc()),
+    index("coop_campaign_blasts_campaign_idx").on(t.campaignId),
+  ],
+);
+
+export type CoopCampaignBlast = typeof coopCampaignBlastsTable.$inferSelect;
+
 export const insertCoopDisputeSchema = createInsertSchema(coopDisputesTable).omit({
   id: true,
   createdAt: true,
