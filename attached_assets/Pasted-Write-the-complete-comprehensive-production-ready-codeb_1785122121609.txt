@@ -1,0 +1,51 @@
+Write the complete, comprehensive production-ready codebase and system architecture for the **"Get Next In Line"** platform, integrating the core merchant booking and local marketing engine with the full suite of **Co-Op Merchant Network** modules. 
+
+The unified platform must include the following production-grade technical and functional components:
+
+1. Core Multi-Tenant Booking & Local Marketing Engine:
+- Multi-tenant business architecture supporting service providers and merchants with generalized, headlessly integrated system components.
+- Simplified, all-inclusive service menus, commission-based staff management, and custom local marketing and booking tools.
+
+2. Co-Op Dynamic Surge Pricing & Peak-Hour Traffic Balancing:
+- Real-time foot capacity monitoring and automated cross-promotion traffic-routing rules that boost partner perks during off-peak hours when partner wait times exceed thresholds.
+
+3. Co-Op Inventory & Cross-Merchandising Shelf-Space Tracker:
+- Consigned product tracking, low-stock automated alerts, and POS-integrated cross-sale attribution for physical merchandise displayed across partner storefronts.
+
+4. Co-Op Gamified Neighborhood Passport & Achievement:
+- Digital passport tracking unique local partner visits, tiered milestone badges (e.g., Neighborhood Regular/VIP), and automated sweepstakes/bonus reward issuance.
+
+5. Co-Op Automated Tax & Revenue Compliance Ledger:
+- Automated calculation of sales and local taxes on cross-promotional transactions, referral bounties, and shared expenses, alongside 1099 tracking and QuickBooks/Xero export formatting.
+
+6. Co-Op API & Third-Party POS Integration Gateway:
+- Webhook listeners and standardized connectors for external POS systems (Square, Clover, Boulevard, Vagaro) to instantly sync check-ins, service completions, and perk redemptions.
+
+7. Co-Op Customer Feedback & Neighborhood Sentiment Analytics:
+- Unified cross-network sentiment dashboard aggregating post-redemption reviews, net promoter scores, and automated weekly/monthly partnership insight reports.
+
+8. Co-Op Dispute & Resolution Mediation Hub:
+- Structured B2B ticketing workflow for logging operational disputes with transaction evidence attachments, automated reconciliation rules, and admin override tools.
+
+9. Co-Op Dynamic Referral Loyalty & Tiered Ambassador Program:
+- Customer Ambassador status unlocking network-wide VIP perks, tracked cross-business referral loops, and merchant-funded shared promotional reward pools.
+
+10. Co-Op Automated Marketing & Social Media Syndication Hub:
+- Co-branded asset generator for flyers, social graphics, and promotional text combined with one-click multi-channel scheduling across partner social accounts and SMS subscriber lists.
+
+11. Co-Op Supplier & Local Procurement Marketplace:
+- Bulk neighborhood group-buying cart, automated cost-splitting ledger for shared operational supplies, and verified local B2B vendor directory.
+
+12. Co-Op Dynamic Staff Cross-Training & Shift Coverage Network:
+- Secure internal registry tracking staff licensing and credentials alongside an on-demand peer-to-peer shift-swapping and temporary labor-sharing marketplace.
+
+13. Co-Op Automated Tip-Pooling & Shared Service Gratuity Splitter:
+- Automated calculation and distribution of tips across multi-service bundled appointments with flexible splitting rules and payroll ledger integration.
+
+14. Co-Op Centralized Master Dashboard & Network Governance:
+- Master administrative console with hierarchical permission roles, automated partner onboarding/vetting workflows, and ecosystem financial clearinghouse settlement tools.
+
+15. Co-Op Emergency Incident & Community Safety Alert Network:
+- Low-latency emergency alert broadcast for adjacent storefronts to communicate security incidents, weather warnings, or medical emergencies with encrypted audit trails and one-touch responder integration.
+
+Provide the complete software architecture, database schemas, API routing structures, and full functional implementation code for Cursor and Bolt development execution.
