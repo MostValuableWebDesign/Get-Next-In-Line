@@ -26,6 +26,7 @@ import {
   serializeSettings,
   toSettingsColumnUpdates,
 } from "../lib/settings";
+import { runCoopConflictCheck } from "../lib/coopFirewall";
 
 const router: IRouter = Router();
 
@@ -58,6 +59,18 @@ router.patch("/tenants/:id/settings", async (req, res): Promise<void> => {
     .set({ ...toSettingsColumnUpdates(body), updatedAt: new Date() })
     .where(eq(sosSettingsTable.id, settings.id))
     .returning();
+  // Automated conflict check: whenever the sub-category, radius, or location
+  // may have changed, detect same-sub-category competitors within overlapping
+  // radii and persist mutual isolation pairs.
+  const touchesCoopScope =
+    body.coopSubCategory !== undefined ||
+    body.coopRadiusMiles !== undefined ||
+    body.latitude !== undefined ||
+    body.longitude !== undefined ||
+    body.addressLocality !== undefined ||
+    body.businessCategory !== undefined ||
+    body.industryType !== undefined;
+  if (touchesCoopScope) await runCoopConflictCheck(tenantId);
   res.json(UpdateTenantSettingsResponse.parse(await serializeSettings(updated)));
 });
 
@@ -104,6 +117,12 @@ router.post("/tenants", async (req, res): Promise<void> => {
     action: "Tenant provisioned",
     details: `${tenant.brandName}.${tenant.subdomain}.getnextinline.io deployed`,
   });
+
+  // Onboarding: materialize the settings row (which carries the default co-op
+  // radius) and run the automated competitor-isolation conflict check so the
+  // local partner feed is correctly scoped with zero manual setup.
+  await getSettingsForTenant(tenant.id);
+  await runCoopConflictCheck(tenant.id);
 
   res.status(201).json(
     CreateTenantResponse.parse({

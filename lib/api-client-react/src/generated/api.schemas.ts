@@ -56,10 +56,36 @@ export interface CoopDirectoryEntry {
   name: string;
   /** @nullable */
   category: string | null;
+  /**
+     * Curated Level 2 sub-category label; null when the business is unclassified.
+     * @nullable
+     */
+  subCategory: string | null;
+  /**
+     * Curated Level 1 industry label; null when the business is unclassified.
+     * @nullable
+     */
+  industry: string | null;
+  /**
+     * Distance from the requesting business in miles; null when either side lacks coordinates.
+     * @nullable
+     */
+  distanceMiles: number | null;
   /** @nullable */
   city: string | null;
-  /** True when this business shares the requester's exact industry category (pairing restricted). */
+  /** True when this business shares the requester's Level 1 industry (different sub-niche — pairing still allowed). Direct same-sub-category competitors never appear at all. */
   sameIndustry: boolean;
+}
+
+export interface CoopTaxonomySubCategory {
+  slug: string;
+  label: string;
+}
+
+export interface CoopTaxonomyIndustry {
+  slug: string;
+  label: string;
+  subCategories: CoopTaxonomySubCategory[];
 }
 
 export interface CoopInviteCreate {
@@ -770,6 +796,10 @@ export interface SosSettings {
   longitude: string;
   /** Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness. */
   businessCategory: string;
+  /** Effective Level 2 co-op sub-category key (explicit or auto-derived from the business category); empty when unclassifiable. */
+  coopSubCategory?: string;
+  /** Co-op local discovery radius in miles (1–15). */
+  coopRadiusMiles?: number;
   updatedAt: string;
 }
 
@@ -805,6 +835,13 @@ export interface SosSettingsUpdate {
   /** @pattern ^$|^-?\d{1,3}(\.\d+)?$ */
   longitude?: string;
   businessCategory?: string;
+  /** Curated Level 2 sub-category slug; empty string switches back to auto-derivation. */
+  coopSubCategory?: string;
+  /**
+     * @minimum 1
+     * @maximum 15
+     */
+  coopRadiusMiles?: number;
 }
 
 export interface SosReview {

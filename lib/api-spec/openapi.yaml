@@ -450,6 +450,21 @@ paths:
         "404":
           description: Not found
 
+  /coop/taxonomy:
+    get:
+      operationId: getCoopTaxonomy
+      tags: [coop]
+      summary: Curated two-level co-op taxonomy (Industry → Sub-Category)
+      responses:
+        "200":
+          description: Taxonomy industries with their sub-categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopTaxonomyIndustry"
+
   /coop/directory:
     get:
       operationId: listCoopDirectory
@@ -2396,7 +2411,7 @@ components:
 
     CoopDirectoryEntry:
       type: object
-      required: [id, name, category, city, sameIndustry]
+      required: [id, name, category, subCategory, industry, distanceMiles, city, sameIndustry]
       properties:
         id:
           type: integer
@@ -2404,11 +2419,42 @@ components:
           type: string
         category:
           type: ["string", "null"]
+        subCategory:
+          type: ["string", "null"]
+          description: Curated Level 2 sub-category label; null when the business is unclassified.
+        industry:
+          type: ["string", "null"]
+          description: Curated Level 1 industry label; null when the business is unclassified.
+        distanceMiles:
+          type: ["number", "null"]
+          description: Distance from the requesting business in miles; null when either side lacks coordinates.
         city:
           type: ["string", "null"]
         sameIndustry:
           type: boolean
-          description: True when this business shares the requester's exact industry category (pairing restricted).
+          description: True when this business shares the requester's Level 1 industry (different sub-niche — pairing still allowed). Direct same-sub-category competitors never appear at all.
+
+    CoopTaxonomySubCategory:
+      type: object
+      required: [slug, label]
+      properties:
+        slug:
+          type: string
+        label:
+          type: string
+
+    CoopTaxonomyIndustry:
+      type: object
+      required: [slug, label, subCategories]
+      properties:
+        slug:
+          type: string
+        label:
+          type: string
+        subCategories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopTaxonomySubCategory"
 
     CoopInviteCreate:
       type: object
@@ -3314,6 +3360,12 @@ components:
         businessCategory:
           type: string
           description: Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.
+        coopSubCategory:
+          type: string
+          description: Effective Level 2 co-op sub-category key (explicit or auto-derived from the business category); empty when unclassifiable.
+        coopRadiusMiles:
+          type: integer
+          description: Co-op local discovery radius in miles (1–15).
         updatedAt:
           type: string
 
@@ -3374,6 +3426,13 @@ components:
           pattern: "^$|^-?\\d{1,3}(\\.\\d+)?$"
         businessCategory:
           type: string
+        coopSubCategory:
+          type: string
+          description: Curated Level 2 sub-category slug; empty string switches back to auto-derivation.
+        coopRadiusMiles:
+          type: integer
+          minimum: 1
+          maximum: 15
 
     SosReview:
       type: object

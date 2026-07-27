@@ -9,6 +9,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, or } from "drizzle-orm";
 import { getSettingsForTenant } from "../lib/settings";
 import { COOP_PERK_DISCLAIMER, perkWindowOpen } from "../lib/coopPerks";
+import { filterPartnershipsForConsumerSurface } from "../lib/coopFirewall";
 import { listServicesForScope } from "../lib/serviceCatalog";
 import { parseServiceNames } from "../lib/receptionist";
 
@@ -56,11 +57,12 @@ export async function getPublicCoopPerks(
 ): Promise<PublicCoopPerk[]> {
   const hostTenant = alias(tenantsTable, "landing_host_tenant");
   const partnerTenant = alias(tenantsTable, "landing_partner_tenant");
-  const rows = await db
+  const allRows = await db
     .select({
       perkTitle: merchantCoopPartnershipsTable.perkTitle,
       perkDescription: merchantCoopPartnershipsTable.perkDescription,
       hostTenantId: merchantCoopPartnershipsTable.hostTenantId,
+      partnerTenantId: merchantCoopPartnershipsTable.partnerTenantId,
       hostTenantName: hostTenant.brandName,
       partnerTenantName: partnerTenant.brandName,
     })
@@ -80,6 +82,10 @@ export async function getPublicCoopPerks(
       ),
     )
     .orderBy(desc(merchantCoopPartnershipsTable.createdAt), desc(merchantCoopPartnershipsTable.id));
+  // Category-firewall consumer exclusion: a customer of this business must
+  // never see a perk from a same-sub-category competitor or an
+  // isolation-paired business, however the partnership was created.
+  const rows = await filterPartnershipsForConsumerSurface(tenantId, allRows);
   return rows.map((r) => ({
     perkTitle: r.perkTitle,
     perkDescription: r.perkDescription,

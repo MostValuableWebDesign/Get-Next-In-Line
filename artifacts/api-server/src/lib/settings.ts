@@ -2,6 +2,7 @@ import { db, sosSettingsTable, tenantsTable } from "@workspace/db";
 import { eq, isNull } from "drizzle-orm";
 import { getSmsStatus, getTwilioAuthToken } from "./sms";
 import { getInboundWebhookUrl } from "./inboundSms";
+import { effectiveSubCategory } from "./coopFirewall";
 
 export type SosSettingsRow = typeof sosSettingsTable.$inferSelect;
 
@@ -133,6 +134,8 @@ export async function serializeSettings(s: SosSettingsRow) {
     latitude: s.latitude,
     longitude: s.longitude,
     businessCategory: s.businessCategory,
+    coopSubCategory: effectiveSubCategory(s).subCategory ?? "",
+    coopRadiusMiles: s.coopRadiusMiles,
     updatedAt: s.updatedAt.toISOString(),
   };
 }

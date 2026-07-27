@@ -38,4 +38,11 @@ export interface SosSettingsUpdate {
   /** @pattern ^$|^-?\d{1,3}(\.\d+)?$ */
   longitude?: string;
   businessCategory?: string;
+  /** Curated Level 2 sub-category slug; empty string switches back to auto-derivation. */
+  coopSubCategory?: string;
+  /**
+     * @minimum 1
+     * @maximum 15
+     */
+  coopRadiusMiles?: number;
 }

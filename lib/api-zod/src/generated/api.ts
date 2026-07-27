@@ -471,6 +471,20 @@ export const UpdateCoopPartnershipResponse = zod.object({
 
 
 /**
+ * @summary Curated two-level co-op taxonomy (Industry → Sub-Category)
+ */
+export const GetCoopTaxonomyResponseItem = zod.object({
+  "slug": zod.string(),
+  "label": zod.string(),
+  "subCategories": zod.array(zod.object({
+  "slug": zod.string(),
+  "label": zod.string()
+}))
+})
+export const GetCoopTaxonomyResponse = zod.array(GetCoopTaxonomyResponseItem)
+
+
+/**
  * @summary Merchant-facing — other active businesses on the platform (name, category, city only); tenant scope via x-tenant-id
  */
 export const ListCoopDirectoryQueryParams = zod.object({
@@ -483,8 +497,11 @@ export const ListCoopDirectoryResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "category": zod.string().nullable(),
+  "subCategory": zod.string().nullable().describe('Curated Level 2 sub-category label; null when the business is unclassified.'),
+  "industry": zod.string().nullable().describe('Curated Level 1 industry label; null when the business is unclassified.'),
+  "distanceMiles": zod.number().nullable().describe('Distance from the requesting business in miles; null when either side lacks coordinates.'),
   "city": zod.string().nullable(),
-  "sameIndustry": zod.boolean().describe('True when this business shares the requester\'s exact industry category (pairing restricted).')
+  "sameIndustry": zod.boolean().describe('True when this business shares the requester\'s Level 1 industry (different sub-niche — pairing still allowed). Direct same-sub-category competitors never appear at all.')
 })
 export const ListCoopDirectoryResponse = zod.array(ListCoopDirectoryResponseItem)
 
@@ -890,6 +907,8 @@ export const GetSosSettingsResponse = zod.object({
   "latitude": zod.string().describe('Decimal latitude as a string; empty when unset.'),
   "longitude": zod.string().describe('Decimal longitude as a string; empty when unset.'),
   "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
+  "coopSubCategory": zod.string().optional().describe('Effective Level 2 co-op sub-category key (explicit or auto-derived from the business category); empty when unclassifiable.'),
+  "coopRadiusMiles": zod.number().optional().describe('Co-op local discovery radius in miles (1–15).'),
   "updatedAt": zod.string()
 })
 
@@ -908,6 +927,8 @@ export const updateSosSettingsBodyNoShowFeeMin = 0;
 
 export const updateSosSettingsBodyLatitudeRegExp = new RegExp('^$|^-?\\d{1,2}(\\.\\d+)?$');
 export const updateSosSettingsBodyLongitudeRegExp = new RegExp('^$|^-?\\d{1,3}(\\.\\d+)?$');
+export const updateSosSettingsBodyCoopRadiusMilesMax = 15;
+
 
 
 export const UpdateSosSettingsBody = zod.object({
@@ -933,7 +954,9 @@ export const UpdateSosSettingsBody = zod.object({
   "postalCode": zod.string().optional(),
   "latitude": zod.string().regex(updateSosSettingsBodyLatitudeRegExp).optional(),
   "longitude": zod.string().regex(updateSosSettingsBodyLongitudeRegExp).optional(),
-  "businessCategory": zod.string().optional()
+  "businessCategory": zod.string().optional(),
+  "coopSubCategory": zod.string().optional().describe('Curated Level 2 sub-category slug; empty string switches back to auto-derivation.'),
+  "coopRadiusMiles": zod.number().min(1).max(updateSosSettingsBodyCoopRadiusMilesMax).optional()
 })
 
 export const UpdateSosSettingsResponse = zod.object({
@@ -967,6 +990,8 @@ export const UpdateSosSettingsResponse = zod.object({
   "latitude": zod.string().describe('Decimal latitude as a string; empty when unset.'),
   "longitude": zod.string().describe('Decimal longitude as a string; empty when unset.'),
   "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
+  "coopSubCategory": zod.string().optional().describe('Effective Level 2 co-op sub-category key (explicit or auto-derived from the business category); empty when unclassifiable.'),
+  "coopRadiusMiles": zod.number().optional().describe('Co-op local discovery radius in miles (1–15).'),
   "updatedAt": zod.string()
 })
 
@@ -2116,6 +2141,8 @@ export const GetTenantSettingsResponse = zod.object({
   "latitude": zod.string().describe('Decimal latitude as a string; empty when unset.'),
   "longitude": zod.string().describe('Decimal longitude as a string; empty when unset.'),
   "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
+  "coopSubCategory": zod.string().optional().describe('Effective Level 2 co-op sub-category key (explicit or auto-derived from the business category); empty when unclassifiable.'),
+  "coopRadiusMiles": zod.number().optional().describe('Co-op local discovery radius in miles (1–15).'),
   "updatedAt": zod.string()
 })
 
@@ -2138,6 +2165,8 @@ export const updateTenantSettingsBodyNoShowFeeMin = 0;
 
 export const updateTenantSettingsBodyLatitudeRegExp = new RegExp('^$|^-?\\d{1,2}(\\.\\d+)?$');
 export const updateTenantSettingsBodyLongitudeRegExp = new RegExp('^$|^-?\\d{1,3}(\\.\\d+)?$');
+export const updateTenantSettingsBodyCoopRadiusMilesMax = 15;
+
 
 
 export const UpdateTenantSettingsBody = zod.object({
@@ -2163,7 +2192,9 @@ export const UpdateTenantSettingsBody = zod.object({
   "postalCode": zod.string().optional(),
   "latitude": zod.string().regex(updateTenantSettingsBodyLatitudeRegExp).optional(),
   "longitude": zod.string().regex(updateTenantSettingsBodyLongitudeRegExp).optional(),
-  "businessCategory": zod.string().optional()
+  "businessCategory": zod.string().optional(),
+  "coopSubCategory": zod.string().optional().describe('Curated Level 2 sub-category slug; empty string switches back to auto-derivation.'),
+  "coopRadiusMiles": zod.number().min(1).max(updateTenantSettingsBodyCoopRadiusMilesMax).optional()
 })
 
 export const UpdateTenantSettingsResponse = zod.object({
@@ -2197,6 +2228,8 @@ export const UpdateTenantSettingsResponse = zod.object({
   "latitude": zod.string().describe('Decimal latitude as a string; empty when unset.'),
   "longitude": zod.string().describe('Decimal longitude as a string; empty when unset.'),
   "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
+  "coopSubCategory": zod.string().optional().describe('Effective Level 2 co-op sub-category key (explicit or auto-derived from the business category); empty when unclassifiable.'),
+  "coopRadiusMiles": zod.number().optional().describe('Co-op local discovery radius in miles (1–15).'),
   "updatedAt": zod.string()
 })
 

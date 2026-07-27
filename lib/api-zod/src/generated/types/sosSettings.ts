@@ -54,5 +54,9 @@ export interface SosSettings {
   longitude: string;
   /** Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness. */
   businessCategory: string;
+  /** Effective Level 2 co-op sub-category key (explicit or auto-derived from the business category); empty when unclassifiable. */
+  coopSubCategory?: string;
+  /** Co-op local discovery radius in miles (1–15). */
+  coopRadiusMiles?: number;
   updatedAt: string;
 }

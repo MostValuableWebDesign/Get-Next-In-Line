@@ -50,6 +50,7 @@ import type {
   CoopPerkRedeemRequest,
   CoopPerkRedeemResult,
   CoopRedemptionValidation,
+  CoopTaxonomyIndustry,
   EngagementRule,
   EngagementRuleInput,
   EngagementRuleUpdate,
@@ -1751,6 +1752,83 @@ export const useUpdateCoopPartnership = <TError = ErrorType<void>,
       > => {
       return useMutation(getUpdateCoopPartnershipMutationOptions(options));
     }
+
+export const getGetCoopTaxonomyUrl = () => {
+
+
+
+
+  return `/api/coop/taxonomy`
+}
+
+/**
+ * @summary Curated two-level co-op taxonomy (Industry → Sub-Category)
+ */
+export const getCoopTaxonomy = async ( options?: RequestInit): Promise<CoopTaxonomyIndustry[]> => {
+
+  return customFetch<CoopTaxonomyIndustry[]>(getGetCoopTaxonomyUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopTaxonomyQueryKey = () => {
+    return [
+    `/api/coop/taxonomy`
+    ] as const;
+    }
+
+
+export const getGetCoopTaxonomyQueryOptions = <TData = Awaited<ReturnType<typeof getCoopTaxonomy>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopTaxonomy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopTaxonomyQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopTaxonomy>>> = ({ signal }) => getCoopTaxonomy({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopTaxonomy>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopTaxonomyQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopTaxonomy>>>
+export type GetCoopTaxonomyQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Curated two-level co-op taxonomy (Industry → Sub-Category)
+ */
+
+export function useGetCoopTaxonomy<TData = Awaited<ReturnType<typeof getCoopTaxonomy>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopTaxonomy>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopTaxonomyQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListCoopDirectoryUrl = (params?: ListCoopDirectoryParams,) => {
   const normalizedParams = new URLSearchParams();

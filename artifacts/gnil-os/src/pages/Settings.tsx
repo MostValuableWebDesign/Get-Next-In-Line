@@ -8,6 +8,8 @@ import {
   getGetTenantSettingsQueryKey,
   useGetTenant,
   getGetTenantQueryKey,
+  useGetCoopTaxonomy,
+  getGetCoopTaxonomyQueryKey,
   useListTenantReviews,
   useCreateTenantReview,
   useUpdateTenantReview,
@@ -22,6 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -97,6 +100,10 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
     longitude: '',
     businessCategory: '',
   });
+  const [coop, setCoop] = React.useState({
+    coopSubCategory: '',
+    coopRadiusMiles: 4,
+  });
 
   const initialized = useRef(false);
 
@@ -130,6 +137,10 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
         latitude: settings.latitude ?? '',
         longitude: settings.longitude ?? '',
         businessCategory: settings.businessCategory ?? '',
+      });
+      setCoop({
+        coopSubCategory: settings.coopSubCategory ?? '',
+        coopRadiusMiles: settings.coopRadiusMiles ?? 4,
       });
       initialized.current = true;
     }
@@ -178,6 +189,8 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       latitude: string;
       longitude: string;
       businessCategory: string;
+      coopSubCategory: string;
+      coopRadiusMiles: number;
     }>,
   ) => {
     const onSuccess = () => {
@@ -403,6 +416,16 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
           seo={seo}
           setSeo={setSeo}
           onSave={() => saveSection('Local SEO profile', seo)}
+          isPending={isPending}
+        />
+      )}
+
+      {/* ── Co-Op Network (tenant-scoped only) ──────────────────────── */}
+      {isTenantScoped && (
+        <CoopNetworkCard
+          coop={coop}
+          setCoop={setCoop}
+          onSave={() => saveSection('Co-Op Network', coop)}
           isPending={isPending}
         />
       )}
@@ -735,6 +758,89 @@ function LocalSeoCard({
           ) : <span />}
           <Button onClick={onSave} disabled={isPending} data-testid="button-save-local-seo">
             Save SEO Profile
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Co-Op Network section (tenant-scoped only): the business's Level 2
+ * sub-category (the category firewall key — same-sub-category competitors
+ * never see each other) and the 1–15 mile local discovery radius slider.
+ */
+function CoopNetworkCard({
+  coop, setCoop, onSave, isPending,
+}: {
+  coop: { coopSubCategory: string; coopRadiusMiles: number };
+  setCoop: React.Dispatch<React.SetStateAction<{ coopSubCategory: string; coopRadiusMiles: number }>>;
+  onSave: () => void;
+  isPending: boolean;
+}) {
+  const { data: taxonomy } = useGetCoopTaxonomy({
+    query: { queryKey: getGetCoopTaxonomyQueryKey() },
+  });
+  const isCurated = (taxonomy ?? []).some((i) =>
+    i.subCategories.some((s) => s.slug === coop.coopSubCategory),
+  );
+  return (
+    <Card id="coop-network" className="scroll-mt-6" data-testid="section-coop-network">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Building2 className="w-5 h-5 text-primary" /> Co-Op Network
+        </CardTitle>
+        <CardDescription>
+          Your sub-category keeps direct competitors out of your co-op network, and the search
+          radius scopes local partner discovery to nearby businesses.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="grid gap-2">
+          <Label>Business sub-category</Label>
+          <select
+            value={isCurated ? coop.coopSubCategory : ''}
+            onChange={(e) => setCoop((c) => ({ ...c, coopSubCategory: e.target.value }))}
+            className="rounded-md border bg-background p-2 text-sm"
+            data-testid="select-coop-subcategory"
+          >
+            <option value="">Auto-detect from business category</option>
+            {(taxonomy ?? []).map((industry) => (
+              <optgroup key={industry.slug} label={industry.label}>
+                {industry.subCategories.map((s) => (
+                  <option key={s.slug} value={s.slug}>{s.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Businesses in your exact sub-category never appear in your directory or feeds (and you
+            never appear in theirs). Same-industry, different-niche partners stay available.
+          </p>
+        </div>
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between">
+            <Label>Co-Op search radius</Label>
+            <span className="text-sm font-medium" data-testid="text-coop-radius-value">
+              {coop.coopRadiusMiles} {coop.coopRadiusMiles === 1 ? 'mile' : 'miles'}
+            </span>
+          </div>
+          <Slider
+            min={1}
+            max={15}
+            step={1}
+            value={[coop.coopRadiusMiles]}
+            onValueChange={([v]) => setCoop((c) => ({ ...c, coopRadiusMiles: v }))}
+            data-testid="slider-coop-radius"
+          />
+          <p className="text-xs text-muted-foreground">
+            Local discovery uses your saved coordinates when available, falling back to
+            city matching otherwise.
+          </p>
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={onSave} disabled={isPending} data-testid="button-save-coop-network">
+            Save Co-Op Settings
           </Button>
         </div>
       </CardContent>

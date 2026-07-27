@@ -68,6 +68,14 @@ export const sosSettingsTable = pgTable("sos_settings", {
   longitude: text("longitude").notNull().default(""),
   // Schema.org LocalBusiness subtype (e.g. "HairSalon", "AutoRepair").
   businessCategory: text("business_category").notNull().default(""),
+  // ── Co-op firewall & proximity ─────────────────────────────────────────────
+  // Level 2 sub-category key from the curated co-op taxonomy (e.g.
+  // "barbershop", "mechanic-shop"). Empty = auto-derived from
+  // businessCategory/industryType via the taxonomy keyword mapping.
+  coopSubCategory: text("coop_sub_category").notNull().default(""),
+  // Co-op local discovery radius in miles (1–15). Every business gets the
+  // smart default automatically at onboarding; owners adjust via a slider.
+  coopRadiusMiles: integer("coop_radius_miles").notNull().default(4),
   // Business-specific service names the AI receptionist should recognize,
   // in addition to the generic industry-neutral terms.
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

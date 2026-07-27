@@ -11,8 +11,23 @@ export interface CoopDirectoryEntry {
   name: string;
   /** @nullable */
   category: string | null;
+  /**
+     * Curated Level 2 sub-category label; null when the business is unclassified.
+     * @nullable
+     */
+  subCategory: string | null;
+  /**
+     * Curated Level 1 industry label; null when the business is unclassified.
+     * @nullable
+     */
+  industry: string | null;
+  /**
+     * Distance from the requesting business in miles; null when either side lacks coordinates.
+     * @nullable
+     */
+  distanceMiles: number | null;
   /** @nullable */
   city: string | null;
-  /** True when this business shares the requester's exact industry category (pairing restricted). */
+  /** True when this business shares the requester's Level 1 industry (different sub-niche — pairing still allowed). Direct same-sub-category competitors never appear at all. */
   sameIndustry: boolean;
 }

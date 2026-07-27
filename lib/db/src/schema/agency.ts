@@ -278,6 +278,38 @@ export const coopPerkRedemptionsTable = pgTable(
 
 export type CoopPerkRedemption = typeof coopPerkRedemptionsTable.$inferSelect;
 
+// ── Co-op isolation pairs ────────────────────────────────────────────────────
+// Mutual competitor-isolation records produced by the automated conflict
+// check: when two businesses share the same Level 2 sub-category within
+// overlapping co-op radii, a pair is persisted (tenantAId < tenantBId).
+// Discovery, recommendations, and consumer perk surfaces honor the pair even
+// if radii or locations are later edited; it only stops applying when the two
+// businesses' sub-categories diverge.
+export const coopIsolationPairsTable = pgTable(
+  "coop_isolation_pairs",
+  {
+    id: serial("id").primaryKey(),
+    tenantAId: integer("tenant_a_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    tenantBId: integer("tenant_b_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // Sub-category key both sides shared when the pair was recorded.
+    subCategory: text("sub_category").notNull(),
+    // How the overlap was established: radius | city
+    matchBasis: text("match_basis").notNull().default("radius"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("coop_isolation_pairs_pair_uq").on(t.tenantAId, t.tenantBId),
+    index("coop_isolation_pairs_a_idx").on(t.tenantAId),
+    index("coop_isolation_pairs_b_idx").on(t.tenantBId),
+  ]
+);
+
+export type CoopIsolationPair = typeof coopIsolationPairsTable.$inferSelect;
+
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,
   provisionedAt: true,

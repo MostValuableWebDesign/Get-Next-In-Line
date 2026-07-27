@@ -49,6 +49,8 @@ export * from './coopPartnershipUpdate';
 export * from './coopPerkRedeemRequest';
 export * from './coopPerkRedeemResult';
 export * from './coopRedemptionValidation';
+export * from './coopTaxonomyIndustry';
+export * from './coopTaxonomySubCategory';
 export * from './engagementRule';
 export * from './engagementRuleConfig';
 export * from './engagementRuleInput';

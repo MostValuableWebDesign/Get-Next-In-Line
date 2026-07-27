@@ -38,6 +38,7 @@ import {
   CreatePlatformInviteBody,
   CreatePlatformInviteResponse,
   ListPlatformInvitesResponse,
+  GetCoopTaxonomyResponse,
 } from "@workspace/api-zod";
 import { platformInvitesTable } from "@workspace/db";
 import {
@@ -47,6 +48,19 @@ import {
   buildInviteMessage,
   effectiveInviteStatus,
 } from "../lib/platformInvites";
+import {
+  COOP_TAXONOMY,
+  taxonomyEntry,
+  toCoopProfile,
+  loadCoopProfiles,
+  isolationPartnersOf,
+  isBlockedPair,
+  sameSubCategory,
+  sameIndustryL1,
+  distanceBetween,
+  withinDiscoveryRange,
+  filterPartnershipsForConsumerSurface,
+} from "../lib/coopFirewall";
 
 const router: IRouter = Router();
 
@@ -105,19 +119,6 @@ function tenantIdFrom(req: Request): number | null {
 
 // Exact tenant-facing copy the UI shows when the guardrail blocks a pairing.
 const SAME_INDUSTRY_MESSAGE = "Same-industry pairings are restricted by platform guidelines.";
-
-/**
- * A tenant's industry category for the merchant-facing guardrail: the
- * business's own SOS profile (businessCategory when set, else industryType).
- * NULL when the tenant has no SOS settings row yet.
- */
-function industryOf(
-  s: { businessCategory: string; industryType: string } | null | undefined
-): string | null {
-  if (!s) return null;
-  const cat = s.businessCategory.trim() || s.industryType.trim();
-  return cat ? cat.toLowerCase() : null;
-}
 
 function partnershipRows() {
   const { hostTenant, partnerTenant } = tenantAliases();
@@ -380,24 +381,38 @@ router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
 // (same convention as /api/sos/*).
 // ---------------------------------------------------------------------------
 
+// ── GET /coop/taxonomy — curated Industry → Sub-Category taxonomy ───────────
+router.get("/coop/taxonomy", async (_req, res): Promise<void> => {
+  res.json(
+    GetCoopTaxonomyResponse.parse(
+      COOP_TAXONOMY.map((i) => ({
+        slug: i.slug,
+        label: i.label,
+        subCategories: i.subCategories.map((s) => ({ slug: s.slug, label: s.label })),
+      }))
+    )
+  );
+});
+
 // ── GET /coop/directory — other businesses on the platform ──────────────────
 // Safe, public-ish profile only (name, category, city); never contacts, MRR,
-// or module details. Flags same-industry businesses so the UI can warn before
-// an invite is even attempted.
+// or module details. The category firewall is enforced at discovery: direct
+// competitors (same Level 2 sub-category) and isolation-paired businesses are
+// excluded from the listing entirely — not just flagged. Local scope: within
+// the viewer's co-op radius when both sides have coordinates, city-match
+// fallback otherwise.
 router.get("/coop/directory", async (req, res): Promise<void> => {
   const tenantId = tenantIdFrom(req);
   if (tenantId == null) {
     res.status(400).json({ message: "x-tenant-id header is required" });
     return;
   }
-  const [me] = await db
-    .select({
-      businessCategory: sosSettingsTable.businessCategory,
-      industryType: sosSettingsTable.industryType,
-    })
+  const [meRow] = await db
+    .select()
     .from(sosSettingsTable)
     .where(eq(sosSettingsTable.tenantId, tenantId));
-  const myIndustry = industryOf(me);
+  const me = toCoopProfile(meRow ?? null);
+  const isolated = await isolationPartnersOf(tenantId);
 
   const rows = await db
     .select({
@@ -405,6 +420,10 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
       name: tenantsTable.brandName,
       businessCategory: sosSettingsTable.businessCategory,
       industryType: sosSettingsTable.industryType,
+      coopSubCategory: sosSettingsTable.coopSubCategory,
+      coopRadiusMiles: sosSettingsTable.coopRadiusMiles,
+      latitude: sosSettingsTable.latitude,
+      longitude: sosSettingsTable.longitude,
       city: sosSettingsTable.addressLocality,
     })
     .from(tenantsTable)
@@ -418,21 +437,43 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
 
   const entries = rows
     .map((r) => {
-      const industry = industryOf(
-        r.businessCategory != null && r.industryType != null
-          ? { businessCategory: r.businessCategory, industryType: r.industryType }
+      const theirs = toCoopProfile(
+        r.businessCategory != null
+          ? {
+              coopSubCategory: r.coopSubCategory ?? "",
+              businessCategory: r.businessCategory,
+              industryType: r.industryType ?? "",
+              coopRadiusMiles: r.coopRadiusMiles ?? 4,
+              latitude: r.latitude ?? "",
+              longitude: r.longitude ?? "",
+              addressLocality: r.city ?? "",
+            }
           : null
       );
       // Display casing: prefer the raw profile values over the lowercased key.
       const category = (r.businessCategory?.trim() || r.industryType?.trim()) ?? null;
+      const distance = distanceBetween(me, theirs);
+      const sub = theirs.subCategory != null ? taxonomyEntry(theirs.subCategory) : null;
       return {
-        id: r.id,
-        name: r.name,
-        category: category || null,
-        city: r.city?.trim() || null,
-        sameIndustry: myIndustry != null && industry != null && industry === myIndustry,
+        profile: theirs,
+        entry: {
+          id: r.id,
+          name: r.name,
+          category: category || null,
+          subCategory: sub ? sub.sub.label : null,
+          industry: sub ? sub.industry.label : null,
+          distanceMiles: distance == null ? null : Math.round(distance * 10) / 10,
+          city: r.city?.trim() || null,
+          sameIndustry: sameIndustryL1(me, theirs),
+        },
       };
     })
+    // Discovery-level firewall: same L2 sub-category or isolation-paired
+    // businesses never appear — the block happens here, not at invite time.
+    .filter(({ profile, entry }) => !isBlockedPair(me, profile, isolated.has(entry.id)))
+    // Proximity scope: viewer's radius (coords), city fallback otherwise.
+    .filter(({ profile }) => withinDiscoveryRange(me, profile))
+    .map(({ entry }) => entry)
     .filter((e) => !search || e.name.toLowerCase().includes(search))
     .filter((e) => !cityFilter || (e.city ?? "").toLowerCase() === cityFilter)
     .filter((e) => !categoryFilter || (e.category ?? "").toLowerCase() === categoryFilter);
@@ -476,17 +517,21 @@ router.post("/coop/invites", async (req, res): Promise<void> => {
     return;
   }
 
-  const settings = await db
-    .select({
-      tenantId: sosSettingsTable.tenantId,
-      businessCategory: sosSettingsTable.businessCategory,
-      industryType: sosSettingsTable.industryType,
-    })
-    .from(sosSettingsTable)
-    .where(inArray(sosSettingsTable.tenantId, [tenantId, partnerTenantId]));
-  const mine = industryOf(settings.find((s) => s.tenantId === tenantId));
-  const theirs = industryOf(settings.find((s) => s.tenantId === partnerTenantId));
-  if (mine != null && theirs != null && mine === theirs) {
+  // Sub-category firewall backstop: the directory already hides direct
+  // competitors, but a hand-crafted request must hit the same wall. Blocks
+  // same Level 2 sub-category and persisted isolation pairs; same-industry
+  // but different-sub-niche pairings stay allowed.
+  const [profiles, isolated] = await Promise.all([
+    loadCoopProfiles([tenantId, partnerTenantId]),
+    isolationPartnersOf(tenantId),
+  ]);
+  if (
+    isBlockedPair(
+      profiles.get(tenantId)!,
+      profiles.get(partnerTenantId)!,
+      isolated.has(partnerTenantId)
+    )
+  ) {
     res.status(403).json({ code: "SAME_INDUSTRY_RESTRICTED", message: SAME_INDUSTRY_MESSAGE });
     return;
   }
@@ -692,7 +737,7 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
     res.status(400).json({ message: "x-tenant-id header is required" });
     return;
   }
-  const rows = await partnershipRows()
+  const allRows = await partnershipRows()
     .where(
       and(
         eq(merchantCoopPartnershipsTable.status, "accepted"),
@@ -706,6 +751,16 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
       )
     )
     .orderBy(desc(merchantCoopPartnershipsTable.createdAt), desc(merchantCoopPartnershipsTable.id));
+  // Consumer-surface exclusion filter: this endpoint feeds every
+  // customer-facing surface (checkout confirmation, receipts, pass/wallet),
+  // so a competitor's or isolation-paired business's perk can never render —
+  // including legacy admin-created partnerships predating the firewall.
+  const visible = await filterPartnershipsForConsumerSurface(
+    tenantId,
+    allRows.map((r) => r.partnership)
+  );
+  const visibleIds = new Set(visible.map((p) => p.id));
+  const rows = allRows.filter((r) => visibleIds.has(r.partnership.id));
   res.json(
     ListCoopActivePerksResponse.parse({
       disclaimer: COOP_PERK_DISCLAIMER,

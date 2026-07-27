@@ -48,30 +48,40 @@ beforeAll(async () => {
     .returning({ id: tenantsTable.id });
   [salonAId, salonBId, cafeId, gymId] = tenants.map((t) => t.id);
 
+  // All four are within a mile of each other so the proximity scope keeps
+  // them mutually discoverable; the category firewall is what separates them.
   await db.insert(sosSettingsTable).values([
     {
       tenantId: salonAId,
       industryType: "salon",
       businessCategory: `HairSalon-${RUN}`,
       addressLocality: "Riverside",
+      latitude: "40.7128",
+      longitude: "-74.0060",
     },
     {
       tenantId: salonBId,
       industryType: "salon",
       businessCategory: `HairSalon-${RUN}`,
       addressLocality: "Downtown",
+      latitude: "40.7150",
+      longitude: "-74.0080",
     },
     {
       tenantId: cafeId,
       industryType: "restaurant",
       businessCategory: `CafeOrCoffeeShop-${RUN}`,
       addressLocality: "Riverside",
+      latitude: "40.7130",
+      longitude: "-74.0050",
     },
     {
       tenantId: gymId,
       industryType: "fitness",
       businessCategory: `HealthClub-${RUN}`,
       addressLocality: "Downtown",
+      latitude: "40.7140",
+      longitude: "-74.0070",
     },
   ]);
 });
@@ -100,26 +110,26 @@ describe("co-op directory", () => {
     await agent.get("/api/coop/directory").expect(400);
   });
 
-  it("lists other businesses with name/category/city only, excluding self, flagging same industry", async () => {
+  it("lists other businesses with safe fields only, excluding self AND same-sub-category competitors", async () => {
     const res = await agent
       .get("/api/coop/directory")
       .set("x-tenant-id", String(salonAId))
       .expect(200);
     const entries = mine(res.body);
+    // The category firewall removes Salon B (same Level 2 sub-category) at
+    // the discovery layer — it is not merely flagged, it never appears.
     expect(entries.map((e: { id: number }) => e.id).sort()).toEqual(
-      [salonBId, cafeId, gymId].sort()
-    );
-    const salonB = entries.find((e) => e.id === salonBId);
-    expect(salonB).toBeDefined();
-    expect(salonB!.sameIndustry).toBe(true);
-    expect(salonB!.category).toBe(`HairSalon-${RUN}`);
-    expect(salonB!.city).toBe("Downtown");
-    // No sensitive tenant fields leak.
-    expect(Object.keys(salonB!).sort()).toEqual(
-      ["category", "city", "id", "name", "sameIndustry"].sort()
+      [cafeId, gymId].sort()
     );
     const cafe = entries.find((e) => e.id === cafeId);
-    expect(cafe?.sameIndustry).toBe(false);
+    expect(cafe).toBeDefined();
+    expect(cafe!.category).toBe(`CafeOrCoffeeShop-${RUN}`);
+    expect(cafe!.city).toBe("Riverside");
+    expect(cafe!.sameIndustry).toBe(false);
+    // No sensitive tenant fields leak.
+    expect(Object.keys(cafe!).sort()).toEqual(
+      ["category", "city", "distanceMiles", "id", "industry", "name", "sameIndustry", "subCategory"].sort()
+    );
   });
 
   it("filters by search, city, and category", async () => {
