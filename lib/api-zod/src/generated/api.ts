@@ -365,6 +365,119 @@ export const GetAdminModuleDetailResponse = zod.object({
 
 
 /**
+ * @summary List merchant co-op partnerships, optionally filtered to one tenant (as host or partner)
+ */
+export const ListCoopPartnershipsQueryParams = zod.object({
+  "tenantId": zod.coerce.number().optional()
+})
+
+export const ListCoopPartnershipsResponseItem = zod.object({
+  "id": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "partnerTenantId": zod.number(),
+  "partnerTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redemptionCode": zod.string(),
+  "industryBarrierOverridden": zod.boolean(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+export const ListCoopPartnershipsResponse = zod.array(ListCoopPartnershipsResponseItem)
+
+
+/**
+ * @summary Create a merchant co-op partnership between two tenants (industry barrier enforced unless overridden)
+ */
+
+export const createCoopPartnershipBodyRedemptionCodeRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$');
+
+
+export const CreateCoopPartnershipBody = zod.object({
+  "hostTenantId": zod.number(),
+  "partnerTenantId": zod.number(),
+  "perkTitle": zod.string().min(1),
+  "perkDescription": zod.string().optional(),
+  "redemptionCode": zod.string().regex(createCoopPartnershipBodyRedemptionCodeRegExp).optional().describe('Optional explicit redemption code; auto-generated when omitted.'),
+  "overrideIndustryBarrier": zod.boolean().optional().describe('Explicitly bypass the same-category (competitor) block.')
+})
+
+export const CreateCoopPartnershipResponse = zod.object({
+  "id": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "partnerTenantId": zod.number(),
+  "partnerTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redemptionCode": zod.string(),
+  "industryBarrierOverridden": zod.boolean(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Edit a partnership's perk or activate/deactivate it
+ */
+export const UpdateCoopPartnershipParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const updateCoopPartnershipBodyRedemptionCodeRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$');
+
+
+export const UpdateCoopPartnershipBody = zod.object({
+  "perkTitle": zod.string().min(1).optional(),
+  "perkDescription": zod.string().nullish(),
+  "redemptionCode": zod.string().regex(updateCoopPartnershipBodyRedemptionCodeRegExp).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateCoopPartnershipResponse = zod.object({
+  "id": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "partnerTenantId": zod.number(),
+  "partnerTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redemptionCode": zod.string(),
+  "industryBarrierOverridden": zod.boolean(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Validate a co-op perk redemption code at checkout time
+ */
+export const ValidateCoopRedemptionCodeParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const ValidateCoopRedemptionCodeResponse = zod.object({
+  "valid": zod.boolean(),
+  "reason": zod.string().nullable().describe('Why validation failed (unknown code, inactive partnership); null when valid.'),
+  "partnership": zod.union([zod.object({
+  "id": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "partnerTenantId": zod.number(),
+  "partnerTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redemptionCode": zod.string(),
+  "industryBarrierOverridden": zod.boolean(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+}),zod.null()])
+})
+
+
+/**
  * @summary Admin-only — list campaign redirect links with click counts
  */
 export const ListAdminCampaignsResponseItem = zod.object({

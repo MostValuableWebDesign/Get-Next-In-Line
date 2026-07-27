@@ -39,12 +39,18 @@ import type {
   ConciergeSuggestUpsellsResult,
   ConnectorRegistryEntry,
   ConnectorRegistryEntryUpdate,
+  CoopIndustryBarrierError,
+  CoopPartnership,
+  CoopPartnershipCreate,
+  CoopPartnershipUpdate,
+  CoopRedemptionValidation,
   EngagementRule,
   EngagementRuleInput,
   EngagementRuleUpdate,
   GetSosStaffEarningsParams,
   GetTenantActivityParams,
   HealthStatus,
+  ListCoopPartnershipsParams,
   ListSosAppointmentsParams,
   ListSosCustomersParams,
   ListSosMessagesParams,
@@ -1489,6 +1495,310 @@ export function useGetAdminModuleDetail<TData = Awaited<ReturnType<typeof getAdm
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetAdminModuleDetailQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCoopPartnershipsUrl = (params?: ListCoopPartnershipsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/coop/partnerships?${stringifiedParams}` : `/api/coop/partnerships`
+}
+
+/**
+ * @summary List merchant co-op partnerships, optionally filtered to one tenant (as host or partner)
+ */
+export const listCoopPartnerships = async (params?: ListCoopPartnershipsParams, options?: RequestInit): Promise<CoopPartnership[]> => {
+
+  return customFetch<CoopPartnership[]>(getListCoopPartnershipsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopPartnershipsQueryKey = (params?: ListCoopPartnershipsParams,) => {
+    return [
+    `/api/coop/partnerships`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCoopPartnershipsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopPartnerships>>, TError = ErrorType<unknown>>(params?: ListCoopPartnershipsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnerships>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopPartnershipsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopPartnerships>>> = ({ signal }) => listCoopPartnerships(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnerships>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopPartnershipsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopPartnerships>>>
+export type ListCoopPartnershipsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List merchant co-op partnerships, optionally filtered to one tenant (as host or partner)
+ */
+
+export function useListCoopPartnerships<TData = Awaited<ReturnType<typeof listCoopPartnerships>>, TError = ErrorType<unknown>>(
+ params?: ListCoopPartnershipsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnerships>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopPartnershipsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopPartnershipUrl = () => {
+
+
+
+
+  return `/api/coop/partnerships`
+}
+
+/**
+ * @summary Create a merchant co-op partnership between two tenants (industry barrier enforced unless overridden)
+ */
+export const createCoopPartnership = async (coopPartnershipCreate: CoopPartnershipCreate, options?: RequestInit): Promise<CoopPartnership> => {
+
+  return customFetch<CoopPartnership>(getCreateCoopPartnershipUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopPartnershipCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopPartnershipMutationOptions = <TError = ErrorType<void | CoopIndustryBarrierError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopPartnership>>, TError,{data: BodyType<CoopPartnershipCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopPartnership>>, TError,{data: BodyType<CoopPartnershipCreate>}, TContext> => {
+
+const mutationKey = ['createCoopPartnership'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopPartnership>>, {data: BodyType<CoopPartnershipCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopPartnership(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopPartnershipMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopPartnership>>>
+    export type CreateCoopPartnershipMutationBody = BodyType<CoopPartnershipCreate>
+    export type CreateCoopPartnershipMutationError = ErrorType<void | CoopIndustryBarrierError>
+
+    /**
+ * @summary Create a merchant co-op partnership between two tenants (industry barrier enforced unless overridden)
+ */
+export const useCreateCoopPartnership = <TError = ErrorType<void | CoopIndustryBarrierError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopPartnership>>, TError,{data: BodyType<CoopPartnershipCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopPartnership>>,
+        TError,
+        {data: BodyType<CoopPartnershipCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopPartnershipMutationOptions(options));
+    }
+
+export const getUpdateCoopPartnershipUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/partnerships/${id}`
+}
+
+/**
+ * @summary Edit a partnership's perk or activate/deactivate it
+ */
+export const updateCoopPartnership = async (id: number,
+    coopPartnershipUpdate: CoopPartnershipUpdate, options?: RequestInit): Promise<CoopPartnership> => {
+
+  return customFetch<CoopPartnership>(getUpdateCoopPartnershipUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopPartnershipUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCoopPartnershipMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopPartnership>>, TError,{id: number;data: BodyType<CoopPartnershipUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCoopPartnership>>, TError,{id: number;data: BodyType<CoopPartnershipUpdate>}, TContext> => {
+
+const mutationKey = ['updateCoopPartnership'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCoopPartnership>>, {id: number;data: BodyType<CoopPartnershipUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCoopPartnership(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCoopPartnershipMutationResult = NonNullable<Awaited<ReturnType<typeof updateCoopPartnership>>>
+    export type UpdateCoopPartnershipMutationBody = BodyType<CoopPartnershipUpdate>
+    export type UpdateCoopPartnershipMutationError = ErrorType<void>
+
+    /**
+ * @summary Edit a partnership's perk or activate/deactivate it
+ */
+export const useUpdateCoopPartnership = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopPartnership>>, TError,{id: number;data: BodyType<CoopPartnershipUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCoopPartnership>>,
+        TError,
+        {id: number;data: BodyType<CoopPartnershipUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCoopPartnershipMutationOptions(options));
+    }
+
+export const getValidateCoopRedemptionCodeUrl = (code: string,) => {
+
+
+
+
+  return `/api/coop/redemptions/${code}`
+}
+
+/**
+ * @summary Validate a co-op perk redemption code at checkout time
+ */
+export const validateCoopRedemptionCode = async (code: string, options?: RequestInit): Promise<CoopRedemptionValidation> => {
+
+  return customFetch<CoopRedemptionValidation>(getValidateCoopRedemptionCodeUrl(code),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getValidateCoopRedemptionCodeQueryKey = (code: string,) => {
+    return [
+    `/api/coop/redemptions/${code}`
+    ] as const;
+    }
+
+
+export const getValidateCoopRedemptionCodeQueryOptions = <TData = Awaited<ReturnType<typeof validateCoopRedemptionCode>>, TError = ErrorType<unknown>>(code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof validateCoopRedemptionCode>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getValidateCoopRedemptionCodeQueryKey(code);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof validateCoopRedemptionCode>>> = ({ signal }) => validateCoopRedemptionCode(code, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: code !== null && code !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof validateCoopRedemptionCode>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ValidateCoopRedemptionCodeQueryResult = NonNullable<Awaited<ReturnType<typeof validateCoopRedemptionCode>>>
+export type ValidateCoopRedemptionCodeQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Validate a co-op perk redemption code at checkout time
+ */
+
+export function useValidateCoopRedemptionCode<TData = Awaited<ReturnType<typeof validateCoopRedemptionCode>>, TError = ErrorType<unknown>>(
+ code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof validateCoopRedemptionCode>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getValidateCoopRedemptionCodeQueryOptions(code,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

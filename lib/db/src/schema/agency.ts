@@ -158,6 +158,44 @@ export const insertAttributionEventSchema = createInsertSchema(attributionEvents
 export type InsertAttributionEvent = z.infer<typeof insertAttributionEventSchema>;
 export type AttributionEvent = typeof attributionEventsTable.$inferSelect;
 
+// ── Merchant co-op partnerships ──────────────────────────────────────────────
+// Cross-promotion pacts between two businesses on the platform: a host tenant
+// offers a perk (with a redemption code) to customers referred from a partner
+// tenant. Pairing two tenants in the same module category is blocked (the
+// "industry barrier") unless an admin explicitly overrides it — tenants must
+// never boost a direct competitor.
+export const merchantCoopPartnershipsTable = pgTable(
+  "merchant_coop_partnerships",
+  {
+    id: serial("id").primaryKey(),
+    hostTenantId: integer("host_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    partnerTenantId: integer("partner_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    perkTitle: text("perk_title").notNull(),
+    perkDescription: text("perk_description"),
+    // Unique across all partnerships; auto-generated when not supplied.
+    redemptionCode: text("redemption_code").notNull().unique(),
+    // True when an admin explicitly bypassed the same-category block.
+    industryBarrierOverridden: boolean("industry_barrier_overridden").notNull().default(false),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("merchant_coop_partnerships_host_idx").on(t.hostTenantId),
+    index("merchant_coop_partnerships_partner_idx").on(t.partnerTenantId),
+  ]
+);
+
+export const insertMerchantCoopPartnershipSchema = createInsertSchema(
+  merchantCoopPartnershipsTable
+).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertMerchantCoopPartnership = z.infer<typeof insertMerchantCoopPartnershipSchema>;
+export type MerchantCoopPartnership = typeof merchantCoopPartnershipsTable.$inferSelect;
+
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,
   provisionedAt: true,

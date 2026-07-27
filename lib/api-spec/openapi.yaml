@@ -373,6 +373,102 @@ paths:
         "404":
           description: Module not found
 
+  /coop/partnerships:
+    get:
+      operationId: listCoopPartnerships
+      tags: [admin]
+      summary: List merchant co-op partnerships, optionally filtered to one tenant (as host or partner)
+      parameters:
+        - name: tenantId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Partnerships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopPartnership"
+    post:
+      operationId: createCoopPartnership
+      tags: [admin]
+      summary: Create a merchant co-op partnership between two tenants (industry barrier enforced unless overridden)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopPartnershipCreate"
+      responses:
+        "201":
+          description: Created partnership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPartnership"
+        "400":
+          description: Invalid body or duplicate redemption code
+        "404":
+          description: Host or partner tenant not found
+        "409":
+          description: Industry barrier — both tenants share a module category and no override was given
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopIndustryBarrierError"
+
+  /coop/partnerships/{id}:
+    patch:
+      operationId: updateCoopPartnership
+      tags: [admin]
+      summary: Edit a partnership's perk or activate/deactivate it
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopPartnershipUpdate"
+      responses:
+        "200":
+          description: Updated partnership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPartnership"
+        "400":
+          description: Invalid body or duplicate redemption code
+        "404":
+          description: Not found
+
+  /coop/redemptions/{code}:
+    get:
+      operationId: validateCoopRedemptionCode
+      tags: [admin]
+      summary: Validate a co-op perk redemption code at checkout time
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Validation result — valid is false for unknown codes and inactive partnerships
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopRedemptionValidation"
+
   /admin/campaigns:
     get:
       operationId: listAdminCampaigns
@@ -1937,6 +2033,106 @@ paths:
 
 components:
   schemas:
+    CoopPartnership:
+      type: object
+      required:
+        [
+          id,
+          hostTenantId,
+          hostTenantName,
+          partnerTenantId,
+          partnerTenantName,
+          perkTitle,
+          perkDescription,
+          redemptionCode,
+          industryBarrierOverridden,
+          isActive,
+          createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        hostTenantId:
+          type: integer
+        hostTenantName:
+          type: string
+        partnerTenantId:
+          type: integer
+        partnerTenantName:
+          type: string
+        perkTitle:
+          type: string
+        perkDescription:
+          type: ["string", "null"]
+        redemptionCode:
+          type: string
+        industryBarrierOverridden:
+          type: boolean
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+
+    CoopPartnershipCreate:
+      type: object
+      required: [hostTenantId, partnerTenantId, perkTitle]
+      properties:
+        hostTenantId:
+          type: integer
+        partnerTenantId:
+          type: integer
+        perkTitle:
+          type: string
+          minLength: 1
+        perkDescription:
+          type: string
+        redemptionCode:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$"
+          description: Optional explicit redemption code; auto-generated when omitted.
+        overrideIndustryBarrier:
+          type: boolean
+          description: Explicitly bypass the same-category (competitor) block.
+
+    CoopPartnershipUpdate:
+      type: object
+      properties:
+        perkTitle:
+          type: string
+          minLength: 1
+        perkDescription:
+          type: ["string", "null"]
+        redemptionCode:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$"
+        isActive:
+          type: boolean
+
+    CoopIndustryBarrierError:
+      type: object
+      required: [message, sharedCategories]
+      properties:
+        message:
+          type: string
+        sharedCategories:
+          type: array
+          items:
+            type: string
+
+    CoopRedemptionValidation:
+      type: object
+      required: [valid, reason, partnership]
+      properties:
+        valid:
+          type: boolean
+        reason:
+          type: ["string", "null"]
+          description: Why validation failed (unknown code, inactive partnership); null when valid.
+        partnership:
+          oneOf:
+            - $ref: "#/components/schemas/CoopPartnership"
+            - type: "null"
+
     AdminCampaign:
       type: object
       required: [id, code, tenantId, tenantName, name, isActive, clickCount, createdAt]

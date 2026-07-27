@@ -10,6 +10,7 @@ import adminRouter from "./admin";
 import sosRouter from "./sos";
 import conciergeRouter from "./concierge";
 import partnersRouter from "./partners";
+import coopRouter from "./coop";
 import publicBookingRouter from "./publicBooking";
 import landingRouter from "./landing";
 import campaignRedirectRouter from "./campaignRedirect";
@@ -68,5 +69,6 @@ router.use(billingRouter);
 router.use(adminRouter);
 router.use(conciergeRouter); // AI Concierge & Automation module
 router.use(partnersRouter); // Partner-Direct Integrations proxy engine (/v1/partners)
+router.use(coopRouter);     // Merchant co-op partnerships (/coop)
 
 export default router;

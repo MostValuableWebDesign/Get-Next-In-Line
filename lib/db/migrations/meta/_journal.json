@@ -204,6 +204,13 @@
       "when": 1785115476185,
       "tag": "0028_dark_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1785116026711,
+      "tag": "0029_bent_butterfly",
+      "breakpoints": true
     }
   ]
 }

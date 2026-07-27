@@ -5,6 +5,61 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+export interface CoopPartnership {
+  id: number;
+  hostTenantId: number;
+  hostTenantName: string;
+  partnerTenantId: number;
+  partnerTenantName: string;
+  perkTitle: string;
+  /** @nullable */
+  perkDescription: string | null;
+  redemptionCode: string;
+  industryBarrierOverridden: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CoopPartnershipCreate {
+  hostTenantId: number;
+  partnerTenantId: number;
+  /** @minLength 1 */
+  perkTitle: string;
+  perkDescription?: string;
+  /**
+     * Optional explicit redemption code; auto-generated when omitted.
+     * @pattern ^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$
+     */
+  redemptionCode?: string;
+  /** Explicitly bypass the same-category (competitor) block. */
+  overrideIndustryBarrier?: boolean;
+}
+
+export interface CoopPartnershipUpdate {
+  /** @minLength 1 */
+  perkTitle?: string;
+  /** @nullable */
+  perkDescription?: string | null;
+  /** @pattern ^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$ */
+  redemptionCode?: string;
+  isActive?: boolean;
+}
+
+export interface CoopIndustryBarrierError {
+  message: string;
+  sharedCategories: string[];
+}
+
+export interface CoopRedemptionValidation {
+  valid: boolean;
+  /**
+     * Why validation failed (unknown code, inactive partnership); null when valid.
+     * @nullable
+     */
+  reason: string | null;
+  partnership: CoopPartnership | null;
+}
+
 export interface AdminCampaign {
   id: number;
   code: string;
@@ -1701,6 +1756,10 @@ before_timestamp?: string;
  * @minimum 1
  */
 before_id?: number;
+};
+
+export type ListCoopPartnershipsParams = {
+tenantId?: number;
 };
 
 export type ListSosCustomersParams = {

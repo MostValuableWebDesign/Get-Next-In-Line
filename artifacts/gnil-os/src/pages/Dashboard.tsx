@@ -19,6 +19,7 @@ import { OperationsPage as LiveOperations } from '@/pages/sos/operations';
 import Tenants from '@/pages/Tenants';
 import Billing from '@/pages/Billing';
 import Settings from '@/pages/Settings';
+import CoopPartnerships from '@/pages/CoopPartnerships';
 
 /**
  * Command Center hub.
@@ -35,6 +36,7 @@ const TAB_ROUTES: Record<string, string> = {
   dashboard: '/',
   tenants: '/tenants',
   billing: '/billing',
+  partnerships: '/partnerships',
   settings: '/settings',
 };
 
@@ -62,6 +64,7 @@ export default function CommandCenter() {
           <TabsTrigger value="dashboard" data-testid="tab-dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="tenants" data-testid="tab-tenants">Tenants</TabsTrigger>
           <TabsTrigger value="billing" data-testid="tab-billing">Billing</TabsTrigger>
+          <TabsTrigger value="partnerships" data-testid="tab-partnerships">Partnerships</TabsTrigger>
           <TabsTrigger value="settings" data-testid="tab-agency-settings">Agency Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard" className="mt-4">
@@ -74,6 +77,9 @@ export default function CommandCenter() {
         </TabsContent>
         <TabsContent value="billing" className="mt-4">
           <Billing />
+        </TabsContent>
+        <TabsContent value="partnerships" className="mt-4">
+          <CoopPartnerships />
         </TabsContent>
         <TabsContent value="settings" className="mt-4">
           <Settings />

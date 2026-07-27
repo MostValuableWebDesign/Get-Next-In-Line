@@ -110,6 +110,7 @@ function ProtectedApp() {
         <Route path="/media" component={OperationsHub} />
         <Route path="/modules/:id" component={ModuleConsole} />
         <Route path="/billing" component={CommandCenter} />
+        <Route path="/partnerships" component={CommandCenter} />
         {/* Connector Registry is folded into Configuration — old links land
             on its Connectors section. */}
         <Route path="/connectors">

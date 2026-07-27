@@ -28,6 +28,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Activity, ArrowLeft, Bot, Building2, ExternalLink, MessageSquare, Search, ShieldCheck, Star, Trash2 } from 'lucide-react';
 import { ConnectorRegistrySection } from '@/pages/ConnectorRegistry';
+import { TenantCoopPartnershipsSection } from '@/pages/CoopPartnerships';
 
 /**
  * Unified configuration screen.
@@ -408,6 +409,9 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
 
       {/* ── Customer Reviews (tenant-scoped only) ───────────────────── */}
       {isTenantScoped && <ReviewsCard tenantId={tenantId!} />}
+
+      {/* ── Merchant co-op partnerships (tenant-scoped only) ────────── */}
+      {isTenantScoped && <TenantCoopPartnershipsSection tenantId={tenantId!} />}
 
       {/* ── No-Show Shield & Deposits ───────────────────────────────── */}
       <Card id="no-show-shield" className="scroll-mt-6" data-testid="section-no-show-shield">
