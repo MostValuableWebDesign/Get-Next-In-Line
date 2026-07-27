@@ -52,4 +52,15 @@ export interface SosSettingsUpdate {
      * @nullable
      */
   coopRadiusOverrideMiles?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  coopReciprocityMarginPercent?: number | null;
+  /**
+     * @minimum 1
+     * @maximum 365
+     */
+  coopReciprocityWindowDays?: number;
 }

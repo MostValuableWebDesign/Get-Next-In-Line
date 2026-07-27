@@ -493,6 +493,147 @@ paths:
                 items:
                   $ref: "#/components/schemas/CoopTaxonomyIndustry"
 
+  /coop/ledger:
+    get:
+      operationId: getCoopLedger
+      tags: [coop]
+      summary: Merchant-facing — per-partnership inbound/outbound traffic counts, ratio, disparity, and imbalance flags; tenant scope via x-tenant-id
+      parameters:
+        - name: windowDays
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+      responses:
+        "200":
+          description: Traffic ledger for partnerships the tenant participates in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopLedgerResponse"
+        "400":
+          description: Missing x-tenant-id header
+
+  /coop/partnerships/{id}/renegotiate:
+    post:
+      operationId: proposeCoopRenegotiation
+      tags: [coop]
+      summary: Merchant-facing — propose revised perk/mutual-reward terms; they only replace live terms when the partner accepts; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopRenegotiationPropose"
+      responses:
+        "200":
+          description: Partnership with the pending proposal recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPartnership"
+        "400":
+          description: Missing x-tenant-id header or empty proposal
+        "403":
+          description: Requesting tenant is not a participant
+        "404":
+          description: Not found
+        "409":
+          description: Partnership not accepted, or a proposal is already pending
+
+  /coop/partnerships/{id}/renegotiation/respond:
+    post:
+      operationId: respondToCoopRenegotiation
+      tags: [coop]
+      summary: Merchant-facing — the other participant accepts or declines a pending re-negotiation proposal; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopInviteRespond"
+      responses:
+        "200":
+          description: Partnership with the proposal applied (accept) or cleared (decline)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPartnership"
+        "400":
+          description: Missing x-tenant-id header or invalid body
+        "403":
+          description: Only the non-proposing participant can respond
+        "404":
+          description: Not found
+        "409":
+          description: No proposal is pending
+
+  /coop/partnerships/{id}/pause:
+    post:
+      operationId: pauseCoopPartnership
+      tags: [coop]
+      summary: Merchant-facing — pause a partnership from the tenant's side; the perk stops appearing everywhere; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paused partnership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPartnership"
+        "400":
+          description: Missing x-tenant-id header
+        "403":
+          description: Requesting tenant is not a participant
+        "404":
+          description: Not found
+
+  /coop/partnerships/{id}/resume:
+    post:
+      operationId: resumeCoopPartnership
+      tags: [coop]
+      summary: Merchant-facing — resume a paused (accepted) partnership; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resumed partnership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPartnership"
+        "400":
+          description: Missing x-tenant-id header
+        "403":
+          description: Requesting tenant is not a participant
+        "404":
+          description: Not found
+        "409":
+          description: Only accepted partnerships can be resumed
+
   /coop/directory:
     get:
       operationId: listCoopDirectory
@@ -3863,6 +4004,10 @@ components:
           partnerReciprocityThreshold,
           performancePausedAt,
           reactivationRequestedByTenantId,
+          proposedPerkTitle,
+          proposedPerkDescription,
+          proposedMutualRewardTerms,
+          renegotiationRequestedByTenantId,
           isActive,
           createdAt,
         ]
@@ -3928,6 +4073,16 @@ components:
         reactivationRequestedByTenantId:
           type: ["integer", "null"]
           description: Tenant that requested reactivation of a performance pause; cleared when the pause lifts.
+        proposedPerkTitle:
+          type: ["string", "null"]
+          description: Pending re-negotiation perk title; null when no proposal is pending.
+        proposedPerkDescription:
+          type: ["string", "null"]
+        proposedMutualRewardTerms:
+          type: ["string", "null"]
+        renegotiationRequestedByTenantId:
+          type: ["integer", "null"]
+          description: Tenant that proposed the pending re-negotiation; null when none is pending.
         isActive:
           type: boolean
         createdAt:
@@ -4020,6 +4175,87 @@ components:
         note:
           type: string
           minLength: 1
+    CoopRenegotiationPropose:
+      type: object
+      properties:
+        perkTitle:
+          type: string
+          minLength: 1
+        perkDescription:
+          type: ["string", "null"]
+        mutualRewardTerms:
+          type: ["string", "null"]
+
+    CoopLedgerCounts:
+      type: object
+      required: [inbound, outbound]
+      properties:
+        inbound:
+          type: integer
+        outbound:
+          type: integer
+
+    CoopLedgerEntry:
+      type: object
+      required:
+        [
+          partnershipId,
+          partnerTenantId,
+          partnerName,
+          perkTitle,
+          status,
+          isActive,
+          window,
+          allTime,
+          ratio,
+          disparityPercent,
+          flagged,
+        ]
+      properties:
+        partnershipId:
+          type: integer
+        partnerTenantId:
+          type: integer
+        partnerName:
+          type: string
+        perkTitle:
+          type: string
+        status:
+          type: string
+          enum: [pending, accepted, declined]
+        isActive:
+          type: boolean
+        window:
+          $ref: "#/components/schemas/CoopLedgerCounts"
+        allTime:
+          $ref: "#/components/schemas/CoopLedgerCounts"
+        ratio:
+          type: ["number", "null"]
+          description: inbound / outbound over the window; null when outbound is 0.
+        disparityPercent:
+          type: number
+          description: "|inbound − outbound| / max(inbound, outbound) × 100 over the evaluation window; 0 when there is no traffic."
+        flagged:
+          type: boolean
+          description: True when the tenant's reciprocity threshold is set and this partnership's disparity exceeds it.
+
+    CoopLedgerResponse:
+      type: object
+      required: [windowDays, evaluationWindowDays, marginPercent, entries]
+      properties:
+        windowDays:
+          type: integer
+          description: Recent-window size the window counts cover.
+        evaluationWindowDays:
+          type: integer
+          description: Window used for threshold flagging (the tenant's configured evaluation window).
+        marginPercent:
+          type: ["integer", "null"]
+          description: The tenant's configured disparity margin; null = flagging off.
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopLedgerEntry"
 
     CoopDirectoryEntry:
       type: object
@@ -5448,6 +5684,12 @@ components:
         coopRadiusEffectiveMiles:
           type: number
           description: Effective co-op radius — the override when set, else the auto default.
+        coopReciprocityMarginPercent:
+          type: ["integer", "null"]
+          description: Co-op reciprocity disparity margin (%); null = imbalance flagging off.
+        coopReciprocityWindowDays:
+          type: integer
+          description: Evaluation window (days) for co-op reciprocity flagging.
         updatedAt:
           type: string
 
@@ -5520,6 +5762,14 @@ components:
           minimum: 0.5
           maximum: 50
           description: Merchant override of the co-op radius (miles). Send null to revert to automatic.
+        coopReciprocityMarginPercent:
+          type: ["integer", "null"]
+          minimum: 0
+          maximum: 100
+        coopReciprocityWindowDays:
+          type: integer
+          minimum: 1
+          maximum: 365
 
     SosReview:
       type: object

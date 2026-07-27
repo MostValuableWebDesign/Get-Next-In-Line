@@ -92,6 +92,13 @@ export const sosSettingsTable = pgTable("sos_settings", {
   // Merchant override (miles). NULL = automatic. Once set, automatic
   // re-detection never clobbers it; the effective radius is override ?? auto.
   coopRadiusOverrideMiles: numeric("coop_radius_override_miles", { precision: 5, scale: 1 }),
+  // ── Co-op reciprocity threshold ────────────────────────────────────────────
+  // Optional flagging of lopsided co-op partnerships in the Partner Hub.
+  // Margin NULL = flagging off. A partnership is flagged when the traffic
+  // disparity (|in − out| / max(in, out) × 100) over the evaluation window
+  // exceeds the margin.
+  coopReciprocityMarginPercent: integer("coop_reciprocity_margin_percent"),
+  coopReciprocityWindowDays: integer("coop_reciprocity_window_days").notNull().default(30),
   // Business-specific service names the AI receptionist should recognize,
   // in addition to the generic industry-neutral terms.
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

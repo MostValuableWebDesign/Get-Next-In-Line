@@ -22,6 +22,10 @@ import {
   type CoopPartnerPerformance, type CoopMonthlyReport,
   type ListCoopPartnerPerformanceParams,
   type CoopDispute, type CoopDisputeCreateCategory,
+  useGetCoopLedger, getGetCoopLedgerQueryKey,
+  usePauseCoopPartnership, useResumeCoopPartnership,
+  useProposeCoopRenegotiation, useRespondToCoopRenegotiation,
+  type CoopLedgerEntry, type CoopLedgerResponse,
 } from '@workspace/api-client-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,8 +44,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { CoopCampaignsSection } from '@/components/sos/coop-campaigns-content';
 import {
-  AlertTriangle, ArrowDownLeft, ArrowLeftRight, ArrowUpDown, ArrowUpRight, BarChart3, Bell, CalendarClock, Check, Copy,
-  DollarSign, Eye, Flag, Handshake, Keyboard, Link2, MapPin, PauseCircle, ScanLine, Search,
+  AlertTriangle, ArrowDownLeft, ArrowDownToLine, ArrowLeftRight, ArrowUpDown, ArrowUpFromLine,
+  ArrowUpRight, BarChart3, Bell, CalendarClock, Check, Copy, DollarSign, Eye, FileSignature, Flag,
+  Handshake, Keyboard, Link2, MapPin, Pause, PauseCircle, Play, ScanLine, Scale, Search,
   Send, Store, Ticket, TrendingUp, Undo2, UserPlus, Users, X, XCircle,
 } from 'lucide-react';
 
@@ -89,6 +94,9 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
   const { data: disputes } = useListCoopDisputes({
     query: { queryKey: getListCoopDisputesQueryKey() },
   });
+  const { data: ledger } = useGetCoopLedger(undefined, {
+    query: { queryKey: getGetCoopLedgerQueryKey(undefined) },
+  });
 
   const received = (partnerships ?? []).filter(
     p => p.status === 'pending' && p.requestedByTenantId != null && p.requestedByTenantId !== tenantId,
@@ -101,6 +109,10 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
     p.perkEndsAt != null && new Date(p.perkEndsAt).getTime() <= now;
   const active = (partnerships ?? []).filter(
     p => p.status === 'accepted' && p.isActive && !isExpired(p) && p.bannedAt == null,
+  );
+  // Paused pacts (accepted but deactivated from either side) can be resumed.
+  const paused = (partnerships ?? []).filter(
+    p => p.status === 'accepted' && !p.isActive && !isExpired(p),
   );
   // Expired perks are archived, never deleted — shown under an Expired state.
   const expired = (partnerships ?? []).filter(p => p.status === 'accepted' && isExpired(p));
@@ -163,10 +175,12 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
             <PlatformInvitesList />
             <ActivePartnerships
               partnerships={active}
+              paused={paused}
               expired={expired}
               disclaimer={perks?.disclaimer ?? null}
               tenantId={tenantId}
               disputes={disputes ?? []}
+              ledger={ledger ?? null}
             />
           </div>
           <Directory tenantId={tenantId} partneredTenantIds={partneredTenantIds} />
@@ -718,18 +732,231 @@ function TierControls({ partnership: p, tenantId }: { partnership: CoopPartnersh
   );
 }
 
+function invalidateCoop(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({
+    predicate: q => typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('/api/coop/'),
+  });
+}
+
+// ── Traffic & Value Ledger row ───────────────────────────────────────────────
+
+function TrafficLedger({ entry, windowDays }: { entry: CoopLedgerEntry; windowDays: number }) {
+  const { window: w, allTime } = entry;
+  const total = w.inbound + w.outbound;
+  const inboundPct = total === 0 ? 50 : (w.inbound / total) * 100;
+  return (
+    <div className="rounded-md bg-muted/40 p-2 space-y-1.5" data-testid={`ledger-partnership-${entry.partnershipId}`}>
+      <div className="flex items-center gap-2 text-xs">
+        <Scale className="w-3 h-3 text-muted-foreground" />
+        <span className="font-medium">Traffic — last {windowDays} days</span>
+        {entry.flagged && (
+          <Badge variant="destructive" className="ml-auto gap-1" data-testid={`badge-imbalanced-${entry.partnershipId}`}>
+            <AlertTriangle className="w-3 h-3" /> Imbalanced
+          </Badge>
+        )}
+      </div>
+      <div className="flex items-center justify-between text-xs">
+        <span className="flex items-center gap-1" data-testid={`text-ledger-inbound-${entry.partnershipId}`}>
+          <ArrowDownToLine className="w-3 h-3 text-emerald-600" /> {w.inbound} received
+        </span>
+        <span className="flex items-center gap-1" data-testid={`text-ledger-outbound-${entry.partnershipId}`}>
+          <ArrowUpFromLine className="w-3 h-3 text-sky-600" /> {w.outbound} sent
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-sky-200 dark:bg-sky-900 overflow-hidden" aria-hidden>
+        <div className="h-full bg-emerald-500" style={{ width: `${inboundPct}%` }} />
+      </div>
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+        <span data-testid={`text-ledger-disparity-${entry.partnershipId}`}>
+          {total === 0 ? 'No traffic yet in this window' : `Disparity ${entry.disparityPercent.toFixed(0)}%`}
+        </span>
+        <span data-testid={`text-ledger-alltime-${entry.partnershipId}`}>
+          All-time: {allTime.inbound} in / {allTime.outbound} out
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Re-negotiation dialog & pending proposal ─────────────────────────────────
+
+function RenegotiateDialog({ partnership, tenantId }: { partnership: CoopPartnership; tenantId: number }) {
+  const [open, setOpen] = useState(false);
+  const [perkTitle, setPerkTitle] = useState(partnership.perkTitle);
+  const [perkDescription, setPerkDescription] = useState(partnership.perkDescription ?? '');
+  const [mutualRewardTerms, setMutualRewardTerms] = useState(partnership.mutualRewardTerms ?? '');
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const propose = useProposeCoopRenegotiation();
+  const otherName = partnership.hostTenantId === tenantId ? partnership.partnerTenantName : partnership.hostTenantName;
+
+  const submit = () => {
+    propose.mutate(
+      {
+        id: partnership.id,
+        data: {
+          perkTitle: perkTitle.trim(),
+          perkDescription: perkDescription.trim() || null,
+          mutualRewardTerms: mutualRewardTerms.trim() || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          invalidateCoop(queryClient);
+          setOpen(false);
+          toast({
+            title: 'Proposal sent',
+            description: `${otherName} must accept the revised terms before they replace the current ones.`,
+          });
+        },
+        onError: (err: unknown) => {
+          const e = err as { data?: { message?: string }; message?: string };
+          toast({ title: 'Could not send proposal', description: e?.data?.message ?? e?.message ?? 'Please try again.', variant: 'destructive' });
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button
+        size="sm"
+        variant="outline"
+        className="gap-1.5"
+        onClick={() => setOpen(true)}
+        data-testid={`button-renegotiate-${partnership.id}`}
+      >
+        <FileSignature className="w-3.5 h-3.5" /> Re-negotiate
+      </Button>
+      <DialogContent data-testid="dialog-renegotiate">
+        <DialogHeader>
+          <DialogTitle>Re-negotiate with {otherName}</DialogTitle>
+          <DialogDescription>
+            Propose updated perk and mutual-reward terms. Nothing changes until {otherName} accepts.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="renegotiate-title">Perk title</Label>
+            <Input id="renegotiate-title" value={perkTitle} onChange={e => setPerkTitle(e.target.value)} data-testid="input-renegotiate-title" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="renegotiate-desc">Perk description</Label>
+            <Textarea id="renegotiate-desc" value={perkDescription} onChange={e => setPerkDescription(e.target.value)} data-testid="input-renegotiate-description" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="renegotiate-terms">Mutual reward terms</Label>
+            <Textarea id="renegotiate-terms" value={mutualRewardTerms} onChange={e => setMutualRewardTerms(e.target.value)} data-testid="input-renegotiate-terms" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={submit} disabled={!perkTitle.trim() || propose.isPending} data-testid="button-send-proposal">
+            Send Proposal
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PendingProposal({ partnership, tenantId }: { partnership: CoopPartnership; tenantId: number }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const respond = useRespondToCoopRenegotiation();
+  if (partnership.renegotiationRequestedByTenantId == null) return null;
+  const mine = partnership.renegotiationRequestedByTenantId === tenantId;
+  const act = (action: 'accept' | 'decline') => {
+    respond.mutate(
+      { id: partnership.id, data: { action } },
+      {
+        onSuccess: () => {
+          invalidateCoop(queryClient);
+          toast({
+            title: action === 'accept' ? 'New terms accepted' : 'Proposal declined',
+            description: action === 'accept' ? 'The revised terms are now live.' : 'The current terms remain in effect.',
+          });
+        },
+        onError: (err: unknown) => {
+          const e = err as { data?: { message?: string }; message?: string };
+          toast({ title: 'Could not respond', description: e?.data?.message ?? e?.message ?? 'Please try again.', variant: 'destructive' });
+        },
+      },
+    );
+  };
+  return (
+    <div
+      className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-2 space-y-1 text-xs"
+      data-testid={`proposal-partnership-${partnership.id}`}
+    >
+      <div className="font-medium flex items-center gap-1">
+        <FileSignature className="w-3 h-3" />
+        {mine ? 'Your proposed terms — awaiting partner' : 'Proposed new terms — your response needed'}
+      </div>
+      {partnership.proposedPerkTitle && <div>Perk: {partnership.proposedPerkTitle}</div>}
+      {partnership.proposedPerkDescription && <div>{partnership.proposedPerkDescription}</div>}
+      {partnership.proposedMutualRewardTerms && (
+        <div><span className="font-medium">Mutual terms:</span> {partnership.proposedMutualRewardTerms}</div>
+      )}
+      {!mine && (
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" disabled={respond.isPending} onClick={() => act('accept')} data-testid={`button-accept-proposal-${partnership.id}`}>
+            <Check className="w-3.5 h-3.5" /> Accept New Terms
+          </Button>
+          <Button size="sm" variant="outline" disabled={respond.isPending} onClick={() => act('decline')} data-testid={`button-decline-proposal-${partnership.id}`}>
+            <X className="w-3.5 h-3.5" /> Decline
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ActivePartnerships({
-  partnerships, expired, disclaimer, tenantId, disputes,
+  partnerships, paused, expired, disclaimer, tenantId, disputes, ledger,
 }: {
   partnerships: CoopPartnership[];
+  paused: CoopPartnership[];
   expired: CoopPartnership[];
   disclaimer: string | null;
   tenantId: number;
   disputes: CoopDispute[];
+  ledger: CoopLedgerResponse | null;
 }) {
   const [reportTarget, setReportTarget] = useState<CoopPartnership | null>(null);
   const activeDisputeFor = (partnershipId: number) =>
     disputes.find(d => d.partnershipId === partnershipId && (d.status === 'open' || d.status === 'escalated')) ?? null;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const pause = usePauseCoopPartnership();
+  const resume = useResumeCoopPartnership();
+  const ledgerById = useMemo(
+    () => new Map((ledger?.entries ?? []).map(e => [e.partnershipId, e])),
+    [ledger],
+  );
+
+  const togglePause = (p: CoopPartnership, action: 'pause' | 'resume') => {
+    const mutation = action === 'pause' ? pause : resume;
+    mutation.mutate(
+      { id: p.id },
+      {
+        onSuccess: () => {
+          invalidateCoop(queryClient);
+          toast({
+            title: action === 'pause' ? 'Partnership paused' : 'Partnership resumed',
+            description:
+              action === 'pause'
+                ? 'The perk no longer appears on landing pages, checkout, or customer passes.'
+                : 'The perk is live again on both businesses\u2019 surfaces.',
+          });
+        },
+        onError: (err: unknown) => {
+          const e = err as { data?: { message?: string }; message?: string };
+          toast({ title: 'Could not update partnership', description: e?.data?.message ?? e?.message ?? 'Please try again.', variant: 'destructive' });
+        },
+      },
+    );
+  };
+
   return (
     <Card data-testid="card-coop-active-partnerships">
       <CardHeader className="pb-3">
@@ -737,7 +964,8 @@ function ActivePartnerships({
           <Handshake className="w-4 h-4 text-emerald-600" /> Active Partnerships
         </CardTitle>
         <CardDescription>
-          These perks are live on checkout, receipts, and customer passes for both businesses.
+          These perks are live on checkout, receipts, and customer passes for both businesses. The
+          traffic ledger shows customers received vs. sent per partnership.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -751,8 +979,9 @@ function ActivePartnerships({
             const window = perkWindowLabel(p);
             const scheduled = p.perkStartsAt != null && new Date(p.perkStartsAt).getTime() > Date.now();
             const dispute = activeDisputeFor(p.id);
+            const entry = ledgerById.get(p.id) ?? null;
             return (
-              <div key={p.id} className="border rounded-lg p-3 space-y-1" data-testid={`row-active-partnership-${p.id}`}>
+              <div key={p.id} className="border rounded-lg p-3 space-y-2" data-testid={`row-active-partnership-${p.id}`}>
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <ArrowLeftRight className="w-3.5 h-3.5 text-muted-foreground" /> {otherName}
                   {tierBadge(p)}
@@ -787,9 +1016,56 @@ function ActivePartnerships({
                   tenantId={tenantId}
                   onReport={() => setReportTarget(p)}
                 />
+                {entry && <TrafficLedger entry={entry} windowDays={ledger?.windowDays ?? 30} />}
+                <PendingProposal partnership={p} tenantId={tenantId} />
+                <div className="flex gap-2 pt-1">
+                  <RenegotiateDialog key={`renegotiate-${p.id}-${p.perkTitle}`} partnership={p} tenantId={tenantId} />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    disabled={pause.isPending}
+                    onClick={() => togglePause(p, 'pause')}
+                    data-testid={`button-pause-partnership-${p.id}`}
+                  >
+                    <Pause className="w-3.5 h-3.5" /> Pause
+                  </Button>
+                </div>
               </div>
             );
           })
+        )}
+        {paused.length > 0 && (
+          <div className="pt-2 space-y-2" data-testid="list-paused-partnerships">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Paused
+            </div>
+            {paused.map(p => {
+              const otherName = p.hostTenantId === tenantId ? p.partnerTenantName : p.hostTenantName;
+              return (
+                <div key={p.id} className="border rounded-lg p-3 space-y-2 opacity-75" data-testid={`row-paused-partnership-${p.id}`}>
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <ArrowLeftRight className="w-3.5 h-3.5 text-muted-foreground" /> {otherName}
+                    <Badge variant="secondary" className="ml-auto" data-testid={`badge-partnership-paused-${p.id}`}>Paused</Badge>
+                  </div>
+                  <div className="text-sm">{p.perkTitle}</div>
+                  <p className="text-xs text-muted-foreground">
+                    This perk is hidden from landing pages, checkout, and customer passes while paused.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    disabled={resume.isPending}
+                    onClick={() => togglePause(p, 'resume')}
+                    data-testid={`button-resume-partnership-${p.id}`}
+                  >
+                    <Play className="w-3.5 h-3.5" /> Resume
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
         )}
         {expired.length > 0 && (
           <div className="pt-2 space-y-2" data-testid="list-expired-partnerships">

@@ -70,5 +70,12 @@ export interface SosSettings {
   coopRadiusOverrideMiles: number | null;
   /** Effective co-op radius — the override when set, else the auto default. */
   coopRadiusEffectiveMiles: number;
+  /**
+     * Co-op reciprocity disparity margin (%); null = imbalance flagging off.
+     * @nullable
+     */
+  coopReciprocityMarginPercent?: number | null;
+  /** Evaluation window (days) for co-op reciprocity flagging. */
+  coopReciprocityWindowDays?: number;
   updatedAt: string;
 }

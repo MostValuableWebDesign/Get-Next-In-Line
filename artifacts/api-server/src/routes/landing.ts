@@ -11,6 +11,7 @@ import { getSettingsForTenant } from "../lib/settings";
 import { COOP_PERK_DISCLAIMER, perkWindowOpen } from "../lib/coopPerks";
 import { filterPartnershipsForConsumerSurface } from "../lib/coopFirewall";
 import { recordCoopEventsSafe } from "../lib/coopEvents";
+import { recordCoopTrafficEvent } from "../lib/coopTraffic";
 import { listServicesForScope } from "../lib/serviceCatalog";
 import { parseServiceNames } from "../lib/receptionist";
 
@@ -57,21 +58,30 @@ export interface PublicCoopPerk {
   partnerTenantId: number;
 }
 
-export async function getPublicCoopPerks(
+/** Internal row shape with the ids needed for traffic-ledger attribution. */
+interface PublicCoopPerkRow extends PublicCoopPerk {
+  partnershipId: number;
+  /** The *other* business (the one the perk cross-promotes). */
+  partnerTenantId: number;
+  partnerSubdomain: string;
+}
+
+export async function getPublicCoopPerkRows(
   tenantId: number,
-): Promise<PublicCoopPerk[]> {
+): Promise<PublicCoopPerkRow[]> {
   const hostTenant = alias(tenantsTable, "landing_host_tenant");
   const partnerTenant = alias(tenantsTable, "landing_partner_tenant");
   const allRows = await db
     .select({
       partnershipId: merchantCoopPartnershipsTable.id,
-      partnerTenantIdRaw: merchantCoopPartnershipsTable.partnerTenantId,
       perkTitle: merchantCoopPartnershipsTable.perkTitle,
       perkDescription: merchantCoopPartnershipsTable.perkDescription,
       hostTenantId: merchantCoopPartnershipsTable.hostTenantId,
       partnerTenantId: merchantCoopPartnershipsTable.partnerTenantId,
       hostTenantName: hostTenant.brandName,
+      hostTenantSubdomain: hostTenant.subdomain,
       partnerTenantName: partnerTenant.brandName,
+      partnerTenantSubdomain: partnerTenant.subdomain,
     })
     .from(merchantCoopPartnershipsTable)
     .innerJoin(hostTenant, eq(merchantCoopPartnershipsTable.hostTenantId, hostTenant.id))
@@ -95,30 +105,23 @@ export async function getPublicCoopPerks(
   // never see a perk from a same-sub-category competitor or an
   // isolation-paired business, however the partnership was created.
   const rows = await filterPartnershipsForConsumerSurface(tenantId, allRows);
-  return rows.map((r) => ({
-    perkTitle: r.perkTitle,
-    perkDescription: r.perkDescription,
-    partnerBusinessName:
-      r.hostTenantId === tenantId ? r.partnerTenantName : r.hostTenantName,
-    partnershipId: r.partnershipId,
-    partnerTenantId:
-      r.hostTenantId === tenantId ? r.partnerTenantIdRaw : r.hostTenantId,
-  }));
+  return rows.map((r) => {
+    const isHost = r.hostTenantId === tenantId;
+    return {
+      partnershipId: r.partnershipId,
+      perkTitle: r.perkTitle,
+      perkDescription: r.perkDescription,
+      partnerTenantId: isHost ? r.partnerTenantId : r.hostTenantId,
+      partnerSubdomain: isHost ? r.partnerTenantSubdomain : r.hostTenantSubdomain,
+      partnerBusinessName: isHost ? r.partnerTenantName : r.hostTenantName,
+    };
+  });
 }
 
-/** Record one impression per perk served on a public landing surface. */
-async function recordLandingPerkImpressions(
+export async function getPublicCoopPerks(
   tenantId: number,
-  perks: PublicCoopPerk[],
-): Promise<void> {
-  await recordCoopEventsSafe(
-    perks.map((p) => ({
-      tenantId,
-      partnershipId: p.partnershipId,
-      partnerTenantId: p.partnerTenantId,
-      eventType: "impression" as const,
-    })),
-  );
+): Promise<PublicCoopPerk[]> {
+  return getPublicCoopPerkRows(tenantId);
 }
 
 /** Public shape: strips the internal analytics ids before serialization. */
@@ -128,6 +131,33 @@ function toPublicPerk(p: PublicCoopPerk) {
     perkDescription: p.perkDescription,
     partnerBusinessName: p.partnerBusinessName,
   };
+}
+
+/** Record impressions on both analytics surfaces: the attribution event log
+ * (coop stats/tiers) and the cross-promotion traffic ledger. Outbound from
+ * the page owner toward each promoted partner; never fails the page render. */
+async function recordPerkImpressions(
+  pageTenantId: number,
+  rows: PublicCoopPerkRow[],
+): Promise<void> {
+  await Promise.all([
+    recordCoopEventsSafe(
+      rows.map((p) => ({
+        tenantId: pageTenantId,
+        partnershipId: p.partnershipId,
+        partnerTenantId: p.partnerTenantId,
+        eventType: "impression" as const,
+      })),
+    ),
+    ...rows.map((r) =>
+      recordCoopTrafficEvent({
+        partnershipId: r.partnershipId,
+        receivingTenantId: r.partnerTenantId,
+        sourceTenantId: pageTenantId,
+        eventType: "perk_impression",
+      }),
+    ),
+  ]);
 }
 
 function starRow(rating: number): string {
@@ -152,9 +182,44 @@ router.get("/public/landing/:slug/perks", async (req, res): Promise<void> => {
     res.status(404).json({ message: "Not found" });
     return;
   }
-  const perks = await getPublicCoopPerks(tenant.id);
-  await recordLandingPerkImpressions(tenant.id, perks);
-  res.json({ perks: perks.map(toPublicPerk), disclaimer: COOP_PERK_DISCLAIMER });
+  const perkRows = await getPublicCoopPerkRows(tenant.id);
+  await recordPerkImpressions(tenant.id, perkRows);
+  res.json({ perks: perkRows.map(toPublicPerk), disclaimer: COOP_PERK_DISCLAIMER });
+});
+
+// GET /public/landing/:slug/perks/:id/visit — click-through to the promoted
+// partner's landing page. Records a perk_click traffic event (outbound from
+// the page owner, inbound for the partner) then redirects. Only active,
+// in-window partnerships the slug's business participates in ever redirect —
+// anything else is a plain 404 with no event recorded.
+router.get("/public/landing/:slug/perks/:id/visit", async (req, res): Promise<void> => {
+  const slug = String(req.params.slug || "").toLowerCase();
+  const partnershipId = Number(req.params.id);
+  if (!/^[a-z0-9-]{1,80}$/.test(slug) || !Number.isInteger(partnershipId)) {
+    res.status(404).type("text/plain").send("Not found");
+    return;
+  }
+  const [tenant] = await db
+    .select({ id: tenantsTable.id })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.subdomain, slug));
+  if (!tenant) {
+    res.status(404).type("text/plain").send("Not found");
+    return;
+  }
+  const rows = await getPublicCoopPerkRows(tenant.id);
+  const perk = rows.find((r) => r.partnershipId === partnershipId);
+  if (!perk) {
+    res.status(404).type("text/plain").send("Not found");
+    return;
+  }
+  await recordCoopTrafficEvent({
+    partnershipId: perk.partnershipId,
+    receivingTenantId: perk.partnerTenantId,
+    sourceTenantId: tenant.id,
+    eventType: "perk_click",
+  });
+  res.redirect(302, `/api/public/landing/${encodeURIComponent(perk.partnerSubdomain)}`);
 });
 
 router.get("/public/landing/:slug", async (req, res): Promise<void> => {
@@ -189,8 +254,8 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
           durationMinutes: null as number | null,
         }));
 
-  const perks = await getPublicCoopPerks(tenant.id);
-  await recordLandingPerkImpressions(tenant.id, perks);
+  const perks = await getPublicCoopPerkRows(tenant.id);
+  await recordPerkImpressions(tenant.id, perks);
 
   const reviews = await db
     .select()
@@ -344,7 +409,7 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
         (p) =>
           `<article class="perk"><h3>${escapeHtml(p.perkTitle)}</h3>${
             p.perkDescription ? `<p>${escapeHtml(p.perkDescription)}</p>` : ""
-          }<footer>with ${escapeHtml(p.partnerBusinessName)}</footer></article>`,
+          }<footer>with <a href="/api/public/landing/${encodeURIComponent(slug)}/perks/${p.partnershipId}/visit" data-testid="link-perk-partner-${p.partnershipId}">${escapeHtml(p.partnerBusinessName)}</a></footer></article>`,
       )
       .join("\n    ")}
     <p class="perk-disclaimer" data-testid="text-perk-disclaimer">${escapeHtml(COOP_PERK_DISCLAIMER)}</p>

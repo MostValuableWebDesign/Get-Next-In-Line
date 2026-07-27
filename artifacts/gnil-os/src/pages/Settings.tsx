@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   useGetSosSettings,
   useUpdateSosSettings,
@@ -104,6 +104,8 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
     coopSubCategory: '',
     coopRadiusMiles: 4,
   });
+  const [coopMargin, setCoopMargin] = useState('');
+  const [coopWindow, setCoopWindow] = useState('30');
 
   const initialized = useRef(false);
 
@@ -142,6 +144,10 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
         coopSubCategory: settings.coopSubCategory ?? '',
         coopRadiusMiles: settings.coopRadiusMiles ?? 4,
       });
+      setCoopMargin(
+        settings.coopReciprocityMarginPercent == null ? '' : String(settings.coopReciprocityMarginPercent),
+      );
+      setCoopWindow(String(settings.coopReciprocityWindowDays ?? 30));
       initialized.current = true;
     }
   }, [settings]);
@@ -192,6 +198,8 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       coopSubCategory: string;
       coopRadiusMiles: number;
       coopRadiusOverrideMiles: number | null;
+      coopReciprocityMarginPercent: number | null;
+      coopReciprocityWindowDays: number;
     }>,
   ) => {
     const onSuccess = () => {
@@ -447,6 +455,64 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
 
       {/* ── Merchant co-op partnerships (tenant-scoped only) ────────── */}
       {isTenantScoped && <TenantCoopPartnershipsSection tenantId={tenantId!} />}
+
+      {/* ── Co-Op reciprocity threshold (tenant-scoped only) ────────── */}
+      {isTenantScoped && (
+        <Card id="coop-reciprocity" className="scroll-mt-6" data-testid="section-coop-reciprocity">
+          <CardHeader>
+            <CardTitle>Co-Op Reciprocity Threshold</CardTitle>
+            <CardDescription>
+              Flag lopsided partnerships in the Co-Op hub when the gap between traffic you send and
+              receive exceeds this margin over the evaluation window. Leave the margin blank to turn
+              flagging off.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="coop-margin">Disparity margin (%)</Label>
+                <Input
+                  id="coop-margin"
+                  type="number"
+                  min={1}
+                  max={100}
+                  placeholder="e.g. 50 — blank disables flagging"
+                  value={coopMargin}
+                  onChange={e => setCoopMargin(e.target.value)}
+                  data-testid="input-coop-margin"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="coop-window">Evaluation window (days)</Label>
+                <Input
+                  id="coop-window"
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={coopWindow}
+                  onChange={e => setCoopWindow(e.target.value)}
+                  data-testid="input-coop-window"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                disabled={isPending}
+                onClick={() =>
+                  saveSection('Co-Op reciprocity', {
+                    coopReciprocityMarginPercent:
+                      coopMargin.trim() === '' ? null : Number(coopMargin),
+                    coopReciprocityWindowDays: Number(coopWindow) || 30,
+                  })
+                }
+                data-testid="button-save-coop-reciprocity"
+              >
+                Save Co-Op Reciprocity
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── No-Show Shield & Deposits ───────────────────────────────── */}
       <Card id="no-show-shield" className="scroll-mt-6" data-testid="section-no-show-shield">

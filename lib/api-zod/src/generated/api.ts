@@ -395,6 +395,10 @@ export const ListCoopPartnershipsResponseItem = zod.object({
   "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
   "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
   "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -443,6 +447,10 @@ export const CreateCoopPartnershipResponse = zod.object({
   "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
   "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
   "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -498,6 +506,10 @@ export const UpdateCoopPartnershipResponse = zod.object({
   "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
   "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
   "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -534,6 +546,10 @@ export const ReactivateCoopPartnershipResponse = zod.object({
   "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
   "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
   "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -551,6 +567,216 @@ export const GetCoopTaxonomyResponseItem = zod.object({
 }))
 })
 export const GetCoopTaxonomyResponse = zod.array(GetCoopTaxonomyResponseItem)
+
+
+/**
+ * @summary Merchant-facing — per-partnership inbound/outbound traffic counts, ratio, disparity, and imbalance flags; tenant scope via x-tenant-id
+ */
+export const getCoopLedgerQueryWindowDaysMax = 365;
+
+
+
+export const GetCoopLedgerQueryParams = zod.object({
+  "windowDays": zod.coerce.number().min(1).max(getCoopLedgerQueryWindowDaysMax).optional()
+})
+
+export const GetCoopLedgerResponse = zod.object({
+  "windowDays": zod.number().describe('Recent-window size the window counts cover.'),
+  "evaluationWindowDays": zod.number().describe('Window used for threshold flagging (the tenant\'s configured evaluation window).'),
+  "marginPercent": zod.number().nullable().describe('The tenant\'s configured disparity margin; null = flagging off.'),
+  "entries": zod.array(zod.object({
+  "partnershipId": zod.number(),
+  "partnerTenantId": zod.number(),
+  "partnerName": zod.string(),
+  "perkTitle": zod.string(),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "isActive": zod.boolean(),
+  "window": zod.object({
+  "inbound": zod.number(),
+  "outbound": zod.number()
+}),
+  "allTime": zod.object({
+  "inbound": zod.number(),
+  "outbound": zod.number()
+}),
+  "ratio": zod.number().nullable().describe('inbound \/ outbound over the window; null when outbound is 0.'),
+  "disparityPercent": zod.number().describe('|inbound − outbound| \/ max(inbound, outbound) × 100 over the evaluation window; 0 when there is no traffic.'),
+  "flagged": zod.boolean().describe('True when the tenant\'s reciprocity threshold is set and this partnership\'s disparity exceeds it.')
+}))
+})
+
+
+/**
+ * @summary Merchant-facing — propose revised perk/mutual-reward terms; they only replace live terms when the partner accepts; tenant scope via x-tenant-id
+ */
+export const ProposeCoopRenegotiationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const ProposeCoopRenegotiationBody = zod.object({
+  "perkTitle": zod.string().min(1).optional(),
+  "perkDescription": zod.string().nullish(),
+  "mutualRewardTerms": zod.string().nullish()
+})
+
+export const ProposeCoopRenegotiationResponse = zod.object({
+  "id": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "partnerTenantId": zod.number(),
+  "partnerTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redemptionCode": zod.string(),
+  "industryBarrierOverridden": zod.boolean(),
+  "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
+  "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
+  "mutualRewardTerms": zod.string().nullable(),
+  "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
+  "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
+  "hostTrackingCode": zod.string().nullable().describe('Tracking code carried by the host\'s customers (host→partner traffic); null only until backfilled.'),
+  "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
+  "tier": zod.enum(['premier', 'standard']).describe('Performance-based tier, evaluated against rolling 30-day attribution counts.'),
+  "hostReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the host demands of partner→host traffic; null = platform default (5).'),
+  "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
+  "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
+  "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — the other participant accepts or declines a pending re-negotiation proposal; tenant scope via x-tenant-id
+ */
+export const RespondToCoopRenegotiationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RespondToCoopRenegotiationBody = zod.object({
+  "action": zod.enum(['accept', 'decline'])
+})
+
+export const RespondToCoopRenegotiationResponse = zod.object({
+  "id": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "partnerTenantId": zod.number(),
+  "partnerTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redemptionCode": zod.string(),
+  "industryBarrierOverridden": zod.boolean(),
+  "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
+  "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
+  "mutualRewardTerms": zod.string().nullable(),
+  "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
+  "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
+  "hostTrackingCode": zod.string().nullable().describe('Tracking code carried by the host\'s customers (host→partner traffic); null only until backfilled.'),
+  "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
+  "tier": zod.enum(['premier', 'standard']).describe('Performance-based tier, evaluated against rolling 30-day attribution counts.'),
+  "hostReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the host demands of partner→host traffic; null = platform default (5).'),
+  "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
+  "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
+  "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — pause a partnership from the tenant's side; the perk stops appearing everywhere; tenant scope via x-tenant-id
+ */
+export const PauseCoopPartnershipParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PauseCoopPartnershipResponse = zod.object({
+  "id": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "partnerTenantId": zod.number(),
+  "partnerTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redemptionCode": zod.string(),
+  "industryBarrierOverridden": zod.boolean(),
+  "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
+  "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
+  "mutualRewardTerms": zod.string().nullable(),
+  "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
+  "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
+  "hostTrackingCode": zod.string().nullable().describe('Tracking code carried by the host\'s customers (host→partner traffic); null only until backfilled.'),
+  "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
+  "tier": zod.enum(['premier', 'standard']).describe('Performance-based tier, evaluated against rolling 30-day attribution counts.'),
+  "hostReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the host demands of partner→host traffic; null = platform default (5).'),
+  "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
+  "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
+  "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — resume a paused (accepted) partnership; tenant scope via x-tenant-id
+ */
+export const ResumeCoopPartnershipParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ResumeCoopPartnershipResponse = zod.object({
+  "id": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "partnerTenantId": zod.number(),
+  "partnerTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redemptionCode": zod.string(),
+  "industryBarrierOverridden": zod.boolean(),
+  "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
+  "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
+  "mutualRewardTerms": zod.string().nullable(),
+  "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
+  "bannedAt": zod.string().nullable().describe('Set when a platform admin permanently banned the partnership.'),
+  "hostTrackingCode": zod.string().nullable().describe('Tracking code carried by the host\'s customers (host→partner traffic); null only until backfilled.'),
+  "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
+  "tier": zod.enum(['premier', 'standard']).describe('Performance-based tier, evaluated against rolling 30-day attribution counts.'),
+  "hostReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the host demands of partner→host traffic; null = platform default (5).'),
+  "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
+  "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
+  "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
 
 
 /**
@@ -648,6 +874,10 @@ export const CreateCoopInviteResponse = zod.object({
   "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
   "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
   "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -744,6 +974,10 @@ export const RespondToCoopInviteResponse = zod.object({
   "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
   "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
   "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -815,6 +1049,10 @@ export const RedeemCoopPerkResponse = zod.object({
   "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
   "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
   "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 }),zod.null()]),
@@ -1142,6 +1380,10 @@ export const ValidateCoopRedemptionCodeResponse = zod.object({
   "partnerReciprocityThreshold": zod.number().nullable().describe('Customers\/30 days the partner demands of host→partner traffic; null = platform default (5).'),
   "performancePausedAt": zod.string().nullable().describe('Set when the evaluator paused the partnership for zero 30-day traffic; the perk is hidden from all customer surfaces while set.'),
   "reactivationRequestedByTenantId": zod.number().nullable().describe('Tenant that requested reactivation of a performance pause; cleared when the pause lifts.'),
+  "proposedPerkTitle": zod.string().nullable().describe('Pending re-negotiation perk title; null when no proposal is pending.'),
+  "proposedPerkDescription": zod.string().nullable(),
+  "proposedMutualRewardTerms": zod.string().nullable(),
+  "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 }),zod.null()])
@@ -1871,6 +2113,8 @@ export const GetSosSettingsResponse = zod.object({
   "coopRadiusAutoMiles": zod.number().describe('Auto-assigned co-op cross-promotion radius (miles) from the density classification.'),
   "coopRadiusOverrideMiles": zod.number().nullable().describe('Merchant override of the co-op radius (miles). Null = automatic.'),
   "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
+  "coopReciprocityMarginPercent": zod.number().nullish().describe('Co-op reciprocity disparity margin (%); null = imbalance flagging off.'),
+  "coopReciprocityWindowDays": zod.number().optional().describe('Evaluation window (days) for co-op reciprocity flagging.'),
   "updatedAt": zod.string()
 })
 
@@ -1893,6 +2137,11 @@ export const updateSosSettingsBodyCoopRadiusMilesMax = 15;
 
 export const updateSosSettingsBodyCoopRadiusOverrideMilesMin = 0.5;
 export const updateSosSettingsBodyCoopRadiusOverrideMilesMax = 50;
+
+export const updateSosSettingsBodyCoopReciprocityMarginPercentMin = 0;
+export const updateSosSettingsBodyCoopReciprocityMarginPercentMax = 100;
+
+export const updateSosSettingsBodyCoopReciprocityWindowDaysMax = 365;
 
 
 
@@ -1922,7 +2171,9 @@ export const UpdateSosSettingsBody = zod.object({
   "businessCategory": zod.string().optional(),
   "coopSubCategory": zod.string().optional().describe('Curated Level 2 sub-category slug; empty string switches back to auto-derivation.'),
   "coopRadiusMiles": zod.number().min(1).max(updateSosSettingsBodyCoopRadiusMilesMax).optional(),
-  "coopRadiusOverrideMiles": zod.number().min(updateSosSettingsBodyCoopRadiusOverrideMilesMin).max(updateSosSettingsBodyCoopRadiusOverrideMilesMax).nullish().describe('Merchant override of the co-op radius (miles). Send null to revert to automatic.')
+  "coopRadiusOverrideMiles": zod.number().min(updateSosSettingsBodyCoopRadiusOverrideMilesMin).max(updateSosSettingsBodyCoopRadiusOverrideMilesMax).nullish().describe('Merchant override of the co-op radius (miles). Send null to revert to automatic.'),
+  "coopReciprocityMarginPercent": zod.number().min(updateSosSettingsBodyCoopReciprocityMarginPercentMin).max(updateSosSettingsBodyCoopReciprocityMarginPercentMax).nullish(),
+  "coopReciprocityWindowDays": zod.number().min(1).max(updateSosSettingsBodyCoopReciprocityWindowDaysMax).optional()
 })
 
 export const UpdateSosSettingsResponse = zod.object({
@@ -1962,6 +2213,8 @@ export const UpdateSosSettingsResponse = zod.object({
   "coopRadiusAutoMiles": zod.number().describe('Auto-assigned co-op cross-promotion radius (miles) from the density classification.'),
   "coopRadiusOverrideMiles": zod.number().nullable().describe('Merchant override of the co-op radius (miles). Null = automatic.'),
   "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
+  "coopReciprocityMarginPercent": zod.number().nullish().describe('Co-op reciprocity disparity margin (%); null = imbalance flagging off.'),
+  "coopReciprocityWindowDays": zod.number().optional().describe('Evaluation window (days) for co-op reciprocity flagging.'),
   "updatedAt": zod.string()
 })
 
@@ -3117,6 +3370,8 @@ export const GetTenantSettingsResponse = zod.object({
   "coopRadiusAutoMiles": zod.number().describe('Auto-assigned co-op cross-promotion radius (miles) from the density classification.'),
   "coopRadiusOverrideMiles": zod.number().nullable().describe('Merchant override of the co-op radius (miles). Null = automatic.'),
   "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
+  "coopReciprocityMarginPercent": zod.number().nullish().describe('Co-op reciprocity disparity margin (%); null = imbalance flagging off.'),
+  "coopReciprocityWindowDays": zod.number().optional().describe('Evaluation window (days) for co-op reciprocity flagging.'),
   "updatedAt": zod.string()
 })
 
@@ -3143,6 +3398,11 @@ export const updateTenantSettingsBodyCoopRadiusMilesMax = 15;
 
 export const updateTenantSettingsBodyCoopRadiusOverrideMilesMin = 0.5;
 export const updateTenantSettingsBodyCoopRadiusOverrideMilesMax = 50;
+
+export const updateTenantSettingsBodyCoopReciprocityMarginPercentMin = 0;
+export const updateTenantSettingsBodyCoopReciprocityMarginPercentMax = 100;
+
+export const updateTenantSettingsBodyCoopReciprocityWindowDaysMax = 365;
 
 
 
@@ -3172,7 +3432,9 @@ export const UpdateTenantSettingsBody = zod.object({
   "businessCategory": zod.string().optional(),
   "coopSubCategory": zod.string().optional().describe('Curated Level 2 sub-category slug; empty string switches back to auto-derivation.'),
   "coopRadiusMiles": zod.number().min(1).max(updateTenantSettingsBodyCoopRadiusMilesMax).optional(),
-  "coopRadiusOverrideMiles": zod.number().min(updateTenantSettingsBodyCoopRadiusOverrideMilesMin).max(updateTenantSettingsBodyCoopRadiusOverrideMilesMax).nullish().describe('Merchant override of the co-op radius (miles). Send null to revert to automatic.')
+  "coopRadiusOverrideMiles": zod.number().min(updateTenantSettingsBodyCoopRadiusOverrideMilesMin).max(updateTenantSettingsBodyCoopRadiusOverrideMilesMax).nullish().describe('Merchant override of the co-op radius (miles). Send null to revert to automatic.'),
+  "coopReciprocityMarginPercent": zod.number().min(updateTenantSettingsBodyCoopReciprocityMarginPercentMin).max(updateTenantSettingsBodyCoopReciprocityMarginPercentMax).nullish(),
+  "coopReciprocityWindowDays": zod.number().min(1).max(updateTenantSettingsBodyCoopReciprocityWindowDaysMax).optional()
 })
 
 export const UpdateTenantSettingsResponse = zod.object({
@@ -3212,6 +3474,8 @@ export const UpdateTenantSettingsResponse = zod.object({
   "coopRadiusAutoMiles": zod.number().describe('Auto-assigned co-op cross-promotion radius (miles) from the density classification.'),
   "coopRadiusOverrideMiles": zod.number().nullable().describe('Merchant override of the co-op radius (miles). Null = automatic.'),
   "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
+  "coopReciprocityMarginPercent": zod.number().nullish().describe('Co-op reciprocity disparity margin (%); null = imbalance flagging off.'),
+  "coopReciprocityWindowDays": zod.number().optional().describe('Evaluation window (days) for co-op reciprocity flagging.'),
   "updatedAt": zod.string()
 })
 

@@ -77,6 +77,20 @@ export interface CoopPartnership {
      * @nullable
      */
   reactivationRequestedByTenantId: number | null;
+  /**
+     * Pending re-negotiation perk title; null when no proposal is pending.
+     * @nullable
+     */
+  proposedPerkTitle: string | null;
+  /** @nullable */
+  proposedPerkDescription: string | null;
+  /** @nullable */
+  proposedMutualRewardTerms: string | null;
+  /**
+     * Tenant that proposed the pending re-negotiation; null when none is pending.
+     * @nullable
+     */
+  renegotiationRequestedByTenantId: number | null;
   isActive: boolean;
   createdAt: string;
 }

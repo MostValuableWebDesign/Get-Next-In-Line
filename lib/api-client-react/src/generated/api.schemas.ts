@@ -185,6 +185,20 @@ export interface CoopPartnership {
      * @nullable
      */
   reactivationRequestedByTenantId: number | null;
+  /**
+     * Pending re-negotiation perk title; null when no proposal is pending.
+     * @nullable
+     */
+  proposedPerkTitle: string | null;
+  /** @nullable */
+  proposedPerkDescription: string | null;
+  /** @nullable */
+  proposedMutualRewardTerms: string | null;
+  /**
+     * Tenant that proposed the pending re-negotiation; null when none is pending.
+     * @nullable
+     */
+  renegotiationRequestedByTenantId: number | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -256,6 +270,62 @@ export interface CoopDisputeCreate {
 export interface CoopDisputeMediationNote {
   /** @minLength 1 */
   note: string;
+}
+
+export interface CoopRenegotiationPropose {
+  /** @minLength 1 */
+  perkTitle?: string;
+  /** @nullable */
+  perkDescription?: string | null;
+  /** @nullable */
+  mutualRewardTerms?: string | null;
+}
+
+export interface CoopLedgerCounts {
+  inbound: number;
+  outbound: number;
+}
+
+export type CoopLedgerEntryStatus = typeof CoopLedgerEntryStatus[keyof typeof CoopLedgerEntryStatus];
+
+
+export const CoopLedgerEntryStatus = {
+  pending: 'pending',
+  accepted: 'accepted',
+  declined: 'declined',
+} as const;
+
+export interface CoopLedgerEntry {
+  partnershipId: number;
+  partnerTenantId: number;
+  partnerName: string;
+  perkTitle: string;
+  status: CoopLedgerEntryStatus;
+  isActive: boolean;
+  window: CoopLedgerCounts;
+  allTime: CoopLedgerCounts;
+  /**
+     * inbound / outbound over the window; null when outbound is 0.
+     * @nullable
+     */
+  ratio: number | null;
+  /** |inbound − outbound| / max(inbound, outbound) × 100 over the evaluation window; 0 when there is no traffic. */
+  disparityPercent: number;
+  /** True when the tenant's reciprocity threshold is set and this partnership's disparity exceeds it. */
+  flagged: boolean;
+}
+
+export interface CoopLedgerResponse {
+  /** Recent-window size the window counts cover. */
+  windowDays: number;
+  /** Window used for threshold flagging (the tenant's configured evaluation window). */
+  evaluationWindowDays: number;
+  /**
+     * The tenant's configured disparity margin; null = flagging off.
+     * @nullable
+     */
+  marginPercent: number | null;
+  entries: CoopLedgerEntry[];
 }
 
 export interface CoopDirectoryEntry {
@@ -1357,6 +1427,13 @@ export interface SosSettings {
   coopRadiusOverrideMiles: number | null;
   /** Effective co-op radius — the override when set, else the auto default. */
   coopRadiusEffectiveMiles: number;
+  /**
+     * Co-op reciprocity disparity margin (%); null = imbalance flagging off.
+     * @nullable
+     */
+  coopReciprocityMarginPercent?: number | null;
+  /** Evaluation window (days) for co-op reciprocity flagging. */
+  coopReciprocityWindowDays?: number;
   updatedAt: string;
 }
 
@@ -1406,6 +1483,17 @@ export interface SosSettingsUpdate {
      * @nullable
      */
   coopRadiusOverrideMiles?: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  coopReciprocityMarginPercent?: number | null;
+  /**
+     * @minimum 1
+     * @maximum 365
+     */
+  coopReciprocityWindowDays?: number;
 }
 
 export interface SosReview {
@@ -3131,6 +3219,14 @@ export type ListCoopPartnershipsParams = {
  * Tenant scope fallback when no x-tenant-id header is set; must match the header when both are present.
  */
 tenantId?: number;
+};
+
+export type GetCoopLedgerParams = {
+/**
+ * @minimum 1
+ * @maximum 365
+ */
+windowDays?: number;
 };
 
 export type ListCoopDirectoryParams = {

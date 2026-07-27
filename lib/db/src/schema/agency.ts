@@ -233,6 +233,18 @@ export const merchantCoopPartnershipsTable = pgTable(
       () => tenantsTable.id,
       { onDelete: "set null" }
     ),
+    // ── Pending re-negotiation proposal ─────────────────────────────────────
+    // One participant proposes revised perk/mutual terms; they only replace
+    // the live fields when the other side accepts. All NULL when no proposal
+    // is pending.
+    proposedPerkTitle: text("proposed_perk_title"),
+    proposedPerkDescription: text("proposed_perk_description"),
+    proposedMutualRewardTerms: text("proposed_mutual_reward_terms"),
+    renegotiationRequestedByTenantId: integer("renegotiation_requested_by_tenant_id").references(
+      () => tenantsTable.id,
+      { onDelete: "set null" }
+    ),
+    renegotiationRequestedAt: timestamp("renegotiation_requested_at"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -777,6 +789,43 @@ export const coopTierEventsTable = pgTable(
 );
 
 export type CoopTierEvent = typeof coopTierEventsTable.$inferSelect;
+// ── Co-op cross-promotion traffic events ─────────────────────────────────────
+// One row per cross-promotion traffic event, keyed to a partnership. The
+// receiving tenant is the party the traffic/benefit flowed toward; the source
+// tenant is the party on whose surface the event originated (landing page
+// owner, validating business). For a given tenant, inbound = events where it
+// is the receiver, outbound = events where the other party is. No NULL-tenant
+// legacy rows here — every event is strictly attributed.
+export const coopTrafficEventsTable = pgTable(
+  "coop_traffic_events",
+  {
+    id: serial("id").primaryKey(),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    receivingTenantId: integer("receiving_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    sourceTenantId: integer("source_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    // perk_impression | perk_click | code_validation
+    eventType: text("event_type").notNull(),
+    occurredAt: timestamp("occurred_at").notNull().defaultNow(),
+  },
+  (t) => [
+    // Supports per-partnership windowed inbound/outbound counts.
+    index("coop_traffic_events_partnership_occurred_idx").on(t.partnershipId, t.occurredAt.desc()),
+    index("coop_traffic_events_receiving_tenant_idx").on(t.receivingTenantId),
+  ]
+);
+
+export const insertCoopTrafficEventSchema = createInsertSchema(coopTrafficEventsTable).omit({
+  id: true,
+  occurredAt: true,
+});
+export type InsertCoopTrafficEvent = z.infer<typeof insertCoopTrafficEventSchema>;
+export type CoopTrafficEvent = typeof coopTrafficEventsTable.$inferSelect;
 
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,

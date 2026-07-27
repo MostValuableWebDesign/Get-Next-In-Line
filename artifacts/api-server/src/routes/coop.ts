@@ -79,7 +79,20 @@ import {
   ListCoopPlazaNotificationsResponse,
   ListCoopPlazaConflictsResponse,
   ReleaseCoopPlazaConflictResponse,
+  GetCoopLedgerResponse,
+  ProposeCoopRenegotiationBody,
+  ProposeCoopRenegotiationResponse,
+  RespondToCoopRenegotiationBody,
+  RespondToCoopRenegotiationResponse,
+  PauseCoopPartnershipResponse,
+  ResumeCoopPartnershipResponse,
 } from "@workspace/api-zod";
+import {
+  disparityPercent,
+  getTrafficByPartnership,
+  recordCoopTrafficEvent,
+} from "../lib/coopTraffic";
+import { resolveSettings } from "../lib/settings";
 import {
   coopCampaignsTable,
   coopCampaignParticipantsTable,
@@ -174,6 +187,10 @@ function serialize(
     partnerReciprocityThreshold: p.partnerReciprocityThreshold,
     performancePausedAt: p.performancePausedAt ? p.performancePausedAt.toISOString() : null,
     reactivationRequestedByTenantId: p.reactivationRequestedByTenantId,
+    proposedPerkTitle: p.proposedPerkTitle,
+    proposedPerkDescription: p.proposedPerkDescription,
+    proposedMutualRewardTerms: p.proposedMutualRewardTerms,
+    renegotiationRequestedByTenantId: p.renegotiationRequestedByTenantId,
     isActive: p.isActive,
     createdAt: p.createdAt.toISOString(),
   };
@@ -1739,6 +1756,259 @@ router.post("/coop/campaigns/:id/blast", async (req, res): Promise<void> => {
   res.json(TriggerCoopCampaignBlastResponse.parse(summary));
 });
 
+// ── GET /coop/ledger — per-partnership traffic counts, ratio, flags ─────────
+// Tenant-scoped: only partnerships the requesting tenant participates in ever
+// appear. Window counts cover the requested (or default) window; imbalance
+// flagging always evaluates against the tenant's configured evaluation window
+// and disparity margin (margin NULL = flagging off).
+router.get("/coop/ledger", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const settings = await resolveSettings(tenantId);
+  const evaluationDays = settings.coopReciprocityWindowDays ?? 30;
+  const marginPercent = settings.coopReciprocityMarginPercent;
+  const rawWindow = req.query.windowDays != null ? Number(req.query.windowDays) : null;
+  const windowDays =
+    rawWindow != null && Number.isInteger(rawWindow) && rawWindow >= 1 && rawWindow <= 365
+      ? rawWindow
+      : evaluationDays;
+
+  const rows = await partnershipRows()
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.status, "accepted"),
+        or(
+          eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
+          eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId)
+        )
+      )
+    )
+    .orderBy(desc(merchantCoopPartnershipsTable.createdAt), desc(merchantCoopPartnershipsTable.id));
+
+  const traffic = await getTrafficByPartnership(
+    tenantId,
+    rows.map((r) => r.partnership.id),
+    windowDays,
+    evaluationDays
+  );
+  const zero = { inbound: 0, outbound: 0 };
+  const entries = rows.map((r) => {
+    const t = traffic.get(r.partnership.id) ?? { window: zero, evaluation: zero, allTime: zero };
+    const evalDisparity = disparityPercent(t.evaluation);
+    const hasEvalTraffic = t.evaluation.inbound + t.evaluation.outbound > 0;
+    return {
+      partnershipId: r.partnership.id,
+      partnerTenantId:
+        r.partnership.hostTenantId === tenantId
+          ? r.partnership.partnerTenantId
+          : r.partnership.hostTenantId,
+      partnerName:
+        r.partnership.hostTenantId === tenantId ? r.partnerTenantName : r.hostTenantName,
+      perkTitle: r.partnership.perkTitle,
+      status: r.partnership.status,
+      isActive: r.partnership.isActive,
+      window: t.window,
+      allTime: t.allTime,
+      ratio: t.window.outbound === 0 ? null : t.window.inbound / t.window.outbound,
+      disparityPercent: Math.round(disparityPercent(t.window) * 10) / 10,
+      flagged: marginPercent != null && hasEvalTraffic && evalDisparity > marginPercent,
+    };
+  });
+  res.json(
+    GetCoopLedgerResponse.parse({ windowDays, evaluationWindowDays: evaluationDays, marginPercent, entries })
+  );
+});
+
+/** Load a partnership and verify the scoped tenant participates in it. */
+async function participantPartnership(
+  res: Parameters<Parameters<IRouter["post"]>[1]>[1],
+  tenantId: number,
+  rawId: string
+): Promise<MerchantCoopPartnership | null> {
+  const id = Number(rawId);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return null;
+  }
+  const [p] = await db
+    .select()
+    .from(merchantCoopPartnershipsTable)
+    .where(eq(merchantCoopPartnershipsTable.id, id));
+  if (!p) {
+    res.status(404).json({ message: "Not found" });
+    return null;
+  }
+  if (p.hostTenantId !== tenantId && p.partnerTenantId !== tenantId) {
+    res.status(403).json({ message: "You are not a participant in this partnership" });
+    return null;
+  }
+  return p;
+}
+
+async function respondWithPartnership(
+  res: { json: (body: unknown) => unknown },
+  id: number,
+  schema: { parse: (v: unknown) => unknown }
+): Promise<void> {
+  const [row] = await partnershipRows().where(eq(merchantCoopPartnershipsTable.id, id));
+  res.json(schema.parse(serialize(row.partnership, row.hostTenantName, row.partnerTenantName)));
+}
+
+// ── POST /coop/partnerships/:id/renegotiate — propose revised terms ─────────
+// The proposal is staged on the row; live perk/mutual terms only change when
+// the other participant accepts.
+router.post("/coop/partnerships/:id/renegotiate", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = ProposeCoopRenegotiationBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const perkTitle = parsed.data.perkTitle?.trim() || null;
+  const perkDescription = parsed.data.perkDescription?.trim() || null;
+  const mutualRewardTerms = parsed.data.mutualRewardTerms?.trim() || null;
+  if (!perkTitle && !perkDescription && !mutualRewardTerms) {
+    res.status(400).json({ message: "Propose at least one revised term" });
+    return;
+  }
+  const p = await participantPartnership(res, tenantId, req.params.id);
+  if (!p) return;
+  if (p.status !== "accepted") {
+    res.status(409).json({ message: "Only accepted partnerships can be re-negotiated" });
+    return;
+  }
+  // Conditional update: only stage the proposal if none is pending (guards a
+  // concurrent double-propose the same way invite responses are guarded).
+  const [updated] = await db
+    .update(merchantCoopPartnershipsTable)
+    .set({
+      proposedPerkTitle: perkTitle ?? p.perkTitle,
+      proposedPerkDescription: perkDescription,
+      proposedMutualRewardTerms: mutualRewardTerms,
+      renegotiationRequestedByTenantId: tenantId,
+      renegotiationRequestedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.id, p.id),
+        isNull(merchantCoopPartnershipsTable.renegotiationRequestedByTenantId)
+      )
+    )
+    .returning();
+  if (!updated) {
+    res.status(409).json({ message: "A re-negotiation proposal is already pending" });
+    return;
+  }
+  await respondWithPartnership(res, p.id, ProposeCoopRenegotiationResponse);
+});
+
+// ── POST /coop/partnerships/:id/renegotiation/respond — accept / decline ────
+router.post("/coop/partnerships/:id/renegotiation/respond", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = RespondToCoopRenegotiationBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const p = await participantPartnership(res, tenantId, req.params.id);
+  if (!p) return;
+  if (p.renegotiationRequestedByTenantId == null) {
+    res.status(409).json({ message: "No re-negotiation proposal is pending" });
+    return;
+  }
+  if (p.renegotiationRequestedByTenantId === tenantId) {
+    res.status(403).json({ message: "Only the other business can respond to this proposal" });
+    return;
+  }
+  const accept = parsed.data.action === "accept";
+  const clearProposal = {
+    proposedPerkTitle: null,
+    proposedPerkDescription: null,
+    proposedMutualRewardTerms: null,
+    renegotiationRequestedByTenantId: null,
+    renegotiationRequestedAt: null,
+    updatedAt: new Date(),
+  };
+  // Conditional update guards a concurrent double-respond.
+  const [updated] = await db
+    .update(merchantCoopPartnershipsTable)
+    .set(
+      accept
+        ? {
+            perkTitle: p.proposedPerkTitle ?? p.perkTitle,
+            perkDescription: p.proposedPerkDescription,
+            mutualRewardTerms: p.proposedMutualRewardTerms,
+            ...clearProposal,
+          }
+        : clearProposal
+    )
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.id, p.id),
+        eq(
+          merchantCoopPartnershipsTable.renegotiationRequestedByTenantId,
+          p.renegotiationRequestedByTenantId
+        )
+      )
+    )
+    .returning();
+  if (!updated) {
+    res.status(409).json({ message: "This proposal was already responded to" });
+    return;
+  }
+  await respondWithPartnership(res, p.id, RespondToCoopRenegotiationResponse);
+});
+
+// ── POST /coop/partnerships/:id/pause — tenant pauses from their side ───────
+// Paused perks immediately stop appearing on landing pages, /coop/perks, and
+// redemption validation (all of which require isActive).
+router.post("/coop/partnerships/:id/pause", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const p = await participantPartnership(res, tenantId, req.params.id);
+  if (!p) return;
+  await db
+    .update(merchantCoopPartnershipsTable)
+    .set({ isActive: false, updatedAt: new Date() })
+    .where(eq(merchantCoopPartnershipsTable.id, p.id));
+  await respondWithPartnership(res, p.id, PauseCoopPartnershipResponse);
+});
+
+// ── POST /coop/partnerships/:id/resume — tenant resumes a paused pact ───────
+router.post("/coop/partnerships/:id/resume", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const p = await participantPartnership(res, tenantId, req.params.id);
+  if (!p) return;
+  if (p.status !== "accepted") {
+    res.status(409).json({ message: "Only accepted partnerships can be resumed" });
+    return;
+  }
+  await db
+    .update(merchantCoopPartnershipsTable)
+    .set({ isActive: true, updatedAt: new Date() })
+    .where(eq(merchantCoopPartnershipsTable.id, p.id));
+  await respondWithPartnership(res, p.id, ResumeCoopPartnershipResponse);
+});
+
 // ── GET /coop/perks — live partner perks for the scoped tenant ──────────────
 // The single source every customer surface (checkout, receipts, pass/plan
 // views) reads: only accepted AND active partnerships ever appear, so perks
@@ -1896,6 +2166,24 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
       eventType: "claim",
     },
   ]);
+  // Traffic ledger: a successful checkout validation means a referred
+  // customer physically arrived at the validating business. Only attributable
+  // when the request carries a tenant scope that is a participant.
+  if (
+    validatingTenantId != null &&
+    (validatingTenantId === row.partnership.hostTenantId ||
+      validatingTenantId === row.partnership.partnerTenantId)
+  ) {
+    await recordCoopTrafficEvent({
+      partnershipId: row.partnership.id,
+      receivingTenantId: validatingTenantId,
+      sourceTenantId:
+        validatingTenantId === row.partnership.hostTenantId
+          ? row.partnership.partnerTenantId
+          : row.partnership.hostTenantId,
+      eventType: "code_validation",
+    });
+  }
   res.json(
     ValidateCoopRedemptionCodeResponse.parse({
       valid: true,
@@ -2131,6 +2419,14 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
         eventType: "crossover",
       },
     ]);
+    // Traffic ledger: the redeeming tenant is where the referred customer
+    // arrived — inbound for them, outbound for the other party.
+    await recordCoopTrafficEvent({
+      partnershipId: row.partnership.id,
+      receivingTenantId: tenantId,
+      sourceTenantId: otherTenantId,
+      eventType: "code_validation",
+    });
   }
 
   // Attribution: exactly one event per counted redemption. The direction

@@ -186,6 +186,8 @@ export async function serializeSettings(s: SosSettingsRow) {
     coopRadiusOverrideMiles:
       s.coopRadiusOverrideMiles != null ? parseFloat(s.coopRadiusOverrideMiles) : null,
     coopRadiusEffectiveMiles: effectiveCoopRadiusMiles(s),
+    coopReciprocityMarginPercent: s.coopReciprocityMarginPercent,
+    coopReciprocityWindowDays: s.coopReciprocityWindowDays,
     updatedAt: s.updatedAt.toISOString(),
   };
 }

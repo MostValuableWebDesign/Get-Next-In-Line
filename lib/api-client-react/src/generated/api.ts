@@ -53,6 +53,7 @@ import type {
   CoopIndustryBarrierError,
   CoopInviteCreate,
   CoopInviteRespond,
+  CoopLedgerResponse,
   CoopMonthlyReport,
   CoopPartnerPerformance,
   CoopPartnership,
@@ -63,6 +64,7 @@ import type {
   CoopPlazaConflict,
   CoopPlazaNotification,
   CoopRedemptionValidation,
+  CoopRenegotiationPropose,
   CoopStatsResponse,
   CoopSuggestion,
   CoopSuggestionDismissResult,
@@ -90,6 +92,7 @@ import type {
   FranchiseTemplateCreate,
   FranchiseTemplateUpdate,
   GetAdminComplianceSummaryParams,
+  GetCoopLedgerParams,
   GetCoopStatsParams,
   GetSosStaffEarningsParams,
   GetTenantActivityParams,
@@ -1954,6 +1957,376 @@ export function useGetCoopTaxonomy<TData = Awaited<ReturnType<typeof getCoopTaxo
 
 
 
+
+export const getGetCoopLedgerUrl = (params?: GetCoopLedgerParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/coop/ledger?${stringifiedParams}` : `/api/coop/ledger`
+}
+
+/**
+ * @summary Merchant-facing — per-partnership inbound/outbound traffic counts, ratio, disparity, and imbalance flags; tenant scope via x-tenant-id
+ */
+export const getCoopLedger = async (params?: GetCoopLedgerParams, options?: RequestInit): Promise<CoopLedgerResponse> => {
+
+  return customFetch<CoopLedgerResponse>(getGetCoopLedgerUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopLedgerQueryKey = (params?: GetCoopLedgerParams,) => {
+    return [
+    `/api/coop/ledger`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCoopLedgerQueryOptions = <TData = Awaited<ReturnType<typeof getCoopLedger>>, TError = ErrorType<void>>(params?: GetCoopLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopLedgerQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopLedger>>> = ({ signal }) => getCoopLedger(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopLedger>>>
+export type GetCoopLedgerQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — per-partnership inbound/outbound traffic counts, ratio, disparity, and imbalance flags; tenant scope via x-tenant-id
+ */
+
+export function useGetCoopLedger<TData = Awaited<ReturnType<typeof getCoopLedger>>, TError = ErrorType<void>>(
+ params?: GetCoopLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopLedgerQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getProposeCoopRenegotiationUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/partnerships/${id}/renegotiate`
+}
+
+/**
+ * @summary Merchant-facing — propose revised perk/mutual-reward terms; they only replace live terms when the partner accepts; tenant scope via x-tenant-id
+ */
+export const proposeCoopRenegotiation = async (id: number,
+    coopRenegotiationPropose: CoopRenegotiationPropose, options?: RequestInit): Promise<CoopPartnership> => {
+
+  return customFetch<CoopPartnership>(getProposeCoopRenegotiationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopRenegotiationPropose)
+  }
+);}
+
+
+
+
+
+export const getProposeCoopRenegotiationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proposeCoopRenegotiation>>, TError,{id: number;data: BodyType<CoopRenegotiationPropose>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof proposeCoopRenegotiation>>, TError,{id: number;data: BodyType<CoopRenegotiationPropose>}, TContext> => {
+
+const mutationKey = ['proposeCoopRenegotiation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof proposeCoopRenegotiation>>, {id: number;data: BodyType<CoopRenegotiationPropose>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  proposeCoopRenegotiation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProposeCoopRenegotiationMutationResult = NonNullable<Awaited<ReturnType<typeof proposeCoopRenegotiation>>>
+    export type ProposeCoopRenegotiationMutationBody = BodyType<CoopRenegotiationPropose>
+    export type ProposeCoopRenegotiationMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — propose revised perk/mutual-reward terms; they only replace live terms when the partner accepts; tenant scope via x-tenant-id
+ */
+export const useProposeCoopRenegotiation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proposeCoopRenegotiation>>, TError,{id: number;data: BodyType<CoopRenegotiationPropose>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof proposeCoopRenegotiation>>,
+        TError,
+        {id: number;data: BodyType<CoopRenegotiationPropose>},
+        TContext
+      > => {
+      return useMutation(getProposeCoopRenegotiationMutationOptions(options));
+    }
+
+export const getRespondToCoopRenegotiationUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/partnerships/${id}/renegotiation/respond`
+}
+
+/**
+ * @summary Merchant-facing — the other participant accepts or declines a pending re-negotiation proposal; tenant scope via x-tenant-id
+ */
+export const respondToCoopRenegotiation = async (id: number,
+    coopInviteRespond: CoopInviteRespond, options?: RequestInit): Promise<CoopPartnership> => {
+
+  return customFetch<CoopPartnership>(getRespondToCoopRenegotiationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopInviteRespond)
+  }
+);}
+
+
+
+
+
+export const getRespondToCoopRenegotiationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopRenegotiation>>, TError,{id: number;data: BodyType<CoopInviteRespond>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondToCoopRenegotiation>>, TError,{id: number;data: BodyType<CoopInviteRespond>}, TContext> => {
+
+const mutationKey = ['respondToCoopRenegotiation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondToCoopRenegotiation>>, {id: number;data: BodyType<CoopInviteRespond>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  respondToCoopRenegotiation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondToCoopRenegotiationMutationResult = NonNullable<Awaited<ReturnType<typeof respondToCoopRenegotiation>>>
+    export type RespondToCoopRenegotiationMutationBody = BodyType<CoopInviteRespond>
+    export type RespondToCoopRenegotiationMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — the other participant accepts or declines a pending re-negotiation proposal; tenant scope via x-tenant-id
+ */
+export const useRespondToCoopRenegotiation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopRenegotiation>>, TError,{id: number;data: BodyType<CoopInviteRespond>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondToCoopRenegotiation>>,
+        TError,
+        {id: number;data: BodyType<CoopInviteRespond>},
+        TContext
+      > => {
+      return useMutation(getRespondToCoopRenegotiationMutationOptions(options));
+    }
+
+export const getPauseCoopPartnershipUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/partnerships/${id}/pause`
+}
+
+/**
+ * @summary Merchant-facing — pause a partnership from the tenant's side; the perk stops appearing everywhere; tenant scope via x-tenant-id
+ */
+export const pauseCoopPartnership = async (id: number, options?: RequestInit): Promise<CoopPartnership> => {
+
+  return customFetch<CoopPartnership>(getPauseCoopPartnershipUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPauseCoopPartnershipMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseCoopPartnership>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pauseCoopPartnership>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['pauseCoopPartnership'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pauseCoopPartnership>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  pauseCoopPartnership(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PauseCoopPartnershipMutationResult = NonNullable<Awaited<ReturnType<typeof pauseCoopPartnership>>>
+
+    export type PauseCoopPartnershipMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — pause a partnership from the tenant's side; the perk stops appearing everywhere; tenant scope via x-tenant-id
+ */
+export const usePauseCoopPartnership = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pauseCoopPartnership>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pauseCoopPartnership>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getPauseCoopPartnershipMutationOptions(options));
+    }
+
+export const getResumeCoopPartnershipUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/partnerships/${id}/resume`
+}
+
+/**
+ * @summary Merchant-facing — resume a paused (accepted) partnership; tenant scope via x-tenant-id
+ */
+export const resumeCoopPartnership = async (id: number, options?: RequestInit): Promise<CoopPartnership> => {
+
+  return customFetch<CoopPartnership>(getResumeCoopPartnershipUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResumeCoopPartnershipMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeCoopPartnership>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resumeCoopPartnership>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['resumeCoopPartnership'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resumeCoopPartnership>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  resumeCoopPartnership(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResumeCoopPartnershipMutationResult = NonNullable<Awaited<ReturnType<typeof resumeCoopPartnership>>>
+
+    export type ResumeCoopPartnershipMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — resume a paused (accepted) partnership; tenant scope via x-tenant-id
+ */
+export const useResumeCoopPartnership = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeCoopPartnership>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resumeCoopPartnership>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getResumeCoopPartnershipMutationOptions(options));
+    }
 
 export const getListCoopDirectoryUrl = (params?: ListCoopDirectoryParams,) => {
   const normalizedParams = new URLSearchParams();
