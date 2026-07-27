@@ -11,6 +11,9 @@ import {
   useReinstateCoopDispute,
   useBanCoopDisputePartnership,
   useAddCoopDisputeMediationNote,
+  useListCoopPlazaConflicts,
+  getListCoopPlazaConflictsQueryKey,
+  useReleaseCoopPlazaConflict,
   type CoopPartnership,
   type CoopDispute,
 } from '@workspace/api-client-react';
@@ -30,8 +33,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
-  AlertTriangle, ArrowLeftRight, Ban, Gavel, Handshake, NotebookPen, Plus, Power,
-  RotateCcw, Ticket,
+  AlertTriangle, ArrowLeftRight, Ban, Gavel, Handshake, MapPin, NotebookPen, Plus, Power,
+  RotateCcw, Ticket, Unlock,
 } from 'lucide-react';
 
 /**
@@ -192,6 +195,7 @@ export default function CoopPartnerships() {
       )}
 
       <DisputeQueue />
+      <PlazaConflictsSection />
     </div>
   );
 }
@@ -392,6 +396,112 @@ function DisputeRow({ dispute: d }: { dispute: CoopDispute }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Admin-only plaza exclusivity disputes: invites blocked because a business
+ * category was already held by an active partnership in the same commercial
+ * complex. Admins can release the exclusivity so the pairing can be retried;
+ * tenants never see this control.
+ */
+function PlazaConflictsSection() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: conflicts, isLoading } = useListCoopPlazaConflicts({
+    query: { queryKey: getListCoopPlazaConflictsQueryKey() },
+  });
+  const release = useReleaseCoopPlazaConflict();
+
+  const releaseConflict = (id: number) => {
+    release.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListCoopPlazaConflictsQueryKey() });
+          toast({
+            title: 'Exclusivity released',
+            description: 'The blocked pairing can now be retried by the businesses.',
+          });
+        },
+        onError: (err: unknown) => {
+          const e = err as { data?: { message?: string }; message?: string };
+          toast({
+            title: 'Release failed',
+            description: e?.data?.message ?? e?.message ?? 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <Card data-testid="card-plaza-conflicts">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <MapPin className="w-5 h-5 text-primary" /> Plaza Exclusivity Conflicts
+        </CardTitle>
+        <CardDescription>
+          Invites blocked because the business category was already held by an active partnership
+          in the same commercial complex. Releasing the exclusivity lets the pairing be retried —
+          admin-only, never tenant-facing.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-16 w-full rounded-lg" />
+        ) : !conflicts || conflicts.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-testid="text-no-plaza-conflicts">
+            No plaza exclusivity conflicts recorded.
+          </p>
+        ) : (
+          <div className="divide-y" data-testid="list-plaza-conflicts">
+            {conflicts.map((c) => (
+              <div
+                key={c.id}
+                className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-3"
+                data-testid={`row-plaza-conflict-${c.id}`}
+              >
+                <div className="min-w-0 space-y-0.5">
+                  <div className="text-sm font-medium">
+                    {c.requesterTenantName} → {c.blockedPartnerTenantName}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Category “{c.category}” already held
+                    {c.existingPartnerTenantName ? ` by the partnership with ${c.existingPartnerTenantName}` : ''} in
+                    the same plaza · recorded {new Date(c.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {c.status === 'released' ? (
+                    <Badge variant="secondary" data-testid={`badge-plaza-conflict-status-${c.id}`}>
+                      Released{c.releasedAt ? ` ${new Date(c.releasedAt).toLocaleDateString()}` : ''}
+                    </Badge>
+                  ) : (
+                    <>
+                      <Badge variant="outline" className="text-red-600 border-red-300" data-testid={`badge-plaza-conflict-status-${c.id}`}>
+                        <AlertTriangle className="w-3 h-3 mr-1" /> Active
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => releaseConflict(c.id)}
+                        disabled={release.isPending}
+                        data-testid={`button-release-plaza-conflict-${c.id}`}
+                      >
+                        <Unlock className="w-4 h-4" /> Release exclusivity
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

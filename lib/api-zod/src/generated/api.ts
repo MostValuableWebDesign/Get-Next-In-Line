@@ -513,7 +513,9 @@ export const ListCoopDirectoryResponseItem = zod.object({
   "industry": zod.string().nullable().describe('Curated Level 1 industry label; null when the business is unclassified.'),
   "distanceMiles": zod.number().nullable().describe('Distance from the requesting business in miles; null when either side lacks coordinates.'),
   "city": zod.string().nullable(),
-  "sameIndustry": zod.boolean().describe('True when this business shares the requester\'s Level 1 industry (different sub-niche — pairing still allowed). Direct same-sub-category competitors never appear at all.')
+  "sameIndustry": zod.boolean().describe('True when this business shares the requester\'s Level 1 industry (different sub-niche — pairing still allowed). Direct same-sub-category competitors never appear at all.'),
+  "samePlaza": zod.boolean().describe('True when this business shares the requester\'s commercial complex (same address block + postal code, or lat\/long proximity).'),
+  "plazaConflict": zod.boolean().describe('True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester\'s active same-plaza partnerships.')
 })
 export const ListCoopDirectoryResponse = zod.array(ListCoopDirectoryResponseItem)
 
@@ -586,6 +588,62 @@ export const CreateCoopInviteResponse = zod.object({
   "partnerTrackingCode": zod.string().nullable().describe('Tracking code carried by the partner\'s customers (partner→host traffic); null only until backfilled.'),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — in-app plaza exclusivity notifications for the scoped tenant (as requester or blocked target); tenant scope via x-tenant-id
+ */
+export const ListCoopPlazaNotificationsResponseItem = zod.object({
+  "id": zod.number(),
+  "role": zod.enum(['requester', 'blocked']).describe('Whether the scoped tenant sent the blocked invite or was its target.'),
+  "otherBusinessName": zod.string(),
+  "category": zod.string(),
+  "status": zod.enum(['active', 'released']),
+  "message": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListCoopPlazaNotificationsResponse = zod.array(ListCoopPlazaNotificationsResponseItem)
+
+
+/**
+ * @summary Admin-only — list plaza exclusivity conflicts recorded when invites were blocked
+ */
+export const ListCoopPlazaConflictsResponseItem = zod.object({
+  "id": zod.number(),
+  "requesterTenantId": zod.number(),
+  "requesterTenantName": zod.string(),
+  "blockedPartnerTenantId": zod.number(),
+  "blockedPartnerTenantName": zod.string(),
+  "existingPartnershipId": zod.number().nullable(),
+  "existingPartnerTenantName": zod.string().nullable(),
+  "category": zod.string(),
+  "status": zod.enum(['active', 'released']),
+  "releasedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
+})
+export const ListCoopPlazaConflictsResponse = zod.array(ListCoopPlazaConflictsResponseItem)
+
+
+/**
+ * @summary Admin-only — release a plaza exclusivity conflict so the blocked pairing can be retried
+ */
+export const ReleaseCoopPlazaConflictParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ReleaseCoopPlazaConflictResponse = zod.object({
+  "id": zod.number(),
+  "requesterTenantId": zod.number(),
+  "requesterTenantName": zod.string(),
+  "blockedPartnerTenantId": zod.number(),
+  "blockedPartnerTenantName": zod.string(),
+  "existingPartnershipId": zod.number().nullable(),
+  "existingPartnerTenantName": zod.string().nullable(),
+  "category": zod.string(),
+  "status": zod.enum(['active', 'released']),
+  "releasedAt": zod.coerce.date().nullable(),
+  "createdAt": zod.coerce.date()
 })
 
 

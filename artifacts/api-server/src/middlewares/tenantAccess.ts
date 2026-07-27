@@ -88,6 +88,11 @@ function isPlatformAdminOnly(req: Request): boolean {
   if (req.path === "/tenants/activity" && toTenantId((req.query as Record<string, unknown>).tenantId) == null) {
     return true; // cross-tenant feed
   }
+  // Plaza exclusivity dispute console: the conflict list spans all tenants,
+  // and releasing an exclusivity is an admin-only override — never tenant-facing.
+  if (req.path === "/coop/plaza-conflicts" || /^\/coop\/plaza-conflicts\/\d+\/release$/.test(req.path)) {
+    return true;
+  }
   return false;
 }
 

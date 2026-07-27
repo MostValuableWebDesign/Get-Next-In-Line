@@ -9,11 +9,14 @@ import {
   coopPerkRedemptionsTable,
   coopDisputesTable,
   coopAttributionEventsTable,
+  coopPlazaConflictsTable,
   sosSettingsTable,
   type MerchantCoopPartnership,
   type CoopDispute,
+  type CoopPlazaConflict,
 } from "@workspace/db";
 import { perkPassesTable } from "@workspace/db";
+import { samePlaza, type PlazaAddress } from "../lib/plaza";
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, gte, inArray, isNull, ne, or } from "drizzle-orm";
 import { isWalletPassToken, findWalletPass, type WalletPassRow } from "../lib/perkPasses";
@@ -71,6 +74,9 @@ import {
   RespondToCoopCampaignResponse,
   TriggerCoopCampaignBlastResponse,
   GetCoopStatsResponse,
+  ListCoopPlazaNotificationsResponse,
+  ListCoopPlazaConflictsResponse,
+  ReleaseCoopPlazaConflictResponse,
 } from "@workspace/api-zod";
 import {
   coopCampaignsTable,
@@ -248,6 +254,23 @@ function tenantIdFrom(req: Request): number | null {
 // Exact tenant-facing copy the UI shows when the guardrail blocks a pairing.
 const SAME_INDUSTRY_MESSAGE = "Same-industry pairings are restricted by platform guidelines.";
 
+// Exact tenant-facing copy for the plaza exclusivity rule.
+const PLAZA_EXCLUSIVITY_MESSAGE =
+  "Plaza exclusivity: this business category is already represented by an active partnership in your commercial complex. Only one partner per category within the same plaza.";
+
+/**
+ * A tenant's industry category for the merchant-facing guardrail: the
+ * business's own SOS profile (businessCategory when set, else industryType).
+ * NULL when the tenant has no SOS settings row yet.
+ */
+function industryOf(
+  s: { businessCategory: string; industryType: string } | null | undefined
+): string | null {
+  if (!s) return null;
+  const cat = s.businessCategory.trim() || s.industryType.trim();
+  return cat ? cat.toLowerCase() : null;
+}
+
 function partnershipRows() {
   const { hostTenant, partnerTenant } = tenantAliases();
   return db
@@ -269,6 +292,156 @@ async function tenantCategories(tenantId: number): Promise<Set<string>> {
     .innerJoin(modulesTable, eq(tenantModulesTable.moduleId, modulesTable.id))
     .where(eq(tenantModulesTable.tenantId, tenantId));
   return new Set(rows.map((r) => `${r.categorySlug}\u0000${r.category}`));
+}
+
+// ── Plaza exclusivity helpers ───────────────────────────────────────────────
+
+type PlazaSettingsRow = {
+  tenantId: number | null;
+  businessCategory: string;
+  industryType: string;
+  streetAddress: string;
+  postalCode: string;
+  latitude: string;
+  longitude: string;
+};
+
+/** Address + category profile rows for a set of tenants. */
+async function plazaSettingsFor(tenantIds: number[]): Promise<PlazaSettingsRow[]> {
+  if (tenantIds.length === 0) return [];
+  return db
+    .select({
+      tenantId: sosSettingsTable.tenantId,
+      businessCategory: sosSettingsTable.businessCategory,
+      industryType: sosSettingsTable.industryType,
+      streetAddress: sosSettingsTable.streetAddress,
+      postalCode: sosSettingsTable.postalCode,
+      latitude: sosSettingsTable.latitude,
+      longitude: sosSettingsTable.longitude,
+    })
+    .from(sosSettingsTable)
+    .where(inArray(sosSettingsTable.tenantId, tenantIds));
+}
+
+type CategoryHold = { partnershipId: number; partnerTenantId: number; partnerName: string };
+
+/**
+ * Categories already "held" by a tenant's active (accepted + isActive)
+ * partnerships with businesses in the same plaza as that tenant. Keyed by
+ * the partner's normalized industry category.
+ */
+async function samePlazaCategoryHolds(
+  tenantId: number,
+  myAddress: PlazaAddress
+): Promise<Map<string, CategoryHold>> {
+  const rows = await db
+    .select({
+      id: merchantCoopPartnershipsTable.id,
+      hostTenantId: merchantCoopPartnershipsTable.hostTenantId,
+      partnerTenantId: merchantCoopPartnershipsTable.partnerTenantId,
+    })
+    .from(merchantCoopPartnershipsTable)
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.status, "accepted"),
+        eq(merchantCoopPartnershipsTable.isActive, true),
+        or(
+          eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
+          eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId)
+        )
+      )
+    );
+  const holds = new Map<string, CategoryHold>();
+  if (rows.length === 0) return holds;
+  const otherIds = [
+    ...new Set(rows.map((r) => (r.hostTenantId === tenantId ? r.partnerTenantId : r.hostTenantId))),
+  ];
+  const [settings, names] = await Promise.all([
+    plazaSettingsFor(otherIds),
+    db
+      .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
+      .from(tenantsTable)
+      .where(inArray(tenantsTable.id, otherIds)),
+  ]);
+  const settingsById = new Map(settings.map((s) => [s.tenantId, s]));
+  const namesById = new Map(names.map((n) => [n.id, n.brandName]));
+  for (const r of rows) {
+    const otherId = r.hostTenantId === tenantId ? r.partnerTenantId : r.hostTenantId;
+    const s = settingsById.get(otherId);
+    const category = industryOf(s);
+    if (!s || category == null) continue;
+    if (!samePlaza(myAddress, s)) continue;
+    if (!holds.has(category)) {
+      holds.set(category, {
+        partnershipId: r.id,
+        partnerTenantId: otherId,
+        partnerName: namesById.get(otherId) ?? "another business",
+      });
+    }
+  }
+  return holds;
+}
+
+/** True when the admin has released the exclusivity for this exact pairing. */
+async function plazaConflictReleased(
+  requesterTenantId: number,
+  blockedPartnerTenantId: number,
+  category: string
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: coopPlazaConflictsTable.id })
+    .from(coopPlazaConflictsTable)
+    .where(
+      and(
+        eq(coopPlazaConflictsTable.requesterTenantId, requesterTenantId),
+        eq(coopPlazaConflictsTable.blockedPartnerTenantId, blockedPartnerTenantId),
+        eq(coopPlazaConflictsTable.category, category),
+        eq(coopPlazaConflictsTable.status, "released")
+      )
+    )
+    .limit(1);
+  return row != null;
+}
+
+/**
+ * Record (or refresh) a plaza exclusivity conflict. One row per (requester,
+ * blocked partner, category) trio — this row *is* the in-app notification
+ * both businesses see. Never resurrects a released conflict.
+ */
+async function recordPlazaConflict(
+  requesterTenantId: number,
+  blockedPartnerTenantId: number,
+  category: string,
+  existingPartnershipId: number
+): Promise<void> {
+  await db
+    .insert(coopPlazaConflictsTable)
+    .values({ requesterTenantId, blockedPartnerTenantId, category, existingPartnershipId })
+    .onConflictDoUpdate({
+      target: [
+        coopPlazaConflictsTable.requesterTenantId,
+        coopPlazaConflictsTable.blockedPartnerTenantId,
+        coopPlazaConflictsTable.category,
+      ],
+      set: { updatedAt: new Date(), existingPartnershipId },
+    });
+}
+
+function plazaNotificationMessage(
+  role: "requester" | "blocked",
+  otherName: string,
+  category: string,
+  status: string
+): string {
+  const rule =
+    "Only one partner per business category is allowed within the same commercial complex (plaza exclusivity).";
+  const base =
+    role === "requester"
+      ? `Your partnership invite to ${otherName} was blocked: the "${category}" category is already held by one of your active partnerships in your plaza. ${rule}`
+      : `${otherName} tried to invite your business, but the pairing was blocked: the "${category}" category is already held by an active partnership in your shared plaza. ${rule}`;
+  return status === "released"
+    ? `${base} An admin has since released this exclusivity — the pairing may be retried.`
+    : base;
 }
 
 /** Random, human-readable redemption code, e.g. "COOP-7F3K9Q2M". */
@@ -590,6 +763,9 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
   const radiusMiles = meRow != null ? effectiveCoopRadiusMiles(meRow) : null;
   if (radiusMiles != null) me.radiusMiles = radiusMiles;
   const isolated = await isolationPartnersOf(tenantId);
+  const [myPlazaRow] = await plazaSettingsFor([tenantId]);
+  const myPlaza = myPlazaRow ?? null;
+  const myIndustry = industryOf(myPlaza);
 
   const rows = await db
     .select({
@@ -602,11 +778,58 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
       latitude: sosSettingsTable.latitude,
       longitude: sosSettingsTable.longitude,
       city: sosSettingsTable.addressLocality,
+      streetAddress: sosSettingsTable.streetAddress,
+      postalCode: sosSettingsTable.postalCode,
     })
     .from(tenantsTable)
     .leftJoin(sosSettingsTable, eq(sosSettingsTable.tenantId, tenantsTable.id))
     .where(and(ne(tenantsTable.id, tenantId), eq(tenantsTable.status, "active")))
     .orderBy(tenantsTable.brandName);
+
+  // Plaza exclusivity pre-flags: which categories my active same-plaza
+  // partnerships already hold, which pairings an admin has released, and —
+  // for the reverse direction — each listed business's own active same-plaza
+  // partners' categories.
+  const myHolds = myPlaza
+    ? await samePlazaCategoryHolds(tenantId, myPlaza)
+    : new Map<string, CategoryHold>();
+  const releasedRows = await db
+    .select({
+      blockedPartnerTenantId: coopPlazaConflictsTable.blockedPartnerTenantId,
+      category: coopPlazaConflictsTable.category,
+    })
+    .from(coopPlazaConflictsTable)
+    .where(
+      and(
+        eq(coopPlazaConflictsTable.requesterTenantId, tenantId),
+        eq(coopPlazaConflictsTable.status, "released")
+      )
+    );
+  const releasedPairs = new Set(releasedRows.map((r) => `${r.blockedPartnerTenantId}|${r.category}`));
+
+  const activePartnerships = await db
+    .select({
+      hostTenantId: merchantCoopPartnershipsTable.hostTenantId,
+      partnerTenantId: merchantCoopPartnershipsTable.partnerTenantId,
+    })
+    .from(merchantCoopPartnershipsTable)
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.status, "accepted"),
+        eq(merchantCoopPartnershipsTable.isActive, true)
+      )
+    );
+  const entryIds = new Set(rows.map((r) => r.id));
+  const counterpartIds = [
+    ...new Set(
+      activePartnerships
+        .filter((p) => entryIds.has(p.hostTenantId) || entryIds.has(p.partnerTenantId))
+        .flatMap((p) => [p.hostTenantId, p.partnerTenantId])
+    ),
+  ];
+  const counterpartSettings = new Map(
+    (await plazaSettingsFor(counterpartIds)).map((s) => [s.tenantId, s])
+  );
 
   const search = String(req.query.search ?? "").trim().toLowerCase();
   const cityFilter = String(req.query.city ?? "").trim().toLowerCase();
@@ -631,6 +854,45 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
       const category = (r.businessCategory?.trim() || r.industryType?.trim()) ?? null;
       const distance = distanceBetween(me, theirs);
       const sub = theirs.subCategory != null ? taxonomyEntry(theirs.subCategory) : null;
+      const industry = category ? category.toLowerCase() : null;
+
+      const inMyPlaza = myPlaza != null && samePlaza(myPlaza, r);
+      let plazaConflict = false;
+      if (inMyPlaza) {
+        // Requester direction: I already hold this business's category via an
+        // active same-plaza partnership with someone else.
+        if (industry != null) {
+          const hold = myHolds.get(industry);
+          if (hold && hold.partnerTenantId !== r.id) plazaConflict = true;
+        }
+        // Reverse direction: this business already holds *my* category via an
+        // active same-plaza partnership of its own.
+        if (!plazaConflict && myIndustry != null) {
+          for (const p of activePartnerships) {
+            if (p.hostTenantId !== r.id && p.partnerTenantId !== r.id) continue;
+            const otherId = p.hostTenantId === r.id ? p.partnerTenantId : p.hostTenantId;
+            if (otherId === tenantId) continue;
+            const other = counterpartSettings.get(otherId);
+            if (!other) continue;
+            if (industryOf(other) === myIndustry && samePlaza(r, other)) {
+              plazaConflict = true;
+              break;
+            }
+          }
+        }
+        // An admin release lifts the flag for this exact pairing.
+        if (
+          plazaConflict &&
+          industry != null &&
+          releasedPairs.has(`${r.id}|${industry}`)
+        ) {
+          plazaConflict = false;
+        }
+        if (plazaConflict && myIndustry != null && releasedPairs.has(`${r.id}|${myIndustry}`)) {
+          plazaConflict = false;
+        }
+      }
+
       return {
         profile: theirs,
         entry: {
@@ -642,6 +904,8 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
           distanceMiles: distance == null ? null : Math.round(distance * 10) / 10,
           city: r.city?.trim() || null,
           sameIndustry: sameIndustryL1(me, theirs),
+          samePlaza: inMyPlaza,
+          plazaConflict,
         },
       };
     })
@@ -799,10 +1063,15 @@ router.post("/coop/invites", async (req, res): Promise<void> => {
   // competitors, but a hand-crafted request must hit the same wall. Blocks
   // same Level 2 sub-category and persisted isolation pairs; same-industry
   // but different-sub-niche pairings stay allowed.
-  const [profiles, isolated] = await Promise.all([
+  const [profiles, isolated, settings] = await Promise.all([
     loadCoopProfiles([tenantId, partnerTenantId]),
     isolationPartnersOf(tenantId),
+    plazaSettingsFor([tenantId, partnerTenantId]),
   ]);
+  const myProfile = settings.find((s) => s.tenantId === tenantId);
+  const theirProfile = settings.find((s) => s.tenantId === partnerTenantId);
+  const mine = industryOf(myProfile);
+  const theirs = industryOf(theirProfile);
   if (
     isBlockedPair(
       profiles.get(tenantId)!,
@@ -812,6 +1081,42 @@ router.post("/coop/invites", async (req, res): Promise<void> => {
   ) {
     res.status(403).json({ code: "SAME_INDUSTRY_RESTRICTED", message: SAME_INDUSTRY_MESSAGE });
     return;
+  }
+
+  // Plaza exclusivity: within the same commercial complex, a category can be
+  // held by only one active partnership. Checked in both directions — the
+  // requester may already hold the target's category, or the target may
+  // already hold the requester's. An admin release lifts the block for the
+  // exact (requester, target, category) pairing.
+  if (myProfile && theirProfile && samePlaza(myProfile, theirProfile)) {
+    let contested: { category: string; hold: CategoryHold } | null = null;
+    if (theirs != null) {
+      const myHolds = await samePlazaCategoryHolds(tenantId, myProfile);
+      const hold = myHolds.get(theirs);
+      if (hold && hold.partnerTenantId !== partnerTenantId) contested = { category: theirs, hold };
+    }
+    if (!contested && mine != null) {
+      const theirHolds = await samePlazaCategoryHolds(partnerTenantId, theirProfile);
+      const hold = theirHolds.get(mine);
+      if (hold && hold.partnerTenantId !== tenantId) contested = { category: mine, hold };
+    }
+    if (contested) {
+      const released = await plazaConflictReleased(tenantId, partnerTenantId, contested.category);
+      if (!released) {
+        await recordPlazaConflict(
+          tenantId,
+          partnerTenantId,
+          contested.category,
+          contested.hold.partnershipId
+        );
+        res.status(403).json({
+          code: "PLAZA_EXCLUSIVITY_RESTRICTED",
+          message: PLAZA_EXCLUSIVITY_MESSAGE,
+          category: contested.category,
+        });
+        return;
+      }
+    }
   }
 
   // Bounded retry: auto-generated codes are random, collisions are rare.
@@ -2042,5 +2347,168 @@ router.get("/coop/stats", async (req, res): Promise<void> => {
     })
   );
 });
+
+
+// ── GET /coop/plaza-notifications — in-app exclusivity notices (tenant) ─────
+// Both sides of a blocked pairing see the conflict: the requester whose
+// invite was blocked and the business that couldn't be invited.
+router.get("/coop/plaza-notifications", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const { hostTenant: requesterT, partnerTenant: blockedT } = tenantAliases();
+  const rows = await db
+    .select({
+      conflict: coopPlazaConflictsTable,
+      requesterName: requesterT.brandName,
+      blockedName: blockedT.brandName,
+    })
+    .from(coopPlazaConflictsTable)
+    .innerJoin(requesterT, eq(coopPlazaConflictsTable.requesterTenantId, requesterT.id))
+    .innerJoin(blockedT, eq(coopPlazaConflictsTable.blockedPartnerTenantId, blockedT.id))
+    .where(
+      or(
+        eq(coopPlazaConflictsTable.requesterTenantId, tenantId),
+        eq(coopPlazaConflictsTable.blockedPartnerTenantId, tenantId)
+      )
+    )
+    .orderBy(desc(coopPlazaConflictsTable.createdAt), desc(coopPlazaConflictsTable.id));
+  res.json(
+    ListCoopPlazaNotificationsResponse.parse(
+      rows.map((r) => {
+        const role = r.conflict.requesterTenantId === tenantId ? "requester" : "blocked";
+        const otherName = role === "requester" ? r.blockedName : r.requesterName;
+        return {
+          id: r.conflict.id,
+          role,
+          otherBusinessName: otherName,
+          category: r.conflict.category,
+          status: r.conflict.status,
+          message: plazaNotificationMessage(role, otherName, r.conflict.category, r.conflict.status),
+          createdAt: r.conflict.createdAt.toISOString(),
+        };
+      })
+    )
+  );
+});
+
+// ── Admin — plaza conflict review & release ─────────────────────────────────
+
+async function serializePlazaConflicts(
+  rows: { conflict: CoopPlazaConflict; requesterName: string; blockedName: string }[]
+) {
+  // Resolve the name of the partner in the still-referenced existing
+  // partnership (the business currently holding the category).
+  const partnershipIds = [
+    ...new Set(rows.map((r) => r.conflict.existingPartnershipId).filter((n): n is number => n != null)),
+  ];
+  const holderNameByPartnership = new Map<number, string>();
+  if (partnershipIds.length > 0) {
+    const { hostTenant, partnerTenant } = tenantAliases();
+    const partnerships = await db
+      .select({
+        id: merchantCoopPartnershipsTable.id,
+        hostTenantId: merchantCoopPartnershipsTable.hostTenantId,
+        hostName: hostTenant.brandName,
+        partnerName: partnerTenant.brandName,
+      })
+      .from(merchantCoopPartnershipsTable)
+      .innerJoin(hostTenant, eq(merchantCoopPartnershipsTable.hostTenantId, hostTenant.id))
+      .innerJoin(partnerTenant, eq(merchantCoopPartnershipsTable.partnerTenantId, partnerTenant.id))
+      .where(inArray(merchantCoopPartnershipsTable.id, partnershipIds));
+    for (const r of rows) {
+      const p = partnerships.find((x) => x.id === r.conflict.existingPartnershipId);
+      if (!p) continue;
+      holderNameByPartnership.set(
+        p.id,
+        p.hostTenantId === r.conflict.requesterTenantId ? p.partnerName : p.hostName
+      );
+    }
+  }
+  return rows.map((r) => ({
+    id: r.conflict.id,
+    requesterTenantId: r.conflict.requesterTenantId,
+    requesterTenantName: r.requesterName,
+    blockedPartnerTenantId: r.conflict.blockedPartnerTenantId,
+    blockedPartnerTenantName: r.blockedName,
+    existingPartnershipId: r.conflict.existingPartnershipId,
+    existingPartnerTenantName:
+      r.conflict.existingPartnershipId != null
+        ? holderNameByPartnership.get(r.conflict.existingPartnershipId) ?? null
+        : null,
+    category: r.conflict.category,
+    status: r.conflict.status,
+    releasedAt: r.conflict.releasedAt ? r.conflict.releasedAt.toISOString() : null,
+    createdAt: r.conflict.createdAt.toISOString(),
+  }));
+}
+
+function plazaConflictRows() {
+  const { hostTenant: requesterT, partnerTenant: blockedT } = tenantAliases();
+  return db
+    .select({
+      conflict: coopPlazaConflictsTable,
+      requesterName: requesterT.brandName,
+      blockedName: blockedT.brandName,
+    })
+    .from(coopPlazaConflictsTable)
+    .innerJoin(requesterT, eq(coopPlazaConflictsTable.requesterTenantId, requesterT.id))
+    .innerJoin(blockedT, eq(coopPlazaConflictsTable.blockedPartnerTenantId, blockedT.id));
+}
+
+// ── GET /coop/plaza-conflicts — admin list ──────────────────────────────────
+// Platform-admin-only (also classified in authorizeTenantAccess); the route
+// guard is defense in depth so a middleware regression can't expose it.
+router.get("/coop/plaza-conflicts", async (req, res): Promise<void> => {
+  if (!sessionIsPlatformAdmin(req)) {
+    res.status(403).json({ message: "This operation requires platform administrator access" });
+    return;
+  }
+  const rows = await plazaConflictRows().orderBy(
+    desc(coopPlazaConflictsTable.createdAt),
+    desc(coopPlazaConflictsTable.id)
+  );
+  res.json(ListCoopPlazaConflictsResponse.parse(await serializePlazaConflicts(rows)));
+});
+
+// ── POST /coop/plaza-conflicts/:id/release — admin-only override ────────────
+// Releasing marks the exclusivity as lifted for that exact (requester,
+// blocked partner, category) pairing, letting a retried invite through.
+// Never tenant-facing: only the admin console calls this.
+router.post("/coop/plaza-conflicts/:id/release", async (req, res): Promise<void> => {
+  if (!sessionIsPlatformAdmin(req)) {
+    res.status(403).json({ message: "This operation requires platform administrator access" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  // Conditional update guards against a concurrent double-release.
+  const [updated] = await db
+    .update(coopPlazaConflictsTable)
+    .set({ status: "released", releasedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(coopPlazaConflictsTable.id, id), eq(coopPlazaConflictsTable.status, "active")))
+    .returning();
+  if (!updated) {
+    const [existing] = await db
+      .select({ status: coopPlazaConflictsTable.status })
+      .from(coopPlazaConflictsTable)
+      .where(eq(coopPlazaConflictsTable.id, id));
+    if (!existing) {
+      res.status(404).json({ message: "Not found" });
+      return;
+    }
+    res.status(409).json({ message: "This conflict was already released" });
+    return;
+  }
+  const [row] = await plazaConflictRows().where(eq(coopPlazaConflictsTable.id, id));
+  res.json(ReleaseCoopPlazaConflictResponse.parse((await serializePlazaConflicts([row]))[0]));
+});
+
+
 
 export default router;

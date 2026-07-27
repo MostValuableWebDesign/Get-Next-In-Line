@@ -128,7 +128,18 @@ describe("co-op directory", () => {
     expect(cafe!.sameIndustry).toBe(false);
     // No sensitive tenant fields leak.
     expect(Object.keys(cafe!).sort()).toEqual(
-      ["category", "city", "distanceMiles", "id", "industry", "name", "sameIndustry", "subCategory"].sort()
+      [
+        "category",
+        "city",
+        "distanceMiles",
+        "id",
+        "industry",
+        "name",
+        "sameIndustry",
+        "subCategory",
+        "samePlaza",
+        "plazaConflict",
+      ].sort()
     );
   });
 

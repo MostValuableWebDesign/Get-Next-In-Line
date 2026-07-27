@@ -560,9 +560,64 @@ paths:
         "400":
           description: Invalid body or missing x-tenant-id header
         "403":
-          description: Same-industry pairing restricted by platform guidelines
+          description: Pairing restricted — same-industry guardrail (code SAME_INDUSTRY_RESTRICTED) or plaza exclusivity (code PLAZA_EXCLUSIVITY_RESTRICTED)
         "404":
           description: Business not found
+
+  /coop/plaza-notifications:
+    get:
+      operationId: listCoopPlazaNotifications
+      tags: [coop]
+      summary: Merchant-facing — in-app plaza exclusivity notifications for the scoped tenant (as requester or blocked target); tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Plaza exclusivity notifications, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopPlazaNotification"
+        "400":
+          description: Missing x-tenant-id header
+
+  /coop/plaza-conflicts:
+    get:
+      operationId: listCoopPlazaConflicts
+      tags: [admin]
+      summary: Admin-only — list plaza exclusivity conflicts recorded when invites were blocked
+      responses:
+        "200":
+          description: Plaza conflicts, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopPlazaConflict"
+
+  /coop/plaza-conflicts/{id}/release:
+    post:
+      operationId: releaseCoopPlazaConflict
+      tags: [admin]
+      summary: Admin-only — release a plaza exclusivity conflict so the blocked pairing can be retried
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Released conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPlazaConflict"
+        "404":
+          description: Not found
+        "409":
+          description: Conflict already released
 
   /coop/invites/{id}/respond:
     post:
@@ -3920,7 +3975,7 @@ components:
 
     CoopDirectoryEntry:
       type: object
-      required: [id, name, category, subCategory, industry, distanceMiles, city, sameIndustry]
+      required: [id, name, category, subCategory, industry, distanceMiles, city, sameIndustry, samePlaza, plazaConflict]
       properties:
         id:
           type: integer
@@ -3942,6 +3997,12 @@ components:
         sameIndustry:
           type: boolean
           description: True when this business shares the requester's Level 1 industry (different sub-niche — pairing still allowed). Direct same-sub-category competitors never appear at all.
+        samePlaza:
+          type: boolean
+          description: True when this business shares the requester's commercial complex (same address block + postal code, or lat/long proximity).
+        plazaConflict:
+          type: boolean
+          description: True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester's active same-plaza partnerships.
 
     CoopTaxonomySubCategory:
       type: object
@@ -4009,6 +4070,72 @@ components:
       properties:
         dismissed:
           type: boolean
+
+    CoopPlazaConflict:
+      type: object
+      required:
+        [
+          id,
+          requesterTenantId,
+          requesterTenantName,
+          blockedPartnerTenantId,
+          blockedPartnerTenantName,
+          existingPartnershipId,
+          existingPartnerTenantName,
+          category,
+          status,
+          releasedAt,
+          createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        requesterTenantId:
+          type: integer
+        requesterTenantName:
+          type: string
+        blockedPartnerTenantId:
+          type: integer
+        blockedPartnerTenantName:
+          type: string
+        existingPartnershipId:
+          type: ["integer", "null"]
+        existingPartnerTenantName:
+          type: ["string", "null"]
+        category:
+          type: string
+        status:
+          type: string
+          enum: [active, released]
+        releasedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    CoopPlazaNotification:
+      type: object
+      required: [id, role, otherBusinessName, category, status, message, createdAt]
+      properties:
+        id:
+          type: integer
+        role:
+          type: string
+          enum: [requester, blocked]
+          description: Whether the scoped tenant sent the blocked invite or was its target.
+        otherBusinessName:
+          type: string
+        category:
+          type: string
+        status:
+          type: string
+          enum: [active, released]
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
 
     CoopInviteCreate:
       type: object

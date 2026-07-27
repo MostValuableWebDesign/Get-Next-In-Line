@@ -60,6 +60,8 @@ import type {
   CoopPartnershipUpdate,
   CoopPerkRedeemRequest,
   CoopPerkRedeemResult,
+  CoopPlazaConflict,
+  CoopPlazaNotification,
   CoopRedemptionValidation,
   CoopStatsResponse,
   CoopSuggestion,
@@ -2183,6 +2185,231 @@ export const useCreateCoopInvite = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getCreateCoopInviteMutationOptions(options));
+    }
+
+export const getListCoopPlazaNotificationsUrl = () => {
+
+
+
+
+  return `/api/coop/plaza-notifications`
+}
+
+/**
+ * @summary Merchant-facing — in-app plaza exclusivity notifications for the scoped tenant (as requester or blocked target); tenant scope via x-tenant-id
+ */
+export const listCoopPlazaNotifications = async ( options?: RequestInit): Promise<CoopPlazaNotification[]> => {
+
+  return customFetch<CoopPlazaNotification[]>(getListCoopPlazaNotificationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopPlazaNotificationsQueryKey = () => {
+    return [
+    `/api/coop/plaza-notifications`
+    ] as const;
+    }
+
+
+export const getListCoopPlazaNotificationsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopPlazaNotifications>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPlazaNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopPlazaNotificationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopPlazaNotifications>>> = ({ signal }) => listCoopPlazaNotifications({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopPlazaNotifications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopPlazaNotificationsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopPlazaNotifications>>>
+export type ListCoopPlazaNotificationsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — in-app plaza exclusivity notifications for the scoped tenant (as requester or blocked target); tenant scope via x-tenant-id
+ */
+
+export function useListCoopPlazaNotifications<TData = Awaited<ReturnType<typeof listCoopPlazaNotifications>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPlazaNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopPlazaNotificationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCoopPlazaConflictsUrl = () => {
+
+
+
+
+  return `/api/coop/plaza-conflicts`
+}
+
+/**
+ * @summary Admin-only — list plaza exclusivity conflicts recorded when invites were blocked
+ */
+export const listCoopPlazaConflicts = async ( options?: RequestInit): Promise<CoopPlazaConflict[]> => {
+
+  return customFetch<CoopPlazaConflict[]>(getListCoopPlazaConflictsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopPlazaConflictsQueryKey = () => {
+    return [
+    `/api/coop/plaza-conflicts`
+    ] as const;
+    }
+
+
+export const getListCoopPlazaConflictsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopPlazaConflicts>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPlazaConflicts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopPlazaConflictsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopPlazaConflicts>>> = ({ signal }) => listCoopPlazaConflicts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopPlazaConflicts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopPlazaConflictsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopPlazaConflicts>>>
+export type ListCoopPlazaConflictsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Admin-only — list plaza exclusivity conflicts recorded when invites were blocked
+ */
+
+export function useListCoopPlazaConflicts<TData = Awaited<ReturnType<typeof listCoopPlazaConflicts>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPlazaConflicts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopPlazaConflictsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReleaseCoopPlazaConflictUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/plaza-conflicts/${id}/release`
+}
+
+/**
+ * @summary Admin-only — release a plaza exclusivity conflict so the blocked pairing can be retried
+ */
+export const releaseCoopPlazaConflict = async (id: number, options?: RequestInit): Promise<CoopPlazaConflict> => {
+
+  return customFetch<CoopPlazaConflict>(getReleaseCoopPlazaConflictUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReleaseCoopPlazaConflictMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releaseCoopPlazaConflict>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof releaseCoopPlazaConflict>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['releaseCoopPlazaConflict'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof releaseCoopPlazaConflict>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  releaseCoopPlazaConflict(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReleaseCoopPlazaConflictMutationResult = NonNullable<Awaited<ReturnType<typeof releaseCoopPlazaConflict>>>
+
+    export type ReleaseCoopPlazaConflictMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — release a plaza exclusivity conflict so the blocked pairing can be retried
+ */
+export const useReleaseCoopPlazaConflict = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof releaseCoopPlazaConflict>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof releaseCoopPlazaConflict>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getReleaseCoopPlazaConflictMutationOptions(options));
     }
 
 export const getRespondToCoopInviteUrl = (id: number,) => {

@@ -30,4 +30,8 @@ export interface CoopDirectoryEntry {
   city: string | null;
   /** True when this business shares the requester's Level 1 industry (different sub-niche — pairing still allowed). Direct same-sub-category competitors never appear at all. */
   sameIndustry: boolean;
+  /** True when this business shares the requester's commercial complex (same address block + postal code, or lat/long proximity). */
+  samePlaza: boolean;
+  /** True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester's active same-plaza partnerships. */
+  plazaConflict: boolean;
 }

@@ -683,6 +683,55 @@ export const coopAttributionEventsTable = pgTable(
 
 export type CoopAttributionEvent = typeof coopAttributionEventsTable.$inferSelect;
 
+// ── Co-op plaza exclusivity conflicts ────────────────────────────────────────
+// Recorded whenever the plaza exclusivity rule blocks a partnership invite:
+// two businesses in the same commercial complex (matching street address
+// block + postal code, or lat/long proximity) can't both pair with the same
+// anchor business's category. One row per blocked (requester, blocked
+// partner, category) trio; both tenants see the conflict as an in-app
+// notification, and an admin can release the exclusivity to let a retried
+// invite through. Admin-only release — never tenant-facing.
+export const coopPlazaConflictsTable = pgTable(
+  "coop_plaza_conflicts",
+  {
+    id: serial("id").primaryKey(),
+    // Tenant whose invite was blocked.
+    requesterTenantId: integer("requester_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // Tenant the requester tried to invite.
+    blockedPartnerTenantId: integer("blocked_partner_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // Requester's existing same-plaza partnership that already holds the
+    // category (NULL if that partnership was later deleted).
+    existingPartnershipId: integer("existing_partnership_id").references(
+      () => merchantCoopPartnershipsTable.id,
+      { onDelete: "set null" }
+    ),
+    // Normalized industry category the exclusivity applies to.
+    category: text("category").notNull(),
+    // active — exclusivity holds; released — admin lifted it (invites allowed).
+    status: text("status").notNull().default("active"),
+    releasedAt: timestamp("released_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_plaza_conflicts_requester_idx").on(t.requesterTenantId),
+    index("coop_plaza_conflicts_blocked_idx").on(t.blockedPartnerTenantId),
+    // One conflict row per trio — repeat blocked attempts update the row.
+    unique("coop_plaza_conflicts_trio_uq").on(
+      t.requesterTenantId,
+      t.blockedPartnerTenantId,
+      t.category
+    ),
+  ]
+);
+
+export type CoopPlazaConflict = typeof coopPlazaConflictsTable.$inferSelect;
+
+
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,
   provisionedAt: true,

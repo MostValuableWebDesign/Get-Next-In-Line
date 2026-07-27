@@ -249,6 +249,10 @@ export interface CoopDirectoryEntry {
   city: string | null;
   /** True when this business shares the requester's Level 1 industry (different sub-niche — pairing still allowed). Direct same-sub-category competitors never appear at all. */
   sameIndustry: boolean;
+  /** True when this business shares the requester's commercial complex (same address block + postal code, or lat/long proximity). */
+  samePlaza: boolean;
+  /** True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester's active same-plaza partnerships. */
+  plazaConflict: boolean;
 }
 
 export interface CoopTaxonomySubCategory {
@@ -292,6 +296,61 @@ export interface CoopSuggestion {
 
 export interface CoopSuggestionDismissResult {
   dismissed: boolean;
+}
+
+export type CoopPlazaConflictStatus = typeof CoopPlazaConflictStatus[keyof typeof CoopPlazaConflictStatus];
+
+
+export const CoopPlazaConflictStatus = {
+  active: 'active',
+  released: 'released',
+} as const;
+
+export interface CoopPlazaConflict {
+  id: number;
+  requesterTenantId: number;
+  requesterTenantName: string;
+  blockedPartnerTenantId: number;
+  blockedPartnerTenantName: string;
+  /** @nullable */
+  existingPartnershipId: number | null;
+  /** @nullable */
+  existingPartnerTenantName: string | null;
+  category: string;
+  status: CoopPlazaConflictStatus;
+  /** @nullable */
+  releasedAt: string | null;
+  createdAt: string;
+}
+
+/**
+ * Whether the scoped tenant sent the blocked invite or was its target.
+ */
+export type CoopPlazaNotificationRole = typeof CoopPlazaNotificationRole[keyof typeof CoopPlazaNotificationRole];
+
+
+export const CoopPlazaNotificationRole = {
+  requester: 'requester',
+  blocked: 'blocked',
+} as const;
+
+export type CoopPlazaNotificationStatus = typeof CoopPlazaNotificationStatus[keyof typeof CoopPlazaNotificationStatus];
+
+
+export const CoopPlazaNotificationStatus = {
+  active: 'active',
+  released: 'released',
+} as const;
+
+export interface CoopPlazaNotification {
+  id: number;
+  /** Whether the scoped tenant sent the blocked invite or was its target. */
+  role: CoopPlazaNotificationRole;
+  otherBusinessName: string;
+  category: string;
+  status: CoopPlazaNotificationStatus;
+  message: string;
+  createdAt: string;
 }
 
 export interface CoopInviteCreate {

@@ -15,6 +15,7 @@ import {
   useGetCoopStats, getGetCoopStatsQueryKey,
   useDismissCoopSuggestion,
   type CoopSuggestion,
+  useListCoopPlazaNotifications, getListCoopPlazaNotificationsQueryKey,
   type CoopDirectoryEntry, type CoopPartnership, type CoopPerkRedeemResult,
   type PlatformInvite,
   type CoopPartnerPerformance, type CoopMonthlyReport,
@@ -50,6 +51,8 @@ const DISPUTE_CATEGORIES = [
 ] as const;
 
 const SAME_INDUSTRY_MESSAGE = 'Same-industry pairings are restricted by platform guidelines.';
+const PLAZA_EXCLUSIVITY_MESSAGE =
+  'Plaza exclusivity: this business category is already represented by an active partnership in your commercial complex. Only one partner per category within the same plaza.';
 
 /**
  * Local Co-Op Network — merchant-facing hub (Business Bookings tab).
@@ -125,6 +128,8 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
       <div>
         <ScanPerkDialog />
       </div>
+
+      <PlazaExclusivityNotices />
 
       {received.length > 0 && (
         <div
@@ -1259,6 +1264,10 @@ function Directory({
       toast({ title: 'Pairing restricted', description: SAME_INDUSTRY_MESSAGE, variant: 'destructive' });
       return;
     }
+    if (biz.plazaConflict) {
+      toast({ title: 'Plaza exclusivity', description: PLAZA_EXCLUSIVITY_MESSAGE, variant: 'destructive' });
+      return;
+    }
     setInviteTarget(biz);
   };
 
@@ -1359,6 +1368,23 @@ function Directory({
                     <AlertTriangle className="w-3 h-3 mr-1" /> Same industry — restricted
                   </Badge>
                 )}
+                {biz.plazaConflict ? (
+                  <Badge
+                    variant="outline"
+                    className="mt-1 ml-1 text-red-600 border-red-300"
+                    data-testid={`badge-plaza-conflict-${biz.id}`}
+                  >
+                    <AlertTriangle className="w-3 h-3 mr-1" /> Plaza exclusivity — category taken
+                  </Badge>
+                ) : biz.samePlaza ? (
+                  <Badge
+                    variant="outline"
+                    className="mt-1 ml-1"
+                    data-testid={`badge-same-plaza-${biz.id}`}
+                  >
+                    <MapPin className="w-3 h-3 mr-1" /> Same plaza
+                  </Badge>
+                ) : null}
               </div>
               {partneredTenantIds.has(biz.id) ? (
                 <Badge variant="secondary" className="shrink-0" data-testid={`badge-already-partnered-${biz.id}`}>
@@ -1460,12 +1486,25 @@ function PerkBuilderDialog({
         },
         onError: (err: unknown) => {
           const e = err as { status?: number; data?: { code?: string; message?: string }; message?: string };
+          const plazaBlocked = e?.data?.code === 'PLAZA_EXCLUSIVITY_RESTRICTED';
           const restricted = e?.status === 403 || e?.data?.code === 'SAME_INDUSTRY_RESTRICTED';
+          if (plazaBlocked) {
+            // The block just recorded a conflict — refresh notifications and
+            // the directory's conflict flags.
+            queryClient.invalidateQueries({ queryKey: getListCoopPlazaNotificationsQueryKey() });
+            queryClient.invalidateQueries({ queryKey: getListCoopDirectoryQueryKey(undefined) });
+          }
           toast({
-            title: restricted ? 'Pairing restricted' : 'Could not send invite',
-            description: restricted
-              ? SAME_INDUSTRY_MESSAGE
-              : e?.data?.message ?? e?.message ?? 'Please try again.',
+            title: plazaBlocked
+              ? 'Plaza exclusivity'
+              : restricted
+                ? 'Pairing restricted'
+                : 'Could not send invite',
+            description: plazaBlocked
+              ? PLAZA_EXCLUSIVITY_MESSAGE
+              : restricted
+                ? SAME_INDUSTRY_MESSAGE
+                : e?.data?.message ?? e?.message ?? 'Please try again.',
             variant: 'destructive',
           });
         },
@@ -1554,6 +1593,37 @@ function PerkBuilderDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── Plaza exclusivity notifications ──────────────────────────────────────────
+// In-app notices shown to both sides whenever the plaza exclusivity rule
+// blocked a pairing. Admins release exclusivity from the Command Center.
+function PlazaExclusivityNotices() {
+  const { data: notices } = useListCoopPlazaNotifications({
+    query: { queryKey: getListCoopPlazaNotificationsQueryKey() },
+  });
+  if (!notices || notices.length === 0) return null;
+  return (
+    <div className="space-y-2" data-testid="list-plaza-notifications">
+      {notices.map(n => (
+        <div
+          key={n.id}
+          role="alert"
+          className={`rounded-lg border p-3 text-sm flex items-start gap-2 ${
+            n.status === 'released'
+              ? 'border-muted bg-muted/40 text-muted-foreground'
+              : 'border-red-300 bg-red-50 dark:bg-red-950/30'
+          }`}
+          data-testid={`alert-plaza-notification-${n.id}`}
+        >
+          <AlertTriangle
+            className={`w-4 h-4 shrink-0 mt-0.5 ${n.status === 'released' ? 'text-muted-foreground' : 'text-red-600'}`}
+          />
+          <span>{n.message}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
