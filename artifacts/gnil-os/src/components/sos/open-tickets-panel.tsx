@@ -17,6 +17,12 @@ import { CheckCircle, Crown, BadgePercent } from 'lucide-react';
 import {
   PLAN_ICONS, SellPlanDialog, isUsablePlan, planBenefitLabel,
 } from '@/components/sos/plan-benefits';
+import { usePartnerPerks, PartnerPerksBlock } from '@/components/sos/partner-perks';
+import type { CoopActivePerk } from '@workspace/api-client-react';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Printer } from 'lucide-react';
 
 type Benefit = { customerPlanId: number; type: 'redeem_credit' | 'membership_discount' };
 
@@ -30,6 +36,10 @@ export function OpenTicketsPanel() {
   const advance = useAdvanceSosVisit();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  // Live co-op partner perks — deployed automatically while a partnership is
+  // accepted and active; disappear the moment it's deactivated or declined.
+  const { perks } = usePartnerPerks();
+  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
   const openTickets = visits?.filter(v => v.status === 'payment') || [];
 
@@ -49,6 +59,7 @@ export function OpenTicketsPanel() {
         <TicketCard
           key={ticket.id}
           ticket={ticket}
+          perks={perks}
           isPending={advance.isPending}
           onCheckout={(amount, benefit, staffId) => {
             advance.mutate(
@@ -67,6 +78,11 @@ export function OpenTicketsPanel() {
                 onSuccess: () => {
                   queryClient.invalidateQueries({ queryKey: getListSosVisitsQueryKey({ active: true }) });
                   queryClient.invalidateQueries({ queryKey: getGetSosCustomerPlansQueryKey(ticket.customerId) });
+                  setReceipt({
+                    customerName: ticket.customerName,
+                    serviceType: ticket.serviceType,
+                    amount,
+                  });
                   toast({
                     title: 'Payment completed',
                     description: benefit?.type === 'redeem_credit'
@@ -88,14 +104,64 @@ export function OpenTicketsPanel() {
           }}
         />
       ))}
+      <ReceiptDialog receipt={receipt} perks={perks} onClose={() => setReceipt(null)} />
     </div>
   );
 }
 
+type ReceiptData = { customerName: string; serviceType: string; amount: number };
+
+/**
+ * Post-checkout receipt (printable). Partner perks from active co-op
+ * partnerships are printed on every receipt automatically.
+ */
+function ReceiptDialog({
+  receipt, perks, onClose,
+}: {
+  receipt: ReceiptData | null;
+  perks: CoopActivePerk[];
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={receipt != null} onOpenChange={o => { if (!o) onClose(); }}>
+      <DialogContent data-testid="dialog-receipt">
+        <DialogHeader>
+          <DialogTitle>Receipt</DialogTitle>
+          <DialogDescription>Payment completed — print or close.</DialogDescription>
+        </DialogHeader>
+        {receipt && (
+          <div className="space-y-3 text-sm" data-testid="receipt-body">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Customer</span>
+              <span className="font-medium">{receipt.customerName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Service</span>
+              <span>{receipt.serviceType}</span>
+            </div>
+            <div className="flex justify-between border-t pt-2">
+              <span className="text-muted-foreground">Total paid</span>
+              <span className="font-bold">${receipt.amount.toFixed(2)}</span>
+            </div>
+            <PartnerPerksBlock perks={perks} staffFacing title="Your Partner Perks" />
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} data-testid="button-close-receipt">Close</Button>
+          <Button onClick={() => window.print()} className="gap-2" data-testid="button-print-receipt">
+            <Printer className="w-4 h-4" /> Print
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function TicketCard({
-  ticket, onCheckout, isPending,
+  ticket, perks, onCheckout, isPending,
 }: {
   ticket: any;
+  perks: CoopActivePerk[];
   onCheckout: (amt: number, benefit: Benefit | null, staffId: number | null) => void;
   isPending: boolean;
 }) {
@@ -189,6 +255,9 @@ function TicketCard({
             </Badge>
           )}
         </div>
+
+        {/* Co-op partner perks — staff-facing (includes redemption codes) */}
+        <PartnerPerksBlock perks={perks} staffFacing />
 
         {activeStaff.length > 0 && (
           <div className="space-y-1.5">

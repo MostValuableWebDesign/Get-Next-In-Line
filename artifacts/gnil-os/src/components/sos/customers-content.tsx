@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PLAN_ICONS, planStatusBadgeClass, CancelPlanButton } from '@/components/sos/plan-benefits';
+import { usePartnerPerks, PartnerPerksBlock } from '@/components/sos/partner-perks';
 
 /**
  * Customer CRM content — rendered as the "Customers" tab on Business
@@ -215,9 +216,13 @@ function CustomerPlansSection({ customerId }: { customerId: number }) {
   const { data, isLoading } = useGetSosCustomerPlans(customerId, {
     query: { queryKey: getGetSosCustomerPlansQueryKey(customerId) },
   });
+  // Live co-op partner perks ride along on the customer's digital pass —
+  // deployed automatically while a partnership is accepted and active.
+  const { perks } = usePartnerPerks();
 
   return (
-    <div>
+    <div className="space-y-3">
+      <PartnerPerksBlock perks={perks} title="Partner Perks on this pass" />
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
         Memberships & Credits
       </h3>

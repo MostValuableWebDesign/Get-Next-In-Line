@@ -52,6 +52,8 @@ vi.mock('@workspace/api-client-react', () => ({
   useMarkSosAppointmentNoShow: () => ({ mutate: vi.fn(), isPending: false }),
   useCancelSosAppointment: () => ({ mutate: cancelMutate, isPending: false }),
   useCreateSosAppointment: () => ({ mutate: createMutate, isPending: false }),
+  useListCoopPartnerships: () => ({ data: [], isLoading: false }),
+  getListCoopPartnershipsQueryKey: () => ['/api/coop/partnerships'],
 }));
 
 // The other tabs pull in their own hooks — stub them out; this test only
@@ -63,6 +65,7 @@ vi.mock('@/pages/sos/ai-receptionist', () => ({ AiReceptionistPage: () => null }
 vi.mock('@/components/sos/open-tickets-panel', () => ({ OpenTicketsPanel: () => null }));
 vi.mock('@/components/sos/plan-benefits', () => ({ CustomerPlanBadges: () => null }));
 vi.mock('@/components/sos/customer-picker', () => ({ CustomerPicker: () => null }));
+vi.mock('@/components/sos/coop-network-content', () => ({ CoopNetworkContent: () => null }));
 
 import { BookingsPage } from '@/pages/sos/bookings';
 

@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type Request, type IRouter } from "express";
 import { randomBytes } from "crypto";
 import {
   db,
@@ -6,10 +6,11 @@ import {
   modulesTable,
   tenantModulesTable,
   merchantCoopPartnershipsTable,
+  sosSettingsTable,
   type MerchantCoopPartnership,
 } from "@workspace/db";
 import { alias } from "drizzle-orm/pg-core";
-import { desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or } from "drizzle-orm";
 import {
   ListCoopPartnershipsResponse,
   CreateCoopPartnershipBody,
@@ -17,6 +18,12 @@ import {
   UpdateCoopPartnershipBody,
   UpdateCoopPartnershipResponse,
   ValidateCoopRedemptionCodeResponse,
+  ListCoopDirectoryResponse,
+  CreateCoopInviteBody,
+  CreateCoopInviteResponse,
+  RespondToCoopInviteBody,
+  RespondToCoopInviteResponse,
+  ListCoopActivePerksResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -56,9 +63,36 @@ function serialize(
     perkDescription: p.perkDescription,
     redemptionCode: p.redemptionCode,
     industryBarrierOverridden: p.industryBarrierOverridden,
+    status: p.status,
+    requestedByTenantId: p.requestedByTenantId,
+    mutualRewardTerms: p.mutualRewardTerms,
     isActive: p.isActive,
     createdAt: p.createdAt.toISOString(),
   };
+}
+
+/** Tenant scope from the x-tenant-id header (same convention as /api/sos). */
+function tenantIdFrom(req: Request): number | null {
+  const raw = req.header("x-tenant-id");
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// Exact tenant-facing copy the UI shows when the guardrail blocks a pairing.
+const SAME_INDUSTRY_MESSAGE = "Same-industry pairings are restricted by platform guidelines.";
+
+/**
+ * A tenant's industry category for the merchant-facing guardrail: the
+ * business's own SOS profile (businessCategory when set, else industryType).
+ * NULL when the tenant has no SOS settings row yet.
+ */
+function industryOf(
+  s: { businessCategory: string; industryType: string } | null | undefined
+): string | null {
+  if (!s) return null;
+  const cat = s.businessCategory.trim() || s.industryType.trim();
+  return cat ? cat.toLowerCase() : null;
 }
 
 function partnershipRows() {
@@ -223,6 +257,24 @@ router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
     res.status(400).json({ message: "No fields to update" });
     return;
   }
+  // A perk can only be (re)activated on an accepted partnership — pending and
+  // declined invites must never surface anywhere.
+  if (updates.isActive === true) {
+    const [existing] = await db
+      .select({ status: merchantCoopPartnershipsTable.status })
+      .from(merchantCoopPartnershipsTable)
+      .where(eq(merchantCoopPartnershipsTable.id, id));
+    if (!existing) {
+      res.status(404).json({ message: "Not found" });
+      return;
+    }
+    if (existing.status !== "accepted") {
+      res.status(409).json({
+        message: "Only accepted partnerships can be activated",
+      });
+      return;
+    }
+  }
   updates.updatedAt = new Date();
 
   try {
@@ -250,6 +302,246 @@ router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Merchant-facing Local Co-Op Network — tenant scope via x-tenant-id header
+// (same convention as /api/sos/*).
+// ---------------------------------------------------------------------------
+
+// ── GET /coop/directory — other businesses on the platform ──────────────────
+// Safe, public-ish profile only (name, category, city); never contacts, MRR,
+// or module details. Flags same-industry businesses so the UI can warn before
+// an invite is even attempted.
+router.get("/coop/directory", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const [me] = await db
+    .select({
+      businessCategory: sosSettingsTable.businessCategory,
+      industryType: sosSettingsTable.industryType,
+    })
+    .from(sosSettingsTable)
+    .where(eq(sosSettingsTable.tenantId, tenantId));
+  const myIndustry = industryOf(me);
+
+  const rows = await db
+    .select({
+      id: tenantsTable.id,
+      name: tenantsTable.brandName,
+      businessCategory: sosSettingsTable.businessCategory,
+      industryType: sosSettingsTable.industryType,
+      city: sosSettingsTable.addressLocality,
+    })
+    .from(tenantsTable)
+    .leftJoin(sosSettingsTable, eq(sosSettingsTable.tenantId, tenantsTable.id))
+    .where(and(ne(tenantsTable.id, tenantId), eq(tenantsTable.status, "active")))
+    .orderBy(tenantsTable.brandName);
+
+  const search = String(req.query.search ?? "").trim().toLowerCase();
+  const cityFilter = String(req.query.city ?? "").trim().toLowerCase();
+  const categoryFilter = String(req.query.category ?? "").trim().toLowerCase();
+
+  const entries = rows
+    .map((r) => {
+      const industry = industryOf(
+        r.businessCategory != null && r.industryType != null
+          ? { businessCategory: r.businessCategory, industryType: r.industryType }
+          : null
+      );
+      // Display casing: prefer the raw profile values over the lowercased key.
+      const category = (r.businessCategory?.trim() || r.industryType?.trim()) ?? null;
+      return {
+        id: r.id,
+        name: r.name,
+        category: category || null,
+        city: r.city?.trim() || null,
+        sameIndustry: myIndustry != null && industry != null && industry === myIndustry,
+      };
+    })
+    .filter((e) => !search || e.name.toLowerCase().includes(search))
+    .filter((e) => !cityFilter || (e.city ?? "").toLowerCase() === cityFilter)
+    .filter((e) => !categoryFilter || (e.category ?? "").toLowerCase() === categoryFilter);
+
+  res.json(ListCoopDirectoryResponse.parse(entries));
+});
+
+// ── POST /coop/invites — merchant sends a partnership invite ────────────────
+// Strict same-industry guardrail: no tenant-facing override, distinct error
+// code the UI maps to the exact platform-guidelines message. Invites start
+// pending + inactive; the perk only goes live on acceptance.
+router.post("/coop/invites", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = CreateCoopInviteBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const { partnerTenantId, perkTitle } = parsed.data;
+  if (partnerTenantId === tenantId) {
+    res.status(400).json({ message: "A business cannot partner with itself" });
+    return;
+  }
+  const tenants = await db
+    .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
+    .from(tenantsTable)
+    .where(inArray(tenantsTable.id, [tenantId, partnerTenantId]));
+  const requester = tenants.find((t) => t.id === tenantId);
+  const target = tenants.find((t) => t.id === partnerTenantId);
+  if (!requester || !target) {
+    res.status(404).json({ message: "Business not found" });
+    return;
+  }
+
+  const settings = await db
+    .select({
+      tenantId: sosSettingsTable.tenantId,
+      businessCategory: sosSettingsTable.businessCategory,
+      industryType: sosSettingsTable.industryType,
+    })
+    .from(sosSettingsTable)
+    .where(inArray(sosSettingsTable.tenantId, [tenantId, partnerTenantId]));
+  const mine = industryOf(settings.find((s) => s.tenantId === tenantId));
+  const theirs = industryOf(settings.find((s) => s.tenantId === partnerTenantId));
+  if (mine != null && theirs != null && mine === theirs) {
+    res.status(403).json({ code: "SAME_INDUSTRY_RESTRICTED", message: SAME_INDUSTRY_MESSAGE });
+    return;
+  }
+
+  // Bounded retry: auto-generated codes are random, collisions are rare.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const [created] = await db
+        .insert(merchantCoopPartnershipsTable)
+        .values({
+          hostTenantId: tenantId,
+          partnerTenantId,
+          perkTitle,
+          perkDescription: parsed.data.perkDescription?.trim() || null,
+          mutualRewardTerms: parsed.data.mutualRewardTerms?.trim() || null,
+          redemptionCode: generateCode(),
+          requestedByTenantId: tenantId,
+          status: "pending",
+          isActive: false,
+        })
+        .returning();
+      res
+        .status(201)
+        .json(CreateCoopInviteResponse.parse(serialize(created, requester.brandName, target.brandName)));
+      return;
+    } catch (err) {
+      if (pgUniqueViolation(err)) continue;
+      throw err;
+    }
+  }
+  res.status(500).json({ message: "Could not generate a unique redemption code" });
+});
+
+// ── POST /coop/invites/:id/respond — target accepts or declines ─────────────
+router.post("/coop/invites/:id/respond", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const parsed = RespondToCoopInviteBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const [invite] = await db
+    .select()
+    .from(merchantCoopPartnershipsTable)
+    .where(eq(merchantCoopPartnershipsTable.id, id));
+  if (!invite) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const isParticipant = invite.hostTenantId === tenantId || invite.partnerTenantId === tenantId;
+  if (!isParticipant || invite.requestedByTenantId === tenantId) {
+    res.status(403).json({ message: "Only the invited business can respond to this invite" });
+    return;
+  }
+  if (invite.status !== "pending") {
+    res.status(409).json({ message: `This invite was already ${invite.status}` });
+    return;
+  }
+  const accept = parsed.data.action === "accept";
+  // Conditional update guards against a concurrent double-respond.
+  const [updated] = await db
+    .update(merchantCoopPartnershipsTable)
+    .set({
+      status: accept ? "accepted" : "declined",
+      isActive: accept,
+      respondedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.id, id),
+        eq(merchantCoopPartnershipsTable.status, "pending")
+      )
+    )
+    .returning();
+  if (!updated) {
+    res.status(409).json({ message: "This invite was already responded to" });
+    return;
+  }
+  const [row] = await partnershipRows().where(eq(merchantCoopPartnershipsTable.id, id));
+  res.json(
+    RespondToCoopInviteResponse.parse(
+      serialize(row.partnership, row.hostTenantName, row.partnerTenantName)
+    )
+  );
+});
+
+// ── GET /coop/perks — live partner perks for the scoped tenant ──────────────
+// The single source every customer surface (checkout, receipts, pass/plan
+// views) reads: only accepted AND active partnerships ever appear, so perks
+// deploy on acceptance and vanish on deactivation with no manual steps.
+router.get("/coop/perks", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const rows = await partnershipRows()
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.status, "accepted"),
+        eq(merchantCoopPartnershipsTable.isActive, true),
+        or(
+          eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
+          eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId)
+        )
+      )
+    )
+    .orderBy(desc(merchantCoopPartnershipsTable.createdAt), desc(merchantCoopPartnershipsTable.id));
+  res.json(
+    ListCoopActivePerksResponse.parse(
+      rows.map((r) => ({
+        id: r.partnership.id,
+        perkTitle: r.partnership.perkTitle,
+        perkDescription: r.partnership.perkDescription,
+        mutualRewardTerms: r.partnership.mutualRewardTerms,
+        partnerName:
+          r.partnership.hostTenantId === tenantId ? r.partnerTenantName : r.hostTenantName,
+        redemptionCode: r.partnership.redemptionCode,
+      }))
+    )
+  );
+});
+
 // ── GET /coop/redemptions/:code — validate a perk code at checkout ──────────
 // Always 200 with a valid flag so staff-facing checkout flows get a clean
 // yes/no; unknown codes and inactive partnerships both fail validation.
@@ -268,7 +560,7 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
     );
     return;
   }
-  if (!row.partnership.isActive) {
+  if (!row.partnership.isActive || row.partnership.status !== "accepted") {
     res.json(
       ValidateCoopRedemptionCodeResponse.parse({
         valid: false,

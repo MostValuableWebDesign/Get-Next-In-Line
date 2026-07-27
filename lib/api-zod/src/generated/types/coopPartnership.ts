@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { CoopPartnershipStatus } from './coopPartnershipStatus';
 
 export interface CoopPartnership {
   id: number;
@@ -17,6 +18,15 @@ export interface CoopPartnership {
   perkDescription: string | null;
   redemptionCode: string;
   industryBarrierOverridden: boolean;
+  /** Invite lifecycle; admin-created partnerships are accepted from the start. */
+  status: CoopPartnershipStatus;
+  /**
+     * Tenant that initiated the invite; null for admin-created partnerships.
+     * @nullable
+     */
+  requestedByTenantId: number | null;
+  /** @nullable */
+  mutualRewardTerms: string | null;
   isActive: boolean;
   createdAt: string;
 }

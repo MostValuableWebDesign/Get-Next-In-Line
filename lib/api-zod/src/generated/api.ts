@@ -381,6 +381,9 @@ export const ListCoopPartnershipsResponseItem = zod.object({
   "perkDescription": zod.string().nullable(),
   "redemptionCode": zod.string(),
   "industryBarrierOverridden": zod.boolean(),
+  "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
+  "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
+  "mutualRewardTerms": zod.string().nullable(),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -413,6 +416,9 @@ export const CreateCoopPartnershipResponse = zod.object({
   "perkDescription": zod.string().nullable(),
   "redemptionCode": zod.string(),
   "industryBarrierOverridden": zod.boolean(),
+  "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
+  "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
+  "mutualRewardTerms": zod.string().nullable(),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
@@ -446,9 +452,105 @@ export const UpdateCoopPartnershipResponse = zod.object({
   "perkDescription": zod.string().nullable(),
   "redemptionCode": zod.string(),
   "industryBarrierOverridden": zod.boolean(),
+  "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
+  "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
+  "mutualRewardTerms": zod.string().nullable(),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 })
+
+
+/**
+ * @summary Merchant-facing — other active businesses on the platform (name, category, city only); tenant scope via x-tenant-id
+ */
+export const ListCoopDirectoryQueryParams = zod.object({
+  "search": zod.coerce.string().optional(),
+  "city": zod.coerce.string().optional(),
+  "category": zod.coerce.string().optional()
+})
+
+export const ListCoopDirectoryResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string().nullable(),
+  "city": zod.string().nullable(),
+  "sameIndustry": zod.boolean().describe('True when this business shares the requester\'s exact industry category (pairing restricted).')
+})
+export const ListCoopDirectoryResponse = zod.array(ListCoopDirectoryResponseItem)
+
+
+/**
+ * @summary Merchant-facing — send a partnership invite (strict same-industry guardrail, no override); tenant scope via x-tenant-id
+ */
+
+
+
+export const CreateCoopInviteBody = zod.object({
+  "partnerTenantId": zod.number(),
+  "perkTitle": zod.string().min(1),
+  "perkDescription": zod.string().optional(),
+  "mutualRewardTerms": zod.string().optional()
+})
+
+export const CreateCoopInviteResponse = zod.object({
+  "id": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "partnerTenantId": zod.number(),
+  "partnerTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redemptionCode": zod.string(),
+  "industryBarrierOverridden": zod.boolean(),
+  "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
+  "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
+  "mutualRewardTerms": zod.string().nullable(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — the invited business accepts or declines a pending invite; tenant scope via x-tenant-id
+ */
+export const RespondToCoopInviteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RespondToCoopInviteBody = zod.object({
+  "action": zod.enum(['accept', 'decline'])
+})
+
+export const RespondToCoopInviteResponse = zod.object({
+  "id": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "partnerTenantId": zod.number(),
+  "partnerTenantName": zod.string(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redemptionCode": zod.string(),
+  "industryBarrierOverridden": zod.boolean(),
+  "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
+  "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
+  "mutualRewardTerms": zod.string().nullable(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — live partner perks for the scoped tenant (accepted + active partnerships only); tenant scope via x-tenant-id
+ */
+export const ListCoopActivePerksResponseItem = zod.object({
+  "id": zod.number(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "mutualRewardTerms": zod.string().nullable(),
+  "partnerName": zod.string(),
+  "redemptionCode": zod.string()
+})
+export const ListCoopActivePerksResponse = zod.array(ListCoopActivePerksResponseItem)
 
 
 /**
@@ -471,6 +573,9 @@ export const ValidateCoopRedemptionCodeResponse = zod.object({
   "perkDescription": zod.string().nullable(),
   "redemptionCode": zod.string(),
   "industryBarrierOverridden": zod.boolean(),
+  "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
+  "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
+  "mutualRewardTerms": zod.string().nullable(),
   "isActive": zod.boolean(),
   "createdAt": zod.string()
 }),zod.null()])

@@ -23,9 +23,11 @@ let currentSosTenantId: number | null = null;
 
 setTenantHeaderGetter((url) => {
   if (currentSosTenantId == null) return null;
-  // Only SOS operational endpoints understand this header; everything else
-  // must stay unscoped.
-  return url.includes('/api/sos/') ? String(currentSosTenantId) : null;
+  // Only SOS operational endpoints and the merchant-facing co-op endpoints
+  // understand this header; everything else must stay unscoped.
+  return url.includes('/api/sos/') || url.includes('/api/coop/')
+    ? String(currentSosTenantId)
+    : null;
 });
 
 /** Parse a positive-integer tenant id out of a ?tenant= search param. */
@@ -42,11 +44,12 @@ export function getCurrentSosTenantId(): number | null {
 }
 
 function dropSosQueries(queryClient: QueryClient) {
-  // SOS query keys start with the request URL; drop them all so data cached
-  // under the previous scope can never bleed into the new one.
+  // SOS/co-op query keys start with the request URL; drop them all so data
+  // cached under the previous scope can never bleed into the new one.
   queryClient.removeQueries({
     predicate: (q) =>
-      typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('/api/sos/'),
+      typeof q.queryKey[0] === 'string' &&
+      (q.queryKey[0].includes('/api/sos/') || q.queryKey[0].includes('/api/coop/')),
   });
 }
 

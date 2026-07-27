@@ -450,6 +450,112 @@ paths:
         "404":
           description: Not found
 
+  /coop/directory:
+    get:
+      operationId: listCoopDirectory
+      tags: [coop]
+      summary: Merchant-facing — other active businesses on the platform (name, category, city only); tenant scope via x-tenant-id
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: city
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Directory entries, excluding the requesting business
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopDirectoryEntry"
+        "400":
+          description: Missing x-tenant-id header
+
+  /coop/invites:
+    post:
+      operationId: createCoopInvite
+      tags: [coop]
+      summary: Merchant-facing — send a partnership invite (strict same-industry guardrail, no override); tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopInviteCreate"
+      responses:
+        "201":
+          description: Pending invite created (perk not live until accepted)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPartnership"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+        "403":
+          description: Same-industry pairing restricted by platform guidelines
+        "404":
+          description: Business not found
+
+  /coop/invites/{id}/respond:
+    post:
+      operationId: respondToCoopInvite
+      tags: [coop]
+      summary: Merchant-facing — the invited business accepts or declines a pending invite; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopInviteRespond"
+      responses:
+        "200":
+          description: Updated partnership (accepted invites go live immediately)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPartnership"
+        "403":
+          description: Only the invited business can respond
+        "404":
+          description: Not found
+        "409":
+          description: Invite already responded to
+
+  /coop/perks:
+    get:
+      operationId: listCoopActivePerks
+      tags: [coop]
+      summary: Merchant-facing — live partner perks for the scoped tenant (accepted + active partnerships only); tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Live partner perks shown on checkout, receipts, and customer pass surfaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopActivePerk"
+        "400":
+          description: Missing x-tenant-id header
+
   /coop/redemptions/{code}:
     get:
       operationId: validateCoopRedemptionCode
@@ -2046,6 +2152,9 @@ components:
           perkDescription,
           redemptionCode,
           industryBarrierOverridden,
+          status,
+          requestedByTenantId,
+          mutualRewardTerms,
           isActive,
           createdAt,
         ]
@@ -2068,9 +2177,73 @@ components:
           type: string
         industryBarrierOverridden:
           type: boolean
+        status:
+          type: string
+          enum: [pending, accepted, declined]
+          description: Invite lifecycle; admin-created partnerships are accepted from the start.
+        requestedByTenantId:
+          type: ["integer", "null"]
+          description: Tenant that initiated the invite; null for admin-created partnerships.
+        mutualRewardTerms:
+          type: ["string", "null"]
         isActive:
           type: boolean
         createdAt:
+          type: string
+
+    CoopDirectoryEntry:
+      type: object
+      required: [id, name, category, city, sameIndustry]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        sameIndustry:
+          type: boolean
+          description: True when this business shares the requester's exact industry category (pairing restricted).
+
+    CoopInviteCreate:
+      type: object
+      required: [partnerTenantId, perkTitle]
+      properties:
+        partnerTenantId:
+          type: integer
+        perkTitle:
+          type: string
+          minLength: 1
+        perkDescription:
+          type: string
+        mutualRewardTerms:
+          type: string
+
+    CoopInviteRespond:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [accept, decline]
+
+    CoopActivePerk:
+      type: object
+      required: [id, perkTitle, perkDescription, mutualRewardTerms, partnerName, redemptionCode]
+      properties:
+        id:
+          type: integer
+        perkTitle:
+          type: string
+        perkDescription:
+          type: ["string", "null"]
+        mutualRewardTerms:
+          type: ["string", "null"]
+        partnerName:
+          type: string
+        redemptionCode:
           type: string
 
     CoopPartnershipCreate:

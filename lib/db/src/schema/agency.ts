@@ -180,6 +180,17 @@ export const merchantCoopPartnershipsTable = pgTable(
     redemptionCode: text("redemption_code").notNull().unique(),
     // True when an admin explicitly bypassed the same-category block.
     industryBarrierOverridden: boolean("industry_barrier_overridden").notNull().default(false),
+    // Invite lifecycle: pending | accepted | declined. Admin-created rows
+    // (and all pre-existing rows) default to accepted so nothing regresses;
+    // merchant-initiated invites start pending and only go live on accept.
+    status: text("status").notNull().default("accepted"),
+    // Tenant that initiated the invite (NULL for admin-created partnerships).
+    requestedByTenantId: integer("requested_by_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    // Free-form description of what each side owes the other (mutual terms).
+    mutualRewardTerms: text("mutual_reward_terms"),
+    respondedAt: timestamp("responded_at"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

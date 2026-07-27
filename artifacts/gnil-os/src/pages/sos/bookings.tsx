@@ -25,11 +25,15 @@ import { MembershipPlansContent } from '@/pages/sos/memberships';
 import { ServiceMenuContent } from '@/components/sos/service-menu-content';
 import { AiReceptionistPage } from '@/pages/sos/ai-receptionist';
 import { StaffContent } from '@/components/sos/staff-content';
+import { CoopNetworkContent } from '@/components/sos/coop-network-content';
+import {
+  useListCoopPartnerships, getListCoopPartnershipsQueryKey,
+} from '@workspace/api-client-react';
 import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
   Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
   Activity, ListOrdered, CheckCircle2, Phone, DollarSign, Search,
-  ChevronLeft, ChevronRight, UtensilsCrossed,
+  ChevronLeft, ChevronRight, UtensilsCrossed, Handshake,
 } from 'lucide-react';
 
 /**
@@ -37,7 +41,7 @@ import {
  * List and Calendar views of appointments (the old standalone Calendar page
  * redirects here), plus the one place open tickets are checked out.
  */
-const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'services', 'plans', 'staff', 'ai-receptionist'] as const;
+const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'services', 'plans', 'staff', 'ai-receptionist', 'coop'] as const;
 
 export function BookingsPage() {
   // Tab state lives in the URL (?tab=) so /sos/bookings?tab=reports deep
@@ -72,6 +76,25 @@ export function BookingsPage() {
     return Number.isInteger(n) && n > 0 ? n : null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Incoming co-op invite count — badges the Local Co-Op Network tab so the
+  // invited business notices new proposals without opening the hub.
+  const { data: coopPartnerships } = useListCoopPartnerships(
+    selectedTenant != null ? { tenantId: selectedTenant } : undefined,
+    {
+      query: {
+        queryKey: getListCoopPartnershipsQueryKey(
+          selectedTenant != null ? { tenantId: selectedTenant } : undefined,
+        ),
+        enabled: selectedTenant != null,
+      },
+    },
+  );
+  const incomingInvites = selectedTenant != null
+    ? (coopPartnerships ?? []).filter(
+        p => p.status === 'pending' && p.requestedByTenantId != null && p.requestedByTenantId !== selectedTenant,
+      ).length
+    : 0;
 
   const { data: appointments, isLoading: isLoadingAppointments } = useListSosAppointments({});
   const { data: visits, isLoading: isLoadingVisits } = useListSosVisits({ active: true });
@@ -210,6 +233,14 @@ export function BookingsPage() {
           <TabsTrigger value="ai-receptionist" data-testid="tab-ai-receptionist">
             <Bot className="h-4 w-4 mr-1.5" /> AI Receptionist
           </TabsTrigger>
+          <TabsTrigger value="coop" data-testid="tab-coop-network">
+            <Handshake className="h-4 w-4 mr-1.5" /> Local Co-Op Network
+            {incomingInvites > 0 && (
+              <Badge className="ml-1.5 h-5 min-w-5 px-1.5" data-testid="badge-coop-invites">
+                {incomingInvites}
+              </Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="mt-0">
@@ -273,6 +304,12 @@ export function BookingsPage() {
               inbound simulator, and SMS broadcast history, now a tab here.
               The old URL redirects to this tab. */}
           <AiReceptionistPage embedded tenantId={selectedTenant} key={selectedTenant ?? 'legacy'} />
+        </TabsContent>
+
+        <TabsContent value="coop" className="mt-0">
+          {/* Merchant-facing Local Co-Op Network hub — directory, invites,
+              and active partnerships for the selected business */}
+          <CoopNetworkContent tenantId={selectedTenant} />
         </TabsContent>
       </Tabs>
     </div>

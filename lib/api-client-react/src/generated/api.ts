@@ -39,7 +39,11 @@ import type {
   ConciergeSuggestUpsellsResult,
   ConnectorRegistryEntry,
   ConnectorRegistryEntryUpdate,
+  CoopActivePerk,
+  CoopDirectoryEntry,
   CoopIndustryBarrierError,
+  CoopInviteCreate,
+  CoopInviteRespond,
   CoopPartnership,
   CoopPartnershipCreate,
   CoopPartnershipUpdate,
@@ -50,6 +54,7 @@ import type {
   GetSosStaffEarningsParams,
   GetTenantActivityParams,
   HealthStatus,
+  ListCoopDirectoryParams,
   ListCoopPartnershipsParams,
   ListSosAppointmentsParams,
   ListSosCustomersParams,
@@ -1733,6 +1738,310 @@ export const useUpdateCoopPartnership = <TError = ErrorType<void>,
       > => {
       return useMutation(getUpdateCoopPartnershipMutationOptions(options));
     }
+
+export const getListCoopDirectoryUrl = (params?: ListCoopDirectoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/coop/directory?${stringifiedParams}` : `/api/coop/directory`
+}
+
+/**
+ * @summary Merchant-facing — other active businesses on the platform (name, category, city only); tenant scope via x-tenant-id
+ */
+export const listCoopDirectory = async (params?: ListCoopDirectoryParams, options?: RequestInit): Promise<CoopDirectoryEntry[]> => {
+
+  return customFetch<CoopDirectoryEntry[]>(getListCoopDirectoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopDirectoryQueryKey = (params?: ListCoopDirectoryParams,) => {
+    return [
+    `/api/coop/directory`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCoopDirectoryQueryOptions = <TData = Awaited<ReturnType<typeof listCoopDirectory>>, TError = ErrorType<void>>(params?: ListCoopDirectoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopDirectory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopDirectoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopDirectory>>> = ({ signal }) => listCoopDirectory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopDirectory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopDirectoryQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopDirectory>>>
+export type ListCoopDirectoryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — other active businesses on the platform (name, category, city only); tenant scope via x-tenant-id
+ */
+
+export function useListCoopDirectory<TData = Awaited<ReturnType<typeof listCoopDirectory>>, TError = ErrorType<void>>(
+ params?: ListCoopDirectoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopDirectory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopDirectoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopInviteUrl = () => {
+
+
+
+
+  return `/api/coop/invites`
+}
+
+/**
+ * @summary Merchant-facing — send a partnership invite (strict same-industry guardrail, no override); tenant scope via x-tenant-id
+ */
+export const createCoopInvite = async (coopInviteCreate: CoopInviteCreate, options?: RequestInit): Promise<CoopPartnership> => {
+
+  return customFetch<CoopPartnership>(getCreateCoopInviteUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopInviteCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopInviteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopInvite>>, TError,{data: BodyType<CoopInviteCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopInvite>>, TError,{data: BodyType<CoopInviteCreate>}, TContext> => {
+
+const mutationKey = ['createCoopInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopInvite>>, {data: BodyType<CoopInviteCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopInvite(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopInviteMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopInvite>>>
+    export type CreateCoopInviteMutationBody = BodyType<CoopInviteCreate>
+    export type CreateCoopInviteMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — send a partnership invite (strict same-industry guardrail, no override); tenant scope via x-tenant-id
+ */
+export const useCreateCoopInvite = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopInvite>>, TError,{data: BodyType<CoopInviteCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopInvite>>,
+        TError,
+        {data: BodyType<CoopInviteCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopInviteMutationOptions(options));
+    }
+
+export const getRespondToCoopInviteUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/invites/${id}/respond`
+}
+
+/**
+ * @summary Merchant-facing — the invited business accepts or declines a pending invite; tenant scope via x-tenant-id
+ */
+export const respondToCoopInvite = async (id: number,
+    coopInviteRespond: CoopInviteRespond, options?: RequestInit): Promise<CoopPartnership> => {
+
+  return customFetch<CoopPartnership>(getRespondToCoopInviteUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopInviteRespond)
+  }
+);}
+
+
+
+
+
+export const getRespondToCoopInviteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopInvite>>, TError,{id: number;data: BodyType<CoopInviteRespond>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondToCoopInvite>>, TError,{id: number;data: BodyType<CoopInviteRespond>}, TContext> => {
+
+const mutationKey = ['respondToCoopInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondToCoopInvite>>, {id: number;data: BodyType<CoopInviteRespond>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  respondToCoopInvite(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondToCoopInviteMutationResult = NonNullable<Awaited<ReturnType<typeof respondToCoopInvite>>>
+    export type RespondToCoopInviteMutationBody = BodyType<CoopInviteRespond>
+    export type RespondToCoopInviteMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — the invited business accepts or declines a pending invite; tenant scope via x-tenant-id
+ */
+export const useRespondToCoopInvite = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopInvite>>, TError,{id: number;data: BodyType<CoopInviteRespond>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondToCoopInvite>>,
+        TError,
+        {id: number;data: BodyType<CoopInviteRespond>},
+        TContext
+      > => {
+      return useMutation(getRespondToCoopInviteMutationOptions(options));
+    }
+
+export const getListCoopActivePerksUrl = () => {
+
+
+
+
+  return `/api/coop/perks`
+}
+
+/**
+ * @summary Merchant-facing — live partner perks for the scoped tenant (accepted + active partnerships only); tenant scope via x-tenant-id
+ */
+export const listCoopActivePerks = async ( options?: RequestInit): Promise<CoopActivePerk[]> => {
+
+  return customFetch<CoopActivePerk[]>(getListCoopActivePerksUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopActivePerksQueryKey = () => {
+    return [
+    `/api/coop/perks`
+    ] as const;
+    }
+
+
+export const getListCoopActivePerksQueryOptions = <TData = Awaited<ReturnType<typeof listCoopActivePerks>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopActivePerks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopActivePerksQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopActivePerks>>> = ({ signal }) => listCoopActivePerks({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopActivePerks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopActivePerksQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopActivePerks>>>
+export type ListCoopActivePerksQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — live partner perks for the scoped tenant (accepted + active partnerships only); tenant scope via x-tenant-id
+ */
+
+export function useListCoopActivePerks<TData = Awaited<ReturnType<typeof listCoopActivePerks>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopActivePerks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopActivePerksQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getValidateCoopRedemptionCodeUrl = (code: string,) => {
 

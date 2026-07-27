@@ -5,6 +5,18 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * Invite lifecycle; admin-created partnerships are accepted from the start.
+ */
+export type CoopPartnershipStatus = typeof CoopPartnershipStatus[keyof typeof CoopPartnershipStatus];
+
+
+export const CoopPartnershipStatus = {
+  pending: 'pending',
+  accepted: 'accepted',
+  declined: 'declined',
+} as const;
+
 export interface CoopPartnership {
   id: number;
   hostTenantId: number;
@@ -16,8 +28,59 @@ export interface CoopPartnership {
   perkDescription: string | null;
   redemptionCode: string;
   industryBarrierOverridden: boolean;
+  /** Invite lifecycle; admin-created partnerships are accepted from the start. */
+  status: CoopPartnershipStatus;
+  /**
+     * Tenant that initiated the invite; null for admin-created partnerships.
+     * @nullable
+     */
+  requestedByTenantId: number | null;
+  /** @nullable */
+  mutualRewardTerms: string | null;
   isActive: boolean;
   createdAt: string;
+}
+
+export interface CoopDirectoryEntry {
+  id: number;
+  name: string;
+  /** @nullable */
+  category: string | null;
+  /** @nullable */
+  city: string | null;
+  /** True when this business shares the requester's exact industry category (pairing restricted). */
+  sameIndustry: boolean;
+}
+
+export interface CoopInviteCreate {
+  partnerTenantId: number;
+  /** @minLength 1 */
+  perkTitle: string;
+  perkDescription?: string;
+  mutualRewardTerms?: string;
+}
+
+export type CoopInviteRespondAction = typeof CoopInviteRespondAction[keyof typeof CoopInviteRespondAction];
+
+
+export const CoopInviteRespondAction = {
+  accept: 'accept',
+  decline: 'decline',
+} as const;
+
+export interface CoopInviteRespond {
+  action: CoopInviteRespondAction;
+}
+
+export interface CoopActivePerk {
+  id: number;
+  perkTitle: string;
+  /** @nullable */
+  perkDescription: string | null;
+  /** @nullable */
+  mutualRewardTerms: string | null;
+  partnerName: string;
+  redemptionCode: string;
 }
 
 export interface CoopPartnershipCreate {
@@ -1760,6 +1823,12 @@ before_id?: number;
 
 export type ListCoopPartnershipsParams = {
 tenantId?: number;
+};
+
+export type ListCoopDirectoryParams = {
+search?: string;
+city?: string;
+category?: string;
 };
 
 export type ListSosCustomersParams = {
