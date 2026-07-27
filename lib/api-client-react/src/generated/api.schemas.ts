@@ -165,6 +165,97 @@ export interface CoopPartnershipUpdate {
   perkEndsAt?: string | null;
 }
 
+export type PlatformInviteStatus = typeof PlatformInviteStatus[keyof typeof PlatformInviteStatus];
+
+
+export const PlatformInviteStatus = {
+  sent: 'sent',
+  clicked: 'clicked',
+  registered: 'registered',
+  expired: 'expired',
+} as const;
+
+export interface PlatformInvite {
+  id: number;
+  invitedBusinessName: string;
+  /** @nullable */
+  invitedContact: string | null;
+  status: PlatformInviteStatus;
+  /** Absolute trackable link the merchant shares with the invited business. */
+  inviteUrl: string;
+  /** Ready-to-copy SMS/email message including the incentive copy and the link. */
+  message: string;
+  /**
+     * Tenant created through this invite, once registered.
+     * @nullable
+     */
+  resultingTenantId: number | null;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface PlatformInviteCreate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  businessName: string;
+  /**
+     * Optional phone/email note for the merchant's own tracking.
+     * @maxLength 200
+     */
+  contact?: string;
+}
+
+/**
+ * Registration is only possible while sent/clicked.
+ */
+export type PublicPlatformInviteStatus = typeof PublicPlatformInviteStatus[keyof typeof PublicPlatformInviteStatus];
+
+
+export const PublicPlatformInviteStatus = {
+  sent: 'sent',
+  clicked: 'clicked',
+  registered: 'registered',
+  expired: 'expired',
+} as const;
+
+export interface PublicPlatformInvite {
+  inviterBusinessName: string;
+  invitedBusinessName: string;
+  /** Registration is only possible while sent/clicked. */
+  status: PublicPlatformInviteStatus;
+}
+
+export interface PlatformInviteRegistration {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  businessName: string;
+  /** @maxLength 120 */
+  contactName?: string;
+  /** @maxLength 200 */
+  contactEmail?: string;
+  /**
+     * Business category, e.g. HairSalon or CafeOrCoffeeShop.
+     * @maxLength 120
+     */
+  category?: string;
+  /** @pattern ^[a-z0-9][a-z0-9-]{1,60}[a-z0-9]$ */
+  subdomain: string;
+}
+
+export interface PlatformInviteRegistrationResult {
+  tenantId: number;
+  subdomain: string;
+  brandName: string;
+  /** False when the same-industry guardrail blocked the auto-created partnership. */
+  partnershipCreated: boolean;
+  /** @nullable */
+  partnershipBlockedReason: string | null;
+}
+
 export interface CoopIndustryBarrierError {
   message: string;
   sharedCategories: string[];

@@ -5,7 +5,10 @@ import {
   useCreateCoopInvite, useRespondToCoopInvite,
   useListCoopActivePerks, getListCoopActivePerksQueryKey,
   useRedeemCoopPerk,
+  useListPlatformInvites, getListPlatformInvitesQueryKey,
+  useCreatePlatformInvite,
   type CoopDirectoryEntry, type CoopPartnership, type CoopPerkRedeemResult,
+  type PlatformInvite,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,8 +26,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
-  AlertTriangle, ArrowLeftRight, Bell, CalendarClock, Check, Handshake, Keyboard,
-  MapPin, ScanLine, Search, Send, Store, Ticket, X, XCircle,
+  AlertTriangle, ArrowLeftRight, Bell, CalendarClock, Check, Copy, Handshake, Keyboard,
+  Link2, MapPin, ScanLine, Search, Send, Store, Ticket, UserPlus, X, XCircle,
 } from 'lucide-react';
 
 const SAME_INDUSTRY_MESSAGE = 'Same-industry pairings are restricted by platform guidelines.';
@@ -122,6 +125,7 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
           <div className="space-y-6">
             <ReceivedInvites invites={received} />
             <SentInvites invites={sent} />
+            <PlatformInvitesList />
             <ActivePartnerships
               partnerships={active}
               expired={expired}
@@ -560,6 +564,7 @@ function Directory({
   const [city, setCity] = useState<string>('all');
   const [category, setCategory] = useState<string>('all');
   const [inviteTarget, setInviteTarget] = useState<CoopDirectoryEntry | null>(null);
+  const [platformInviteName, setPlatformInviteName] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Fetch unfiltered and filter client-side so the city/category dropdowns
@@ -636,9 +641,26 @@ function Directory({
         {isLoading ? (
           <div className="space-y-2"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6" data-testid="text-directory-empty">
-            No businesses match your filters.
-          </p>
+          search.trim() ? (
+            <div className="text-center py-6 space-y-3" data-testid="state-business-not-found">
+              <p className="text-sm font-medium">Business not found on the network</p>
+              <p className="text-sm text-muted-foreground">
+                "{search.trim()}" isn't on Get Next In Line yet. Invite them — when they join
+                through your link, a partnership request is created automatically.
+              </p>
+              <Button
+                className="gap-2"
+                onClick={() => setPlatformInviteName(search.trim())}
+                data-testid="button-invite-to-platform"
+              >
+                <UserPlus className="w-4 h-4" /> Invite to Get Next In Line &amp; Partner
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-6" data-testid="text-directory-empty">
+              No businesses match your filters.
+            </p>
+          )
         ) : (
           filtered.map(biz => (
             <div
@@ -690,6 +712,10 @@ function Directory({
         tenantId={tenantId}
         target={inviteTarget}
         onClose={() => setInviteTarget(null)}
+      />
+      <PlatformInviteDialog
+        initialName={platformInviteName}
+        onClose={() => setPlatformInviteName(null)}
       />
     </Card>
   );
@@ -843,5 +869,195 @@ function PerkBuilderDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ── Platform invites — invite off-platform businesses to join & partner ─────
+
+function CopyRow({ label, value, testId }: { label: string; value: string; testId: string }) {
+  const { toast } = useToast();
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast({ title: 'Copied to clipboard' });
+    } catch {
+      toast({ title: 'Copy failed', description: 'Select and copy the text manually.', variant: 'destructive' });
+    }
+  };
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs">{label}</Label>
+        <Button size="sm" variant="ghost" className="h-7 gap-1.5" onClick={copy} data-testid={`button-copy-${testId}`}>
+          <Copy className="w-3.5 h-3.5" /> Copy
+        </Button>
+      </div>
+      <div
+        className="rounded-md border bg-muted/40 p-2 text-xs break-all whitespace-pre-wrap"
+        data-testid={`text-${testId}`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function PlatformInviteDialog({
+  initialName, onClose,
+}: {
+  initialName: string | null;
+  onClose: () => void;
+}) {
+  const [businessName, setBusinessName] = useState('');
+  const [contact, setContact] = useState('');
+  const [created, setCreated] = useState<PlatformInvite | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const createInvite = useCreatePlatformInvite();
+
+  // Prefill from the failed search each time the dialog opens.
+  const open = initialName != null;
+  const nameValue = businessName || (initialName ?? '');
+
+  const close = () => {
+    setBusinessName('');
+    setContact('');
+    setCreated(null);
+    onClose();
+  };
+
+  const generate = () => {
+    createInvite.mutate(
+      {
+        data: {
+          businessName: nameValue.trim(),
+          ...(contact.trim() ? { contact: contact.trim() } : {}),
+        },
+      },
+      {
+        onSuccess: invite => {
+          setCreated(invite);
+          queryClient.invalidateQueries({ queryKey: getListPlatformInvitesQueryKey() });
+        },
+        onError: (err: unknown) => {
+          const e = err as { data?: { message?: string }; message?: string };
+          toast({
+            title: 'Could not create the invite',
+            description: e?.data?.message ?? e?.message ?? 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={o => { if (!o) close(); }}>
+      <DialogContent data-testid="dialog-platform-invite">
+        <DialogHeader>
+          <DialogTitle>Invite to Get Next In Line &amp; Partner</DialogTitle>
+          <DialogDescription>
+            {created
+              ? 'Send them the link below — when they register through it, a partnership request from you is created automatically.'
+              : 'Generate a unique trackable link and a ready-to-send message for a business that isn\u2019t on the platform yet.'}
+          </DialogDescription>
+        </DialogHeader>
+        {created ? (
+          <div className="space-y-4" data-testid="platform-invite-share-sheet">
+            <CopyRow label="Invitation link" value={created.inviteUrl} testId="platform-invite-link" />
+            <CopyRow label="SMS / email message" value={created.message} testId="platform-invite-message" />
+            <p className="text-xs text-muted-foreground">
+              You send this yourself — nothing is sent automatically. The link expires on{' '}
+              {new Date(created.expiresAt).toLocaleDateString()}.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="platform-invite-name">Business name</Label>
+              <Input
+                id="platform-invite-name"
+                value={nameValue}
+                onChange={e => setBusinessName(e.target.value)}
+                placeholder="e.g. Riverside Florist"
+                data-testid="input-platform-invite-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="platform-invite-contact">Their phone or email (optional, for your own tracking)</Label>
+              <Input
+                id="platform-invite-contact"
+                value={contact}
+                onChange={e => setContact(e.target.value)}
+                placeholder="e.g. (555) 010-1234"
+                data-testid="input-platform-invite-contact"
+              />
+            </div>
+          </div>
+        )}
+        <DialogFooter>
+          {created ? (
+            <Button onClick={close} data-testid="button-platform-invite-done">Done</Button>
+          ) : (
+            <Button
+              onClick={generate}
+              disabled={nameValue.trim() === '' || createInvite.isPending}
+              className="gap-2"
+              data-testid="button-generate-platform-invite"
+            >
+              <Link2 className="w-4 h-4" /> Generate Invitation Link
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const PLATFORM_INVITE_STATUS: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
+  sent: { label: 'Sent', variant: 'secondary' },
+  clicked: { label: 'Clicked', variant: 'outline' },
+  registered: { label: 'Registered', variant: 'default' },
+  expired: { label: 'Expired', variant: 'destructive' },
+};
+
+function PlatformInvitesList() {
+  const { data: invites } = useListPlatformInvites({
+    query: { queryKey: getListPlatformInvitesQueryKey() },
+  });
+  if (!invites || invites.length === 0) return null;
+  return (
+    <Card data-testid="card-platform-invites">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <UserPlus className="w-4 h-4 text-muted-foreground" /> Platform Invites
+        </CardTitle>
+        <CardDescription>
+          Off-platform businesses you invited to join Get Next In Line.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {invites.map(inv => {
+          const s = PLATFORM_INVITE_STATUS[inv.status] ?? PLATFORM_INVITE_STATUS.sent;
+          return (
+            <div
+              key={inv.id}
+              className="border rounded-lg p-3 flex items-center justify-between gap-3"
+              data-testid={`row-platform-invite-${inv.id}`}
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">{inv.invitedBusinessName}</div>
+                {inv.invitedContact && (
+                  <div className="text-xs text-muted-foreground truncate">{inv.invitedContact}</div>
+                )}
+              </div>
+              <Badge variant={s.variant} className="shrink-0" data-testid={`badge-platform-invite-status-${inv.id}`}>
+                {s.label}
+              </Badge>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }

@@ -33,7 +33,18 @@ import {
   ListCoopActivePerksResponse,
   RedeemCoopPerkBody,
   RedeemCoopPerkResponse,
+  CreatePlatformInviteBody,
+  CreatePlatformInviteResponse,
+  ListPlatformInvitesResponse,
 } from "@workspace/api-zod";
+import { platformInvitesTable } from "@workspace/db";
+import {
+  generateInviteToken,
+  inviteExpiryDate,
+  buildInviteUrl,
+  buildInviteMessage,
+  effectiveInviteStatus,
+} from "../lib/platformInvites";
 
 const router: IRouter = Router();
 
@@ -492,6 +503,103 @@ router.post("/coop/invites", async (req, res): Promise<void> => {
     }
   }
   res.status(500).json({ message: "Could not generate a unique redemption code" });
+});
+
+// ── Platform invites — invite an OFF-platform business to join & partner ────
+// The merchant gets a unique trackable link plus a ready-to-copy message they
+// send themselves (no email/SMS infrastructure involved). Registration through
+// the link is handled by the public fast-track flow in platformInviteJoin.ts.
+
+function serializePlatformInvite(
+  req: Request,
+  invite: typeof platformInvitesTable.$inferSelect,
+  inviterName: string
+) {
+  const inviteUrl = buildInviteUrl(req, invite.token);
+  return {
+    id: invite.id,
+    invitedBusinessName: invite.invitedBusinessName,
+    invitedContact: invite.invitedContact,
+    status: effectiveInviteStatus(invite),
+    inviteUrl,
+    message: buildInviteMessage({
+      inviterName,
+      invitedBusinessName: invite.invitedBusinessName,
+      inviteUrl,
+    }),
+    resultingTenantId: invite.resultingTenantId,
+    expiresAt: invite.expiresAt.toISOString(),
+    createdAt: invite.createdAt.toISOString(),
+  };
+}
+
+// ── POST /coop/platform-invites — create a trackable off-platform invite ────
+router.post("/coop/platform-invites", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = CreatePlatformInviteBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const [inviter] = await db
+    .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, tenantId));
+  if (!inviter) {
+    res.status(404).json({ message: "Business not found" });
+    return;
+  }
+  // Bounded retry: tokens are 24 random bytes, collisions are near-impossible.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const [created] = await db
+        .insert(platformInvitesTable)
+        .values({
+          inviterTenantId: tenantId,
+          invitedBusinessName: parsed.data.businessName.trim(),
+          invitedContact: parsed.data.contact?.trim() || null,
+          token: generateInviteToken(),
+          expiresAt: inviteExpiryDate(),
+        })
+        .returning();
+      res
+        .status(201)
+        .json(
+          CreatePlatformInviteResponse.parse(
+            serializePlatformInvite(req, created, inviter.brandName)
+          )
+        );
+      return;
+    } catch (err) {
+      if (pgUniqueViolation(err)) continue;
+      throw err;
+    }
+  }
+  res.status(500).json({ message: "Could not generate a unique invite token" });
+});
+
+// ── GET /coop/platform-invites — sent invites with tracking status ──────────
+router.get("/coop/platform-invites", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const rows = await db
+    .select({ invite: platformInvitesTable, inviterName: tenantsTable.brandName })
+    .from(platformInvitesTable)
+    .innerJoin(tenantsTable, eq(platformInvitesTable.inviterTenantId, tenantsTable.id))
+    .where(eq(platformInvitesTable.inviterTenantId, tenantId))
+    .orderBy(desc(platformInvitesTable.createdAt), desc(platformInvitesTable.id));
+  res.json(
+    ListPlatformInvitesResponse.parse(
+      rows.map((r) => serializePlatformInvite(req, r.invite, r.inviterName))
+    )
+  );
 });
 
 // ── POST /coop/invites/:id/respond — target accepts or declines ─────────────

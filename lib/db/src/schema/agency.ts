@@ -206,6 +206,46 @@ export const merchantCoopPartnershipsTable = pgTable(
   ]
 );
 
+// ── Platform invitations ─────────────────────────────────────────────────────
+// A merchant invites an OFF-platform business to join Get Next In Line via a
+// unique trackable link. When the external owner registers through the link,
+// a pending co-op partnership from the inviter to the new tenant is created
+// automatically.
+export const platformInvitesTable = pgTable(
+  "platform_invites",
+  {
+    id: serial("id").primaryKey(),
+    inviterTenantId: integer("inviter_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    invitedBusinessName: text("invited_business_name").notNull(),
+    // Free-form contact hint (phone/email) the merchant noted; optional.
+    invitedContact: text("invited_contact"),
+    // Unique single-use token embedded in the trackable link.
+    token: text("token").notNull().unique(),
+    // Lifecycle: sent → clicked → registered; expired when past expires_at.
+    status: text("status").notNull().default("sent"),
+    // Tenant created through this invite, once registered.
+    resultingTenantId: integer("resulting_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    expiresAt: timestamp("expires_at").notNull(),
+    clickedAt: timestamp("clicked_at"),
+    registeredAt: timestamp("registered_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("platform_invites_inviter_idx").on(t.inviterTenantId)]
+);
+
+export const insertPlatformInviteSchema = createInsertSchema(platformInvitesTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertPlatformInvite = z.infer<typeof insertPlatformInviteSchema>;
+export type PlatformInvite = typeof platformInvitesTable.$inferSelect;
+
 export const insertMerchantCoopPartnershipSchema = createInsertSchema(
   merchantCoopPartnershipsTable
 ).omit({ id: true, createdAt: true, updatedAt: true });

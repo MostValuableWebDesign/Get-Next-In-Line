@@ -575,6 +575,98 @@ paths:
         "400":
           description: Missing x-tenant-id header or invalid body
 
+  /coop/platform-invites:
+    get:
+      operationId: listPlatformInvites
+      tags: [coop]
+      summary: Merchant-facing — invites this business sent to off-platform businesses, with tracking status; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Platform invites, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlatformInvite"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createPlatformInvite
+      tags: [coop]
+      summary: Merchant-facing — invite an off-platform business to join and partner; returns a trackable link and a ready-to-send message; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlatformInviteCreate"
+      responses:
+        "201":
+          description: Created invite with trackable link and copyable message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformInvite"
+        "400":
+          description: Missing x-tenant-id header or invalid body
+
+  /public/coop/invites/{token}:
+    get:
+      operationId: getPublicPlatformInvite
+      tags: [public]
+      summary: Public — validate a platform-invite token for the fast-track registration page (marks the invite clicked)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invite context for the registration page; status tells the page whether registration is still possible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPlatformInvite"
+        "404":
+          description: Unknown invite token
+
+  /public/coop/invites/{token}/register:
+    post:
+      operationId: registerViaPlatformInvite
+      tags: [public]
+      summary: Public — fast-track registration through a platform invite; creates the tenant + storefront and the pending co-op partnership
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlatformInviteRegistration"
+      responses:
+        "201":
+          description: Account created; a pending partnership from the inviter is waiting unless blocked by the same-industry guardrail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformInviteRegistrationResult"
+        "400":
+          description: Invalid body or subdomain format
+        "404":
+          description: Unknown invite token
+        "409":
+          description: Invite already used / subdomain taken
+        "410":
+          description: Invite expired
+        "429":
+          description: Too many registration attempts
+
   /coop/redemptions/{code}:
     get:
       operationId: validateCoopRedemptionCode
@@ -2370,6 +2462,108 @@ components:
         perkEndsAt:
           type: ["string", "null"]
           format: date-time
+
+    PlatformInvite:
+      type: object
+      required:
+        [
+          id,
+          invitedBusinessName,
+          invitedContact,
+          status,
+          inviteUrl,
+          message,
+          resultingTenantId,
+          expiresAt,
+          createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        invitedBusinessName:
+          type: string
+        invitedContact:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [sent, clicked, registered, expired]
+        inviteUrl:
+          type: string
+          description: Absolute trackable link the merchant shares with the invited business.
+        message:
+          type: string
+          description: Ready-to-copy SMS/email message including the incentive copy and the link.
+        resultingTenantId:
+          type: ["integer", "null"]
+          description: Tenant created through this invite, once registered.
+        expiresAt:
+          type: string
+        createdAt:
+          type: string
+
+    PlatformInviteCreate:
+      type: object
+      required: [businessName]
+      properties:
+        businessName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        contact:
+          type: string
+          maxLength: 200
+          description: Optional phone/email note for the merchant's own tracking.
+
+    PublicPlatformInvite:
+      type: object
+      required: [inviterBusinessName, invitedBusinessName, status]
+      properties:
+        inviterBusinessName:
+          type: string
+        invitedBusinessName:
+          type: string
+        status:
+          type: string
+          enum: [sent, clicked, registered, expired]
+          description: Registration is only possible while sent/clicked.
+
+    PlatformInviteRegistration:
+      type: object
+      required: [businessName, subdomain]
+      properties:
+        businessName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        contactName:
+          type: string
+          maxLength: 120
+        contactEmail:
+          type: string
+          maxLength: 200
+        category:
+          type: string
+          maxLength: 120
+          description: Business category, e.g. HairSalon or CafeOrCoffeeShop.
+        subdomain:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]{1,60}[a-z0-9]$"
+
+    PlatformInviteRegistrationResult:
+      type: object
+      required: [tenantId, subdomain, brandName, partnershipCreated, partnershipBlockedReason]
+      properties:
+        tenantId:
+          type: integer
+        subdomain:
+          type: string
+        brandName:
+          type: string
+        partnershipCreated:
+          type: boolean
+          description: False when the same-industry guardrail blocked the auto-created partnership.
+        partnershipBlockedReason:
+          type: ["string", "null"]
 
     CoopIndustryBarrierError:
       type: object

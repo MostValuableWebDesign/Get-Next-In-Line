@@ -610,6 +610,99 @@ export const RedeemCoopPerkResponse = zod.object({
 
 
 /**
+ * @summary Merchant-facing — invites this business sent to off-platform businesses, with tracking status; tenant scope via x-tenant-id
+ */
+export const ListPlatformInvitesResponseItem = zod.object({
+  "id": zod.number(),
+  "invitedBusinessName": zod.string(),
+  "invitedContact": zod.string().nullable(),
+  "status": zod.enum(['sent', 'clicked', 'registered', 'expired']),
+  "inviteUrl": zod.string().describe('Absolute trackable link the merchant shares with the invited business.'),
+  "message": zod.string().describe('Ready-to-copy SMS\/email message including the incentive copy and the link.'),
+  "resultingTenantId": zod.number().nullable().describe('Tenant created through this invite, once registered.'),
+  "expiresAt": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListPlatformInvitesResponse = zod.array(ListPlatformInvitesResponseItem)
+
+
+/**
+ * @summary Merchant-facing — invite an off-platform business to join and partner; returns a trackable link and a ready-to-send message; tenant scope via x-tenant-id
+ */
+export const createPlatformInviteBodyBusinessNameMax = 120;
+
+export const createPlatformInviteBodyContactMax = 200;
+
+
+
+export const CreatePlatformInviteBody = zod.object({
+  "businessName": zod.string().min(1).max(createPlatformInviteBodyBusinessNameMax),
+  "contact": zod.string().max(createPlatformInviteBodyContactMax).optional().describe('Optional phone\/email note for the merchant\'s own tracking.')
+})
+
+export const CreatePlatformInviteResponse = zod.object({
+  "id": zod.number(),
+  "invitedBusinessName": zod.string(),
+  "invitedContact": zod.string().nullable(),
+  "status": zod.enum(['sent', 'clicked', 'registered', 'expired']),
+  "inviteUrl": zod.string().describe('Absolute trackable link the merchant shares with the invited business.'),
+  "message": zod.string().describe('Ready-to-copy SMS\/email message including the incentive copy and the link.'),
+  "resultingTenantId": zod.number().nullable().describe('Tenant created through this invite, once registered.'),
+  "expiresAt": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Public — validate a platform-invite token for the fast-track registration page (marks the invite clicked)
+ */
+export const GetPublicPlatformInviteParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPublicPlatformInviteResponse = zod.object({
+  "inviterBusinessName": zod.string(),
+  "invitedBusinessName": zod.string(),
+  "status": zod.enum(['sent', 'clicked', 'registered', 'expired']).describe('Registration is only possible while sent\/clicked.')
+})
+
+
+/**
+ * @summary Public — fast-track registration through a platform invite; creates the tenant + storefront and the pending co-op partnership
+ */
+export const RegisterViaPlatformInviteParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const registerViaPlatformInviteBodyBusinessNameMax = 120;
+
+export const registerViaPlatformInviteBodyContactNameMax = 120;
+
+export const registerViaPlatformInviteBodyContactEmailMax = 200;
+
+export const registerViaPlatformInviteBodyCategoryMax = 120;
+
+export const registerViaPlatformInviteBodySubdomainRegExp = new RegExp('^[a-z0-9][a-z0-9-]{1,60}[a-z0-9]$');
+
+
+export const RegisterViaPlatformInviteBody = zod.object({
+  "businessName": zod.string().min(1).max(registerViaPlatformInviteBodyBusinessNameMax),
+  "contactName": zod.string().max(registerViaPlatformInviteBodyContactNameMax).optional(),
+  "contactEmail": zod.string().max(registerViaPlatformInviteBodyContactEmailMax).optional(),
+  "category": zod.string().max(registerViaPlatformInviteBodyCategoryMax).optional().describe('Business category, e.g. HairSalon or CafeOrCoffeeShop.'),
+  "subdomain": zod.string().regex(registerViaPlatformInviteBodySubdomainRegExp)
+})
+
+export const RegisterViaPlatformInviteResponse = zod.object({
+  "tenantId": zod.number(),
+  "subdomain": zod.string(),
+  "brandName": zod.string(),
+  "partnershipCreated": zod.boolean().describe('False when the same-industry guardrail blocked the auto-created partnership.'),
+  "partnershipBlockedReason": zod.string().nullable()
+})
+
+
+/**
  * @summary Validate a co-op perk redemption code at checkout time
  */
 export const ValidateCoopRedemptionCodeParams = zod.object({

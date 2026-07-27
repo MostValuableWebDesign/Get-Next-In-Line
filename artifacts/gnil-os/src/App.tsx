@@ -11,6 +11,7 @@ import OperationsHub from "@/pages/OperationsHub";
 import ModuleConsole from "@/pages/ModuleConsole";
 import Login from "@/pages/Login";
 import PublicBookingPage from "@/pages/public-booking";
+import JoinInvitePage from "@/pages/join-invite";
 import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
@@ -201,6 +202,12 @@ function Router() {
           without an account. */}
       <Route path="/book/:slug">
         {(params) => <PublicBookingPage slug={params.slug} />}
+      </Route>
+      {/* Public platform-invite fast-track registration — the invited
+          business owner has no account yet, so this must stay outside
+          ProtectedApp. Token validity is enforced server-side. */}
+      <Route path="/join/:token">
+        {(params) => <JoinInvitePage token={params.token} />}
       </Route>
       <Route component={ProtectedApp} />
     </Switch>

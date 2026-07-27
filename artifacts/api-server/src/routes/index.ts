@@ -14,6 +14,7 @@ import coopRouter from "./coop";
 import publicBookingRouter from "./publicBooking";
 import landingRouter from "./landing";
 import campaignRedirectRouter from "./campaignRedirect";
+import platformInviteJoinRouter from "./platformInviteJoin";
 import reviewsRouter from "./reviews";
 
 const router: IRouter = Router();
@@ -34,6 +35,10 @@ router.use(landingRouter);
 // clicks and crawlers hit them without a session. Logs an attribution event
 // and 302s to the tenant's public landing page.
 router.use(campaignRedirectRouter);
+// Platform-invite fast-track flow (/join/:token, /public/coop/invites/:token)
+// — deliberately unauthenticated: the invited business owner has no account
+// yet. Token-validated, single-use for registration, and rate limited.
+router.use(platformInviteJoinRouter);
 
 // ── Protected routes ─────────────────────────────────────────────────────────
 // All routes below this middleware require a valid session — except the

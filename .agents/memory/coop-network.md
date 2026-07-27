@@ -13,3 +13,9 @@ description: Invite lifecycle rules and tenant scoping for the merchant Local Co
 - `GET /api/coop/perks` returns `{ disclaimer, perks }` (not a bare array); the platform liability disclaimer has a single source in the api-server coop perks lib and must accompany every perk surface — never hardcode the text in the frontend.
 - Perks have optional start/end windows (NULL = always active); all perk-serving queries and redemption validation filter by the window, and a worker-tick sweep archives expired perks (isActive=false, never deleted; hub shows "Expired").
 - Redemption locking: unique (partnership, passCode) row inserted with onConflictDoNothing — the QR payload is `CODE|PASSCODE`; a pass instance redeems exactly once even under concurrent scans.
+
+## Platform invites (off-platform businesses)
+- Trackable link is `/api/join/:token` (public, campaignRedirect-style) → marks clicked → 302 to SPA `/join/:token`; tokens are 48-char lowercase hex.
+- Single-use guard: registration consumes the invite via a conditional UPDATE (`status in ('sent','clicked')`) inside the same transaction that creates the tenant/storefront/partnership — losers of the race roll back cleanly.
+- Expiry is computed lazily (`effectiveInviteStatus`) — no sweeper flips rows to expired; never trust the raw `status` column alone for display or registration gating.
+- Auto-created partnership respects the same-industry guardrail by comparing the inviter's sos_settings category to the registrant's submitted category; registration still succeeds when blocked (partnershipCreated=false).

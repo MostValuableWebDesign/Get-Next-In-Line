@@ -70,11 +70,16 @@ import type {
   PartnerConnectResult,
   PartnerConnectionStatus,
   PartnerConnectionSummary,
+  PlatformInvite,
+  PlatformInviteCreate,
+  PlatformInviteRegistration,
+  PlatformInviteRegistrationResult,
   PublicAvailabilityInput,
   PublicAvailabilityResponse,
   PublicBookingConfig,
   PublicBookingConfirmation,
   PublicBookingInput,
+  PublicPlatformInvite,
   SosAppointment,
   SosAppointmentInput,
   SosCall,
@@ -2114,6 +2119,303 @@ export const useRedeemCoopPerk = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRedeemCoopPerkMutationOptions(options));
+    }
+
+export const getListPlatformInvitesUrl = () => {
+
+
+
+
+  return `/api/coop/platform-invites`
+}
+
+/**
+ * @summary Merchant-facing — invites this business sent to off-platform businesses, with tracking status; tenant scope via x-tenant-id
+ */
+export const listPlatformInvites = async ( options?: RequestInit): Promise<PlatformInvite[]> => {
+
+  return customFetch<PlatformInvite[]>(getListPlatformInvitesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPlatformInvitesQueryKey = () => {
+    return [
+    `/api/coop/platform-invites`
+    ] as const;
+    }
+
+
+export const getListPlatformInvitesQueryOptions = <TData = Awaited<ReturnType<typeof listPlatformInvites>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlatformInvites>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPlatformInvitesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPlatformInvites>>> = ({ signal }) => listPlatformInvites({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPlatformInvites>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPlatformInvitesQueryResult = NonNullable<Awaited<ReturnType<typeof listPlatformInvites>>>
+export type ListPlatformInvitesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — invites this business sent to off-platform businesses, with tracking status; tenant scope via x-tenant-id
+ */
+
+export function useListPlatformInvites<TData = Awaited<ReturnType<typeof listPlatformInvites>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPlatformInvites>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPlatformInvitesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePlatformInviteUrl = () => {
+
+
+
+
+  return `/api/coop/platform-invites`
+}
+
+/**
+ * @summary Merchant-facing — invite an off-platform business to join and partner; returns a trackable link and a ready-to-send message; tenant scope via x-tenant-id
+ */
+export const createPlatformInvite = async (platformInviteCreate: PlatformInviteCreate, options?: RequestInit): Promise<PlatformInvite> => {
+
+  return customFetch<PlatformInvite>(getCreatePlatformInviteUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(platformInviteCreate)
+  }
+);}
+
+
+
+
+
+export const getCreatePlatformInviteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlatformInvite>>, TError,{data: BodyType<PlatformInviteCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPlatformInvite>>, TError,{data: BodyType<PlatformInviteCreate>}, TContext> => {
+
+const mutationKey = ['createPlatformInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPlatformInvite>>, {data: BodyType<PlatformInviteCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPlatformInvite(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePlatformInviteMutationResult = NonNullable<Awaited<ReturnType<typeof createPlatformInvite>>>
+    export type CreatePlatformInviteMutationBody = BodyType<PlatformInviteCreate>
+    export type CreatePlatformInviteMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — invite an off-platform business to join and partner; returns a trackable link and a ready-to-send message; tenant scope via x-tenant-id
+ */
+export const useCreatePlatformInvite = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlatformInvite>>, TError,{data: BodyType<PlatformInviteCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPlatformInvite>>,
+        TError,
+        {data: BodyType<PlatformInviteCreate>},
+        TContext
+      > => {
+      return useMutation(getCreatePlatformInviteMutationOptions(options));
+    }
+
+export const getGetPublicPlatformInviteUrl = (token: string,) => {
+
+
+
+
+  return `/api/public/coop/invites/${token}`
+}
+
+/**
+ * @summary Public — validate a platform-invite token for the fast-track registration page (marks the invite clicked)
+ */
+export const getPublicPlatformInvite = async (token: string, options?: RequestInit): Promise<PublicPlatformInvite> => {
+
+  return customFetch<PublicPlatformInvite>(getGetPublicPlatformInviteUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicPlatformInviteQueryKey = (token: string,) => {
+    return [
+    `/api/public/coop/invites/${token}`
+    ] as const;
+    }
+
+
+export const getGetPublicPlatformInviteQueryOptions = <TData = Awaited<ReturnType<typeof getPublicPlatformInvite>>, TError = ErrorType<void>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicPlatformInvite>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicPlatformInviteQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicPlatformInvite>>> = ({ signal }) => getPublicPlatformInvite(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicPlatformInvite>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicPlatformInviteQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicPlatformInvite>>>
+export type GetPublicPlatformInviteQueryError = ErrorType<void>
+
+
+/**
+ * @summary Public — validate a platform-invite token for the fast-track registration page (marks the invite clicked)
+ */
+
+export function useGetPublicPlatformInvite<TData = Awaited<ReturnType<typeof getPublicPlatformInvite>>, TError = ErrorType<void>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicPlatformInvite>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicPlatformInviteQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRegisterViaPlatformInviteUrl = (token: string,) => {
+
+
+
+
+  return `/api/public/coop/invites/${token}/register`
+}
+
+/**
+ * @summary Public — fast-track registration through a platform invite; creates the tenant + storefront and the pending co-op partnership
+ */
+export const registerViaPlatformInvite = async (token: string,
+    platformInviteRegistration: PlatformInviteRegistration, options?: RequestInit): Promise<PlatformInviteRegistrationResult> => {
+
+  return customFetch<PlatformInviteRegistrationResult>(getRegisterViaPlatformInviteUrl(token),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(platformInviteRegistration)
+  }
+);}
+
+
+
+
+
+export const getRegisterViaPlatformInviteMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerViaPlatformInvite>>, TError,{token: string;data: BodyType<PlatformInviteRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerViaPlatformInvite>>, TError,{token: string;data: BodyType<PlatformInviteRegistration>}, TContext> => {
+
+const mutationKey = ['registerViaPlatformInvite'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerViaPlatformInvite>>, {token: string;data: BodyType<PlatformInviteRegistration>}> = (props) => {
+          const {token,data} = props ?? {};
+
+          return  registerViaPlatformInvite(token,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterViaPlatformInviteMutationResult = NonNullable<Awaited<ReturnType<typeof registerViaPlatformInvite>>>
+    export type RegisterViaPlatformInviteMutationBody = BodyType<PlatformInviteRegistration>
+    export type RegisterViaPlatformInviteMutationError = ErrorType<void>
+
+    /**
+ * @summary Public — fast-track registration through a platform invite; creates the tenant + storefront and the pending co-op partnership
+ */
+export const useRegisterViaPlatformInvite = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerViaPlatformInvite>>, TError,{token: string;data: BodyType<PlatformInviteRegistration>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerViaPlatformInvite>>,
+        TError,
+        {token: string;data: BodyType<PlatformInviteRegistration>},
+        TContext
+      > => {
+      return useMutation(getRegisterViaPlatformInviteMutationOptions(options));
     }
 
 export const getValidateCoopRedemptionCodeUrl = (code: string,) => {
