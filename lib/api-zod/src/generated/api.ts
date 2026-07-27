@@ -580,8 +580,8 @@ export const ListCoopActivePerksResponse = zod.object({
 
 
 export const RedeemCoopPerkBody = zod.object({
-  "code": zod.string().min(1).describe('The partnership\'s redemption code (from the QR payload or typed manually).'),
-  "passCode": zod.string().min(1).describe('The specific customer pass\/code instance being redeemed (locked after one use).')
+  "code": zod.string().min(1).describe('The partnership\'s redemption code, or a scanned wallet pass token (WPASS-…) which carries its own single-use state.'),
+  "passCode": zod.string().min(1).optional().describe('The specific customer pass\/code instance being redeemed (locked after one use). Required for classic redemption codes; omitted for wallet pass tokens.')
 })
 
 export const RedeemCoopPerkResponse = zod.object({
@@ -1523,7 +1523,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -1552,7 +1552,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -2773,5 +2773,86 @@ export const CreatePublicBookingResponse = zod.object({
   "businessName": zod.string(),
   "staffName": zod.string().nullish()
 })
+
+
+/**
+ * @summary Request an SMS sign-in code for the customer Local Perks wallet (public, rate limited)
+ */
+export const requestWalletLoginCodeBodyPhoneMin = 7;
+
+
+
+export const RequestWalletLoginCodeBody = zod.object({
+  "phone": zod.string().min(requestWalletLoginCodeBodyPhoneMin).describe('The customer\'s mobile phone number (any common format; normalized server-side).')
+})
+
+export const RequestWalletLoginCodeResponse = zod.object({
+  "sent": zod.boolean(),
+  "phone": zod.string().describe('The normalized (E.164) phone the code was sent to.')
+})
+
+
+/**
+ * @summary Exchange a received SMS code for a wallet session token (public)
+ */
+export const verifyWalletLoginCodeBodyPhoneMin = 7;
+
+export const verifyWalletLoginCodeBodyCodeMin = 4;
+
+
+
+export const VerifyWalletLoginCodeBody = zod.object({
+  "phone": zod.string().min(verifyWalletLoginCodeBodyPhoneMin),
+  "code": zod.string().min(verifyWalletLoginCodeBodyCodeMin).describe('The 6-digit code received by SMS.')
+})
+
+export const VerifyWalletLoginCodeResponse = zod.object({
+  "token": zod.string().describe('Bearer token for the x-wallet-session header on wallet reads.'),
+  "phone": zod.string(),
+  "expiresAt": zod.string()
+})
+
+
+/**
+ * @summary List all of the signed-in customer's perk passes across businesses (x-wallet-session header)
+ */
+export const ListWalletPassesResponse = zod.object({
+  "phone": zod.string(),
+  "passes": zod.array(zod.object({
+  "id": zod.number(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redeemAtBusinessName": zod.string().describe('The partner business where this pass is redeemed.'),
+  "grantedByBusinessName": zod.string().describe('The business whose visit deposited the pass.'),
+  "status": zod.enum(['active', 'redeemed', 'expired']),
+  "token": zod.string().describe('Unguessable redemption token (the QR payload).'),
+  "grantedAt": zod.string(),
+  "expiresAt": zod.string(),
+  "redeemedAt": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary One perk pass with its QR payload (x-wallet-session header)
+ */
+export const GetWalletPassParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetWalletPassResponse = zod.object({
+  "id": zod.number(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "redeemAtBusinessName": zod.string().describe('The partner business where this pass is redeemed.'),
+  "grantedByBusinessName": zod.string().describe('The business whose visit deposited the pass.'),
+  "status": zod.enum(['active', 'redeemed', 'expired']),
+  "token": zod.string().describe('Unguessable redemption token (the QR payload).'),
+  "grantedAt": zod.string(),
+  "expiresAt": zod.string(),
+  "redeemedAt": zod.string().nullable()
+}).and(zod.object({
+  "qrPayload": zod.string().describe('Exact string to encode in the pass QR code.')
+}))
 
 

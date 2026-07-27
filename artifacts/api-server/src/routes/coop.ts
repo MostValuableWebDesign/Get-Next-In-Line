@@ -10,8 +10,10 @@ import {
   sosSettingsTable,
   type MerchantCoopPartnership,
 } from "@workspace/db";
+import { perkPassesTable } from "@workspace/db";
 import { alias } from "drizzle-orm/pg-core";
-import { and, desc, eq, inArray, ne, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne, or } from "drizzle-orm";
+import { isWalletPassToken, findWalletPass, type WalletPassRow } from "../lib/perkPasses";
 import {
   COOP_PERK_DISCLAIMER,
   perkWindowOpen,
@@ -148,6 +150,21 @@ function generateCode(): string {
   let out = "";
   for (const b of bytes) out += alphabet[b % alphabet.length];
   return `COOP-${out}`;
+}
+
+/**
+ * Shared validity check for a wallet pass: unknown token, inactive
+ * partnership, expired pass, and already-redeemed pass all fail with a clear
+ * reason. `reason == null` means the pass is redeemable right now.
+ */
+function walletPassState(row: WalletPassRow | null): { reason: string | null } {
+  if (!row) return { reason: "Unknown pass" };
+  if (!row.partnership.isActive || row.partnership.status !== "accepted") {
+    return { reason: "This partnership is no longer active" };
+  }
+  if (row.pass.redeemedAt != null) return { reason: "This pass was already redeemed" };
+  if (row.pass.expiresAt <= new Date()) return { reason: "This pass has expired" };
+  return { reason: null };
 }
 
 function pgUniqueViolation(err: unknown): boolean {
@@ -711,6 +728,22 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
 // yes/no; unknown codes and inactive partnerships both fail validation.
 router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
   const code = String(req.params.code).trim();
+  // Wallet pass tokens (from a customer's Local Perks QR) validate through
+  // the pass, which carries its own expiry and single-use state.
+  if (isWalletPassToken(code)) {
+    const walletRow = await findWalletPass(code);
+    const outcome = walletPassState(walletRow);
+    res.json(
+      ValidateCoopRedemptionCodeResponse.parse({
+        valid: outcome.reason == null,
+        reason: outcome.reason,
+        partnership: walletRow
+          ? serialize(walletRow.partnership, walletRow.hostTenantName, walletRow.partnerTenantName)
+          : null,
+      })
+    );
+    return;
+  }
   const [row] = await partnershipRows().where(
     eq(merchantCoopPartnershipsTable.redemptionCode, code)
   );
@@ -775,7 +808,68 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
     return;
   }
   const code = parsed.data.code.trim();
-  const passCode = parsed.data.passCode.trim();
+  const passCode = parsed.data.passCode?.trim() ?? "";
+
+  // ── Wallet pass token path ─────────────────────────────────────────────
+  // A scanned Local Perks QR encodes a single unguessable token; the pass
+  // itself is the redemption instance (no separate passCode needed).
+  if (isWalletPassToken(code)) {
+    const walletRow = await findWalletPass(code);
+    const outcome = walletPassState(walletRow);
+    const partnershipJson = walletRow
+      ? serialize(walletRow.partnership, walletRow.hostTenantName, walletRow.partnerTenantName)
+      : null;
+    if (outcome.reason != null) {
+      res.json(
+        RedeemCoopPerkResponse.parse({
+          valid: false,
+          reason: outcome.reason,
+          partnership: partnershipJson,
+          redeemedAt: walletRow?.pass.redeemedAt?.toISOString() ?? null,
+        })
+      );
+      return;
+    }
+    // Conditional update is the single-use lock: of two concurrent scans of
+    // the same pass, exactly one flips redeemed_at from NULL.
+    const [redeemedPass] = await db
+      .update(perkPassesTable)
+      .set({ redeemedAt: new Date(), redeemedByTenantId: tenantId })
+      .where(and(eq(perkPassesTable.token, code), isNull(perkPassesTable.redeemedAt)))
+      .returning();
+    if (!redeemedPass) {
+      const again = await findWalletPass(code);
+      res.json(
+        RedeemCoopPerkResponse.parse({
+          valid: false,
+          reason: "This pass was already redeemed",
+          partnership: partnershipJson,
+          redeemedAt: again?.pass.redeemedAt?.toISOString() ?? null,
+        })
+      );
+      return;
+    }
+    // Mirror the redemption into the shared ledger so partner-side reporting
+    // sees wallet redemptions alongside classic pass-code redemptions.
+    await db
+      .insert(coopPerkRedemptionsTable)
+      .values({
+        partnershipId: walletRow!.partnership.id,
+        passCode: code,
+        redeemedByTenantId: tenantId,
+      })
+      .onConflictDoNothing();
+    res.json(
+      RedeemCoopPerkResponse.parse({
+        valid: true,
+        reason: null,
+        partnership: partnershipJson,
+        redeemedAt: redeemedPass.redeemedAt!.toISOString(),
+      })
+    );
+    return;
+  }
+
   if (!code || !passCode) {
     res.status(400).json({ message: "Both code and passCode are required" });
     return;

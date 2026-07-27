@@ -15,6 +15,7 @@ import publicBookingRouter from "./publicBooking";
 import landingRouter from "./landing";
 import campaignRedirectRouter from "./campaignRedirect";
 import platformInviteJoinRouter from "./platformInviteJoin";
+import walletRouter from "./wallet";
 import reviewsRouter from "./reviews";
 
 const router: IRouter = Router();
@@ -39,6 +40,10 @@ router.use(campaignRedirectRouter);
 // — deliberately unauthenticated: the invited business owner has no account
 // yet. Token-validated, single-use for registration, and rate limited.
 router.use(platformInviteJoinRouter);
+// Local Perks wallet (/wallet/*) — deliberately unauthenticated at the staff
+// session level: customers sign in with an SMS code. Code requests are rate
+// limited and wallet reads require the unguessable x-wallet-session token.
+router.use(walletRouter);
 
 // ── Protected routes ─────────────────────────────────────────────────────────
 // All routes below this middleware require a valid session — except the

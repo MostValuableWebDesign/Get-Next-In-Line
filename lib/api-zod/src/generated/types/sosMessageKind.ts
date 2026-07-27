@@ -19,4 +19,6 @@ export const SosMessageKind = {
   deposit_update: 'deposit_update',
   send_reminder: 'send_reminder',
   rebooking_nudge: 'rebooking_nudge',
+  wallet_login_code: 'wallet_login_code',
+  perk_expiry_reminder: 'perk_expiry_reminder',
 } as const;

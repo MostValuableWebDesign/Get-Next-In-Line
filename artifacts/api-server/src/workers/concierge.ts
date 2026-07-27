@@ -4,10 +4,14 @@ import {
   engagementRulesTable,
   messagesTable,
   merchantCoopPartnershipsTable,
+  perkPassesTable,
+  tenantsTable,
   type ClientProfile,
   type EngagementRule,
 } from "@workspace/db";
-import { and, desc, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
+import { aliasedTable, and, desc, eq, gt, gte, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
+import { sendMessageSafe } from "../lib/messaging";
+import { redeemAtSide } from "../lib/perkPasses";
 import {
   dispatchToProfile,
   reminderRuleConfigSchema,
@@ -255,6 +259,77 @@ export async function sweepExpiredCoopPerks(now: Date = new Date()): Promise<num
   return expired.length;
 }
 
+// ── Perk-pass expiry reminders ───────────────────────────────────────────────
+
+/** Passes expiring within this window get their one reminder SMS. */
+export const PERK_REMINDER_LEAD_MS = 48 * MS_PER_HOUR;
+
+/**
+ * Send one (and only one) SMS reminder per wallet perk pass nearing expiry.
+ * The conditional `reminder_sent_at IS NULL` claim is the send-once lock —
+ * it is stamped before dispatch so a concurrent tick can never double-text,
+ * and the messages table still audits the send outcome. Returns the number
+ * of reminders dispatched.
+ */
+export async function sweepPerkExpiryReminders(now: Date = new Date()): Promise<number> {
+  const windowEnd = new Date(now.getTime() + PERK_REMINDER_LEAD_MS);
+  const hostTenant = aliasedTable(tenantsTable, "reminder_host_tenant");
+  const partnerTenant = aliasedTable(tenantsTable, "reminder_partner_tenant");
+  const candidates = await db
+    .select({
+      pass: perkPassesTable,
+      partnership: merchantCoopPartnershipsTable,
+      hostTenantName: hostTenant.brandName,
+      partnerTenantName: partnerTenant.brandName,
+    })
+    .from(perkPassesTable)
+    .innerJoin(
+      merchantCoopPartnershipsTable,
+      eq(perkPassesTable.partnershipId, merchantCoopPartnershipsTable.id),
+    )
+    .innerJoin(hostTenant, eq(merchantCoopPartnershipsTable.hostTenantId, hostTenant.id))
+    .innerJoin(partnerTenant, eq(merchantCoopPartnershipsTable.partnerTenantId, partnerTenant.id))
+    .where(
+      and(
+        isNull(perkPassesTable.redeemedAt),
+        isNull(perkPassesTable.reminderSentAt),
+        gt(perkPassesTable.expiresAt, now),
+        lte(perkPassesTable.expiresAt, windowEnd),
+        // Only remind for perks that are still redeemable.
+        eq(merchantCoopPartnershipsTable.status, "accepted"),
+        eq(merchantCoopPartnershipsTable.isActive, true),
+      ),
+    );
+
+  let sent = 0;
+  for (const { pass, partnership, hostTenantName, partnerTenantName } of candidates) {
+    // Claim first: exactly one worker stamps the reminder, even concurrently.
+    const [claimed] = await db
+      .update(perkPassesTable)
+      .set({ reminderSentAt: now })
+      .where(and(eq(perkPassesTable.id, pass.id), isNull(perkPassesTable.reminderSentAt)))
+      .returning({ id: perkPassesTable.id });
+    if (!claimed) continue;
+
+    const redeemAt = redeemAtSide(partnership, pass.grantedByTenantId);
+    const businessName = redeemAt === "partner" ? partnerTenantName : hostTenantName;
+    const expiry = pass.expiresAt.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+    await sendMessageSafe({
+      tenantId: pass.grantedByTenantId,
+      toNumber: pass.customerPhone,
+      kind: "perk_expiry_reminder",
+      body: `${pass.customerName ? pass.customerName + ", your" : "Your"} "${partnership.perkTitle}" perk at ${businessName} expires ${expiry}. Open your Local Perks wallet to redeem it before it's gone!`,
+      context: { perkPassId: pass.id, expiresAt: pass.expiresAt.toISOString() },
+    });
+    sent++;
+  }
+  return sent;
+}
+
 export interface ConciergeTickResult {
   /** False when another instance held the advisory lock and this tick was skipped. */
   ran: boolean;
@@ -262,6 +337,7 @@ export interface ConciergeTickResult {
   reminders: number;
   nudges: number;
   expiredPerks: number;
+  perkReminders: number;
 }
 
 /**
@@ -279,13 +355,14 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
     const expiredPerks = await sweepExpiredCoopPerks(now);
+    const perkReminders = await sweepPerkExpiryReminders(now);
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
-    return { ran: true, reaped, reminders, nudges, expiredPerks };
+    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders };
   });
 }
 
@@ -322,6 +399,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       // Crash-mid-send recovery and the perk-expiry sweep apply on this path too.
       await reapStalePendingMessages();
       await sweepExpiredCoopPerks();
+      await sweepPerkExpiryReminders();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;
@@ -348,10 +426,10 @@ function startIntervalWorker(): ConciergeWorkerHandle {
     if (running) return; // don't overlap slow ticks
     running = true;
     try {
-      const { ran, reaped, reminders, nudges, expiredPerks } = await runConciergeTick();
-      if (ran && reaped + reminders + nudges + expiredPerks > 0) {
+      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders } = await runConciergeTick();
+      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders > 0) {
         logger.info(
-          { reaped, reminders, nudges, expiredPerks },
+          { reaped, reminders, nudges, expiredPerks, perkReminders },
           "Concierge interval tick dispatched messages",
         );
       }

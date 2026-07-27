@@ -12,6 +12,7 @@ import ModuleConsole from "@/pages/ModuleConsole";
 import Login from "@/pages/Login";
 import PublicBookingPage from "@/pages/public-booking";
 import JoinInvitePage from "@/pages/join-invite";
+import WalletPage from "@/pages/wallet";
 import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
@@ -206,6 +207,9 @@ function Router() {
       {/* Public platform-invite fast-track registration — the invited
           business owner has no account yet, so this must stay outside
           ProtectedApp. Token validity is enforced server-side. */}
+      {/* Public customer "Local Perks" wallet — phone/SMS sign-in, no staff
+          account. Must stay outside ProtectedApp. */}
+      <Route path="/wallet" component={WalletPage} />
       <Route path="/join/:token">
         {(params) => <JoinInvitePage token={params.token} />}
       </Route>

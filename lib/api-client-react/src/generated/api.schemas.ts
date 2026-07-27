@@ -106,17 +106,85 @@ export interface CoopActivePerksResponse {
   perks: CoopActivePerk[];
 }
 
+export interface WalletLoginRequest {
+  /**
+     * The customer's mobile phone number (any common format; normalized server-side).
+     * @minLength 7
+     */
+  phone: string;
+}
+
+export interface WalletLoginRequestResult {
+  sent: boolean;
+  /** The normalized (E.164) phone the code was sent to. */
+  phone: string;
+}
+
+export interface WalletLoginVerify {
+  /** @minLength 7 */
+  phone: string;
+  /**
+     * The 6-digit code received by SMS.
+     * @minLength 4
+     */
+  code: string;
+}
+
+export interface WalletSessionResult {
+  /** Bearer token for the x-wallet-session header on wallet reads. */
+  token: string;
+  phone: string;
+  expiresAt: string;
+}
+
+export type WalletPassStatus = typeof WalletPassStatus[keyof typeof WalletPassStatus];
+
+
+export const WalletPassStatus = {
+  active: 'active',
+  redeemed: 'redeemed',
+  expired: 'expired',
+} as const;
+
+export interface WalletPass {
+  id: number;
+  perkTitle: string;
+  /** @nullable */
+  perkDescription: string | null;
+  /** The partner business where this pass is redeemed. */
+  redeemAtBusinessName: string;
+  /** The business whose visit deposited the pass. */
+  grantedByBusinessName: string;
+  status: WalletPassStatus;
+  /** Unguessable redemption token (the QR payload). */
+  token: string;
+  grantedAt: string;
+  expiresAt: string;
+  /** @nullable */
+  redeemedAt: string | null;
+}
+
+export interface WalletPassList {
+  phone: string;
+  passes: WalletPass[];
+}
+
+export type WalletPassDetail = WalletPass & {
+  /** Exact string to encode in the pass QR code. */
+  qrPayload: string;
+};
+
 export interface CoopPerkRedeemRequest {
   /**
-     * The partnership's redemption code (from the QR payload or typed manually).
+     * The partnership's redemption code, or a scanned wallet pass token (WPASS-…) which carries its own single-use state.
      * @minLength 1
      */
   code: string;
   /**
-     * The specific customer pass/code instance being redeemed (locked after one use).
+     * The specific customer pass/code instance being redeemed (locked after one use). Required for classic redemption codes; omitted for wallet pass tokens.
      * @minLength 1
      */
-  passCode: string;
+  passCode?: string;
 }
 
 export interface CoopPerkRedeemResult {
@@ -1474,6 +1542,8 @@ export const SosMessageKind = {
   deposit_update: 'deposit_update',
   send_reminder: 'send_reminder',
   rebooking_nudge: 'rebooking_nudge',
+  wallet_login_code: 'wallet_login_code',
+  perk_expiry_reminder: 'perk_expiry_reminder',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];

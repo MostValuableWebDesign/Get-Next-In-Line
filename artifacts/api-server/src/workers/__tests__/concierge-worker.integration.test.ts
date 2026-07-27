@@ -254,7 +254,7 @@ describe("concierge tick advisory lock", () => {
     try {
       await client.query("select pg_advisory_lock($1)", [CONCIERGE_LOCK_KEY]);
       const result = await runConciergeTick(NOW);
-      expect(result).toEqual({ ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0 });
+      expect(result).toEqual({ ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0 });
     } finally {
       await client.query("select pg_advisory_unlock($1)", [CONCIERGE_LOCK_KEY]);
       client.release();

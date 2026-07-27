@@ -2248,6 +2248,90 @@ paths:
         "429":
           description: Too many booking attempts
 
+  /wallet/login/request:
+    post:
+      operationId: requestWalletLoginCode
+      tags: [wallet]
+      summary: Request an SMS sign-in code for the customer Local Perks wallet (public, rate limited)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalletLoginRequest"
+      responses:
+        "200":
+          description: Code sent (or simulated)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletLoginRequestResult"
+        "400":
+          description: Invalid phone number
+        "429":
+          description: Too many code requests
+
+  /wallet/login/verify:
+    post:
+      operationId: verifyWalletLoginCode
+      tags: [wallet]
+      summary: Exchange a received SMS code for a wallet session token (public)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalletLoginVerify"
+      responses:
+        "200":
+          description: Verified — wallet session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletSessionResult"
+        "400":
+          description: Wrong, expired, or missing code
+        "429":
+          description: Too many verification attempts
+
+  /wallet/passes:
+    get:
+      operationId: listWalletPasses
+      tags: [wallet]
+      summary: List all of the signed-in customer's perk passes across businesses (x-wallet-session header)
+      responses:
+        "200":
+          description: The customer's passes, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletPassList"
+        "401":
+          description: Missing or expired wallet session
+
+  /wallet/passes/{id}:
+    get:
+      operationId: getWalletPass
+      tags: [wallet]
+      summary: One perk pass with its QR payload (x-wallet-session header)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: The pass
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletPassDetail"
+        "401":
+          description: Missing or expired wallet session
+        "404":
+          description: Pass not found (or not owned by this session)
+
 components:
   schemas:
     CoopPartnership:
@@ -2386,18 +2470,123 @@ components:
           items:
             $ref: "#/components/schemas/CoopActivePerk"
 
+    WalletLoginRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          minLength: 7
+          description: The customer's mobile phone number (any common format; normalized server-side).
+
+    WalletLoginRequestResult:
+      type: object
+      required: [sent, phone]
+      properties:
+        sent:
+          type: boolean
+        phone:
+          type: string
+          description: The normalized (E.164) phone the code was sent to.
+
+    WalletLoginVerify:
+      type: object
+      required: [phone, code]
+      properties:
+        phone:
+          type: string
+          minLength: 7
+        code:
+          type: string
+          minLength: 4
+          description: The 6-digit code received by SMS.
+
+    WalletSessionResult:
+      type: object
+      required: [token, phone, expiresAt]
+      properties:
+        token:
+          type: string
+          description: Bearer token for the x-wallet-session header on wallet reads.
+        phone:
+          type: string
+        expiresAt:
+          type: string
+
+    WalletPass:
+      type: object
+      required:
+        [
+          id,
+          perkTitle,
+          perkDescription,
+          redeemAtBusinessName,
+          grantedByBusinessName,
+          status,
+          token,
+          grantedAt,
+          expiresAt,
+          redeemedAt,
+        ]
+      properties:
+        id:
+          type: integer
+        perkTitle:
+          type: string
+        perkDescription:
+          type: ["string", "null"]
+        redeemAtBusinessName:
+          type: string
+          description: The partner business where this pass is redeemed.
+        grantedByBusinessName:
+          type: string
+          description: The business whose visit deposited the pass.
+        status:
+          type: string
+          enum: [active, redeemed, expired]
+        token:
+          type: string
+          description: Unguessable redemption token (the QR payload).
+        grantedAt:
+          type: string
+        expiresAt:
+          type: string
+        redeemedAt:
+          type: ["string", "null"]
+
+    WalletPassList:
+      type: object
+      required: [phone, passes]
+      properties:
+        phone:
+          type: string
+        passes:
+          type: array
+          items:
+            $ref: "#/components/schemas/WalletPass"
+
+    WalletPassDetail:
+      allOf:
+        - $ref: "#/components/schemas/WalletPass"
+        - type: object
+          required: [qrPayload]
+          properties:
+            qrPayload:
+              type: string
+              description: Exact string to encode in the pass QR code.
+
     CoopPerkRedeemRequest:
       type: object
-      required: [code, passCode]
+      required: [code]
       properties:
         code:
           type: string
           minLength: 1
-          description: The partnership's redemption code (from the QR payload or typed manually).
+          description: The partnership's redemption code, or a scanned wallet pass token (WPASS-…) which carries its own single-use state.
         passCode:
           type: string
           minLength: 1
-          description: The specific customer pass/code instance being redeemed (locked after one use).
+          description: The specific customer pass/code instance being redeemed (locked after one use). Required for classic redemption codes; omitted for wallet pass tokens.
 
     CoopPerkRedeemResult:
       type: object
@@ -3927,7 +4116,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

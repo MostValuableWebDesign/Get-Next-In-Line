@@ -113,6 +113,7 @@ import {
 } from "../lib/settings";
 import type { Request } from "express";
 import type { PgColumn } from "drizzle-orm/pg-core";
+import { grantPerkPassesSafe } from "../lib/perkPasses";
 import {
   placeDepositHoldIfActive,
   settleHoldOnCancellation,
@@ -1621,6 +1622,9 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     const linkedProfileId =
       customer.clientProfileId ?? (await autoLinkCustomer(customer))?.id ?? null;
     await updateProfileCadence(linkedProfileId);
+    // Deposit co-op perk passes into the customer's Local Perks wallet the
+    // moment service completes. Safe: a grant problem never blocks checkout.
+    await grantPerkPassesSafe({ tenantId: visit.tenantId, customerId: customer.id });
   }
 
   const resourceName = updated.resourceId

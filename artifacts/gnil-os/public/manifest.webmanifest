@@ -1,0 +1,18 @@
+{
+  "name": "Local Perks Wallet",
+  "short_name": "Local Perks",
+  "description": "Your perk passes from local businesses — sign in with your phone and redeem at partner storefronts.",
+  "start_url": "./wallet",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    {
+      "src": "./wallet-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

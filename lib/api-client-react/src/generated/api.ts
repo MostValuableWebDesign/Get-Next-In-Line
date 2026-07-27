@@ -124,7 +124,13 @@ import type {
   TenantActivityPage,
   TenantInput,
   TenantSubscribedModule,
-  TenantUpdate
+  TenantUpdate,
+  WalletLoginRequest,
+  WalletLoginRequestResult,
+  WalletLoginVerify,
+  WalletPassDetail,
+  WalletPassList,
+  WalletSessionResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -7903,4 +7909,300 @@ export const useCreatePublicBooking = <TError = ErrorType<void>,
       > => {
       return useMutation(getCreatePublicBookingMutationOptions(options));
     }
+
+export const getRequestWalletLoginCodeUrl = () => {
+
+
+
+
+  return `/api/wallet/login/request`
+}
+
+/**
+ * @summary Request an SMS sign-in code for the customer Local Perks wallet (public, rate limited)
+ */
+export const requestWalletLoginCode = async (walletLoginRequest: WalletLoginRequest, options?: RequestInit): Promise<WalletLoginRequestResult> => {
+
+  return customFetch<WalletLoginRequestResult>(getRequestWalletLoginCodeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(walletLoginRequest)
+  }
+);}
+
+
+
+
+
+export const getRequestWalletLoginCodeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestWalletLoginCode>>, TError,{data: BodyType<WalletLoginRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestWalletLoginCode>>, TError,{data: BodyType<WalletLoginRequest>}, TContext> => {
+
+const mutationKey = ['requestWalletLoginCode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestWalletLoginCode>>, {data: BodyType<WalletLoginRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestWalletLoginCode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestWalletLoginCodeMutationResult = NonNullable<Awaited<ReturnType<typeof requestWalletLoginCode>>>
+    export type RequestWalletLoginCodeMutationBody = BodyType<WalletLoginRequest>
+    export type RequestWalletLoginCodeMutationError = ErrorType<void>
+
+    /**
+ * @summary Request an SMS sign-in code for the customer Local Perks wallet (public, rate limited)
+ */
+export const useRequestWalletLoginCode = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestWalletLoginCode>>, TError,{data: BodyType<WalletLoginRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestWalletLoginCode>>,
+        TError,
+        {data: BodyType<WalletLoginRequest>},
+        TContext
+      > => {
+      return useMutation(getRequestWalletLoginCodeMutationOptions(options));
+    }
+
+export const getVerifyWalletLoginCodeUrl = () => {
+
+
+
+
+  return `/api/wallet/login/verify`
+}
+
+/**
+ * @summary Exchange a received SMS code for a wallet session token (public)
+ */
+export const verifyWalletLoginCode = async (walletLoginVerify: WalletLoginVerify, options?: RequestInit): Promise<WalletSessionResult> => {
+
+  return customFetch<WalletSessionResult>(getVerifyWalletLoginCodeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(walletLoginVerify)
+  }
+);}
+
+
+
+
+
+export const getVerifyWalletLoginCodeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyWalletLoginCode>>, TError,{data: BodyType<WalletLoginVerify>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyWalletLoginCode>>, TError,{data: BodyType<WalletLoginVerify>}, TContext> => {
+
+const mutationKey = ['verifyWalletLoginCode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyWalletLoginCode>>, {data: BodyType<WalletLoginVerify>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  verifyWalletLoginCode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyWalletLoginCodeMutationResult = NonNullable<Awaited<ReturnType<typeof verifyWalletLoginCode>>>
+    export type VerifyWalletLoginCodeMutationBody = BodyType<WalletLoginVerify>
+    export type VerifyWalletLoginCodeMutationError = ErrorType<void>
+
+    /**
+ * @summary Exchange a received SMS code for a wallet session token (public)
+ */
+export const useVerifyWalletLoginCode = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyWalletLoginCode>>, TError,{data: BodyType<WalletLoginVerify>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyWalletLoginCode>>,
+        TError,
+        {data: BodyType<WalletLoginVerify>},
+        TContext
+      > => {
+      return useMutation(getVerifyWalletLoginCodeMutationOptions(options));
+    }
+
+export const getListWalletPassesUrl = () => {
+
+
+
+
+  return `/api/wallet/passes`
+}
+
+/**
+ * @summary List all of the signed-in customer's perk passes across businesses (x-wallet-session header)
+ */
+export const listWalletPasses = async ( options?: RequestInit): Promise<WalletPassList> => {
+
+  return customFetch<WalletPassList>(getListWalletPassesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListWalletPassesQueryKey = () => {
+    return [
+    `/api/wallet/passes`
+    ] as const;
+    }
+
+
+export const getListWalletPassesQueryOptions = <TData = Awaited<ReturnType<typeof listWalletPasses>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWalletPasses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListWalletPassesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listWalletPasses>>> = ({ signal }) => listWalletPasses({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listWalletPasses>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListWalletPassesQueryResult = NonNullable<Awaited<ReturnType<typeof listWalletPasses>>>
+export type ListWalletPassesQueryError = ErrorType<void>
+
+
+/**
+ * @summary List all of the signed-in customer's perk passes across businesses (x-wallet-session header)
+ */
+
+export function useListWalletPasses<TData = Awaited<ReturnType<typeof listWalletPasses>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listWalletPasses>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListWalletPassesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetWalletPassUrl = (id: number,) => {
+
+
+
+
+  return `/api/wallet/passes/${id}`
+}
+
+/**
+ * @summary One perk pass with its QR payload (x-wallet-session header)
+ */
+export const getWalletPass = async (id: number, options?: RequestInit): Promise<WalletPassDetail> => {
+
+  return customFetch<WalletPassDetail>(getGetWalletPassUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWalletPassQueryKey = (id: number,) => {
+    return [
+    `/api/wallet/passes/${id}`
+    ] as const;
+    }
+
+
+export const getGetWalletPassQueryOptions = <TData = Awaited<ReturnType<typeof getWalletPass>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalletPass>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWalletPassQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWalletPass>>> = ({ signal }) => getWalletPass(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWalletPass>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWalletPassQueryResult = NonNullable<Awaited<ReturnType<typeof getWalletPass>>>
+export type GetWalletPassQueryError = ErrorType<void>
+
+
+/**
+ * @summary One perk pass with its QR payload (x-wallet-session header)
+ */
+
+export function useGetWalletPass<TData = Awaited<ReturnType<typeof getWalletPass>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalletPass>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWalletPassQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

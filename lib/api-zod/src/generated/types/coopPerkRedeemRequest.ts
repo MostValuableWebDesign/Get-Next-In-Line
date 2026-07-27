@@ -8,13 +8,13 @@
 
 export interface CoopPerkRedeemRequest {
   /**
-     * The partnership's redemption code (from the QR payload or typed manually).
+     * The partnership's redemption code, or a scanned wallet pass token (WPASS-…) which carries its own single-use state.
      * @minLength 1
      */
   code: string;
   /**
-     * The specific customer pass/code instance being redeemed (locked after one use).
+     * The specific customer pass/code instance being redeemed (locked after one use). Required for classic redemption codes; omitted for wallet pass tokens.
      * @minLength 1
      */
-  passCode: string;
+  passCode?: string;
 }

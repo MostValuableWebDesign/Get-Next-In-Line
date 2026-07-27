@@ -384,6 +384,12 @@ function ScanPerkDialog() {
     if (scanningRef.current) return;
     scanningRef.current = true;
     stopScanner();
+    // Wallet passes (from the customer Local Perks app) encode a single
+    // WPASS- token that carries its own single-use state — no pass ID needed.
+    if (payload.trim().startsWith('WPASS-')) {
+      submit(payload.trim());
+      return;
+    }
     // QR payload: "<redemptionCode>|<passCode>"; a bare code is accepted but
     // the server requires a pass instance, so route it to manual entry.
     const [code, passCode] = payload.split('|').map(s => s.trim());
@@ -397,9 +403,9 @@ function ScanPerkDialog() {
     submit(code, passCode);
   };
 
-  const submit = (code: string, passCode: string) => {
+  const submit = (code: string, passCode?: string) => {
     redeem.mutate(
-      { data: { code, passCode } },
+      { data: passCode ? { code, passCode } : { code } },
       {
         onSuccess: r => {
           setResult(r);
@@ -516,7 +522,7 @@ function ScanPerkDialog() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="scan-manual-pass">Pass ID (printed under the QR code)</Label>
+              <Label htmlFor="scan-manual-pass">Pass ID (printed under the QR code — not needed for WPASS- wallet tokens)</Label>
               <Input
                 id="scan-manual-pass"
                 placeholder="e.g. C123"
@@ -528,8 +534,8 @@ function ScanPerkDialog() {
             </div>
             <div className="flex gap-2">
               <Button
-                onClick={() => submit(manualCode.trim(), manualPass.trim())}
-                disabled={!manualCode.trim() || !manualPass.trim() || redeem.isPending}
+                onClick={() => submit(manualCode.trim(), manualPass.trim() || undefined)}
+                disabled={!manualCode.trim() || (!manualPass.trim() && !manualCode.trim().startsWith('WPASS-')) || redeem.isPending}
                 data-testid="button-manual-redeem"
               >
                 Validate & Redeem
