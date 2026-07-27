@@ -448,6 +448,10 @@ export interface SosVisit {
   /** @nullable */
   resourceName?: string | null;
   /** @nullable */
+  staffId?: number | null;
+  /** @nullable */
+  staffName?: string | null;
+  /** @nullable */
   estimatedWaitMinutes?: number | null;
   /** @nullable */
   paymentAmount?: number | null;
@@ -490,8 +494,145 @@ export interface SosVisitAdvance {
   action: SosVisitAdvanceAction;
   resourceId?: number;
   paymentAmount?: number;
+  staffId?: number;
   benefitCustomerPlanId?: number;
   benefitType?: SosVisitAdvanceBenefitType;
+}
+
+export type SosStaffMemberCompensationType = typeof SosStaffMemberCompensationType[keyof typeof SosStaffMemberCompensationType];
+
+
+export const SosStaffMemberCompensationType = {
+  commission: 'commission',
+  flat_fee: 'flat_fee',
+  booth_rent: 'booth_rent',
+} as const;
+
+/**
+ * @nullable
+ */
+export type SosStaffMemberCadence = typeof SosStaffMemberCadence[keyof typeof SosStaffMemberCadence] | null;
+
+
+export const SosStaffMemberCadence = {
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export interface SosStaffMember {
+  id: number;
+  name: string;
+  /** @nullable */
+  phone: string | null;
+  /** @nullable */
+  email: string | null;
+  isActive: boolean;
+  compensationType: SosStaffMemberCompensationType;
+  /** @nullable */
+  commissionPercent: number | null;
+  /** @nullable */
+  amount: number | null;
+  /** @nullable */
+  cadence: SosStaffMemberCadence;
+  createdAt: string;
+}
+
+export type SosStaffMemberInputCompensationType = typeof SosStaffMemberInputCompensationType[keyof typeof SosStaffMemberInputCompensationType];
+
+
+export const SosStaffMemberInputCompensationType = {
+  commission: 'commission',
+  flat_fee: 'flat_fee',
+  booth_rent: 'booth_rent',
+} as const;
+
+export type SosStaffMemberInputCadence = typeof SosStaffMemberInputCadence[keyof typeof SosStaffMemberInputCadence];
+
+
+export const SosStaffMemberInputCadence = {
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export interface SosStaffMemberInput {
+  /** @minLength 1 */
+  name: string;
+  phone?: string;
+  email?: string;
+  compensationType: SosStaffMemberInputCompensationType;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  commissionPercent?: number;
+  /** @minimum 0 */
+  amount?: number;
+  cadence?: SosStaffMemberInputCadence;
+}
+
+export type SosStaffMemberUpdateCompensationType = typeof SosStaffMemberUpdateCompensationType[keyof typeof SosStaffMemberUpdateCompensationType];
+
+
+export const SosStaffMemberUpdateCompensationType = {
+  commission: 'commission',
+  flat_fee: 'flat_fee',
+  booth_rent: 'booth_rent',
+} as const;
+
+export type SosStaffMemberUpdateCadence = typeof SosStaffMemberUpdateCadence[keyof typeof SosStaffMemberUpdateCadence];
+
+
+export const SosStaffMemberUpdateCadence = {
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export interface SosStaffMemberUpdate {
+  /** @minLength 1 */
+  name?: string;
+  phone?: string;
+  email?: string;
+  isActive?: boolean;
+  compensationType?: SosStaffMemberUpdateCompensationType;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  commissionPercent?: number;
+  /** @minimum 0 */
+  amount?: number;
+  cadence?: SosStaffMemberUpdateCadence;
+}
+
+export type SosStaffEarningsRowCompensationType = typeof SosStaffEarningsRowCompensationType[keyof typeof SosStaffEarningsRowCompensationType];
+
+
+export const SosStaffEarningsRowCompensationType = {
+  commission: 'commission',
+  flat_fee: 'flat_fee',
+  booth_rent: 'booth_rent',
+} as const;
+
+/**
+ * One staff member's summary for the requested period. Commission staff: attributedRevenue sums the payment amounts persisted at checkout on attributed visits, and commissionEarned is their split of that. Flat-fee staff: amountDue is what the shop owes them for the period cadence. Booth-rent staff: amountDue is what they owe the shop.
+ */
+export interface SosStaffEarningsRow {
+  staffId: number;
+  name: string;
+  isActive: boolean;
+  compensationType: SosStaffEarningsRowCompensationType;
+  /** @nullable */
+  commissionPercent: number | null;
+  /** @nullable */
+  amount: number | null;
+  /** @nullable */
+  cadence: string | null;
+  attributedVisits: number;
+  attributedRevenue: number;
+  /** @nullable */
+  commissionEarned: number | null;
+  /** @nullable */
+  amountDue: number | null;
 }
 
 export type SosPlanPlanType = typeof SosPlanPlanType[keyof typeof SosPlanPlanType];
@@ -1389,5 +1530,16 @@ to?: string;
 
 export type ListSosMessagesParams = {
 limit?: number;
+};
+
+export type GetSosStaffEarningsParams = {
+/**
+ * Period start (ISO date/datetime, inclusive)
+ */
+from: string;
+/**
+ * Period end (ISO date/datetime, exclusive)
+ */
+to: string;
 };
 

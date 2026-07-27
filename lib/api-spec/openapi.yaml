@@ -1174,6 +1174,99 @@ paths:
         "409":
           description: Enrollment already cancelled
 
+  /sos/staff:
+    get:
+      operationId: listSosStaff
+      tags: [sos]
+      summary: List staff members (people with compensation models), active and inactive
+      responses:
+        "200":
+          description: Staff members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosStaffMember"
+    post:
+      operationId: createSosStaffMember
+      tags: [sos]
+      summary: Add a staff member with a compensation model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosStaffMemberInput"
+      responses:
+        "201":
+          description: Created staff member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosStaffMember"
+        "400":
+          description: Compensation terms don't match the chosen model
+
+  /sos/staff/{id}:
+    patch:
+      operationId: updateSosStaffMember
+      tags: [sos]
+      summary: Update a staff member's details, compensation model, or active flag
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosStaffMemberUpdate"
+      responses:
+        "200":
+          description: Updated staff member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosStaffMember"
+        "400":
+          description: Compensation terms don't match the chosen model
+        "404":
+          description: Staff member not found
+
+  /sos/staff-earnings:
+    get:
+      operationId: getSosStaffEarnings
+      tags: [sos]
+      summary: Per-staff earnings summary for a period (commission from persisted charged amounts; fee/rent due per cadence)
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Period start (ISO date/datetime, inclusive)
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: true
+          description: Period end (ISO date/datetime, exclusive)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Earnings rows, one per staff member
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosStaffEarningsRow"
+        "400":
+          description: Invalid period
+
   /tenants/{id}/settings:
     get:
       operationId: getTenantSettings
@@ -2101,6 +2194,10 @@ components:
           type: ["integer", "null"]
         resourceName:
           type: ["string", "null"]
+        staffId:
+          type: ["integer", "null"]
+        staffName:
+          type: ["string", "null"]
         estimatedWaitMinutes:
           type: ["integer", "null"]
         paymentAmount:
@@ -2137,6 +2234,9 @@ components:
           type: integer
         paymentAmount:
           type: number
+        # Optional staff attribution captured at payment/checkout.
+        staffId:
+          type: integer
         # Optional plan benefit to apply at check_out: redeem one prepaid
         # credit from a package/pass, or apply a membership discount.
         benefitCustomerPlanId:
@@ -2144,6 +2244,126 @@ components:
         benefitType:
           type: string
           enum: [redeem_credit, membership_discount]
+
+    SosStaffMember:
+      type: object
+      required: [id, name, phone, email, isActive, compensationType, commissionPercent, amount, cadence, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        compensationType:
+          type: string
+          enum: [commission, flat_fee, booth_rent]
+        # commission only — percentage of attributed service revenue.
+        commissionPercent:
+          type: ["integer", "null"]
+        # flat_fee / booth_rent only — money amount per cadence.
+        amount:
+          type: ["number", "null"]
+        # flat_fee / booth_rent only.
+        cadence:
+          type: ["string", "null"]
+          enum: [weekly, monthly, null]
+        createdAt:
+          type: string
+
+    SosStaffMemberInput:
+      type: object
+      required: [name, compensationType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+        email:
+          type: string
+        compensationType:
+          type: string
+          enum: [commission, flat_fee, booth_rent]
+        commissionPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        amount:
+          type: number
+          minimum: 0
+        cadence:
+          type: string
+          enum: [weekly, monthly]
+
+    SosStaffMemberUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+        email:
+          type: string
+        isActive:
+          type: boolean
+        compensationType:
+          type: string
+          enum: [commission, flat_fee, booth_rent]
+        commissionPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        amount:
+          type: number
+          minimum: 0
+        cadence:
+          type: string
+          enum: [weekly, monthly]
+
+    SosStaffEarningsRow:
+      type: object
+      description: >
+        One staff member's summary for the requested period. Commission staff:
+        attributedRevenue sums the payment amounts persisted at checkout on
+        attributed visits, and commissionEarned is their split of that.
+        Flat-fee staff: amountDue is what the shop owes them for the period
+        cadence. Booth-rent staff: amountDue is what they owe the shop.
+      required:
+        [staffId, name, isActive, compensationType, commissionPercent, amount, cadence, attributedVisits, attributedRevenue, commissionEarned, amountDue]
+      properties:
+        staffId:
+          type: integer
+        name:
+          type: string
+        isActive:
+          type: boolean
+        compensationType:
+          type: string
+          enum: [commission, flat_fee, booth_rent]
+        commissionPercent:
+          type: ["integer", "null"]
+        amount:
+          type: ["number", "null"]
+        cadence:
+          type: ["string", "null"]
+        # Visits checked out in the period attributed to this staff member.
+        attributedVisits:
+          type: integer
+        # Sum of persisted payment amounts on those visits.
+        attributedRevenue:
+          type: number
+        # commission only: attributedRevenue × commissionPercent / 100.
+        commissionEarned:
+          type: ["number", "null"]
+        # flat_fee / booth_rent only: rent or fee for the period cadence.
+        amountDue:
+          type: ["number", "null"]
 
     SosPlan:
       type: object

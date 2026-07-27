@@ -12,6 +12,7 @@ export interface SosVisitAdvance {
   action: SosVisitAdvanceAction;
   resourceId?: number;
   paymentAmount?: number;
+  staffId?: number;
   benefitCustomerPlanId?: number;
   benefitType?: SosVisitAdvanceBenefitType;
 }

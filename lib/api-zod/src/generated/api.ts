@@ -734,6 +734,8 @@ export const ListSosVisitsResponseItem = zod.object({
   "partySize": zod.number(),
   "resourceId": zod.number().nullish(),
   "resourceName": zod.string().nullish(),
+  "staffId": zod.number().nullish(),
+  "staffName": zod.string().nullish(),
   "estimatedWaitMinutes": zod.number().nullish(),
   "paymentAmount": zod.number().nullish(),
   "checkedInAt": zod.string(),
@@ -765,6 +767,8 @@ export const CheckInSosVisitResponse = zod.object({
   "partySize": zod.number(),
   "resourceId": zod.number().nullish(),
   "resourceName": zod.string().nullish(),
+  "staffId": zod.number().nullish(),
+  "staffName": zod.string().nullish(),
   "estimatedWaitMinutes": zod.number().nullish(),
   "paymentAmount": zod.number().nullish(),
   "checkedInAt": zod.string(),
@@ -784,6 +788,7 @@ export const AdvanceSosVisitBody = zod.object({
   "action": zod.enum(['queue', 'assign', 'notify', 'start_service', 'request_payment', 'check_out']),
   "resourceId": zod.number().optional(),
   "paymentAmount": zod.number().optional(),
+  "staffId": zod.number().optional(),
   "benefitCustomerPlanId": zod.number().optional(),
   "benefitType": zod.enum(['redeem_credit', 'membership_discount']).optional()
 })
@@ -797,6 +802,8 @@ export const AdvanceSosVisitResponse = zod.object({
   "partySize": zod.number(),
   "resourceId": zod.number().nullish(),
   "resourceName": zod.string().nullish(),
+  "staffId": zod.number().nullish(),
+  "staffName": zod.string().nullish(),
   "estimatedWaitMinutes": zod.number().nullish(),
   "paymentAmount": zod.number().nullish(),
   "checkedInAt": zod.string(),
@@ -1478,6 +1485,123 @@ export const CancelSosCustomerPlanResponse = zod.object({
   "purchasedAt": zod.string(),
   "cancelledAt": zod.string().nullable()
 }).describe('A customer\'s enrollment in a plan, with the plan definition denormalized.')
+
+
+/**
+ * @summary List staff members (people with compensation models), active and inactive
+ */
+export const ListSosStaffResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "isActive": zod.boolean(),
+  "compensationType": zod.enum(['commission', 'flat_fee', 'booth_rent']),
+  "commissionPercent": zod.number().nullable(),
+  "amount": zod.number().nullable(),
+  "cadence": zod.union([zod.literal('weekly'),zod.literal('monthly'),zod.literal(null)]).nullable(),
+  "createdAt": zod.string()
+})
+export const ListSosStaffResponse = zod.array(ListSosStaffResponseItem)
+
+
+/**
+ * @summary Add a staff member with a compensation model
+ */
+
+export const createSosStaffMemberBodyCommissionPercentMin = 0;
+export const createSosStaffMemberBodyCommissionPercentMax = 100;
+
+export const createSosStaffMemberBodyAmountMin = 0;
+
+
+
+export const CreateSosStaffMemberBody = zod.object({
+  "name": zod.string().min(1),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "compensationType": zod.enum(['commission', 'flat_fee', 'booth_rent']),
+  "commissionPercent": zod.number().min(createSosStaffMemberBodyCommissionPercentMin).max(createSosStaffMemberBodyCommissionPercentMax).optional(),
+  "amount": zod.number().min(createSosStaffMemberBodyAmountMin).optional(),
+  "cadence": zod.enum(['weekly', 'monthly']).optional()
+})
+
+export const CreateSosStaffMemberResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "isActive": zod.boolean(),
+  "compensationType": zod.enum(['commission', 'flat_fee', 'booth_rent']),
+  "commissionPercent": zod.number().nullable(),
+  "amount": zod.number().nullable(),
+  "cadence": zod.union([zod.literal('weekly'),zod.literal('monthly'),zod.literal(null)]).nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a staff member's details, compensation model, or active flag
+ */
+export const UpdateSosStaffMemberParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const updateSosStaffMemberBodyCommissionPercentMin = 0;
+export const updateSosStaffMemberBodyCommissionPercentMax = 100;
+
+export const updateSosStaffMemberBodyAmountMin = 0;
+
+
+
+export const UpdateSosStaffMemberBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "isActive": zod.boolean().optional(),
+  "compensationType": zod.enum(['commission', 'flat_fee', 'booth_rent']).optional(),
+  "commissionPercent": zod.number().min(updateSosStaffMemberBodyCommissionPercentMin).max(updateSosStaffMemberBodyCommissionPercentMax).optional(),
+  "amount": zod.number().min(updateSosStaffMemberBodyAmountMin).optional(),
+  "cadence": zod.enum(['weekly', 'monthly']).optional()
+})
+
+export const UpdateSosStaffMemberResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "isActive": zod.boolean(),
+  "compensationType": zod.enum(['commission', 'flat_fee', 'booth_rent']),
+  "commissionPercent": zod.number().nullable(),
+  "amount": zod.number().nullable(),
+  "cadence": zod.union([zod.literal('weekly'),zod.literal('monthly'),zod.literal(null)]).nullable(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Per-staff earnings summary for a period (commission from persisted charged amounts; fee/rent due per cadence)
+ */
+export const GetSosStaffEarningsQueryParams = zod.object({
+  "from": zod.coerce.string().describe('Period start (ISO date\/datetime, inclusive)'),
+  "to": zod.coerce.string().describe('Period end (ISO date\/datetime, exclusive)')
+})
+
+export const GetSosStaffEarningsResponseItem = zod.object({
+  "staffId": zod.number(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "compensationType": zod.enum(['commission', 'flat_fee', 'booth_rent']),
+  "commissionPercent": zod.number().nullable(),
+  "amount": zod.number().nullable(),
+  "cadence": zod.string().nullable(),
+  "attributedVisits": zod.number(),
+  "attributedRevenue": zod.number(),
+  "commissionEarned": zod.number().nullable(),
+  "amountDue": zod.number().nullable()
+}).describe('One staff member\'s summary for the requested period. Commission staff: attributedRevenue sums the payment amounts persisted at checkout on attributed visits, and commissionEarned is their split of that. Flat-fee staff: amountDue is what the shop owes them for the period cadence. Booth-rent staff: amountDue is what they owe the shop.\n')
+export const GetSosStaffEarningsResponse = zod.array(GetSosStaffEarningsResponseItem)
 
 
 /**

@@ -24,6 +24,7 @@ import { CustomersContent } from '@/components/sos/customers-content';
 import { MembershipPlansContent } from '@/pages/sos/memberships';
 import { ServiceMenuContent } from '@/components/sos/service-menu-content';
 import { AiReceptionistPage } from '@/pages/sos/ai-receptionist';
+import { StaffContent } from '@/components/sos/staff-content';
 import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
   Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
@@ -36,7 +37,7 @@ import {
  * List and Calendar views of appointments (the old standalone Calendar page
  * redirects here), plus the one place open tickets are checked out.
  */
-const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'services', 'plans', 'ai-receptionist'] as const;
+const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'services', 'plans', 'staff', 'ai-receptionist'] as const;
 
 export function BookingsPage() {
   // Tab state lives in the URL (?tab=) so /sos/bookings?tab=reports deep
@@ -203,6 +204,9 @@ export function BookingsPage() {
           <TabsTrigger value="plans" data-testid="tab-membership-plans">
             <Crown className="h-4 w-4 mr-1.5" /> Plans
           </TabsTrigger>
+          <TabsTrigger value="staff" data-testid="tab-staff">
+            <Users className="h-4 w-4 mr-1.5" /> Staff
+          </TabsTrigger>
           <TabsTrigger value="ai-receptionist" data-testid="tab-ai-receptionist">
             <Bot className="h-4 w-4 mr-1.5" /> AI Receptionist
           </TabsTrigger>
@@ -257,6 +261,11 @@ export function BookingsPage() {
 
         <TabsContent value="plans" className="mt-0">
           <MembershipPlansContent />
+        </TabsContent>
+
+        <TabsContent value="staff" className="mt-0">
+          {/* Team roster + compensation models + per-staff earnings summary */}
+          <StaffContent />
         </TabsContent>
 
         <TabsContent value="ai-receptionist" className="mt-0">

@@ -5,6 +5,7 @@ import {
   sosResourcesTable,
   sosCustomersTable,
   sosVisitsTable,
+  sosStaffMembersTable,
   sosAppointmentsTable,
   sosWaitlistTable,
   sosDepositHoldsTable,
@@ -73,6 +74,12 @@ import {
   UpdateSosServiceResponse,
   ReorderSosServicesBody,
   ReorderSosServicesResponse,
+  ListSosStaffResponse,
+  CreateSosStaffMemberBody,
+  CreateSosStaffMemberResponse,
+  UpdateSosStaffMemberBody,
+  UpdateSosStaffMemberResponse,
+  GetSosStaffEarningsResponse,
 } from "@workspace/api-zod";
 import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import twilio from "twilio";
@@ -155,6 +162,7 @@ function serializeVisit(
   v: VisitRow,
   customerName: string,
   resourceName: string | null,
+  staffName: string | null = null,
 ) {
   return {
     id: v.id,
@@ -165,6 +173,8 @@ function serializeVisit(
     partySize: v.partySize,
     resourceId: v.resourceId,
     resourceName,
+    staffId: v.staffId,
+    staffName,
     estimatedWaitMinutes: v.estimatedWaitMinutes,
     paymentAmount: v.paymentAmount == null ? null : parseFloat(v.paymentAmount),
     checkedInAt: v.checkedInAt.toISOString(),
@@ -1138,6 +1148,223 @@ router.post("/sos/customer-plans/:id/cancel", async (req, res): Promise<void> =>
   res.json(CancelSosCustomerPlanResponse.parse(serializeCustomerPlan(updated, plan)));
 });
 
+// ── staff members & compensation ─────────────────────────────────────────────
+
+type StaffRow = typeof sosStaffMembersTable.$inferSelect;
+
+function serializeStaffMember(s: StaffRow) {
+  return {
+    id: s.id,
+    name: s.name,
+    phone: s.phone,
+    email: s.email,
+    isActive: s.isActive,
+    compensationType: s.compensationType,
+    commissionPercent: s.commissionPercent,
+    amount: s.amount == null ? null : parseFloat(s.amount),
+    cadence: s.cadence,
+    createdAt: s.createdAt.toISOString(),
+  };
+}
+
+/**
+ * Cross-field validation for a compensation model: each model must carry
+ * exactly the terms it needs. Returns an error message or null.
+ */
+function validateCompensation(input: {
+  compensationType: string;
+  commissionPercent: number | null;
+  amount: number | null;
+  cadence: string | null;
+}): string | null {
+  if (input.compensationType === "commission") {
+    if (input.commissionPercent == null)
+      return "commissionPercent is required for commission staff";
+    if (input.amount != null || input.cadence != null)
+      return "amount and cadence do not apply to commission staff";
+  } else {
+    if (input.amount == null || input.cadence == null)
+      return `amount and cadence are required for ${input.compensationType === "flat_fee" ? "flat-fee" : "booth-rent"} staff`;
+    if (input.commissionPercent != null)
+      return "commissionPercent only applies to commission staff";
+  }
+  return null;
+}
+
+router.get("/sos/staff", async (req, res): Promise<void> => {
+  const rows = await db
+    .select()
+    .from(sosStaffMembersTable)
+    .where(tenantMatch(sosStaffMembersTable.tenantId, tenantIdFrom(req)))
+    .orderBy(sosStaffMembersTable.id);
+  res.json(ListSosStaffResponse.parse(rows.map(serializeStaffMember)));
+});
+
+router.post("/sos/staff", async (req, res): Promise<void> => {
+  const body = CreateSosStaffMemberBody.parse(req.body);
+  const terms = {
+    compensationType: body.compensationType,
+    commissionPercent: body.commissionPercent ?? null,
+    amount: body.amount ?? null,
+    cadence: body.cadence ?? null,
+  };
+  const err = validateCompensation(terms);
+  if (err) {
+    res.status(400).json({ message: err });
+    return;
+  }
+  const [row] = await db
+    .insert(sosStaffMembersTable)
+    .values({
+      tenantId: tenantIdFrom(req),
+      name: body.name,
+      phone: body.phone ?? null,
+      email: body.email ?? null,
+      compensationType: terms.compensationType,
+      commissionPercent: terms.commissionPercent,
+      amount: terms.amount == null ? null : terms.amount.toFixed(2),
+      cadence: terms.cadence,
+    })
+    .returning();
+  res.status(201).json(CreateSosStaffMemberResponse.parse(serializeStaffMember(row)));
+});
+
+router.patch("/sos/staff/:id", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const body = UpdateSosStaffMemberBody.parse(req.body);
+  const [existing] = await db
+    .select()
+    .from(sosStaffMembersTable)
+    .where(
+      and(
+        eq(sosStaffMembersTable.id, id),
+        tenantMatch(sosStaffMembersTable.tenantId, tenantIdFrom(req)),
+      ),
+    );
+  if (!existing) {
+    res.status(404).json({ message: "Staff member not found" });
+    return;
+  }
+
+  // When the compensation model changes, the terms are re-validated as a
+  // whole; terms not mentioned in the update fall back to the stored ones,
+  // except across a model switch where stale terms are dropped.
+  const nextType = body.compensationType ?? existing.compensationType;
+  const switching = nextType !== existing.compensationType;
+  const terms = {
+    compensationType: nextType,
+    commissionPercent:
+      body.commissionPercent ?? (switching ? null : existing.commissionPercent),
+    amount:
+      body.amount ??
+      (switching || existing.amount == null ? null : parseFloat(existing.amount)),
+    cadence: body.cadence ?? (switching ? null : existing.cadence),
+  };
+  // Drop terms that don't apply to the (possibly new) model before validating,
+  // so e.g. switching commission → flat_fee doesn't complain about the old %.
+  if (terms.compensationType === "commission") {
+    terms.amount = null;
+    terms.cadence = null;
+  } else {
+    terms.commissionPercent = null;
+  }
+  const err = validateCompensation(terms);
+  if (err) {
+    res.status(400).json({ message: err });
+    return;
+  }
+
+  const [row] = await db
+    .update(sosStaffMembersTable)
+    .set({
+      name: body.name ?? existing.name,
+      phone: body.phone ?? existing.phone,
+      email: body.email ?? existing.email,
+      isActive: body.isActive ?? existing.isActive,
+      compensationType: terms.compensationType,
+      commissionPercent: terms.commissionPercent,
+      amount: terms.amount == null ? null : terms.amount.toFixed(2),
+      cadence: terms.cadence,
+    })
+    .where(eq(sosStaffMembersTable.id, id))
+    .returning();
+  res.json(UpdateSosStaffMemberResponse.parse(serializeStaffMember(row)));
+});
+
+router.get("/sos/staff-earnings", async (req, res): Promise<void> => {
+  const from = typeof req.query.from === "string" ? new Date(req.query.from) : null;
+  const to = typeof req.query.to === "string" ? new Date(req.query.to) : null;
+  if (!from || !to || isNaN(from.getTime()) || isNaN(to.getTime()) || from >= to) {
+    res.status(400).json({ message: "Valid from/to period is required (from < to)" });
+    return;
+  }
+  const tenantId = tenantIdFrom(req);
+
+  const staff = await db
+    .select()
+    .from(sosStaffMembersTable)
+    .where(tenantMatch(sosStaffMembersTable.tenantId, tenantId))
+    .orderBy(sosStaffMembersTable.id);
+
+  // Revenue attributed per staff member: sum of the payment amounts PERSISTED
+  // at checkout on visits checked out inside the period. Never recomputed
+  // from anything current except the staff member's split rate.
+  const revenue = await db
+    .select({
+      staffId: sosVisitsTable.staffId,
+      visits: sql<number>`count(*)::int`,
+      total: sql<string>`coalesce(sum(${sosVisitsTable.paymentAmount}), 0)`,
+    })
+    .from(sosVisitsTable)
+    .where(
+      and(
+        tenantMatch(sosVisitsTable.tenantId, tenantId),
+        isNotNull(sosVisitsTable.staffId),
+        eq(sosVisitsTable.status, "checked_out"),
+        gte(sosVisitsTable.checkedOutAt, from),
+        sql`${sosVisitsTable.checkedOutAt} < ${to}`,
+      ),
+    )
+    .groupBy(sosVisitsTable.staffId);
+  const byStaff = new Map(revenue.map((r) => [r.staffId, r]));
+
+  // Cadence periods due inside [from, to): whole weeks/months, minimum 1 —
+  // a shorter selection still owes one cadence period.
+  const periodsDue = (cadence: string | null): number => {
+    const days = (to.getTime() - from.getTime()) / 86_400_000;
+    const len = cadence === "weekly" ? 7 : 30.4375; // avg month length
+    return Math.max(1, Math.round(days / len));
+  };
+
+  res.json(
+    GetSosStaffEarningsResponse.parse(
+      staff.map((s) => {
+        const rev = byStaff.get(s.id);
+        const attributedRevenue = rev ? parseFloat(rev.total) : 0;
+        const isCommission = s.compensationType === "commission";
+        const amount = s.amount == null ? null : parseFloat(s.amount);
+        return {
+          staffId: s.id,
+          name: s.name,
+          isActive: s.isActive,
+          compensationType: s.compensationType,
+          commissionPercent: s.commissionPercent,
+          amount,
+          cadence: s.cadence,
+          attributedVisits: rev?.visits ?? 0,
+          attributedRevenue,
+          commissionEarned: isCommission
+            ? Math.round(attributedRevenue * (s.commissionPercent ?? 0)) / 100
+            : null,
+          amountDue: !isCommission && amount != null
+            ? Math.round(amount * periodsDue(s.cadence) * 100) / 100
+            : null,
+        };
+      }),
+    ),
+  );
+});
+
 // ── visits (customer journey state machine) ──────────────────────────────────
 
 async function serializeVisits(activeOnly: boolean, tenantId: number | null) {
@@ -1146,10 +1373,12 @@ async function serializeVisits(activeOnly: boolean, tenantId: number | null) {
       visit: sosVisitsTable,
       customerName: sosCustomersTable.name,
       resourceName: sosResourcesTable.name,
+      staffName: sosStaffMembersTable.name,
     })
     .from(sosVisitsTable)
     .innerJoin(sosCustomersTable, eq(sosVisitsTable.customerId, sosCustomersTable.id))
     .leftJoin(sosResourcesTable, eq(sosVisitsTable.resourceId, sosResourcesTable.id))
+    .leftJoin(sosStaffMembersTable, eq(sosVisitsTable.staffId, sosStaffMembersTable.id))
     .where(
       and(
         activeOnly ? ne(sosVisitsTable.status, "checked_out") : undefined,
@@ -1157,7 +1386,7 @@ async function serializeVisits(activeOnly: boolean, tenantId: number | null) {
       ),
     )
     .orderBy(sosVisitsTable.checkedInAt);
-  return rows.map((r) => serializeVisit(r.visit, r.customerName, r.resourceName));
+  return rows.map((r) => serializeVisit(r.visit, r.customerName, r.resourceName, r.staffName));
 }
 
 router.get("/sos/visits", async (req, res): Promise<void> => {
@@ -1278,6 +1507,28 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     if (body.paymentAmount != null) {
       updates.paymentAmount = body.paymentAmount.toFixed(2);
     }
+    // Optional staff attribution captured at payment/checkout. Must be an
+    // active staff member in the same tenant scope as the visit.
+    if (body.staffId != null) {
+      const [staff] = await db
+        .select({ id: sosStaffMembersTable.id, isActive: sosStaffMembersTable.isActive })
+        .from(sosStaffMembersTable)
+        .where(
+          and(
+            eq(sosStaffMembersTable.id, body.staffId),
+            tenantMatch(sosStaffMembersTable.tenantId, tenantIdFrom(req)),
+          ),
+        );
+      if (!staff) {
+        res.status(404).json({ message: "Staff member not found" });
+        return;
+      }
+      if (!staff.isActive) {
+        res.status(409).json({ message: "Staff member is deactivated" });
+        return;
+      }
+      updates.staffId = body.staffId;
+    }
   }
 
   // Optional plan benefit at checkout: redeem a prepaid credit or apply a
@@ -1366,8 +1617,19 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
       )[0]?.name ?? null)
     : null;
 
+  const staffName = updated.staffId
+    ? ((
+        await db
+          .select({ name: sosStaffMembersTable.name })
+          .from(sosStaffMembersTable)
+          .where(eq(sosStaffMembersTable.id, updated.staffId))
+      )[0]?.name ?? null)
+    : null;
+
   res.json(
-    AdvanceSosVisitResponse.parse(serializeVisit(updated, customer.name, resourceName)),
+    AdvanceSosVisitResponse.parse(
+      serializeVisit(updated, customer.name, resourceName, staffName),
+    ),
   );
 });
 

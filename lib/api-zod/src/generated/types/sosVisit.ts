@@ -19,6 +19,10 @@ export interface SosVisit {
   /** @nullable */
   resourceName?: string | null;
   /** @nullable */
+  staffId?: number | null;
+  /** @nullable */
+  staffName?: string | null;
+  /** @nullable */
   estimatedWaitMinutes?: number | null;
   /** @nullable */
   paymentAmount?: number | null;

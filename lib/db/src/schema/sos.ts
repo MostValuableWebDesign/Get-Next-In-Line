@@ -93,6 +93,41 @@ export const sosCustomersTable = pgTable(
   (t) => [index("sos_customers_tenant_id_idx").on(t.tenantId)],
 );
 
+// ── staff members & compensation ─────────────────────────────────────────────
+
+// Tenant-scoped staff (people, not chairs — physical stations stay in
+// sos_resources). Each staff member has exactly one compensation model:
+//  - commission:  commissionPercent is the staff member's share of the
+//                 service revenue they're attributed on (single rate).
+//  - flat_fee:    amount is owed to the staff member per cadence.
+//  - booth_rent:  amount is owed BY the staff member per cadence.
+export const sosStaffMembersTable = pgTable(
+  "sos_staff_members",
+  {
+    id: serial("id").primaryKey(),
+    // Tenant scope. NULL identifies legacy single-tenant rows.
+    tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+      onDelete: "cascade",
+    }),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    email: text("email"),
+    // Deactivated staff are hidden from attribution pickers but keep their
+    // historical visit attributions.
+    isActive: boolean("is_active").notNull().default(true),
+    // commission | flat_fee | booth_rent
+    compensationType: text("compensation_type").notNull(),
+    // commission only: whole-number percentage of attributed service revenue.
+    commissionPercent: integer("commission_percent"),
+    // flat_fee / booth_rent only: money amount per cadence.
+    amount: numeric("amount", { precision: 10, scale: 2 }),
+    // flat_fee / booth_rent only: weekly | monthly
+    cadence: text("cadence"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("sos_staff_members_tenant_id_idx").on(t.tenantId)],
+);
+
 export const sosVisitsTable = pgTable(
   "sos_visits",
   {
@@ -109,6 +144,9 @@ export const sosVisitsTable = pgTable(
   serviceType: text("service_type").notNull(),
   partySize: integer("party_size").notNull().default(1),
   resourceId: integer("resource_id").references(() => sosResourcesTable.id),
+  // Optional staff attribution, captured at payment/checkout time. Kept even
+  // if the staff member is later deactivated.
+  staffId: integer("staff_id").references(() => sosStaffMembersTable.id),
   estimatedWaitMinutes: integer("estimated_wait_minutes"),
   paymentAmount: numeric("payment_amount", { precision: 10, scale: 2 }),
   checkedInAt: timestamp("checked_in_at").notNull().defaultNow(),

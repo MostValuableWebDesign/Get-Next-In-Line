@@ -39,6 +39,7 @@ import type {
   EngagementRule,
   EngagementRuleInput,
   EngagementRuleUpdate,
+  GetSosStaffEarningsParams,
   GetTenantActivityParams,
   HealthStatus,
   ListSosAppointmentsParams,
@@ -80,6 +81,10 @@ import type {
   SosServiceUpdate,
   SosSettings,
   SosSettingsUpdate,
+  SosStaffEarningsRow,
+  SosStaffMember,
+  SosStaffMemberInput,
+  SosStaffMemberUpdate,
   SosTimelineEntry,
   SosVisit,
   SosVisitAdvance,
@@ -4524,6 +4529,310 @@ export const useCancelSosCustomerPlan = <TError = ErrorType<void>,
       > => {
       return useMutation(getCancelSosCustomerPlanMutationOptions(options));
     }
+
+export const getListSosStaffUrl = () => {
+
+
+
+
+  return `/api/sos/staff`
+}
+
+/**
+ * @summary List staff members (people with compensation models), active and inactive
+ */
+export const listSosStaff = async ( options?: RequestInit): Promise<SosStaffMember[]> => {
+
+  return customFetch<SosStaffMember[]>(getListSosStaffUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSosStaffQueryKey = () => {
+    return [
+    `/api/sos/staff`
+    ] as const;
+    }
+
+
+export const getListSosStaffQueryOptions = <TData = Awaited<ReturnType<typeof listSosStaff>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSosStaffQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSosStaff>>> = ({ signal }) => listSosStaff({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSosStaff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSosStaffQueryResult = NonNullable<Awaited<ReturnType<typeof listSosStaff>>>
+export type ListSosStaffQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List staff members (people with compensation models), active and inactive
+ */
+
+export function useListSosStaff<TData = Awaited<ReturnType<typeof listSosStaff>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSosStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSosStaffQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSosStaffMemberUrl = () => {
+
+
+
+
+  return `/api/sos/staff`
+}
+
+/**
+ * @summary Add a staff member with a compensation model
+ */
+export const createSosStaffMember = async (sosStaffMemberInput: SosStaffMemberInput, options?: RequestInit): Promise<SosStaffMember> => {
+
+  return customFetch<SosStaffMember>(getCreateSosStaffMemberUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosStaffMemberInput)
+  }
+);}
+
+
+
+
+
+export const getCreateSosStaffMemberMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosStaffMember>>, TError,{data: BodyType<SosStaffMemberInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSosStaffMember>>, TError,{data: BodyType<SosStaffMemberInput>}, TContext> => {
+
+const mutationKey = ['createSosStaffMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSosStaffMember>>, {data: BodyType<SosStaffMemberInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSosStaffMember(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSosStaffMemberMutationResult = NonNullable<Awaited<ReturnType<typeof createSosStaffMember>>>
+    export type CreateSosStaffMemberMutationBody = BodyType<SosStaffMemberInput>
+    export type CreateSosStaffMemberMutationError = ErrorType<void>
+
+    /**
+ * @summary Add a staff member with a compensation model
+ */
+export const useCreateSosStaffMember = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSosStaffMember>>, TError,{data: BodyType<SosStaffMemberInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSosStaffMember>>,
+        TError,
+        {data: BodyType<SosStaffMemberInput>},
+        TContext
+      > => {
+      return useMutation(getCreateSosStaffMemberMutationOptions(options));
+    }
+
+export const getUpdateSosStaffMemberUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/staff/${id}`
+}
+
+/**
+ * @summary Update a staff member's details, compensation model, or active flag
+ */
+export const updateSosStaffMember = async (id: number,
+    sosStaffMemberUpdate: SosStaffMemberUpdate, options?: RequestInit): Promise<SosStaffMember> => {
+
+  return customFetch<SosStaffMember>(getUpdateSosStaffMemberUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosStaffMemberUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSosStaffMemberMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosStaffMember>>, TError,{id: number;data: BodyType<SosStaffMemberUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSosStaffMember>>, TError,{id: number;data: BodyType<SosStaffMemberUpdate>}, TContext> => {
+
+const mutationKey = ['updateSosStaffMember'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSosStaffMember>>, {id: number;data: BodyType<SosStaffMemberUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSosStaffMember(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSosStaffMemberMutationResult = NonNullable<Awaited<ReturnType<typeof updateSosStaffMember>>>
+    export type UpdateSosStaffMemberMutationBody = BodyType<SosStaffMemberUpdate>
+    export type UpdateSosStaffMemberMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a staff member's details, compensation model, or active flag
+ */
+export const useUpdateSosStaffMember = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosStaffMember>>, TError,{id: number;data: BodyType<SosStaffMemberUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSosStaffMember>>,
+        TError,
+        {id: number;data: BodyType<SosStaffMemberUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSosStaffMemberMutationOptions(options));
+    }
+
+export const getGetSosStaffEarningsUrl = (params: GetSosStaffEarningsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/sos/staff-earnings?${stringifiedParams}` : `/api/sos/staff-earnings`
+}
+
+/**
+ * @summary Per-staff earnings summary for a period (commission from persisted charged amounts; fee/rent due per cadence)
+ */
+export const getSosStaffEarnings = async (params: GetSosStaffEarningsParams, options?: RequestInit): Promise<SosStaffEarningsRow[]> => {
+
+  return customFetch<SosStaffEarningsRow[]>(getGetSosStaffEarningsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSosStaffEarningsQueryKey = (params?: GetSosStaffEarningsParams,) => {
+    return [
+    `/api/sos/staff-earnings`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSosStaffEarningsQueryOptions = <TData = Awaited<ReturnType<typeof getSosStaffEarnings>>, TError = ErrorType<void>>(params: GetSosStaffEarningsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosStaffEarnings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSosStaffEarningsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSosStaffEarnings>>> = ({ signal }) => getSosStaffEarnings(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSosStaffEarnings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSosStaffEarningsQueryResult = NonNullable<Awaited<ReturnType<typeof getSosStaffEarnings>>>
+export type GetSosStaffEarningsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Per-staff earnings summary for a period (commission from persisted charged amounts; fee/rent due per cadence)
+ */
+
+export function useGetSosStaffEarnings<TData = Awaited<ReturnType<typeof getSosStaffEarnings>>, TError = ErrorType<void>>(
+ params: GetSosStaffEarningsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosStaffEarnings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSosStaffEarningsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetTenantSettingsUrl = (id: number,) => {
 

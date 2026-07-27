@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import {
   useListSosVisits, useAdvanceSosVisit, getListSosVisitsQueryKey,
   useGetSosCustomerPlans, getGetSosCustomerPlansQueryKey,
+  useListSosStaff,
 } from '@workspace/api-client-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { SosCustomerPlan } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
@@ -48,13 +50,14 @@ export function OpenTicketsPanel() {
           key={ticket.id}
           ticket={ticket}
           isPending={advance.isPending}
-          onCheckout={(amount, benefit) => {
+          onCheckout={(amount, benefit, staffId) => {
             advance.mutate(
               {
                 id: ticket.id,
                 data: {
                   action: 'check_out',
                   paymentAmount: amount,
+                  ...(staffId != null ? { staffId } : {}),
                   ...(benefit
                     ? { benefitCustomerPlanId: benefit.customerPlanId, benefitType: benefit.type }
                     : {}),
@@ -93,12 +96,16 @@ function TicketCard({
   ticket, onCheckout, isPending,
 }: {
   ticket: any;
-  onCheckout: (amt: number, benefit: Benefit | null) => void;
+  onCheckout: (amt: number, benefit: Benefit | null, staffId: number | null) => void;
   isPending: boolean;
 }) {
   const [amount, setAmount] = useState(ticket.paymentAmount?.toString() || "");
   const [benefit, setBenefit] = useState<Benefit | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
+  // Optional staff attribution — drives per-staff earnings reporting.
+  const [staffId, setStaffId] = useState<string>(ticket.staffId?.toString() ?? '');
+  const { data: staff } = useListSosStaff();
+  const activeStaff = staff?.filter(s => s.isActive) ?? [];
 
   const { data: planData } = useGetSosCustomerPlans(ticket.customerId, {
     query: { queryKey: getGetSosCustomerPlansQueryKey(ticket.customerId) },
@@ -183,6 +190,22 @@ function TicketCard({
           )}
         </div>
 
+        {activeStaff.length > 0 && (
+          <div className="space-y-1.5">
+            <Label>Performed By (optional)</Label>
+            <Select value={staffId} onValueChange={setStaffId}>
+              <SelectTrigger data-testid={`select-checkout-staff-${ticket.id}`}>
+                <SelectValue placeholder="Attribute to a staff member..." />
+              </SelectTrigger>
+              <SelectContent>
+                {activeStaff.map(s => (
+                  <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="flex gap-4 items-end border-t pt-4">
           <div className="space-y-1.5 flex-1">
             <Label>Service Amount</Label>
@@ -200,7 +223,7 @@ function TicketCard({
             size="lg"
             className="w-1/2"
             disabled={isPending || (benefit?.type === 'redeem_credit' ? false : (!amount || base <= 0))}
-            onClick={() => onCheckout(due, benefit)}
+            onClick={() => onCheckout(due, benefit, staffId ? Number(staffId) : null)}
           >
             <CheckCircle className="mr-2 h-4 w-4" />
             {benefit?.type === 'redeem_credit' ? 'Redeem Credit & Complete' : 'Charge & Complete'}
