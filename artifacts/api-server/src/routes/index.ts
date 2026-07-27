@@ -11,6 +11,8 @@ import sosRouter from "./sos";
 import conciergeRouter from "./concierge";
 import partnersRouter from "./partners";
 import publicBookingRouter from "./publicBooking";
+import landingRouter from "./landing";
+import reviewsRouter from "./reviews";
 
 const router: IRouter = Router();
 
@@ -22,6 +24,10 @@ router.use(authRouter);   // POST /auth/login, POST /auth/logout, GET /auth/me
 // unauthenticated: customers book without an account. Slug-scoped, exposes
 // only the public booking surface, and booking creation is rate limited.
 router.use(publicBookingRouter);
+// Public SEO landing pages (/public/landing/:slug) — server-rendered HTML
+// that crawlers can read without executing the app. Read-only, slug-scoped,
+// and renders only published data (profile, active services, visible reviews).
+router.use(landingRouter);
 
 // ── Protected routes ─────────────────────────────────────────────────────────
 // All routes below this middleware require a valid session — except the
@@ -51,6 +57,7 @@ router.use((req, res, next) => {
 router.use(sosRouter);    // SOS operations section of GNIL OS (behind the same session auth)
 router.use(agencyRouter);
 router.use(tenantsRouter);
+router.use(reviewsRouter); // Tenant review management (public landing page reviews)
 router.use(modulesRouter);
 router.use(billingRouter);
 router.use(adminRouter);

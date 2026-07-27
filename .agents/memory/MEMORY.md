@@ -24,4 +24,5 @@
 - [Dev DB checkpoint rollback self-heal](dev-db-checkpoint-rollback.md) — recurring "unstamped migrations" drift = checkpoint DB restore, not data loss; server startup now auto-reconciles then seeds.
 - After repairing DB drift, restart the API server — its start-time connector seed backfills columns (e.g. partner_brand) that silently stayed null while the column was missing.
 - [Partner-Direct Integrations](partner-integrations.md) — partners category always bills pass-through (0%) in pricing.ts; partnerId keys derive from brand, never slug; tokens encrypted, never in responses.
+- Crawlable public pages are served as server-rendered HTML from api-server routes registered before the auth middleware (see routes/landing.ts pattern); the gnil-os SPA is CSR-only and not crawlable.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.

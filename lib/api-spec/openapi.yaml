@@ -1315,6 +1315,106 @@ paths:
         "404":
           description: Tenant not found
 
+  /tenants/{id}/reviews:
+    get:
+      operationId: listTenantReviews
+      tags: [tenants]
+      summary: List a tenant's customer reviews (including hidden ones) for management
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reviews, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SosReview"
+        "404":
+          description: Tenant not found
+    post:
+      operationId: createTenantReview
+      tags: [tenants]
+      summary: Add a customer review for a tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosReviewInput"
+      responses:
+        "201":
+          description: Created review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosReview"
+        "404":
+          description: Tenant not found
+
+  /tenants/{id}/reviews/{reviewId}:
+    patch:
+      operationId: updateTenantReview
+      tags: [tenants]
+      summary: Update a review (edit fields or toggle public visibility)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosReviewUpdate"
+      responses:
+        "200":
+          description: Updated review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosReview"
+        "404":
+          description: Tenant or review not found
+    delete:
+      operationId: deleteTenantReview
+      tags: [tenants]
+      summary: Delete a review
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: reviewId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Tenant or review not found
+
   /tenants/{id}/engagement-rules:
     get:
       operationId: listEngagementRules
@@ -2192,7 +2292,7 @@ components:
 
     SosSettings:
       type: object
-      required: [id, businessName, industryType, resourceLabel, openTime, closeTime, aiReceptionistEnabled, waitlistAutoFillEnabled, serviceNames, noShowShieldEnabled, noShowShieldProvisioned, noShowDepositAmount, noShowCancellationWindowHours, noShowFee, defaultCycleDays, updatedAt]
+      required: [id, businessName, industryType, resourceLabel, openTime, closeTime, aiReceptionistEnabled, waitlistAutoFillEnabled, serviceNames, noShowShieldEnabled, noShowShieldProvisioned, noShowDepositAmount, noShowCancellationWindowHours, noShowFee, defaultCycleDays, seoDescription, publicPhone, streetAddress, addressLocality, addressRegion, postalCode, latitude, longitude, businessCategory, updatedAt]
       properties:
         id:
           type: integer
@@ -2242,6 +2342,31 @@ components:
         defaultCycleDays:
           type: integer
           description: Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history.
+        seoDescription:
+          type: string
+          description: Public business description used in landing-page metadata and JSON-LD.
+        publicPhone:
+          type: string
+          description: Public-facing phone number (distinct from the SMS sending number).
+        streetAddress:
+          type: string
+        addressLocality:
+          type: string
+          description: City.
+        addressRegion:
+          type: string
+          description: State / province.
+        postalCode:
+          type: string
+        latitude:
+          type: string
+          description: Decimal latitude as a string; empty when unset.
+        longitude:
+          type: string
+          description: Decimal longitude as a string; empty when unset.
+        businessCategory:
+          type: string
+          description: Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.
         updatedAt:
           type: string
 
@@ -2282,6 +2407,83 @@ components:
         defaultCycleDays:
           type: integer
           minimum: 1
+        seoDescription:
+          type: string
+        publicPhone:
+          type: string
+        streetAddress:
+          type: string
+        addressLocality:
+          type: string
+        addressRegion:
+          type: string
+        postalCode:
+          type: string
+        latitude:
+          type: string
+          pattern: "^$|^-?\\d{1,2}(\\.\\d+)?$"
+        longitude:
+          type: string
+          pattern: "^$|^-?\\d{1,3}(\\.\\d+)?$"
+        businessCategory:
+          type: string
+
+    SosReview:
+      type: object
+      required: [id, tenantId, authorName, rating, body, isVisible, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: ["integer", "null"]
+        authorName:
+          type: string
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        body:
+          type: string
+        isVisible:
+          type: boolean
+          description: Whether the review appears on the public landing page.
+        createdAt:
+          type: string
+
+    SosReviewInput:
+      type: object
+      required: [authorName, rating]
+      properties:
+        authorName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        body:
+          type: string
+          maxLength: 2000
+        isVisible:
+          type: boolean
+
+    SosReviewUpdate:
+      type: object
+      properties:
+        authorName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        body:
+          type: string
+          maxLength: 2000
+        isVisible:
+          type: boolean
 
     SosResource:
       type: object

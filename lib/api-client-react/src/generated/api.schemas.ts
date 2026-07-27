@@ -394,6 +394,22 @@ export interface SosSettings {
   noShowFee: number;
   /** Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history. */
   defaultCycleDays: number;
+  /** Public business description used in landing-page metadata and JSON-LD. */
+  seoDescription: string;
+  /** Public-facing phone number (distinct from the SMS sending number). */
+  publicPhone: string;
+  streetAddress: string;
+  /** City. */
+  addressLocality: string;
+  /** State / province. */
+  addressRegion: string;
+  postalCode: string;
+  /** Decimal latitude as a string; empty when unset. */
+  latitude: string;
+  /** Decimal longitude as a string; empty when unset. */
+  longitude: string;
+  /** Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness. */
+  businessCategory: string;
   updatedAt: string;
 }
 
@@ -418,6 +434,65 @@ export interface SosSettingsUpdate {
   noShowFee?: number;
   /** @minimum 1 */
   defaultCycleDays?: number;
+  seoDescription?: string;
+  publicPhone?: string;
+  streetAddress?: string;
+  addressLocality?: string;
+  addressRegion?: string;
+  postalCode?: string;
+  /** @pattern ^$|^-?\d{1,2}(\.\d+)?$ */
+  latitude?: string;
+  /** @pattern ^$|^-?\d{1,3}(\.\d+)?$ */
+  longitude?: string;
+  businessCategory?: string;
+}
+
+export interface SosReview {
+  id: number;
+  /** @nullable */
+  tenantId: number | null;
+  authorName: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  rating: number;
+  body: string;
+  /** Whether the review appears on the public landing page. */
+  isVisible: boolean;
+  createdAt: string;
+}
+
+export interface SosReviewInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  authorName: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  rating: number;
+  /** @maxLength 2000 */
+  body?: string;
+  isVisible?: boolean;
+}
+
+export interface SosReviewUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  authorName?: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  rating?: number;
+  /** @maxLength 2000 */
+  body?: string;
+  isVisible?: boolean;
 }
 
 export type SosResourceStatus = typeof SosResourceStatus[keyof typeof SosResourceStatus];

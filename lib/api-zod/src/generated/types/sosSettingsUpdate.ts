@@ -27,4 +27,15 @@ export interface SosSettingsUpdate {
   noShowFee?: number;
   /** @minimum 1 */
   defaultCycleDays?: number;
+  seoDescription?: string;
+  publicPhone?: string;
+  streetAddress?: string;
+  addressLocality?: string;
+  addressRegion?: string;
+  postalCode?: string;
+  /** @pattern ^$|^-?\d{1,2}(\.\d+)?$ */
+  latitude?: string;
+  /** @pattern ^$|^-?\d{1,3}(\.\d+)?$ */
+  longitude?: string;
+  businessCategory?: string;
 }

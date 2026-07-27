@@ -80,6 +80,9 @@ import type {
   SosResource,
   SosResourceInput,
   SosResourceUpdate,
+  SosReview,
+  SosReviewInput,
+  SosReviewUpdate,
   SosService,
   SosServiceInput,
   SosServiceReorderInput,
@@ -4986,6 +4989,302 @@ export const useUpdateTenantSettings = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getUpdateTenantSettingsMutationOptions(options));
+    }
+
+export const getListTenantReviewsUrl = (id: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/reviews`
+}
+
+/**
+ * @summary List a tenant's customer reviews (including hidden ones) for management
+ */
+export const listTenantReviews = async (id: number, options?: RequestInit): Promise<SosReview[]> => {
+
+  return customFetch<SosReview[]>(getListTenantReviewsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTenantReviewsQueryKey = (id: number,) => {
+    return [
+    `/api/tenants/${id}/reviews`
+    ] as const;
+    }
+
+
+export const getListTenantReviewsQueryOptions = <TData = Awaited<ReturnType<typeof listTenantReviews>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTenantReviews>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTenantReviewsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTenantReviews>>> = ({ signal }) => listTenantReviews(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTenantReviews>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListTenantReviewsQueryResult = NonNullable<Awaited<ReturnType<typeof listTenantReviews>>>
+export type ListTenantReviewsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List a tenant's customer reviews (including hidden ones) for management
+ */
+
+export function useListTenantReviews<TData = Awaited<ReturnType<typeof listTenantReviews>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTenantReviews>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListTenantReviewsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateTenantReviewUrl = (id: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/reviews`
+}
+
+/**
+ * @summary Add a customer review for a tenant
+ */
+export const createTenantReview = async (id: number,
+    sosReviewInput: SosReviewInput, options?: RequestInit): Promise<SosReview> => {
+
+  return customFetch<SosReview>(getCreateTenantReviewUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosReviewInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTenantReviewMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTenantReview>>, TError,{id: number;data: BodyType<SosReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTenantReview>>, TError,{id: number;data: BodyType<SosReviewInput>}, TContext> => {
+
+const mutationKey = ['createTenantReview'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTenantReview>>, {id: number;data: BodyType<SosReviewInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createTenantReview(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTenantReviewMutationResult = NonNullable<Awaited<ReturnType<typeof createTenantReview>>>
+    export type CreateTenantReviewMutationBody = BodyType<SosReviewInput>
+    export type CreateTenantReviewMutationError = ErrorType<void>
+
+    /**
+ * @summary Add a customer review for a tenant
+ */
+export const useCreateTenantReview = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTenantReview>>, TError,{id: number;data: BodyType<SosReviewInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTenantReview>>,
+        TError,
+        {id: number;data: BodyType<SosReviewInput>},
+        TContext
+      > => {
+      return useMutation(getCreateTenantReviewMutationOptions(options));
+    }
+
+export const getUpdateTenantReviewUrl = (id: number,
+    reviewId: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/reviews/${reviewId}`
+}
+
+/**
+ * @summary Update a review (edit fields or toggle public visibility)
+ */
+export const updateTenantReview = async (id: number,
+    reviewId: number,
+    sosReviewUpdate: SosReviewUpdate, options?: RequestInit): Promise<SosReview> => {
+
+  return customFetch<SosReview>(getUpdateTenantReviewUrl(id,reviewId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosReviewUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateTenantReviewMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantReview>>, TError,{id: number;reviewId: number;data: BodyType<SosReviewUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTenantReview>>, TError,{id: number;reviewId: number;data: BodyType<SosReviewUpdate>}, TContext> => {
+
+const mutationKey = ['updateTenantReview'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTenantReview>>, {id: number;reviewId: number;data: BodyType<SosReviewUpdate>}> = (props) => {
+          const {id,reviewId,data} = props ?? {};
+
+          return  updateTenantReview(id,reviewId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTenantReviewMutationResult = NonNullable<Awaited<ReturnType<typeof updateTenantReview>>>
+    export type UpdateTenantReviewMutationBody = BodyType<SosReviewUpdate>
+    export type UpdateTenantReviewMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a review (edit fields or toggle public visibility)
+ */
+export const useUpdateTenantReview = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTenantReview>>, TError,{id: number;reviewId: number;data: BodyType<SosReviewUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTenantReview>>,
+        TError,
+        {id: number;reviewId: number;data: BodyType<SosReviewUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateTenantReviewMutationOptions(options));
+    }
+
+export const getDeleteTenantReviewUrl = (id: number,
+    reviewId: number,) => {
+
+
+
+
+  return `/api/tenants/${id}/reviews/${reviewId}`
+}
+
+/**
+ * @summary Delete a review
+ */
+export const deleteTenantReview = async (id: number,
+    reviewId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteTenantReviewUrl(id,reviewId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteTenantReviewMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTenantReview>>, TError,{id: number;reviewId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteTenantReview>>, TError,{id: number;reviewId: number}, TContext> => {
+
+const mutationKey = ['deleteTenantReview'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteTenantReview>>, {id: number;reviewId: number}> = (props) => {
+          const {id,reviewId} = props ?? {};
+
+          return  deleteTenantReview(id,reviewId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteTenantReviewMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTenantReview>>>
+
+    export type DeleteTenantReviewMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a review
+ */
+export const useDeleteTenantReview = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTenantReview>>, TError,{id: number;reviewId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteTenantReview>>,
+        TError,
+        {id: number;reviewId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteTenantReviewMutationOptions(options));
     }
 
 export const getListEngagementRulesUrl = (id: number,) => {

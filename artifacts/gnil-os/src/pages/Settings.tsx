@@ -8,6 +8,11 @@ import {
   getGetTenantSettingsQueryKey,
   useGetTenant,
   getGetTenantQueryKey,
+  useListTenantReviews,
+  useCreateTenantReview,
+  useUpdateTenantReview,
+  useDeleteTenantReview,
+  getListTenantReviewsQueryKey,
   type SosSettings,
   type SosSettingsUpdate,
 } from '@workspace/api-client-react';
@@ -21,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Activity, ArrowLeft, Bot, Building2, ExternalLink, MessageSquare, ShieldCheck } from 'lucide-react';
+import { Activity, ArrowLeft, Bot, Building2, ExternalLink, MessageSquare, Search, ShieldCheck, Star, Trash2 } from 'lucide-react';
 import { ConnectorRegistrySection } from '@/pages/ConnectorRegistry';
 
 /**
@@ -80,6 +85,17 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
   const [noShowDepositAmount, setNoShowDepositAmount] = React.useState('25');
   const [noShowCancellationWindowHours, setNoShowCancellationWindowHours] = React.useState('24');
   const [noShowFee, setNoShowFee] = React.useState('25');
+  const [seo, setSeo] = React.useState({
+    seoDescription: '',
+    publicPhone: '',
+    streetAddress: '',
+    addressLocality: '',
+    addressRegion: '',
+    postalCode: '',
+    latitude: '',
+    longitude: '',
+    businessCategory: '',
+  });
 
   const initialized = useRef(false);
 
@@ -103,6 +119,17 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       setNoShowDepositAmount(String(settings.noShowDepositAmount));
       setNoShowCancellationWindowHours(String(settings.noShowCancellationWindowHours));
       setNoShowFee(String(settings.noShowFee));
+      setSeo({
+        seoDescription: settings.seoDescription ?? '',
+        publicPhone: settings.publicPhone ?? '',
+        streetAddress: settings.streetAddress ?? '',
+        addressLocality: settings.addressLocality ?? '',
+        addressRegion: settings.addressRegion ?? '',
+        postalCode: settings.postalCode ?? '',
+        latitude: settings.latitude ?? '',
+        longitude: settings.longitude ?? '',
+        businessCategory: settings.businessCategory ?? '',
+      });
       initialized.current = true;
     }
   }, [settings]);
@@ -141,6 +168,15 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       noShowDepositAmount: number;
       noShowCancellationWindowHours: number;
       noShowFee: number;
+      seoDescription: string;
+      publicPhone: string;
+      streetAddress: string;
+      addressLocality: string;
+      addressRegion: string;
+      postalCode: string;
+      latitude: string;
+      longitude: string;
+      businessCategory: string;
     }>,
   ) => {
     const onSuccess = () => {
@@ -359,6 +395,20 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
         />
       )}
 
+      {/* ── Local SEO & Landing Page (tenant-scoped only) ───────────── */}
+      {isTenantScoped && (
+        <LocalSeoCard
+          slug={tenant?.subdomain ?? null}
+          seo={seo}
+          setSeo={setSeo}
+          onSave={() => saveSection('Local SEO profile', seo)}
+          isPending={isPending}
+        />
+      )}
+
+      {/* ── Customer Reviews (tenant-scoped only) ───────────────────── */}
+      {isTenantScoped && <ReviewsCard tenantId={tenantId!} />}
+
       {/* ── No-Show Shield & Deposits ───────────────────────────────── */}
       <Card id="no-show-shield" className="scroll-mt-6" data-testid="section-no-show-shield">
         <CardHeader>
@@ -574,6 +624,255 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
         </div>
       )}
     </div>
+  );
+}
+
+type SeoProfile = {
+  seoDescription: string;
+  publicPhone: string;
+  streetAddress: string;
+  addressLocality: string;
+  addressRegion: string;
+  postalCode: string;
+  latitude: string;
+  longitude: string;
+  businessCategory: string;
+};
+
+/**
+ * Local SEO & Landing Page section (tenant-scoped only): the business profile
+ * fields that feed the public landing page's metadata and Schema.org
+ * LocalBusiness JSON-LD, plus a link to view the live landing page.
+ */
+function LocalSeoCard({
+  slug, seo, setSeo, onSave, isPending,
+}: {
+  slug: string | null;
+  seo: SeoProfile;
+  setSeo: React.Dispatch<React.SetStateAction<SeoProfile>>;
+  onSave: () => void;
+  isPending: boolean;
+}) {
+  const landingUrl = slug ? `${window.location.origin}/api/public/landing/${slug}` : null;
+  const set = (key: keyof SeoProfile) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setSeo((s) => ({ ...s, [key]: e.target.value }));
+
+  return (
+    <Card id="local-seo" className="scroll-mt-6" data-testid="section-local-seo">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Search className="w-5 h-5 text-primary" /> Local SEO & Landing Page
+        </CardTitle>
+        <CardDescription>
+          A public, search-engine-friendly page with your address, hours, services, and reviews —
+          built to rank in local search and the map pack.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-2">
+          <Label>Business description</Label>
+          <textarea
+            value={seo.seoDescription}
+            onChange={set('seoDescription')}
+            rows={3}
+            placeholder="Tell customers (and search engines) what makes your business great."
+            className="rounded-md border bg-background p-2 text-sm"
+            data-testid="input-seo-description"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label>Public phone</Label>
+            <Input value={seo.publicPhone} onChange={set('publicPhone')} placeholder="+1 (555) 000-0000" data-testid="input-seo-phone" />
+          </div>
+          <div className="grid gap-2">
+            <Label>Business category</Label>
+            <Input value={seo.businessCategory} onChange={set('businessCategory')} placeholder="e.g. HairSalon, AutoRepair, Dentist" data-testid="input-seo-category" />
+          </div>
+        </div>
+        <div className="grid gap-2">
+          <Label>Street address</Label>
+          <Input value={seo.streetAddress} onChange={set('streetAddress')} placeholder="123 Main St" data-testid="input-seo-street" />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="grid gap-2">
+            <Label>City</Label>
+            <Input value={seo.addressLocality} onChange={set('addressLocality')} data-testid="input-seo-city" />
+          </div>
+          <div className="grid gap-2">
+            <Label>State / region</Label>
+            <Input value={seo.addressRegion} onChange={set('addressRegion')} data-testid="input-seo-region" />
+          </div>
+          <div className="grid gap-2">
+            <Label>Postal code</Label>
+            <Input value={seo.postalCode} onChange={set('postalCode')} data-testid="input-seo-postal" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label>Latitude</Label>
+            <Input value={seo.latitude} onChange={set('latitude')} placeholder="e.g. 40.7128" data-testid="input-seo-lat" />
+          </div>
+          <div className="grid gap-2">
+            <Label>Longitude</Label>
+            <Input value={seo.longitude} onChange={set('longitude')} placeholder="e.g. -74.0060" data-testid="input-seo-lng" />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Coordinates power the map-pack "geo" markup. Leave blank to omit them.
+        </p>
+        <div className="flex justify-between items-center gap-3">
+          {landingUrl ? (
+            <Button asChild variant="ghost" size="sm" className="text-muted-foreground -ml-2" data-testid="link-view-landing-page">
+              <a href={landingUrl} target="_blank" rel="noreferrer">
+                <ExternalLink className="w-4 h-4 mr-2" /> View landing page
+              </a>
+            </Button>
+          ) : <span />}
+          <Button onClick={onSave} disabled={isPending} data-testid="button-save-local-seo">
+            Save SEO Profile
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Customer Reviews section (tenant-scoped only): add reviews, toggle which
+ * ones appear on the public landing page, and delete mistakes.
+ */
+function ReviewsCard({ tenantId }: { tenantId: number }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: reviews, isLoading } = useListTenantReviews(tenantId, {
+    query: { queryKey: getListTenantReviewsQueryKey(tenantId) },
+  });
+  const createReview = useCreateTenantReview();
+  const updateReview = useUpdateTenantReview();
+  const deleteReview = useDeleteTenantReview();
+
+  const [authorName, setAuthorName] = React.useState('');
+  const [rating, setRating] = React.useState('5');
+  const [body, setBody] = React.useState('');
+
+  const refresh = () =>
+    queryClient.invalidateQueries({ queryKey: getListTenantReviewsQueryKey(tenantId) });
+
+  const onAdd = () => {
+    const r = Math.max(1, Math.min(5, Math.round(parseFloat(rating) || 5)));
+    if (!authorName.trim()) {
+      toast({ title: 'Author name is required', variant: 'destructive' });
+      return;
+    }
+    createReview.mutate(
+      { id: tenantId, data: { authorName: authorName.trim(), rating: r, body: body.trim() } },
+      {
+        onSuccess: () => {
+          setAuthorName('');
+          setRating('5');
+          setBody('');
+          refresh();
+          toast({ title: 'Review added' });
+        },
+        onError: () => toast({ title: "Couldn't add review", variant: 'destructive' }),
+      },
+    );
+  };
+
+  return (
+    <Card id="reviews" className="scroll-mt-6" data-testid="section-reviews">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Star className="w-5 h-5 text-primary" /> Customer Reviews
+        </CardTitle>
+        <CardDescription>
+          Reviews shown on your public landing page. Toggle visibility to control which ones appear.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="p-4 border rounded-lg space-y-3" data-testid="form-add-review">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="grid gap-2 col-span-2">
+              <Label>Customer name</Label>
+              <Input value={authorName} onChange={(e) => setAuthorName(e.target.value)} data-testid="input-review-author" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Rating (1–5)</Label>
+              <Input type="number" min="1" max="5" step="1" value={rating} onChange={(e) => setRating(e.target.value)} data-testid="input-review-rating" />
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label>Review text</Label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={2}
+              className="rounded-md border bg-background p-2 text-sm"
+              data-testid="input-review-body"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={onAdd} disabled={createReview.isPending} data-testid="button-add-review">
+              Add Review
+            </Button>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : !reviews || reviews.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-testid="text-no-reviews">
+            No reviews yet. Add your first customer review above.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {reviews.map((r) => (
+              <div key={r.id} className="flex items-start justify-between gap-3 p-3 border rounded-lg" data-testid={`row-review-${r.id}`}>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{r.authorName}</span>
+                    <span className="text-amber-500 text-sm tracking-widest">
+                      {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
+                    </span>
+                  </div>
+                  {r.body && <p className="text-sm text-muted-foreground mt-0.5">{r.body}</p>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">{r.isVisible ? 'Public' : 'Hidden'}</span>
+                    <Switch
+                      checked={r.isVisible}
+                      onCheckedChange={(checked) =>
+                        updateReview.mutate(
+                          { id: tenantId, reviewId: r.id, data: { isVisible: checked } },
+                          { onSuccess: refresh, onError: () => toast({ title: "Couldn't update review", variant: 'destructive' }) },
+                        )
+                      }
+                      data-testid={`switch-review-visible-${r.id}`}
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={() =>
+                      deleteReview.mutate(
+                        { id: tenantId, reviewId: r.id },
+                        { onSuccess: refresh, onError: () => toast({ title: "Couldn't delete review", variant: 'destructive' }) },
+                      )
+                    }
+                    data-testid={`button-delete-review-${r.id}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

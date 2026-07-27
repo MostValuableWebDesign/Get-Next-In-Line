@@ -124,6 +124,15 @@ export async function serializeSettings(s: SosSettingsRow) {
     noShowCancellationWindowHours: s.noShowCancellationWindowHours,
     noShowFee: parseFloat(s.noShowFee),
     defaultCycleDays: s.defaultCycleDays,
+    seoDescription: s.seoDescription,
+    publicPhone: s.publicPhone,
+    streetAddress: s.streetAddress,
+    addressLocality: s.addressLocality,
+    addressRegion: s.addressRegion,
+    postalCode: s.postalCode,
+    latitude: s.latitude,
+    longitude: s.longitude,
+    businessCategory: s.businessCategory,
     updatedAt: s.updatedAt.toISOString(),
   };
 }

@@ -52,6 +52,22 @@ export const sosSettingsTable = pgTable("sos_settings", {
   // Fallback visit cycle (days) used by the rebooking-nudge scan for clients
   // whose visit history is too thin to compute a personal average.
   defaultCycleDays: integer("default_cycle_days").notNull().default(30),
+  // ── Local SEO / public landing page profile ────────────────────────────────
+  // Fields backing the per-business SEO landing page and its Schema.org
+  // LocalBusiness JSON-LD. All optional — the landing page renders whatever
+  // is filled in and omits the rest from the markup.
+  seoDescription: text("seo_description").notNull().default(""),
+  // Public-facing phone number (distinct from the SMS sending number).
+  publicPhone: text("public_phone").notNull().default(""),
+  streetAddress: text("street_address").notNull().default(""),
+  addressLocality: text("address_locality").notNull().default(""), // city
+  addressRegion: text("address_region").notNull().default(""), // state/province
+  postalCode: text("postal_code").notNull().default(""),
+  // Stored as text to avoid float drift; validated as decimal strings.
+  latitude: text("latitude").notNull().default(""),
+  longitude: text("longitude").notNull().default(""),
+  // Schema.org LocalBusiness subtype (e.g. "HairSalon", "AutoRepair").
+  businessCategory: text("business_category").notNull().default(""),
   // Business-specific service names the AI receptionist should recognize,
   // in addition to the generic industry-neutral terms.
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -341,6 +357,26 @@ export const sosServicesTable = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (t) => [index("sos_services_tenant_id_idx").on(t.tenantId)],
+);
+
+// Customer reviews shown on the public SEO landing page. Owner-managed:
+// businesses control which reviews are publicly visible via isVisible.
+export const sosReviewsTable = pgTable(
+  "sos_reviews",
+  {
+    id: serial("id").primaryKey(),
+    // Tenant scope. NULL identifies legacy single-tenant rows.
+    tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+      onDelete: "cascade",
+    }),
+    authorName: text("author_name").notNull(),
+    // 1–5 stars (validated at the API layer).
+    rating: integer("rating").notNull(),
+    body: text("body").notNull().default(""),
+    isVisible: boolean("is_visible").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("sos_reviews_tenant_id_idx").on(t.tenantId)],
 );
 
 export const sosCallsTable = pgTable(

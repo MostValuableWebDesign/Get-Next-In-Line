@@ -38,5 +38,21 @@ export interface SosSettings {
   noShowFee: number;
   /** Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history. */
   defaultCycleDays: number;
+  /** Public business description used in landing-page metadata and JSON-LD. */
+  seoDescription: string;
+  /** Public-facing phone number (distinct from the SMS sending number). */
+  publicPhone: string;
+  streetAddress: string;
+  /** City. */
+  addressLocality: string;
+  /** State / province. */
+  addressRegion: string;
+  postalCode: string;
+  /** Decimal latitude as a string; empty when unset. */
+  latitude: string;
+  /** Decimal longitude as a string; empty when unset. */
+  longitude: string;
+  /** Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness. */
+  businessCategory: string;
   updatedAt: string;
 }

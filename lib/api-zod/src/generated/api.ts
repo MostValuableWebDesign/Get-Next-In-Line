@@ -448,6 +448,15 @@ export const GetSosSettingsResponse = zod.object({
   "noShowCancellationWindowHours": zod.number(),
   "noShowFee": zod.number(),
   "defaultCycleDays": zod.number().describe('Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history.'),
+  "seoDescription": zod.string().describe('Public business description used in landing-page metadata and JSON-LD.'),
+  "publicPhone": zod.string().describe('Public-facing phone number (distinct from the SMS sending number).'),
+  "streetAddress": zod.string(),
+  "addressLocality": zod.string().describe('City.'),
+  "addressRegion": zod.string().describe('State \/ province.'),
+  "postalCode": zod.string(),
+  "latitude": zod.string().describe('Decimal latitude as a string; empty when unset.'),
+  "longitude": zod.string().describe('Decimal longitude as a string; empty when unset.'),
+  "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
   "updatedAt": zod.string()
 })
 
@@ -464,6 +473,8 @@ export const updateSosSettingsBodyNoShowCancellationWindowHoursMin = 0;
 export const updateSosSettingsBodyNoShowFeeMin = 0;
 
 
+export const updateSosSettingsBodyLatitudeRegExp = new RegExp('^$|^-?\\d{1,2}(\\.\\d+)?$');
+export const updateSosSettingsBodyLongitudeRegExp = new RegExp('^$|^-?\\d{1,3}(\\.\\d+)?$');
 
 
 export const UpdateSosSettingsBody = zod.object({
@@ -480,7 +491,16 @@ export const UpdateSosSettingsBody = zod.object({
   "noShowDepositAmount": zod.number().min(updateSosSettingsBodyNoShowDepositAmountMin).optional(),
   "noShowCancellationWindowHours": zod.number().min(updateSosSettingsBodyNoShowCancellationWindowHoursMin).optional(),
   "noShowFee": zod.number().min(updateSosSettingsBodyNoShowFeeMin).optional(),
-  "defaultCycleDays": zod.number().min(1).optional()
+  "defaultCycleDays": zod.number().min(1).optional(),
+  "seoDescription": zod.string().optional(),
+  "publicPhone": zod.string().optional(),
+  "streetAddress": zod.string().optional(),
+  "addressLocality": zod.string().optional(),
+  "addressRegion": zod.string().optional(),
+  "postalCode": zod.string().optional(),
+  "latitude": zod.string().regex(updateSosSettingsBodyLatitudeRegExp).optional(),
+  "longitude": zod.string().regex(updateSosSettingsBodyLongitudeRegExp).optional(),
+  "businessCategory": zod.string().optional()
 })
 
 export const UpdateSosSettingsResponse = zod.object({
@@ -505,6 +525,15 @@ export const UpdateSosSettingsResponse = zod.object({
   "noShowCancellationWindowHours": zod.number(),
   "noShowFee": zod.number(),
   "defaultCycleDays": zod.number().describe('Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history.'),
+  "seoDescription": zod.string().describe('Public business description used in landing-page metadata and JSON-LD.'),
+  "publicPhone": zod.string().describe('Public-facing phone number (distinct from the SMS sending number).'),
+  "streetAddress": zod.string(),
+  "addressLocality": zod.string().describe('City.'),
+  "addressRegion": zod.string().describe('State \/ province.'),
+  "postalCode": zod.string(),
+  "latitude": zod.string().describe('Decimal latitude as a string; empty when unset.'),
+  "longitude": zod.string().describe('Decimal longitude as a string; empty when unset.'),
+  "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
   "updatedAt": zod.string()
 })
 
@@ -1645,6 +1674,15 @@ export const GetTenantSettingsResponse = zod.object({
   "noShowCancellationWindowHours": zod.number(),
   "noShowFee": zod.number(),
   "defaultCycleDays": zod.number().describe('Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history.'),
+  "seoDescription": zod.string().describe('Public business description used in landing-page metadata and JSON-LD.'),
+  "publicPhone": zod.string().describe('Public-facing phone number (distinct from the SMS sending number).'),
+  "streetAddress": zod.string(),
+  "addressLocality": zod.string().describe('City.'),
+  "addressRegion": zod.string().describe('State \/ province.'),
+  "postalCode": zod.string(),
+  "latitude": zod.string().describe('Decimal latitude as a string; empty when unset.'),
+  "longitude": zod.string().describe('Decimal longitude as a string; empty when unset.'),
+  "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
   "updatedAt": zod.string()
 })
 
@@ -1665,6 +1703,8 @@ export const updateTenantSettingsBodyNoShowCancellationWindowHoursMin = 0;
 export const updateTenantSettingsBodyNoShowFeeMin = 0;
 
 
+export const updateTenantSettingsBodyLatitudeRegExp = new RegExp('^$|^-?\\d{1,2}(\\.\\d+)?$');
+export const updateTenantSettingsBodyLongitudeRegExp = new RegExp('^$|^-?\\d{1,3}(\\.\\d+)?$');
 
 
 export const UpdateTenantSettingsBody = zod.object({
@@ -1681,7 +1721,16 @@ export const UpdateTenantSettingsBody = zod.object({
   "noShowDepositAmount": zod.number().min(updateTenantSettingsBodyNoShowDepositAmountMin).optional(),
   "noShowCancellationWindowHours": zod.number().min(updateTenantSettingsBodyNoShowCancellationWindowHoursMin).optional(),
   "noShowFee": zod.number().min(updateTenantSettingsBodyNoShowFeeMin).optional(),
-  "defaultCycleDays": zod.number().min(1).optional()
+  "defaultCycleDays": zod.number().min(1).optional(),
+  "seoDescription": zod.string().optional(),
+  "publicPhone": zod.string().optional(),
+  "streetAddress": zod.string().optional(),
+  "addressLocality": zod.string().optional(),
+  "addressRegion": zod.string().optional(),
+  "postalCode": zod.string().optional(),
+  "latitude": zod.string().regex(updateTenantSettingsBodyLatitudeRegExp).optional(),
+  "longitude": zod.string().regex(updateTenantSettingsBodyLongitudeRegExp).optional(),
+  "businessCategory": zod.string().optional()
 })
 
 export const UpdateTenantSettingsResponse = zod.object({
@@ -1706,8 +1755,126 @@ export const UpdateTenantSettingsResponse = zod.object({
   "noShowCancellationWindowHours": zod.number(),
   "noShowFee": zod.number(),
   "defaultCycleDays": zod.number().describe('Fallback visit cycle (days) used by the rebooking-nudge scan for clients with too little visit history.'),
+  "seoDescription": zod.string().describe('Public business description used in landing-page metadata and JSON-LD.'),
+  "publicPhone": zod.string().describe('Public-facing phone number (distinct from the SMS sending number).'),
+  "streetAddress": zod.string(),
+  "addressLocality": zod.string().describe('City.'),
+  "addressRegion": zod.string().describe('State \/ province.'),
+  "postalCode": zod.string(),
+  "latitude": zod.string().describe('Decimal latitude as a string; empty when unset.'),
+  "longitude": zod.string().describe('Decimal longitude as a string; empty when unset.'),
+  "businessCategory": zod.string().describe('Schema.org LocalBusiness subtype (e.g. HairSalon, AutoRepair); empty falls back to LocalBusiness.'),
   "updatedAt": zod.string()
 })
+
+
+/**
+ * @summary List a tenant's customer reviews (including hidden ones) for management
+ */
+export const ListTenantReviewsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const listTenantReviewsResponseRatingMax = 5;
+
+
+
+export const ListTenantReviewsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullable(),
+  "authorName": zod.string(),
+  "rating": zod.number().min(1).max(listTenantReviewsResponseRatingMax),
+  "body": zod.string(),
+  "isVisible": zod.boolean().describe('Whether the review appears on the public landing page.'),
+  "createdAt": zod.string()
+})
+export const ListTenantReviewsResponse = zod.array(ListTenantReviewsResponseItem)
+
+
+/**
+ * @summary Add a customer review for a tenant
+ */
+export const CreateTenantReviewParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const createTenantReviewBodyAuthorNameMax = 120;
+
+export const createTenantReviewBodyRatingMax = 5;
+
+export const createTenantReviewBodyBodyMax = 2000;
+
+
+
+export const CreateTenantReviewBody = zod.object({
+  "authorName": zod.string().min(1).max(createTenantReviewBodyAuthorNameMax),
+  "rating": zod.number().min(1).max(createTenantReviewBodyRatingMax),
+  "body": zod.string().max(createTenantReviewBodyBodyMax).optional(),
+  "isVisible": zod.boolean().optional()
+})
+
+export const createTenantReviewResponseRatingMax = 5;
+
+
+
+export const CreateTenantReviewResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullable(),
+  "authorName": zod.string(),
+  "rating": zod.number().min(1).max(createTenantReviewResponseRatingMax),
+  "body": zod.string(),
+  "isVisible": zod.boolean().describe('Whether the review appears on the public landing page.'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a review (edit fields or toggle public visibility)
+ */
+export const UpdateTenantReviewParams = zod.object({
+  "id": zod.coerce.number(),
+  "reviewId": zod.coerce.number()
+})
+
+export const updateTenantReviewBodyAuthorNameMax = 120;
+
+export const updateTenantReviewBodyRatingMax = 5;
+
+export const updateTenantReviewBodyBodyMax = 2000;
+
+
+
+export const UpdateTenantReviewBody = zod.object({
+  "authorName": zod.string().min(1).max(updateTenantReviewBodyAuthorNameMax).optional(),
+  "rating": zod.number().min(1).max(updateTenantReviewBodyRatingMax).optional(),
+  "body": zod.string().max(updateTenantReviewBodyBodyMax).optional(),
+  "isVisible": zod.boolean().optional()
+})
+
+export const updateTenantReviewResponseRatingMax = 5;
+
+
+
+export const UpdateTenantReviewResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullable(),
+  "authorName": zod.string(),
+  "rating": zod.number().min(1).max(updateTenantReviewResponseRatingMax),
+  "body": zod.string(),
+  "isVisible": zod.boolean().describe('Whether the review appears on the public landing page.'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a review
+ */
+export const DeleteTenantReviewParams = zod.object({
+  "id": zod.coerce.number(),
+  "reviewId": zod.coerce.number()
+})
+
+export const DeleteTenantReviewResponse = zod.void()
 
 
 /**
