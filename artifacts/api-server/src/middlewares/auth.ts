@@ -4,6 +4,11 @@ import { Request, Response, NextFunction } from "express";
 declare module "express-session" {
   interface SessionData {
     authenticated: boolean;
+    // User identity behind the session. Absent on sessions created before
+    // the user model existed — those are the password-authenticated platform
+    // operator and are treated as platform admin.
+    userId?: number;
+    isPlatformAdmin?: boolean;
   }
 }
 

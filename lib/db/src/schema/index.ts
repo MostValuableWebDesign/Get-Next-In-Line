@@ -5,3 +5,4 @@ export * from "./messages";
 export * from "./partners";
 export * from "./wallet";
 export * from "./safety";
+export * from "./users";

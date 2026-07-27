@@ -1,17 +1,51 @@
 import { Router, type IRouter } from "express";
+import { db, usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
 /**
  * POST /api/auth/login
- * Body: { password: string }
- * Validates the password against ADMIN_PASSWORD and creates a session.
+ * Body: { password: string } — platform-operator login (ADMIN_PASSWORD);
+ *   the session is the seeded "operator" platform-admin user.
+ * Body: { loginToken: string } — programmatic per-user login for seeded
+ *   users (no user-management UI yet); the session carries that user's
+ *   identity and tenant memberships govern what it may access.
  */
-router.post("/auth/login", (req, res) => {
-  const { password } = req.body as { password?: string };
-  const adminPassword = process.env.ADMIN_PASSWORD;
+router.post("/auth/login", async (req, res): Promise<void> => {
+  const { password, loginToken } = req.body as {
+    password?: string;
+    loginToken?: string;
+  };
 
+  const finishLogin = (userId: number | null, isPlatformAdmin: boolean) => {
+    req.session.authenticated = true;
+    if (userId != null) req.session.userId = userId;
+    req.session.isPlatformAdmin = isPlatformAdmin;
+    req.session.save((err) => {
+      if (err) {
+        res.status(500).json({ error: "Session error" });
+        return;
+      }
+      res.json({ ok: true });
+    });
+  };
+
+  if (typeof loginToken === "string" && loginToken.length > 0) {
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.loginToken, loginToken));
+    if (!user) {
+      res.status(401).json({ error: "Invalid credentials" });
+      return;
+    }
+    finishLogin(user.id, user.isPlatformAdmin);
+    return;
+  }
+
+  const adminPassword = process.env.ADMIN_PASSWORD;
   if (!adminPassword) {
     res.status(500).json({
       error: "Server misconfigured",
@@ -26,14 +60,10 @@ router.post("/auth/login", (req, res) => {
     return;
   }
 
-  req.session.authenticated = true;
-  req.session.save((err) => {
-    if (err) {
-      res.status(500).json({ error: "Session error" });
-      return;
-    }
-    res.json({ ok: true });
-  });
+  // Password login is the platform operator: a platform admin with no
+  // per-user row (deliberately DB-free so login works even when the users
+  // table is unavailable, and legacy sessions behave identically).
+  finishLogin(null, true);
 });
 
 /**

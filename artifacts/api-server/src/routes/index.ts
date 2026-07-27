@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { requireAuth } from "../middlewares/auth";
+import { authorizeTenantAccess } from "../middlewares/tenantAccess";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import agencyRouter from "./agency";
@@ -70,6 +71,18 @@ router.use((req, res, next) => {
     return;
   }
   requireAuth(req, res, next);
+});
+// User↔tenant authorization: after session auth, verify the session user may
+// act on every tenant the request references (x-tenant-id header, URL param,
+// query, or body). Platform admins pass everywhere; members are restricted
+// to their tenants. Session-exempt webhook paths skip this too — they carry
+// their own authentication and tenant resolution.
+router.use((req, res, next) => {
+  if (SESSION_EXEMPT_PATHS.has(req.path) || SESSION_EXEMPT_PATTERNS.some((p) => p.test(req.path))) {
+    next();
+    return;
+  }
+  authorizeTenantAccess(req, res, next).catch(next);
 });
 router.use(sosRouter);    // SOS operations section of GNIL OS (behind the same session auth)
 router.use(agencyRouter);
