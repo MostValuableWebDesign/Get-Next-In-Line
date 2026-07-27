@@ -164,6 +164,38 @@ export interface CoopTaxonomyIndustry {
   subCategories: CoopTaxonomySubCategory[];
 }
 
+export interface CoopSuggestionProposal {
+  perkTitle: string;
+  perkDescription: string;
+  mutualRewardTerms: string;
+}
+
+export interface CoopSuggestion {
+  tenantId: number;
+  name: string;
+  /**
+     * Curated sub-category label when classified, else the raw category string.
+     * @nullable
+     */
+  category: string | null;
+  /** @nullable */
+  city: string | null;
+  /**
+     * Distance from the requesting business in miles; null when either side lacks coordinates.
+     * @nullable
+     */
+  distanceMiles: number | null;
+  /** Complementary-fit score, 0-100 (higher = better match). */
+  score: number;
+  /** Human-readable match reasons shown on the suggestion card. */
+  reasons: string[];
+  proposal: CoopSuggestionProposal;
+}
+
+export interface CoopSuggestionDismissResult {
+  dismissed: boolean;
+}
+
 export interface CoopInviteCreate {
   partnerTenantId: number;
   /** @minLength 1 */
@@ -1738,6 +1770,7 @@ export const SosMessageKind = {
   coop_monthly_report: 'coop_monthly_report',
   safety_alert: 'safety_alert',
   coop_dispute: 'coop_dispute',
+  coop_invite: 'coop_invite',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];

@@ -11,6 +11,9 @@ import {
   useListCoopMonthlyReports, getListCoopMonthlyReportsQueryKey,
   useListCoopDisputes, getListCoopDisputesQueryKey,
   useCreateCoopDispute, useWithdrawCoopDispute,
+  useListCoopSuggestions, getListCoopSuggestionsQueryKey,
+  useDismissCoopSuggestion,
+  type CoopSuggestion,
   type CoopDirectoryEntry, type CoopPartnership, type CoopPerkRedeemResult,
   type PlatformInvite,
   type CoopPartnerPerformance, type CoopMonthlyReport,
@@ -134,6 +137,8 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
           </span>
         </div>
       )}
+
+      <SuggestedPartners tenantId={tenantId} />
 
       {isLoading ? (
         <Skeleton className="h-24 w-full rounded-xl" />
@@ -418,7 +423,7 @@ function ReceivedInvites({ invites }: { invites: CoopPartnership[] }) {
                   onClick={() => act(p, 'accept')}
                   data-testid={`button-accept-invite-${p.id}`}
                 >
-                  <Check className="w-3.5 h-3.5" /> Accept Partnership
+                  <Check className="w-3.5 h-3.5" /> Accept &amp; Launch
                 </Button>
                 <Button
                   size="sm"
@@ -1001,6 +1006,120 @@ function ScanPerkDialog() {
 
 // ── Directory + perk builder ─────────────────────────────────────────────────
 
+// ── Suggested Partners — automated matchmaking feed ─────────────────────────
+// Ranked by complementary fit (category pairings, proximity, activity). Each
+// card explains why the business was matched and offers a one-click invite
+// with a pre-formatted, editable proposal. Dismissed suggestions stay hidden.
+function SuggestedPartners({ tenantId }: { tenantId: number }) {
+  const [inviteTarget, setInviteTarget] = useState<CoopSuggestion | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: suggestions, isLoading } = useListCoopSuggestions({
+    query: { queryKey: getListCoopSuggestionsQueryKey() },
+  });
+  const dismiss = useDismissCoopSuggestion();
+
+  const dismissSuggestion = (s: CoopSuggestion) => {
+    dismiss.mutate(
+      { tenantId: s.tenantId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListCoopSuggestionsQueryKey() });
+          toast({
+            title: 'Suggestion dismissed',
+            description: `${s.name} won't be suggested again.`,
+          });
+        },
+        onError: () => {
+          toast({ title: 'Could not dismiss suggestion', description: 'Please try again.', variant: 'destructive' });
+        },
+      },
+    );
+  };
+
+  if (!isLoading && (suggestions ?? []).length === 0) return null;
+
+  return (
+    <Card className="border-primary/30" data-testid="card-coop-suggested-partners">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-primary" /> Suggested Partners
+        </CardTitle>
+        <CardDescription>
+          Complementary local businesses picked for you — matched on category fit, distance, and
+          customer activity. One click sends a ready-made partnership proposal.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-3">
+            {(suggestions ?? []).map(s => (
+              <div
+                key={s.tenantId}
+                className="border rounded-lg p-3 space-y-2 relative"
+                data-testid={`card-suggested-partner-${s.tenantId}`}
+              >
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
+                  aria-label={`Dismiss ${s.name}`}
+                  disabled={dismiss.isPending}
+                  onClick={() => dismissSuggestion(s)}
+                  data-testid={`button-dismiss-suggestion-${s.tenantId}`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="pr-6">
+                  <div className="text-sm font-semibold truncate">{s.name}</div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
+                    {s.category && <span className="capitalize">{s.category}</span>}
+                    {(s.distanceMiles != null || s.city) && (
+                      <span className="flex items-center gap-0.5">
+                        <MapPin className="w-3 h-3" />
+                        {s.distanceMiles != null ? `${s.distanceMiles} mi` : s.city}
+                        {s.distanceMiles != null && s.city ? ` · ${s.city}` : ''}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {s.reasons.length > 0 && (
+                  <ul className="text-xs text-muted-foreground space-y-0.5" data-testid={`list-match-reasons-${s.tenantId}`}>
+                    {s.reasons.map((r, i) => (
+                      <li key={i} className="flex items-start gap-1">
+                        <Check className="w-3 h-3 mt-0.5 text-primary shrink-0" /> {r}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Button
+                  size="sm"
+                  className="w-full gap-1.5"
+                  onClick={() => setInviteTarget(s)}
+                  data-testid={`button-suggested-invite-${s.tenantId}`}
+                >
+                  <Send className="w-3.5 h-3.5" /> Send Partnership Invitation
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+
+      <PerkBuilderDialog
+        tenantId={tenantId}
+        target={inviteTarget ? { id: inviteTarget.tenantId, name: inviteTarget.name } : null}
+        initial={inviteTarget?.proposal ?? null}
+        onClose={() => setInviteTarget(null)}
+      />
+    </Card>
+  );
+}
+
 function Directory({
   tenantId, partneredTenantIds,
 }: {
@@ -1169,10 +1288,12 @@ function Directory({
 }
 
 function PerkBuilderDialog({
-  tenantId, target, onClose,
+  tenantId, target, initial, onClose,
 }: {
   tenantId: number;
-  target: CoopDirectoryEntry | null;
+  target: { id: number; name: string } | null;
+  /** Pre-formatted proposal draft (Suggested Partners flow) — editable before sending. */
+  initial?: { perkTitle: string; perkDescription: string; mutualRewardTerms: string } | null;
   onClose: () => void;
 }) {
   const [perkTitle, setPerkTitle] = useState('');
@@ -1180,6 +1301,17 @@ function PerkBuilderDialog({
   const [mutualRewardTerms, setMutualRewardTerms] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
+
+  // Seed the form with the auto-generated proposal whenever a new target opens.
+  const targetId = target?.id ?? null;
+  useEffect(() => {
+    if (targetId != null && initial) {
+      setPerkTitle(initial.perkTitle);
+      setPerkDescription(initial.perkDescription);
+      setMutualRewardTerms(initial.mutualRewardTerms);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetId]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const createInvite = useCreateCoopInvite();

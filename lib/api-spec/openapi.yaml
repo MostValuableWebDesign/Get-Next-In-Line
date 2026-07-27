@@ -498,6 +498,46 @@ paths:
         "400":
           description: Missing x-tenant-id header
 
+  /coop/suggestions:
+    get:
+      operationId: listCoopSuggestions
+      tags: [coop]
+      summary: Merchant-facing — ranked Suggested Partners feed (complementary fit, proximity, activity), with auto-generated proposal drafts; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Ranked partner suggestions with match reasons and a pre-formatted proposal draft
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopSuggestion"
+        "400":
+          description: Missing x-tenant-id header
+
+  /coop/suggestions/{tenantId}/dismiss:
+    post:
+      operationId: dismissCoopSuggestion
+      tags: [coop]
+      summary: Merchant-facing — dismiss a suggested partner (stays hidden from the feed permanently); tenant scope via x-tenant-id
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Suggestion dismissed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopSuggestionDismissResult"
+        "400":
+          description: Missing x-tenant-id header
+        "404":
+          description: Business not found
+
   /coop/invites:
     post:
       operationId: createCoopInvite
@@ -3109,6 +3149,51 @@ components:
           items:
             $ref: "#/components/schemas/CoopTaxonomySubCategory"
 
+    CoopSuggestionProposal:
+      type: object
+      required: [perkTitle, perkDescription, mutualRewardTerms]
+      properties:
+        perkTitle:
+          type: string
+        perkDescription:
+          type: string
+        mutualRewardTerms:
+          type: string
+
+    CoopSuggestion:
+      type: object
+      required: [tenantId, name, category, city, distanceMiles, score, reasons, proposal]
+      properties:
+        tenantId:
+          type: integer
+        name:
+          type: string
+        category:
+          type: ["string", "null"]
+          description: Curated sub-category label when classified, else the raw category string.
+        city:
+          type: ["string", "null"]
+        distanceMiles:
+          type: ["number", "null"]
+          description: Distance from the requesting business in miles; null when either side lacks coordinates.
+        score:
+          type: integer
+          description: Complementary-fit score, 0-100 (higher = better match).
+        reasons:
+          type: array
+          items:
+            type: string
+          description: Human-readable match reasons shown on the suggestion card.
+        proposal:
+          $ref: "#/components/schemas/CoopSuggestionProposal"
+
+    CoopSuggestionDismissResult:
+      type: object
+      required: [dismissed]
+      properties:
+        dismissed:
+          type: boolean
+
     CoopInviteCreate:
       type: object
       required: [partnerTenantId, perkTitle]
@@ -4957,7 +5042,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

@@ -27,6 +27,7 @@ import {
   toSettingsColumnUpdates,
 } from "../lib/settings";
 import { runCoopConflictCheck } from "../lib/coopFirewall";
+import { refreshCoopSuggestionsSafe } from "../lib/coopMatchmaking";
 
 const router: IRouter = Router();
 
@@ -70,7 +71,12 @@ router.patch("/tenants/:id/settings", async (req, res): Promise<void> => {
     body.addressLocality !== undefined ||
     body.businessCategory !== undefined ||
     body.industryType !== undefined;
-  if (touchesCoopScope) await runCoopConflictCheck(tenantId);
+  if (touchesCoopScope) {
+    await runCoopConflictCheck(tenantId);
+    // Matchmaking: category/location changes reshape who complements whom —
+    // recompute and persist the Suggested Partners feed automatically.
+    await refreshCoopSuggestionsSafe(tenantId);
+  }
   res.json(UpdateTenantSettingsResponse.parse(await serializeSettings(updated)));
 });
 
@@ -123,6 +129,9 @@ router.post("/tenants", async (req, res): Promise<void> => {
   // local partner feed is correctly scoped with zero manual setup.
   await getSettingsForTenant(tenant.id);
   await runCoopConflictCheck(tenant.id);
+  // Matchmaking: populate the new business's Suggested Partners feed with
+  // zero manual steps (refined further once its profile/category is set).
+  await refreshCoopSuggestionsSafe(tenant.id);
 
   res.status(201).json(
     CreateTenantResponse.parse({

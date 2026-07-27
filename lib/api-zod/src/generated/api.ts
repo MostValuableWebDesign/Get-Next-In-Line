@@ -513,6 +513,38 @@ export const ListCoopDirectoryResponse = zod.array(ListCoopDirectoryResponseItem
 
 
 /**
+ * @summary Merchant-facing — ranked Suggested Partners feed (complementary fit, proximity, activity), with auto-generated proposal drafts; tenant scope via x-tenant-id
+ */
+export const ListCoopSuggestionsResponseItem = zod.object({
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "category": zod.string().nullable().describe('Curated sub-category label when classified, else the raw category string.'),
+  "city": zod.string().nullable(),
+  "distanceMiles": zod.number().nullable().describe('Distance from the requesting business in miles; null when either side lacks coordinates.'),
+  "score": zod.number().describe('Complementary-fit score, 0-100 (higher = better match).'),
+  "reasons": zod.array(zod.string()).describe('Human-readable match reasons shown on the suggestion card.'),
+  "proposal": zod.object({
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string(),
+  "mutualRewardTerms": zod.string()
+})
+})
+export const ListCoopSuggestionsResponse = zod.array(ListCoopSuggestionsResponseItem)
+
+
+/**
+ * @summary Merchant-facing — dismiss a suggested partner (stays hidden from the feed permanently); tenant scope via x-tenant-id
+ */
+export const DismissCoopSuggestionParams = zod.object({
+  "tenantId": zod.coerce.number()
+})
+
+export const DismissCoopSuggestionResponse = zod.object({
+  "dismissed": zod.boolean()
+})
+
+
+/**
  * @summary Merchant-facing — send a partnership invite (strict same-industry guardrail, no override); tenant scope via x-tenant-id
  */
 
@@ -2160,7 +2192,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -2189,7 +2221,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

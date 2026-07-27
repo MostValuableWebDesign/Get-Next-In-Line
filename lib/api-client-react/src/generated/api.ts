@@ -56,6 +56,8 @@ import type {
   CoopPerkRedeemRequest,
   CoopPerkRedeemResult,
   CoopRedemptionValidation,
+  CoopSuggestion,
+  CoopSuggestionDismissResult,
   CoopTaxonomyIndustry,
   EngagementRule,
   EngagementRuleInput,
@@ -1933,6 +1935,154 @@ export function useListCoopDirectory<TData = Awaited<ReturnType<typeof listCoopD
 
 
 
+
+export const getListCoopSuggestionsUrl = () => {
+
+
+
+
+  return `/api/coop/suggestions`
+}
+
+/**
+ * @summary Merchant-facing — ranked Suggested Partners feed (complementary fit, proximity, activity), with auto-generated proposal drafts; tenant scope via x-tenant-id
+ */
+export const listCoopSuggestions = async ( options?: RequestInit): Promise<CoopSuggestion[]> => {
+
+  return customFetch<CoopSuggestion[]>(getListCoopSuggestionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopSuggestionsQueryKey = () => {
+    return [
+    `/api/coop/suggestions`
+    ] as const;
+    }
+
+
+export const getListCoopSuggestionsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopSuggestions>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSuggestions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopSuggestionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopSuggestions>>> = ({ signal }) => listCoopSuggestions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopSuggestions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopSuggestionsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopSuggestions>>>
+export type ListCoopSuggestionsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — ranked Suggested Partners feed (complementary fit, proximity, activity), with auto-generated proposal drafts; tenant scope via x-tenant-id
+ */
+
+export function useListCoopSuggestions<TData = Awaited<ReturnType<typeof listCoopSuggestions>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSuggestions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopSuggestionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDismissCoopSuggestionUrl = (tenantId: number,) => {
+
+
+
+
+  return `/api/coop/suggestions/${tenantId}/dismiss`
+}
+
+/**
+ * @summary Merchant-facing — dismiss a suggested partner (stays hidden from the feed permanently); tenant scope via x-tenant-id
+ */
+export const dismissCoopSuggestion = async (tenantId: number, options?: RequestInit): Promise<CoopSuggestionDismissResult> => {
+
+  return customFetch<CoopSuggestionDismissResult>(getDismissCoopSuggestionUrl(tenantId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDismissCoopSuggestionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissCoopSuggestion>>, TError,{tenantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof dismissCoopSuggestion>>, TError,{tenantId: number}, TContext> => {
+
+const mutationKey = ['dismissCoopSuggestion'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dismissCoopSuggestion>>, {tenantId: number}> = (props) => {
+          const {tenantId} = props ?? {};
+
+          return  dismissCoopSuggestion(tenantId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DismissCoopSuggestionMutationResult = NonNullable<Awaited<ReturnType<typeof dismissCoopSuggestion>>>
+
+    export type DismissCoopSuggestionMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — dismiss a suggested partner (stays hidden from the feed permanently); tenant scope via x-tenant-id
+ */
+export const useDismissCoopSuggestion = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dismissCoopSuggestion>>, TError,{tenantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof dismissCoopSuggestion>>,
+        TError,
+        {tenantId: number},
+        TContext
+      > => {
+      return useMutation(getDismissCoopSuggestionMutationOptions(options));
+    }
 
 export const getCreateCoopInviteUrl = () => {
 

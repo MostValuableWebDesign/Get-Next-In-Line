@@ -24,4 +24,5 @@ export const SosMessageKind = {
   coop_monthly_report: 'coop_monthly_report',
   safety_alert: 'safety_alert',
   coop_dispute: 'coop_dispute',
+  coop_invite: 'coop_invite',
 } as const;

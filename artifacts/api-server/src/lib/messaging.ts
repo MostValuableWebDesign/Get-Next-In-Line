@@ -30,7 +30,8 @@ export type OutboundMessageKind =
   | "perk_expiry_reminder"
   | "coop_monthly_report"
   | "safety_alert"
-  | "coop_dispute";
+  | "coop_dispute"
+  | "coop_invite";
 
 export type MessageOrigin = "operational" | "concierge";
 

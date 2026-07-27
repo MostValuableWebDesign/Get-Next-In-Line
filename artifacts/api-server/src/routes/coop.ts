@@ -54,7 +54,17 @@ import {
   CreateCoopDisputeBody,
   CreateCoopDisputeResponse,
   WithdrawCoopDisputeResponse,
+  ListCoopSuggestionsResponse,
+  DismissCoopSuggestionResponse,
 } from "@workspace/api-zod";
+import { coopSuggestionsTable, coopSuggestionDismissalsTable } from "@workspace/db";
+import {
+  computeSuggestions,
+  refreshCoopSuggestionsSafe,
+  proposalForPair,
+  dismissedTenantIds,
+  MAX_SUGGESTIONS,
+} from "../lib/coopMatchmaking";
 import { platformInvitesTable } from "@workspace/db";
 import {
   generateInviteToken,
@@ -569,6 +579,93 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
   res.json(ListCoopDirectoryResponse.parse(entries));
 });
 
+// ── GET /coop/suggestions — ranked Suggested Partners feed ──────────────────
+// Matchmaking engine output: complementary-fit score from category pairings,
+// proximity (coords with city fallback), and activity signals. Exclusions
+// (competitors, existing/pending partners, dismissals) are applied live on
+// every read so a stale stored row can never surface. Each entry carries an
+// auto-generated proposal draft the merchant can edit before sending.
+router.get("/coop/suggestions", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const [me] = await db
+    .select({ brandName: tenantsTable.brandName })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, tenantId));
+  if (!me) {
+    res.status(404).json({ message: "Business not found" });
+    return;
+  }
+  const [suggestions, myProfiles, stored] = await Promise.all([
+    computeSuggestions(tenantId),
+    loadCoopProfiles([tenantId]),
+    db
+      .select({ id: coopSuggestionsTable.id })
+      .from(coopSuggestionsTable)
+      .where(eq(coopSuggestionsTable.tenantId, tenantId))
+      .limit(1),
+  ]);
+  // Lazy backfill: a business created before the matchmaking engine existed
+  // gets its feed persisted on first view with zero manual steps.
+  if (stored.length === 0 && suggestions.length > 0) {
+    await refreshCoopSuggestionsSafe(tenantId);
+  }
+  const mySubCategory = myProfiles.get(tenantId)!.subCategory;
+  res.json(
+    ListCoopSuggestionsResponse.parse(
+      suggestions.slice(0, MAX_SUGGESTIONS).map((s) => ({
+        tenantId: s.tenantId,
+        name: s.name,
+        category: s.category,
+        city: s.city,
+        distanceMiles: s.distanceMiles,
+        score: s.score,
+        reasons: s.reasons,
+        proposal: proposalForPair(me.brandName, mySubCategory, s.name, s.subCategory),
+      }))
+    )
+  );
+});
+
+// ── POST /coop/suggestions/:tenantId/dismiss — hide a suggestion for good ───
+router.post("/coop/suggestions/:tenantId/dismiss", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const targetId = Number(req.params.tenantId);
+  if (!Number.isInteger(targetId) || targetId <= 0) {
+    res.status(404).json({ message: "Business not found" });
+    return;
+  }
+  const [target] = await db
+    .select({ id: tenantsTable.id })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, targetId));
+  if (!target) {
+    res.status(404).json({ message: "Business not found" });
+    return;
+  }
+  await db
+    .insert(coopSuggestionDismissalsTable)
+    .values({ tenantId, dismissedTenantId: targetId })
+    .onConflictDoNothing();
+  // Drop the persisted feed row too so the stored feed mirrors the dismissal.
+  await db
+    .delete(coopSuggestionsTable)
+    .where(
+      and(
+        eq(coopSuggestionsTable.tenantId, tenantId),
+        eq(coopSuggestionsTable.suggestedTenantId, targetId)
+      )
+    );
+  res.json(DismissCoopSuggestionResponse.parse({ dismissed: true }));
+});
+
 // ── POST /coop/invites — merchant sends a partnership invite ────────────────
 // Strict same-industry guardrail: no tenant-facing override, distinct error
 // code the UI maps to the exact platform-guidelines message. Invites start
@@ -643,6 +740,43 @@ router.post("/coop/invites", async (req, res): Promise<void> => {
           isActive: false,
         })
         .returning();
+      // The pair is now partnered/pending: drop any persisted suggestion rows
+      // in both directions (live reads exclude them anyway).
+      await db
+        .delete(coopSuggestionsTable)
+        .where(
+          or(
+            and(
+              eq(coopSuggestionsTable.tenantId, tenantId),
+              eq(coopSuggestionsTable.suggestedTenantId, partnerTenantId)
+            ),
+            and(
+              eq(coopSuggestionsTable.tenantId, partnerTenantId),
+              eq(coopSuggestionsTable.suggestedTenantId, tenantId)
+            )
+          )
+        );
+      // Notify the invited owner: the in-app hub badge picks the pending
+      // invite up automatically; the SMS goes through the unified messaging
+      // pipeline (opt-in rules + simulated fallback) with a link that lands
+      // them on the proposal. Never blocks the invite itself.
+      const [targetSettings] = await db
+        .select({ publicPhone: sosSettingsTable.publicPhone })
+        .from(sosSettingsTable)
+        .where(eq(sosSettingsTable.tenantId, partnerTenantId));
+      const host = req.get("host") ?? "localhost";
+      const proto = req.protocol || "https";
+      const proposalUrl = `${proto}://${host}/sos/bookings?tenant=${partnerTenantId}&tab=coop`;
+      await sendMessageSafe({
+        tenantId: partnerTenantId,
+        origin: "operational",
+        kind: "coop_invite",
+        toNumber: targetSettings?.publicPhone?.trim() || null,
+        body:
+          `${requester.brandName} wants to partner with your business on Get Next In Line! ` +
+          `Proposed perk: "${perkTitle}". Review and accept in one tap: ${proposalUrl}`,
+        context: { partnershipId: created.id, requestedByTenantId: tenantId },
+      });
       res
         .status(201)
         .json(CreateCoopInviteResponse.parse(serialize(created, requester.brandName, target.brandName)));

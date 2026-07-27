@@ -288,6 +288,13 @@
       "when": 1785126545473,
       "tag": "0040_stiff_husk",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1785127064884,
+      "tag": "0041_productive_roland_deschain",
+      "breakpoints": true
     }
   ]
 }

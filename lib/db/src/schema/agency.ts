@@ -1,4 +1,4 @@
-import { pgTable, serial, text, numeric, integer, timestamp, boolean, unique, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, numeric, integer, timestamp, boolean, unique, index, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -318,6 +318,60 @@ export const coopIsolationPairsTable = pgTable(
 );
 
 export type CoopIsolationPair = typeof coopIsolationPairsTable.$inferSelect;
+
+// ── Co-op partner suggestions (matchmaking engine) ───────────────────────────
+// Persisted "Suggested Partners" feed rows, computed automatically when a
+// business completes setup (and refreshed when its category/location change).
+// Scoring uses only signals already in the platform: category complementarity,
+// proximity, and activity (bookings/customers). Same-sub-category competitors,
+// existing/pending partners, and dismissed businesses are never stored — and
+// are filtered again at read time so stale rows can never leak through.
+export const coopSuggestionsTable = pgTable(
+  "coop_suggestions",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    suggestedTenantId: integer("suggested_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // Complementary-fit score (higher = better match), 0-100.
+    score: integer("score").notNull().default(0),
+    // Human-readable match reasons shown on the suggestion card.
+    reasons: jsonb("reasons").$type<string[]>().notNull().default([]),
+    computedAt: timestamp("computed_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("coop_suggestions_tenant_suggested_uq").on(t.tenantId, t.suggestedTenantId),
+    index("coop_suggestions_tenant_idx").on(t.tenantId),
+  ]
+);
+
+export type CoopSuggestion = typeof coopSuggestionsTable.$inferSelect;
+
+// ── Co-op suggestion dismissals ──────────────────────────────────────────────
+// A merchant dismissed a suggested partner: the pair stays hidden from the
+// suggestions feed permanently (until they partner through another path).
+export const coopSuggestionDismissalsTable = pgTable(
+  "coop_suggestion_dismissals",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    dismissedTenantId: integer("dismissed_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("coop_suggestion_dismissals_pair_uq").on(t.tenantId, t.dismissedTenantId),
+    index("coop_suggestion_dismissals_tenant_idx").on(t.tenantId),
+  ]
+);
+
+export type CoopSuggestionDismissal = typeof coopSuggestionDismissalsTable.$inferSelect;
 // ── Co-op analytics events ───────────────────────────────────────────────────
 // Tenant-scoped tracking of what the co-op network actually does for each
 // business: perk impressions (perk blocks shown on checkout tickets, receipts,
