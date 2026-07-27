@@ -748,6 +748,296 @@ paths:
               schema:
                 $ref: "#/components/schemas/CoopRedemptionValidation"
 
+  /coop/safety/incidents:
+    get:
+      operationId: listSafetyIncidents
+      tags: [coop]
+      summary: Merchant-facing — safety incidents raised by this business and received from co-op partners; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Incidents (raised and received), newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SafetyIncident"
+        "400":
+          description: Missing x-tenant-id scope
+    post:
+      operationId: createSafetyIncident
+      tags: [coop]
+      summary: Merchant-facing — raise a safety alert and broadcast it to all accepted, active co-op partners
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SafetyIncidentCreate"
+      responses:
+        "201":
+          description: Created incident with broadcast summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyIncident"
+        "400":
+          description: Invalid body or missing x-tenant-id scope
+
+  /coop/safety/incidents/{id}/timeline:
+    get:
+      operationId: getSafetyIncidentTimeline
+      tags: [coop]
+      summary: Full audit trail (broadcast, updates, acknowledgments, resolution) for an incident this tenant raised or received
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Timeline entries, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SafetyTimelineEntry"
+        "404":
+          description: Not found (or not visible to this tenant)
+
+  /coop/safety/incidents/{id}/updates:
+    post:
+      operationId: createSafetyIncidentUpdate
+      tags: [coop]
+      summary: Originating business posts a status update on an active incident
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SafetyIncidentUpdateCreate"
+      responses:
+        "200":
+          description: Updated incident
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyIncident"
+        "403":
+          description: Only the originating business may post updates
+        "404":
+          description: Not found
+        "409":
+          description: Incident already resolved
+
+  /coop/safety/incidents/{id}/acknowledge:
+    post:
+      operationId: acknowledgeSafetyIncident
+      tags: [coop]
+      summary: Recipient partner acknowledges an incident
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated incident (from the recipient's perspective)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyIncident"
+        "403":
+          description: This tenant is not a recipient of the incident
+        "404":
+          description: Not found
+
+  /coop/safety/incidents/{id}/resolve:
+    post:
+      operationId: resolveSafetyIncident
+      tags: [coop]
+      summary: Originating business marks the incident resolved
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Resolved incident
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyIncident"
+        "403":
+          description: Only the originating business may resolve
+        "404":
+          description: Not found
+        "409":
+          description: Already resolved
+
+  /coop/safety/contacts:
+    get:
+      operationId: listSafetyContacts
+      tags: [coop]
+      summary: Per-tenant emergency contacts (defaults seeded on first access)
+      responses:
+        "200":
+          description: Contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SafetyEmergencyContact"
+    post:
+      operationId: createSafetyContact
+      tags: [coop]
+      summary: Add an emergency contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SafetyEmergencyContactCreate"
+      responses:
+        "201":
+          description: Created contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyEmergencyContact"
+        "400":
+          description: Invalid body
+
+  /coop/safety/contacts/{id}:
+    patch:
+      operationId: updateSafetyContact
+      tags: [coop]
+      summary: Edit an emergency contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SafetyEmergencyContactUpdate"
+      responses:
+        "200":
+          description: Updated contact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyEmergencyContact"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSafetyContact
+      tags: [coop]
+      summary: Remove an emergency contact
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /coop/safety/templates:
+    get:
+      operationId: listSafetyTemplates
+      tags: [coop]
+      summary: Per-tenant broadcast message templates (defaults seeded on first access)
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SafetyBroadcastTemplate"
+    post:
+      operationId: createSafetyTemplate
+      tags: [coop]
+      summary: Add a broadcast template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SafetyBroadcastTemplateCreate"
+      responses:
+        "201":
+          description: Created template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyBroadcastTemplate"
+        "400":
+          description: Invalid body
+
+  /coop/safety/templates/{id}:
+    patch:
+      operationId: updateSafetyTemplate
+      tags: [coop]
+      summary: Edit a broadcast template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SafetyBroadcastTemplateUpdate"
+      responses:
+        "200":
+          description: Updated template
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SafetyBroadcastTemplate"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSafetyTemplate
+      tags: [coop]
+      summary: Remove a broadcast template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
   /admin/campaigns:
     get:
       operationId: listAdminCampaigns
@@ -4273,7 +4563,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]
@@ -4877,3 +5167,195 @@ components:
           type: integer
         message:
           type: string
+
+    SafetyIncident:
+      type: object
+      required:
+        [
+          id,
+          tenantId,
+          tenantName,
+          direction,
+          incidentType,
+          description,
+          location,
+          status,
+          resolvedAt,
+          acknowledgedAt,
+          recipientCount,
+          acknowledgedCount,
+          smsSentCount,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+          description: Originating (raising) tenant.
+        tenantName:
+          type: string
+        direction:
+          type: string
+          enum: [raised, received]
+          description: Whether the requesting tenant raised or received this incident.
+        incidentType:
+          type: string
+          enum: [silent_panic, suspicious_activity, safety_hazard, medical_emergency, severe_weather]
+        description:
+          type: string
+          description: Decrypted incident text (stored encrypted at rest).
+        location:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, resolved]
+        resolvedAt:
+          type: ["string", "null"]
+        acknowledgedAt:
+          type: ["string", "null"]
+          description: When the requesting tenant acknowledged (received incidents only).
+        recipientCount:
+          type: integer
+        acknowledgedCount:
+          type: integer
+        smsSentCount:
+          type: integer
+          description: Partner SMS notifications recorded for the broadcast (sent or simulated).
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    SafetyIncidentCreate:
+      type: object
+      required: [incidentType, description]
+      properties:
+        incidentType:
+          type: string
+          enum: [silent_panic, suspicious_activity, safety_hazard, medical_emergency, severe_weather]
+        description:
+          type: string
+          minLength: 1
+        location:
+          type: ["string", "null"]
+
+    SafetyIncidentUpdateCreate:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+
+    SafetyTimelineEntry:
+      type: object
+      required: [id, kind, actorTenantId, actorTenantName, body, createdAt]
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+          enum: [broadcast, update, acknowledgment, resolution]
+        actorTenantId:
+          type: integer
+        actorTenantName:
+          type: string
+        body:
+          type: ["string", "null"]
+          description: Decrypted free text when the event carries one.
+        createdAt:
+          type: string
+
+    SafetyEmergencyContact:
+      type: object
+      required: [id, label, phone, category, sortOrder, createdAt]
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+        phone:
+          type: string
+        category:
+          type: string
+          enum: [law_enforcement, medical, property_management, other]
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+
+    SafetyEmergencyContactCreate:
+      type: object
+      required: [label, phone]
+      properties:
+        label:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          enum: [law_enforcement, medical, property_management, other]
+        sortOrder:
+          type: integer
+
+    SafetyEmergencyContactUpdate:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          enum: [law_enforcement, medical, property_management, other]
+        sortOrder:
+          type: integer
+
+    SafetyBroadcastTemplate:
+      type: object
+      required: [id, title, incidentType, body, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        incidentType:
+          type: string
+          enum: [silent_panic, suspicious_activity, safety_hazard, medical_emergency, severe_weather]
+        body:
+          type: string
+        createdAt:
+          type: string
+
+    SafetyBroadcastTemplateCreate:
+      type: object
+      required: [title, incidentType, body]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        incidentType:
+          type: string
+          enum: [silent_panic, suspicious_activity, safety_hazard, medical_emergency, severe_weather]
+        body:
+          type: string
+          minLength: 1
+
+    SafetyBroadcastTemplateUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        incidentType:
+          type: string
+          enum: [silent_panic, suspicious_activity, safety_hazard, medical_emergency, severe_weather]
+        body:
+          type: string
+          minLength: 1

@@ -22,4 +22,5 @@ export const SosMessageKind = {
   wallet_login_code: 'wallet_login_code',
   perk_expiry_reminder: 'perk_expiry_reminder',
   coop_monthly_report: 'coop_monthly_report',
+  safety_alert: 'safety_alert',
 } as const;

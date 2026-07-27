@@ -1611,6 +1611,7 @@ export const SosMessageKind = {
   wallet_login_code: 'wallet_login_code',
   perk_expiry_reminder: 'perk_expiry_reminder',
   coop_monthly_report: 'coop_monthly_report',
+  safety_alert: 'safety_alert',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];
@@ -2082,6 +2083,225 @@ export interface CheckoutResult {
   modulesProvisioned: number;
   modulesSkipped?: number;
   message: string;
+}
+
+/**
+ * Whether the requesting tenant raised or received this incident.
+ */
+export type SafetyIncidentDirection = typeof SafetyIncidentDirection[keyof typeof SafetyIncidentDirection];
+
+
+export const SafetyIncidentDirection = {
+  raised: 'raised',
+  received: 'received',
+} as const;
+
+export type SafetyIncidentIncidentType = typeof SafetyIncidentIncidentType[keyof typeof SafetyIncidentIncidentType];
+
+
+export const SafetyIncidentIncidentType = {
+  silent_panic: 'silent_panic',
+  suspicious_activity: 'suspicious_activity',
+  safety_hazard: 'safety_hazard',
+  medical_emergency: 'medical_emergency',
+  severe_weather: 'severe_weather',
+} as const;
+
+export type SafetyIncidentStatus = typeof SafetyIncidentStatus[keyof typeof SafetyIncidentStatus];
+
+
+export const SafetyIncidentStatus = {
+  active: 'active',
+  resolved: 'resolved',
+} as const;
+
+export interface SafetyIncident {
+  id: number;
+  /** Originating (raising) tenant. */
+  tenantId: number;
+  tenantName: string;
+  /** Whether the requesting tenant raised or received this incident. */
+  direction: SafetyIncidentDirection;
+  incidentType: SafetyIncidentIncidentType;
+  /** Decrypted incident text (stored encrypted at rest). */
+  description: string;
+  /** @nullable */
+  location: string | null;
+  status: SafetyIncidentStatus;
+  /** @nullable */
+  resolvedAt: string | null;
+  /**
+     * When the requesting tenant acknowledged (received incidents only).
+     * @nullable
+     */
+  acknowledgedAt: string | null;
+  recipientCount: number;
+  acknowledgedCount: number;
+  /** Partner SMS notifications recorded for the broadcast (sent or simulated). */
+  smsSentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SafetyIncidentCreateIncidentType = typeof SafetyIncidentCreateIncidentType[keyof typeof SafetyIncidentCreateIncidentType];
+
+
+export const SafetyIncidentCreateIncidentType = {
+  silent_panic: 'silent_panic',
+  suspicious_activity: 'suspicious_activity',
+  safety_hazard: 'safety_hazard',
+  medical_emergency: 'medical_emergency',
+  severe_weather: 'severe_weather',
+} as const;
+
+export interface SafetyIncidentCreate {
+  incidentType: SafetyIncidentCreateIncidentType;
+  /** @minLength 1 */
+  description: string;
+  /** @nullable */
+  location?: string | null;
+}
+
+export interface SafetyIncidentUpdateCreate {
+  /** @minLength 1 */
+  body: string;
+}
+
+export type SafetyTimelineEntryKind = typeof SafetyTimelineEntryKind[keyof typeof SafetyTimelineEntryKind];
+
+
+export const SafetyTimelineEntryKind = {
+  broadcast: 'broadcast',
+  update: 'update',
+  acknowledgment: 'acknowledgment',
+  resolution: 'resolution',
+} as const;
+
+export interface SafetyTimelineEntry {
+  id: number;
+  kind: SafetyTimelineEntryKind;
+  actorTenantId: number;
+  actorTenantName: string;
+  /**
+     * Decrypted free text when the event carries one.
+     * @nullable
+     */
+  body: string | null;
+  createdAt: string;
+}
+
+export type SafetyEmergencyContactCategory = typeof SafetyEmergencyContactCategory[keyof typeof SafetyEmergencyContactCategory];
+
+
+export const SafetyEmergencyContactCategory = {
+  law_enforcement: 'law_enforcement',
+  medical: 'medical',
+  property_management: 'property_management',
+  other: 'other',
+} as const;
+
+export interface SafetyEmergencyContact {
+  id: number;
+  label: string;
+  phone: string;
+  category: SafetyEmergencyContactCategory;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export type SafetyEmergencyContactCreateCategory = typeof SafetyEmergencyContactCreateCategory[keyof typeof SafetyEmergencyContactCreateCategory];
+
+
+export const SafetyEmergencyContactCreateCategory = {
+  law_enforcement: 'law_enforcement',
+  medical: 'medical',
+  property_management: 'property_management',
+  other: 'other',
+} as const;
+
+export interface SafetyEmergencyContactCreate {
+  /** @minLength 1 */
+  label: string;
+  /** @minLength 1 */
+  phone: string;
+  category?: SafetyEmergencyContactCreateCategory;
+  sortOrder?: number;
+}
+
+export type SafetyEmergencyContactUpdateCategory = typeof SafetyEmergencyContactUpdateCategory[keyof typeof SafetyEmergencyContactUpdateCategory];
+
+
+export const SafetyEmergencyContactUpdateCategory = {
+  law_enforcement: 'law_enforcement',
+  medical: 'medical',
+  property_management: 'property_management',
+  other: 'other',
+} as const;
+
+export interface SafetyEmergencyContactUpdate {
+  /** @minLength 1 */
+  label?: string;
+  /** @minLength 1 */
+  phone?: string;
+  category?: SafetyEmergencyContactUpdateCategory;
+  sortOrder?: number;
+}
+
+export type SafetyBroadcastTemplateIncidentType = typeof SafetyBroadcastTemplateIncidentType[keyof typeof SafetyBroadcastTemplateIncidentType];
+
+
+export const SafetyBroadcastTemplateIncidentType = {
+  silent_panic: 'silent_panic',
+  suspicious_activity: 'suspicious_activity',
+  safety_hazard: 'safety_hazard',
+  medical_emergency: 'medical_emergency',
+  severe_weather: 'severe_weather',
+} as const;
+
+export interface SafetyBroadcastTemplate {
+  id: number;
+  title: string;
+  incidentType: SafetyBroadcastTemplateIncidentType;
+  body: string;
+  createdAt: string;
+}
+
+export type SafetyBroadcastTemplateCreateIncidentType = typeof SafetyBroadcastTemplateCreateIncidentType[keyof typeof SafetyBroadcastTemplateCreateIncidentType];
+
+
+export const SafetyBroadcastTemplateCreateIncidentType = {
+  silent_panic: 'silent_panic',
+  suspicious_activity: 'suspicious_activity',
+  safety_hazard: 'safety_hazard',
+  medical_emergency: 'medical_emergency',
+  severe_weather: 'severe_weather',
+} as const;
+
+export interface SafetyBroadcastTemplateCreate {
+  /** @minLength 1 */
+  title: string;
+  incidentType: SafetyBroadcastTemplateCreateIncidentType;
+  /** @minLength 1 */
+  body: string;
+}
+
+export type SafetyBroadcastTemplateUpdateIncidentType = typeof SafetyBroadcastTemplateUpdateIncidentType[keyof typeof SafetyBroadcastTemplateUpdateIncidentType];
+
+
+export const SafetyBroadcastTemplateUpdateIncidentType = {
+  silent_panic: 'silent_panic',
+  suspicious_activity: 'suspicious_activity',
+  safety_hazard: 'safety_hazard',
+  medical_emergency: 'medical_emergency',
+  severe_weather: 'severe_weather',
+} as const;
+
+export interface SafetyBroadcastTemplateUpdate {
+  /** @minLength 1 */
+  title?: string;
+  incidentType?: SafetyBroadcastTemplateUpdateIncidentType;
+  /** @minLength 1 */
+  body?: string;
 }
 
 export type GetTenantActivityParams = {

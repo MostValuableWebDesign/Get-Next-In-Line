@@ -84,6 +84,16 @@ import type {
   PublicBookingConfirmation,
   PublicBookingInput,
   PublicPlatformInvite,
+  SafetyBroadcastTemplate,
+  SafetyBroadcastTemplateCreate,
+  SafetyBroadcastTemplateUpdate,
+  SafetyEmergencyContact,
+  SafetyEmergencyContactCreate,
+  SafetyEmergencyContactUpdate,
+  SafetyIncident,
+  SafetyIncidentCreate,
+  SafetyIncidentUpdateCreate,
+  SafetyTimelineEntry,
   SosAppointment,
   SosAppointmentInput,
   SosCall,
@@ -2742,6 +2752,1027 @@ export function useValidateCoopRedemptionCode<TData = Awaited<ReturnType<typeof 
 
 
 
+
+export const getListSafetyIncidentsUrl = () => {
+
+
+
+
+  return `/api/coop/safety/incidents`
+}
+
+/**
+ * @summary Merchant-facing — safety incidents raised by this business and received from co-op partners; tenant scope via x-tenant-id
+ */
+export const listSafetyIncidents = async ( options?: RequestInit): Promise<SafetyIncident[]> => {
+
+  return customFetch<SafetyIncident[]>(getListSafetyIncidentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSafetyIncidentsQueryKey = () => {
+    return [
+    `/api/coop/safety/incidents`
+    ] as const;
+    }
+
+
+export const getListSafetyIncidentsQueryOptions = <TData = Awaited<ReturnType<typeof listSafetyIncidents>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSafetyIncidents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSafetyIncidentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSafetyIncidents>>> = ({ signal }) => listSafetyIncidents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSafetyIncidents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSafetyIncidentsQueryResult = NonNullable<Awaited<ReturnType<typeof listSafetyIncidents>>>
+export type ListSafetyIncidentsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — safety incidents raised by this business and received from co-op partners; tenant scope via x-tenant-id
+ */
+
+export function useListSafetyIncidents<TData = Awaited<ReturnType<typeof listSafetyIncidents>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSafetyIncidents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSafetyIncidentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSafetyIncidentUrl = () => {
+
+
+
+
+  return `/api/coop/safety/incidents`
+}
+
+/**
+ * @summary Merchant-facing — raise a safety alert and broadcast it to all accepted, active co-op partners
+ */
+export const createSafetyIncident = async (safetyIncidentCreate: SafetyIncidentCreate, options?: RequestInit): Promise<SafetyIncident> => {
+
+  return customFetch<SafetyIncident>(getCreateSafetyIncidentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(safetyIncidentCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateSafetyIncidentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSafetyIncident>>, TError,{data: BodyType<SafetyIncidentCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSafetyIncident>>, TError,{data: BodyType<SafetyIncidentCreate>}, TContext> => {
+
+const mutationKey = ['createSafetyIncident'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSafetyIncident>>, {data: BodyType<SafetyIncidentCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSafetyIncident(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSafetyIncidentMutationResult = NonNullable<Awaited<ReturnType<typeof createSafetyIncident>>>
+    export type CreateSafetyIncidentMutationBody = BodyType<SafetyIncidentCreate>
+    export type CreateSafetyIncidentMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — raise a safety alert and broadcast it to all accepted, active co-op partners
+ */
+export const useCreateSafetyIncident = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSafetyIncident>>, TError,{data: BodyType<SafetyIncidentCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSafetyIncident>>,
+        TError,
+        {data: BodyType<SafetyIncidentCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateSafetyIncidentMutationOptions(options));
+    }
+
+export const getGetSafetyIncidentTimelineUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/safety/incidents/${id}/timeline`
+}
+
+/**
+ * @summary Full audit trail (broadcast, updates, acknowledgments, resolution) for an incident this tenant raised or received
+ */
+export const getSafetyIncidentTimeline = async (id: number, options?: RequestInit): Promise<SafetyTimelineEntry[]> => {
+
+  return customFetch<SafetyTimelineEntry[]>(getGetSafetyIncidentTimelineUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSafetyIncidentTimelineQueryKey = (id: number,) => {
+    return [
+    `/api/coop/safety/incidents/${id}/timeline`
+    ] as const;
+    }
+
+
+export const getGetSafetyIncidentTimelineQueryOptions = <TData = Awaited<ReturnType<typeof getSafetyIncidentTimeline>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSafetyIncidentTimeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSafetyIncidentTimelineQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSafetyIncidentTimeline>>> = ({ signal }) => getSafetyIncidentTimeline(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSafetyIncidentTimeline>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSafetyIncidentTimelineQueryResult = NonNullable<Awaited<ReturnType<typeof getSafetyIncidentTimeline>>>
+export type GetSafetyIncidentTimelineQueryError = ErrorType<void>
+
+
+/**
+ * @summary Full audit trail (broadcast, updates, acknowledgments, resolution) for an incident this tenant raised or received
+ */
+
+export function useGetSafetyIncidentTimeline<TData = Awaited<ReturnType<typeof getSafetyIncidentTimeline>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSafetyIncidentTimeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSafetyIncidentTimelineQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSafetyIncidentUpdateUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/safety/incidents/${id}/updates`
+}
+
+/**
+ * @summary Originating business posts a status update on an active incident
+ */
+export const createSafetyIncidentUpdate = async (id: number,
+    safetyIncidentUpdateCreate: SafetyIncidentUpdateCreate, options?: RequestInit): Promise<SafetyIncident> => {
+
+  return customFetch<SafetyIncident>(getCreateSafetyIncidentUpdateUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(safetyIncidentUpdateCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateSafetyIncidentUpdateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSafetyIncidentUpdate>>, TError,{id: number;data: BodyType<SafetyIncidentUpdateCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSafetyIncidentUpdate>>, TError,{id: number;data: BodyType<SafetyIncidentUpdateCreate>}, TContext> => {
+
+const mutationKey = ['createSafetyIncidentUpdate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSafetyIncidentUpdate>>, {id: number;data: BodyType<SafetyIncidentUpdateCreate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createSafetyIncidentUpdate(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSafetyIncidentUpdateMutationResult = NonNullable<Awaited<ReturnType<typeof createSafetyIncidentUpdate>>>
+    export type CreateSafetyIncidentUpdateMutationBody = BodyType<SafetyIncidentUpdateCreate>
+    export type CreateSafetyIncidentUpdateMutationError = ErrorType<void>
+
+    /**
+ * @summary Originating business posts a status update on an active incident
+ */
+export const useCreateSafetyIncidentUpdate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSafetyIncidentUpdate>>, TError,{id: number;data: BodyType<SafetyIncidentUpdateCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSafetyIncidentUpdate>>,
+        TError,
+        {id: number;data: BodyType<SafetyIncidentUpdateCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateSafetyIncidentUpdateMutationOptions(options));
+    }
+
+export const getAcknowledgeSafetyIncidentUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/safety/incidents/${id}/acknowledge`
+}
+
+/**
+ * @summary Recipient partner acknowledges an incident
+ */
+export const acknowledgeSafetyIncident = async (id: number, options?: RequestInit): Promise<SafetyIncident> => {
+
+  return customFetch<SafetyIncident>(getAcknowledgeSafetyIncidentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAcknowledgeSafetyIncidentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeSafetyIncident>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeSafetyIncident>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['acknowledgeSafetyIncident'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeSafetyIncident>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  acknowledgeSafetyIncident(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgeSafetyIncidentMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeSafetyIncident>>>
+
+    export type AcknowledgeSafetyIncidentMutationError = ErrorType<void>
+
+    /**
+ * @summary Recipient partner acknowledges an incident
+ */
+export const useAcknowledgeSafetyIncident = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeSafetyIncident>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgeSafetyIncident>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getAcknowledgeSafetyIncidentMutationOptions(options));
+    }
+
+export const getResolveSafetyIncidentUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/safety/incidents/${id}/resolve`
+}
+
+/**
+ * @summary Originating business marks the incident resolved
+ */
+export const resolveSafetyIncident = async (id: number, options?: RequestInit): Promise<SafetyIncident> => {
+
+  return customFetch<SafetyIncident>(getResolveSafetyIncidentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResolveSafetyIncidentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveSafetyIncident>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resolveSafetyIncident>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['resolveSafetyIncident'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resolveSafetyIncident>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  resolveSafetyIncident(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResolveSafetyIncidentMutationResult = NonNullable<Awaited<ReturnType<typeof resolveSafetyIncident>>>
+
+    export type ResolveSafetyIncidentMutationError = ErrorType<void>
+
+    /**
+ * @summary Originating business marks the incident resolved
+ */
+export const useResolveSafetyIncident = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resolveSafetyIncident>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resolveSafetyIncident>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getResolveSafetyIncidentMutationOptions(options));
+    }
+
+export const getListSafetyContactsUrl = () => {
+
+
+
+
+  return `/api/coop/safety/contacts`
+}
+
+/**
+ * @summary Per-tenant emergency contacts (defaults seeded on first access)
+ */
+export const listSafetyContacts = async ( options?: RequestInit): Promise<SafetyEmergencyContact[]> => {
+
+  return customFetch<SafetyEmergencyContact[]>(getListSafetyContactsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSafetyContactsQueryKey = () => {
+    return [
+    `/api/coop/safety/contacts`
+    ] as const;
+    }
+
+
+export const getListSafetyContactsQueryOptions = <TData = Awaited<ReturnType<typeof listSafetyContacts>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSafetyContacts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSafetyContactsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSafetyContacts>>> = ({ signal }) => listSafetyContacts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSafetyContacts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSafetyContactsQueryResult = NonNullable<Awaited<ReturnType<typeof listSafetyContacts>>>
+export type ListSafetyContactsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Per-tenant emergency contacts (defaults seeded on first access)
+ */
+
+export function useListSafetyContacts<TData = Awaited<ReturnType<typeof listSafetyContacts>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSafetyContacts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSafetyContactsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSafetyContactUrl = () => {
+
+
+
+
+  return `/api/coop/safety/contacts`
+}
+
+/**
+ * @summary Add an emergency contact
+ */
+export const createSafetyContact = async (safetyEmergencyContactCreate: SafetyEmergencyContactCreate, options?: RequestInit): Promise<SafetyEmergencyContact> => {
+
+  return customFetch<SafetyEmergencyContact>(getCreateSafetyContactUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(safetyEmergencyContactCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateSafetyContactMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSafetyContact>>, TError,{data: BodyType<SafetyEmergencyContactCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSafetyContact>>, TError,{data: BodyType<SafetyEmergencyContactCreate>}, TContext> => {
+
+const mutationKey = ['createSafetyContact'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSafetyContact>>, {data: BodyType<SafetyEmergencyContactCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSafetyContact(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSafetyContactMutationResult = NonNullable<Awaited<ReturnType<typeof createSafetyContact>>>
+    export type CreateSafetyContactMutationBody = BodyType<SafetyEmergencyContactCreate>
+    export type CreateSafetyContactMutationError = ErrorType<void>
+
+    /**
+ * @summary Add an emergency contact
+ */
+export const useCreateSafetyContact = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSafetyContact>>, TError,{data: BodyType<SafetyEmergencyContactCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSafetyContact>>,
+        TError,
+        {data: BodyType<SafetyEmergencyContactCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateSafetyContactMutationOptions(options));
+    }
+
+export const getUpdateSafetyContactUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/safety/contacts/${id}`
+}
+
+/**
+ * @summary Edit an emergency contact
+ */
+export const updateSafetyContact = async (id: number,
+    safetyEmergencyContactUpdate: SafetyEmergencyContactUpdate, options?: RequestInit): Promise<SafetyEmergencyContact> => {
+
+  return customFetch<SafetyEmergencyContact>(getUpdateSafetyContactUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(safetyEmergencyContactUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSafetyContactMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSafetyContact>>, TError,{id: number;data: BodyType<SafetyEmergencyContactUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSafetyContact>>, TError,{id: number;data: BodyType<SafetyEmergencyContactUpdate>}, TContext> => {
+
+const mutationKey = ['updateSafetyContact'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSafetyContact>>, {id: number;data: BodyType<SafetyEmergencyContactUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSafetyContact(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSafetyContactMutationResult = NonNullable<Awaited<ReturnType<typeof updateSafetyContact>>>
+    export type UpdateSafetyContactMutationBody = BodyType<SafetyEmergencyContactUpdate>
+    export type UpdateSafetyContactMutationError = ErrorType<void>
+
+    /**
+ * @summary Edit an emergency contact
+ */
+export const useUpdateSafetyContact = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSafetyContact>>, TError,{id: number;data: BodyType<SafetyEmergencyContactUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSafetyContact>>,
+        TError,
+        {id: number;data: BodyType<SafetyEmergencyContactUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSafetyContactMutationOptions(options));
+    }
+
+export const getDeleteSafetyContactUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/safety/contacts/${id}`
+}
+
+/**
+ * @summary Remove an emergency contact
+ */
+export const deleteSafetyContact = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteSafetyContactUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteSafetyContactMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSafetyContact>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSafetyContact>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteSafetyContact'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSafetyContact>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteSafetyContact(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSafetyContactMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSafetyContact>>>
+
+    export type DeleteSafetyContactMutationError = ErrorType<void>
+
+    /**
+ * @summary Remove an emergency contact
+ */
+export const useDeleteSafetyContact = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSafetyContact>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSafetyContact>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteSafetyContactMutationOptions(options));
+    }
+
+export const getListSafetyTemplatesUrl = () => {
+
+
+
+
+  return `/api/coop/safety/templates`
+}
+
+/**
+ * @summary Per-tenant broadcast message templates (defaults seeded on first access)
+ */
+export const listSafetyTemplates = async ( options?: RequestInit): Promise<SafetyBroadcastTemplate[]> => {
+
+  return customFetch<SafetyBroadcastTemplate[]>(getListSafetyTemplatesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSafetyTemplatesQueryKey = () => {
+    return [
+    `/api/coop/safety/templates`
+    ] as const;
+    }
+
+
+export const getListSafetyTemplatesQueryOptions = <TData = Awaited<ReturnType<typeof listSafetyTemplates>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSafetyTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSafetyTemplatesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSafetyTemplates>>> = ({ signal }) => listSafetyTemplates({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSafetyTemplates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSafetyTemplatesQueryResult = NonNullable<Awaited<ReturnType<typeof listSafetyTemplates>>>
+export type ListSafetyTemplatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Per-tenant broadcast message templates (defaults seeded on first access)
+ */
+
+export function useListSafetyTemplates<TData = Awaited<ReturnType<typeof listSafetyTemplates>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSafetyTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSafetyTemplatesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateSafetyTemplateUrl = () => {
+
+
+
+
+  return `/api/coop/safety/templates`
+}
+
+/**
+ * @summary Add a broadcast template
+ */
+export const createSafetyTemplate = async (safetyBroadcastTemplateCreate: SafetyBroadcastTemplateCreate, options?: RequestInit): Promise<SafetyBroadcastTemplate> => {
+
+  return customFetch<SafetyBroadcastTemplate>(getCreateSafetyTemplateUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(safetyBroadcastTemplateCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateSafetyTemplateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSafetyTemplate>>, TError,{data: BodyType<SafetyBroadcastTemplateCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createSafetyTemplate>>, TError,{data: BodyType<SafetyBroadcastTemplateCreate>}, TContext> => {
+
+const mutationKey = ['createSafetyTemplate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createSafetyTemplate>>, {data: BodyType<SafetyBroadcastTemplateCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createSafetyTemplate(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateSafetyTemplateMutationResult = NonNullable<Awaited<ReturnType<typeof createSafetyTemplate>>>
+    export type CreateSafetyTemplateMutationBody = BodyType<SafetyBroadcastTemplateCreate>
+    export type CreateSafetyTemplateMutationError = ErrorType<void>
+
+    /**
+ * @summary Add a broadcast template
+ */
+export const useCreateSafetyTemplate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createSafetyTemplate>>, TError,{data: BodyType<SafetyBroadcastTemplateCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createSafetyTemplate>>,
+        TError,
+        {data: BodyType<SafetyBroadcastTemplateCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateSafetyTemplateMutationOptions(options));
+    }
+
+export const getUpdateSafetyTemplateUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/safety/templates/${id}`
+}
+
+/**
+ * @summary Edit a broadcast template
+ */
+export const updateSafetyTemplate = async (id: number,
+    safetyBroadcastTemplateUpdate: SafetyBroadcastTemplateUpdate, options?: RequestInit): Promise<SafetyBroadcastTemplate> => {
+
+  return customFetch<SafetyBroadcastTemplate>(getUpdateSafetyTemplateUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(safetyBroadcastTemplateUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSafetyTemplateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSafetyTemplate>>, TError,{id: number;data: BodyType<SafetyBroadcastTemplateUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSafetyTemplate>>, TError,{id: number;data: BodyType<SafetyBroadcastTemplateUpdate>}, TContext> => {
+
+const mutationKey = ['updateSafetyTemplate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSafetyTemplate>>, {id: number;data: BodyType<SafetyBroadcastTemplateUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateSafetyTemplate(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSafetyTemplateMutationResult = NonNullable<Awaited<ReturnType<typeof updateSafetyTemplate>>>
+    export type UpdateSafetyTemplateMutationBody = BodyType<SafetyBroadcastTemplateUpdate>
+    export type UpdateSafetyTemplateMutationError = ErrorType<void>
+
+    /**
+ * @summary Edit a broadcast template
+ */
+export const useUpdateSafetyTemplate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSafetyTemplate>>, TError,{id: number;data: BodyType<SafetyBroadcastTemplateUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSafetyTemplate>>,
+        TError,
+        {id: number;data: BodyType<SafetyBroadcastTemplateUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSafetyTemplateMutationOptions(options));
+    }
+
+export const getDeleteSafetyTemplateUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/safety/templates/${id}`
+}
+
+/**
+ * @summary Remove a broadcast template
+ */
+export const deleteSafetyTemplate = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteSafetyTemplateUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteSafetyTemplateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSafetyTemplate>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSafetyTemplate>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteSafetyTemplate'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSafetyTemplate>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteSafetyTemplate(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSafetyTemplateMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSafetyTemplate>>>
+
+    export type DeleteSafetyTemplateMutationError = ErrorType<void>
+
+    /**
+ * @summary Remove a broadcast template
+ */
+export const useDeleteSafetyTemplate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSafetyTemplate>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSafetyTemplate>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteSafetyTemplateMutationOptions(options));
+    }
 
 export const getListAdminCampaignsUrl = () => {
 

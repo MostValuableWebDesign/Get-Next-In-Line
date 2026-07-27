@@ -253,6 +253,13 @@
       "when": 1785125615204,
       "tag": "0035_stiff_mandrill",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1785125685161,
+      "tag": "0036_mute_madelyne_pryor",
+      "breakpoints": true
     }
   ]
 }

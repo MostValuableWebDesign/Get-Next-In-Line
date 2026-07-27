@@ -789,6 +789,310 @@ export const ValidateCoopRedemptionCodeResponse = zod.object({
 
 
 /**
+ * @summary Merchant-facing — safety incidents raised by this business and received from co-op partners; tenant scope via x-tenant-id
+ */
+export const ListSafetyIncidentsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().describe('Originating (raising) tenant.'),
+  "tenantName": zod.string(),
+  "direction": zod.enum(['raised', 'received']).describe('Whether the requesting tenant raised or received this incident.'),
+  "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
+  "description": zod.string().describe('Decrypted incident text (stored encrypted at rest).'),
+  "location": zod.string().nullable(),
+  "status": zod.enum(['active', 'resolved']),
+  "resolvedAt": zod.string().nullable(),
+  "acknowledgedAt": zod.string().nullable().describe('When the requesting tenant acknowledged (received incidents only).'),
+  "recipientCount": zod.number(),
+  "acknowledgedCount": zod.number(),
+  "smsSentCount": zod.number().describe('Partner SMS notifications recorded for the broadcast (sent or simulated).'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListSafetyIncidentsResponse = zod.array(ListSafetyIncidentsResponseItem)
+
+
+/**
+ * @summary Merchant-facing — raise a safety alert and broadcast it to all accepted, active co-op partners
+ */
+
+
+
+export const CreateSafetyIncidentBody = zod.object({
+  "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
+  "description": zod.string().min(1),
+  "location": zod.string().nullish()
+})
+
+export const CreateSafetyIncidentResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().describe('Originating (raising) tenant.'),
+  "tenantName": zod.string(),
+  "direction": zod.enum(['raised', 'received']).describe('Whether the requesting tenant raised or received this incident.'),
+  "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
+  "description": zod.string().describe('Decrypted incident text (stored encrypted at rest).'),
+  "location": zod.string().nullable(),
+  "status": zod.enum(['active', 'resolved']),
+  "resolvedAt": zod.string().nullable(),
+  "acknowledgedAt": zod.string().nullable().describe('When the requesting tenant acknowledged (received incidents only).'),
+  "recipientCount": zod.number(),
+  "acknowledgedCount": zod.number(),
+  "smsSentCount": zod.number().describe('Partner SMS notifications recorded for the broadcast (sent or simulated).'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Full audit trail (broadcast, updates, acknowledgments, resolution) for an incident this tenant raised or received
+ */
+export const GetSafetyIncidentTimelineParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetSafetyIncidentTimelineResponseItem = zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['broadcast', 'update', 'acknowledgment', 'resolution']),
+  "actorTenantId": zod.number(),
+  "actorTenantName": zod.string(),
+  "body": zod.string().nullable().describe('Decrypted free text when the event carries one.'),
+  "createdAt": zod.string()
+})
+export const GetSafetyIncidentTimelineResponse = zod.array(GetSafetyIncidentTimelineResponseItem)
+
+
+/**
+ * @summary Originating business posts a status update on an active incident
+ */
+export const CreateSafetyIncidentUpdateParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const CreateSafetyIncidentUpdateBody = zod.object({
+  "body": zod.string().min(1)
+})
+
+export const CreateSafetyIncidentUpdateResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().describe('Originating (raising) tenant.'),
+  "tenantName": zod.string(),
+  "direction": zod.enum(['raised', 'received']).describe('Whether the requesting tenant raised or received this incident.'),
+  "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
+  "description": zod.string().describe('Decrypted incident text (stored encrypted at rest).'),
+  "location": zod.string().nullable(),
+  "status": zod.enum(['active', 'resolved']),
+  "resolvedAt": zod.string().nullable(),
+  "acknowledgedAt": zod.string().nullable().describe('When the requesting tenant acknowledged (received incidents only).'),
+  "recipientCount": zod.number(),
+  "acknowledgedCount": zod.number(),
+  "smsSentCount": zod.number().describe('Partner SMS notifications recorded for the broadcast (sent or simulated).'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Recipient partner acknowledges an incident
+ */
+export const AcknowledgeSafetyIncidentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AcknowledgeSafetyIncidentResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().describe('Originating (raising) tenant.'),
+  "tenantName": zod.string(),
+  "direction": zod.enum(['raised', 'received']).describe('Whether the requesting tenant raised or received this incident.'),
+  "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
+  "description": zod.string().describe('Decrypted incident text (stored encrypted at rest).'),
+  "location": zod.string().nullable(),
+  "status": zod.enum(['active', 'resolved']),
+  "resolvedAt": zod.string().nullable(),
+  "acknowledgedAt": zod.string().nullable().describe('When the requesting tenant acknowledged (received incidents only).'),
+  "recipientCount": zod.number(),
+  "acknowledgedCount": zod.number(),
+  "smsSentCount": zod.number().describe('Partner SMS notifications recorded for the broadcast (sent or simulated).'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Originating business marks the incident resolved
+ */
+export const ResolveSafetyIncidentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ResolveSafetyIncidentResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().describe('Originating (raising) tenant.'),
+  "tenantName": zod.string(),
+  "direction": zod.enum(['raised', 'received']).describe('Whether the requesting tenant raised or received this incident.'),
+  "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
+  "description": zod.string().describe('Decrypted incident text (stored encrypted at rest).'),
+  "location": zod.string().nullable(),
+  "status": zod.enum(['active', 'resolved']),
+  "resolvedAt": zod.string().nullable(),
+  "acknowledgedAt": zod.string().nullable().describe('When the requesting tenant acknowledged (received incidents only).'),
+  "recipientCount": zod.number(),
+  "acknowledgedCount": zod.number(),
+  "smsSentCount": zod.number().describe('Partner SMS notifications recorded for the broadcast (sent or simulated).'),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Per-tenant emergency contacts (defaults seeded on first access)
+ */
+export const ListSafetyContactsResponseItem = zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "phone": zod.string(),
+  "category": zod.enum(['law_enforcement', 'medical', 'property_management', 'other']),
+  "sortOrder": zod.number(),
+  "createdAt": zod.string()
+})
+export const ListSafetyContactsResponse = zod.array(ListSafetyContactsResponseItem)
+
+
+/**
+ * @summary Add an emergency contact
+ */
+
+
+
+
+export const CreateSafetyContactBody = zod.object({
+  "label": zod.string().min(1),
+  "phone": zod.string().min(1),
+  "category": zod.enum(['law_enforcement', 'medical', 'property_management', 'other']).optional(),
+  "sortOrder": zod.number().optional()
+})
+
+export const CreateSafetyContactResponse = zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "phone": zod.string(),
+  "category": zod.enum(['law_enforcement', 'medical', 'property_management', 'other']),
+  "sortOrder": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Edit an emergency contact
+ */
+export const UpdateSafetyContactParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+
+export const UpdateSafetyContactBody = zod.object({
+  "label": zod.string().min(1).optional(),
+  "phone": zod.string().min(1).optional(),
+  "category": zod.enum(['law_enforcement', 'medical', 'property_management', 'other']).optional(),
+  "sortOrder": zod.number().optional()
+})
+
+export const UpdateSafetyContactResponse = zod.object({
+  "id": zod.number(),
+  "label": zod.string(),
+  "phone": zod.string(),
+  "category": zod.enum(['law_enforcement', 'medical', 'property_management', 'other']),
+  "sortOrder": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Remove an emergency contact
+ */
+export const DeleteSafetyContactParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteSafetyContactResponse = zod.void()
+
+
+/**
+ * @summary Per-tenant broadcast message templates (defaults seeded on first access)
+ */
+export const ListSafetyTemplatesResponseItem = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
+  "body": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListSafetyTemplatesResponse = zod.array(ListSafetyTemplatesResponseItem)
+
+
+/**
+ * @summary Add a broadcast template
+ */
+
+
+
+
+export const CreateSafetyTemplateBody = zod.object({
+  "title": zod.string().min(1),
+  "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
+  "body": zod.string().min(1)
+})
+
+export const CreateSafetyTemplateResponse = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
+  "body": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Edit a broadcast template
+ */
+export const UpdateSafetyTemplateParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+
+export const UpdateSafetyTemplateBody = zod.object({
+  "title": zod.string().min(1).optional(),
+  "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']).optional(),
+  "body": zod.string().min(1).optional()
+})
+
+export const UpdateSafetyTemplateResponse = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
+  "body": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Remove a broadcast template
+ */
+export const DeleteSafetyTemplateParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteSafetyTemplateResponse = zod.void()
+
+
+/**
  * @summary Admin-only — list campaign redirect links with click counts
  */
 export const ListAdminCampaignsResponseItem = zod.object({
@@ -1586,7 +1890,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -1615,7 +1919,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

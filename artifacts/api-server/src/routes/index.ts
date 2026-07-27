@@ -11,6 +11,7 @@ import sosRouter from "./sos";
 import conciergeRouter from "./concierge";
 import partnersRouter from "./partners";
 import coopRouter from "./coop";
+import safetyRouter from "./safety";
 import publicBookingRouter from "./publicBooking";
 import landingRouter from "./landing";
 import campaignRedirectRouter from "./campaignRedirect";
@@ -80,5 +81,6 @@ router.use(adminRouter);
 router.use(conciergeRouter); // AI Concierge & Automation module
 router.use(partnersRouter); // Partner-Direct Integrations proxy engine (/v1/partners)
 router.use(coopRouter);     // Merchant co-op partnerships (/coop)
+router.use(safetyRouter);   // Co-op emergency & safety alert network (/coop/safety)
 
 export default router;

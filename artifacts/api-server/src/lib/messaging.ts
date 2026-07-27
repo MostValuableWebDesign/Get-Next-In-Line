@@ -28,7 +28,8 @@ export type OutboundMessageKind =
   | "deposit_update"
   | "wallet_login_code"
   | "perk_expiry_reminder"
-  | "coop_monthly_report";
+  | "coop_monthly_report"
+  | "safety_alert";
 
 export type MessageOrigin = "operational" | "concierge";
 

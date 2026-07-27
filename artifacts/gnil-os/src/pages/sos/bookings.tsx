@@ -26,6 +26,7 @@ import { ServiceMenuContent } from '@/components/sos/service-menu-content';
 import { AiReceptionistPage } from '@/pages/sos/ai-receptionist';
 import { StaffContent } from '@/components/sos/staff-content';
 import { CoopNetworkContent } from '@/components/sos/coop-network-content';
+import { SafetyAlertsContent } from '@/components/sos/safety-alerts-content';
 import {
   useListCoopPartnerships, getListCoopPartnershipsQueryKey,
 } from '@workspace/api-client-react';
@@ -33,7 +34,7 @@ import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
   Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
   Activity, ListOrdered, CheckCircle2, Phone, DollarSign, Search,
-  ChevronLeft, ChevronRight, UtensilsCrossed, Handshake,
+  ChevronLeft, ChevronRight, UtensilsCrossed, Handshake, ShieldAlert,
 } from 'lucide-react';
 
 /**
@@ -41,7 +42,7 @@ import {
  * List and Calendar views of appointments (the old standalone Calendar page
  * redirects here), plus the one place open tickets are checked out.
  */
-const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'services', 'plans', 'staff', 'ai-receptionist', 'coop'] as const;
+const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'services', 'plans', 'staff', 'ai-receptionist', 'coop', 'safety'] as const;
 
 export function BookingsPage() {
   // Tab state lives in the URL (?tab=) so /sos/bookings?tab=reports deep
@@ -241,6 +242,9 @@ export function BookingsPage() {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="safety" data-testid="tab-safety-alerts">
+            <ShieldAlert className="h-4 w-4 mr-1.5" /> Safety Alerts
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="mt-0">
@@ -310,6 +314,13 @@ export function BookingsPage() {
           {/* Merchant-facing Local Co-Op Network hub — directory, invites,
               and active partnerships for the selected business */}
           <CoopNetworkContent tenantId={selectedTenant} />
+        </TabsContent>
+
+        <TabsContent value="safety" className="mt-0">
+          {/* Co-Op Emergency & Safety Alert Network — panic/alert composer,
+              active-incidents feed (fast polling), audit trail, emergency
+              contacts, and broadcast templates for the selected business */}
+          <SafetyAlertsContent tenantId={selectedTenant} />
         </TabsContent>
       </Tabs>
     </div>
