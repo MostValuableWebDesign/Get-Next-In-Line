@@ -1197,6 +1197,38 @@ paths:
         "400":
           description: Missing x-tenant-id header
 
+  /coop/sentiment/summary:
+    get:
+      operationId: getCoopSentimentSummary
+      tags: [coop]
+      summary: Merchant-facing — cross-network post-redemption sentiment aggregates (avg rating, NPS, volume, themes) per accepted partnership and network-wide; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Sentiment summary restricted to accepted partnerships the business participates in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopSentimentSummary"
+        "400":
+          description: Missing x-tenant-id header
+
+  /coop/sentiment/reports:
+    get:
+      operationId: listCoopSentimentReports
+      tags: [coop]
+      summary: Merchant-facing — generated weekly/monthly co-op sentiment insight reports, newest first; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Sentiment insight reports (empty when none generated yet)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopSentimentReport"
+        "400":
+          description: Missing x-tenant-id header
+
   /coop/platform-invites:
     get:
       operationId: listPlatformInvites
@@ -8113,6 +8145,118 @@ components:
         createdAt:
           type: string
 
+    CoopPartnershipSentiment:
+      type: object
+      required:
+        [partnershipId, partnerTenantId, partnerName, perkTitle, responses, avgRating, nps, repeatVisitRate, positive, neutral, negative]
+      properties:
+        partnershipId:
+          type: integer
+        partnerTenantId:
+          type: integer
+        partnerName:
+          type: string
+        perkTitle:
+          type: string
+        responses:
+          type: integer
+        avgRating:
+          type: ["number", "null"]
+          description: Average 1-5 satisfaction rating (null when no rated responses).
+        nps:
+          type: ["integer", "null"]
+          description: NPS-style score in [-100, 100] from "would recommend" replies (null when unanswered).
+        repeatVisitRate:
+          type: ["number", "null"]
+          description: Share (0-1) of resolved wallet customers with more than one redemption on this partnership.
+        positive:
+          type: integer
+        neutral:
+          type: integer
+        negative:
+          type: integer
+
+    CoopSentimentSummary:
+      type: object
+      required:
+        [totalResponses, networkAvgRating, networkNps, positive, neutral, negative, praiseThemes, frictionThemes, partnerships]
+      properties:
+        totalResponses:
+          type: integer
+        networkAvgRating:
+          type: ["number", "null"]
+        networkNps:
+          type: ["integer", "null"]
+        positive:
+          type: integer
+        neutral:
+          type: integer
+        negative:
+          type: integer
+        praiseThemes:
+          type: array
+          items:
+            type: string
+          description: Recurring praise themes across the tenant's network, most frequent first.
+        frictionThemes:
+          type: array
+          items:
+            type: string
+          description: Emerging friction themes (from negative-sentiment feedback), most frequent first.
+        partnerships:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopPartnershipSentiment"
+
+    CoopSentimentRanking:
+      type: object
+      required:
+        [partnershipId, partnerName, perkTitle, responses, avgRating, nps, repeatVisitRate, positive, neutral, negative]
+      properties:
+        partnershipId:
+          type: integer
+        partnerName:
+          type: string
+        perkTitle:
+          type: string
+        responses:
+          type: integer
+        avgRating:
+          type: ["number", "null"]
+        nps:
+          type: ["integer", "null"]
+        repeatVisitRate:
+          type: ["number", "null"]
+        positive:
+          type: integer
+        neutral:
+          type: integer
+        negative:
+          type: integer
+
+    CoopSentimentReport:
+      type: object
+      required: [id, periodType, periodKey, rankings, summary, createdAt]
+      properties:
+        id:
+          type: integer
+        periodType:
+          type: string
+          enum: [weekly, monthly]
+        periodKey:
+          type: string
+          description: '"2026-W30" for weekly, "2026-06" for monthly.'
+        rankings:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopSentimentRanking"
+          description: Partnerships ranked by satisfaction (rating, then NPS, then repeat-visit rate).
+        summary:
+          type: string
+          description: Plain-language recommendations on which pairings drive the strongest retention and sentiment.
+        createdAt:
+          type: string
+
     CoopRetailItem:
       type: object
       required:
@@ -10394,7 +10538,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock, coop_reputation]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock, coop_reputation, coop_feedback_request]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

@@ -435,6 +435,13 @@
       "when": 1785242341485,
       "tag": "0061_violet_synch",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1785242651825,
+      "tag": "0062_furry_quasimodo",
+      "breakpoints": true
     }
   ]
 }

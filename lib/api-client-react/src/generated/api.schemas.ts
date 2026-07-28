@@ -1907,6 +1907,84 @@ export interface CoopMonthlyReport {
   createdAt: string;
 }
 
+export interface CoopPartnershipSentiment {
+  partnershipId: number;
+  partnerTenantId: number;
+  partnerName: string;
+  perkTitle: string;
+  responses: number;
+  /**
+     * Average 1-5 satisfaction rating (null when no rated responses).
+     * @nullable
+     */
+  avgRating: number | null;
+  /**
+     * NPS-style score in [-100, 100] from "would recommend" replies (null when unanswered).
+     * @nullable
+     */
+  nps: number | null;
+  /**
+     * Share (0-1) of resolved wallet customers with more than one redemption on this partnership.
+     * @nullable
+     */
+  repeatVisitRate: number | null;
+  positive: number;
+  neutral: number;
+  negative: number;
+}
+
+export interface CoopSentimentSummary {
+  totalResponses: number;
+  /** @nullable */
+  networkAvgRating: number | null;
+  /** @nullable */
+  networkNps: number | null;
+  positive: number;
+  neutral: number;
+  negative: number;
+  /** Recurring praise themes across the tenant's network, most frequent first. */
+  praiseThemes: string[];
+  /** Emerging friction themes (from negative-sentiment feedback), most frequent first. */
+  frictionThemes: string[];
+  partnerships: CoopPartnershipSentiment[];
+}
+
+export interface CoopSentimentRanking {
+  partnershipId: number;
+  partnerName: string;
+  perkTitle: string;
+  responses: number;
+  /** @nullable */
+  avgRating: number | null;
+  /** @nullable */
+  nps: number | null;
+  /** @nullable */
+  repeatVisitRate: number | null;
+  positive: number;
+  neutral: number;
+  negative: number;
+}
+
+export type CoopSentimentReportPeriodType = typeof CoopSentimentReportPeriodType[keyof typeof CoopSentimentReportPeriodType];
+
+
+export const CoopSentimentReportPeriodType = {
+  weekly: 'weekly',
+  monthly: 'monthly',
+} as const;
+
+export interface CoopSentimentReport {
+  id: number;
+  periodType: CoopSentimentReportPeriodType;
+  /** "2026-W30" for weekly, "2026-06" for monthly. */
+  periodKey: string;
+  /** Partnerships ranked by satisfaction (rating, then NPS, then repeat-visit rate). */
+  rankings: CoopSentimentRanking[];
+  /** Plain-language recommendations on which pairings drive the strongest retention and sentiment. */
+  summary: string;
+  createdAt: string;
+}
+
 export interface CoopRetailItem {
   id: number;
   partnershipId: number;
@@ -3865,6 +3943,7 @@ export const SosMessageKind = {
   coop_event_broadcast: 'coop_event_broadcast',
   retail_low_stock: 'retail_low_stock',
   coop_reputation: 'coop_reputation',
+  coop_feedback_request: 'coop_feedback_request',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];

@@ -23,6 +23,7 @@ import { and, desc, eq, gte, inArray, isNull, ne, or } from "drizzle-orm";
 import { isWalletPassToken, findWalletPass, type WalletPassRow } from "../lib/perkPasses";
 import { sendMessageSafe } from "../lib/messaging";
 import { recordPerkRedemptionComplianceSafe } from "../lib/coopCompliance";
+import { requestCoopFeedbackSafe, sentimentSummaryForTenant } from "../lib/coopFeedback";
 import { sessionIsPlatformAdmin } from "../middlewares/tenantAccess";
 import {
   generateTrackingCode,
@@ -51,7 +52,7 @@ import {
   recordPerkImpressionsSafe,
   partnerPerformanceForTenant,
 } from "../lib/coopEvents";
-import { coopMonthlyReportsTable } from "@workspace/db";
+import { coopMonthlyReportsTable, coopSentimentReportsTable } from "@workspace/db";
 import { activeBoostsForSurface, applyRedemptionSplitSafe } from "../lib/coopSponsorship";
 import {
   ListCoopPartnershipsResponse,
@@ -75,6 +76,8 @@ import {
   GetCoopTaxonomyResponse,
   ListCoopPartnerPerformanceResponse,
   ListCoopMonthlyReportsResponse,
+  GetCoopSentimentSummaryResponse,
+  ListCoopSentimentReportsResponse,
   ListCoopDisputesResponse,
   CreateCoopDisputeBody,
   CreateCoopDisputeResponse,
@@ -2888,6 +2891,18 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
       // Revenue-share accounting: if the partnership carries split terms, log
       // the earning/charge wallet entries (net of the platform fee).
       await applyRedemptionSplitSafe(walletRow!.partnership, walletRedemption.id, tenantId);
+      // Post-redemption satisfaction follow-up SMS to the wallet owner.
+      // Best-effort; never blocks the redemption.
+      await requestCoopFeedbackSafe({
+        partnershipId: wp.id,
+        redemptionId: walletRedemption.id,
+        redeemedByTenantId: tenantId,
+        customerPhone: walletRow!.pass.customerPhone,
+        customerName: walletRow!.pass.customerName,
+        perkTitle: wp.perkTitle,
+        businessName:
+          tenantId === wp.hostTenantId ? walletRow!.hostTenantName : walletRow!.partnerTenantName,
+      });
     }
     res.json(
       RedeemCoopPerkResponse.parse({
@@ -3064,6 +3079,17 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
       redemptionId: redemption.id,
       person: passPerson,
     });
+    // Post-redemption satisfaction follow-up SMS (only when the pass code
+    // resolves to a person with a phone). Best-effort; never blocks.
+    await requestCoopFeedbackSafe({
+      partnershipId: p.id,
+      redemptionId: redemption.id,
+      redeemedByTenantId: tenantId,
+      customerPhone: passPerson.phone,
+      customerName: passPerson.name,
+      perkTitle: p.perkTitle,
+      businessName: tenantId === p.hostTenantId ? row.hostTenantName : row.partnerTenantName,
+    });
   }
 
   // Tax compliance ledger: log the redemption when the perk has monetary
@@ -3137,6 +3163,62 @@ router.get("/coop/reports/monthly", async (req, res): Promise<void> => {
         claims: r.claims,
         crossoverVisits: r.crossoverVisits,
         revenueInfluenced: parseFloat(r.revenueInfluenced),
+        createdAt: r.createdAt.toISOString(),
+      }))
+    )
+  );
+});
+
+// ── GET /coop/sentiment/summary — cross-network sentiment aggregates ───────
+// Tenant-scoped (x-tenant-id): post-redemption feedback aggregates (average
+// rating, NPS, response volume, sentiment counts, trending themes) per
+// accepted partnership the business participates in, plus network-wide
+// totals. Raw customer identities never leave the server.
+router.get("/coop/sentiment/summary", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const summary = await sentimentSummaryForTenant(tenantId);
+  res.json(
+    GetCoopSentimentSummaryResponse.parse({
+      totalResponses: summary.totalResponses,
+      networkAvgRating: summary.networkAvgRating,
+      networkNps: summary.networkNps,
+      positive: summary.positive,
+      neutral: summary.neutral,
+      negative: summary.negative,
+      praiseThemes: summary.praiseThemes,
+      frictionThemes: summary.frictionThemes,
+      partnerships: summary.partnerships,
+    })
+  );
+});
+
+// ── GET /coop/sentiment/reports — persisted weekly/monthly insight reports ──
+// Tenant-scoped (x-tenant-id): the business's generated co-op sentiment
+// insight reports, newest first. Periods with no feedback simply aren't
+// listed — the hub renders an empty state.
+router.get("/coop/sentiment/reports", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const rows = await db
+    .select()
+    .from(coopSentimentReportsTable)
+    .where(eq(coopSentimentReportsTable.tenantId, tenantId))
+    .orderBy(desc(coopSentimentReportsTable.createdAt), desc(coopSentimentReportsTable.id));
+  res.json(
+    ListCoopSentimentReportsResponse.parse(
+      rows.map((r) => ({
+        id: r.id,
+        periodType: r.periodType,
+        periodKey: r.periodKey,
+        rankings: r.rankings,
+        summary: r.summary,
         createdAt: r.createdAt.toISOString(),
       }))
     )

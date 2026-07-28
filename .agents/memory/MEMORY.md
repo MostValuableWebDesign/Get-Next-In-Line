@@ -46,3 +46,4 @@
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.
 - [Tip pooling & gratuity ledger](gratuity-tips.md) — ledger rows scoped to the STAFF's tenant; tips never touch revenue/commission/margin; new checkout paths must reuse the split engine.
 - [Co-op surge boosts](coop-surge.md) — capacity status has a 30s in-process cache (tests must clear it); surge activation lock = partial unique index on live activations; firewall backstop re-checked at sweep time.
+- Co-op feedback SMS replies: inbound texts starting with a standalone 1-5 rating are consumed as post-redemption feedback (matched by phone to the newest open request, 7-day window) BEFORE customer-scoped keyword handling; new redemption write paths must also call requestCoopFeedbackSafe.

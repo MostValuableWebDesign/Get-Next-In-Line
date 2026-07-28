@@ -32,4 +32,5 @@ export const SosMessageKind = {
   coop_event_broadcast: 'coop_event_broadcast',
   retail_low_stock: 'retail_low_stock',
   coop_reputation: 'coop_reputation',
+  coop_feedback_request: 'coop_feedback_request',
 } as const;

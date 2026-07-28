@@ -1508,6 +1508,59 @@ export const ListCoopMonthlyReportsResponse = zod.array(ListCoopMonthlyReportsRe
 
 
 /**
+ * @summary Merchant-facing — cross-network post-redemption sentiment aggregates (avg rating, NPS, volume, themes) per accepted partnership and network-wide; tenant scope via x-tenant-id
+ */
+export const GetCoopSentimentSummaryResponse = zod.object({
+  "totalResponses": zod.number(),
+  "networkAvgRating": zod.number().nullable(),
+  "networkNps": zod.number().nullable(),
+  "positive": zod.number(),
+  "neutral": zod.number(),
+  "negative": zod.number(),
+  "praiseThemes": zod.array(zod.string()).describe('Recurring praise themes across the tenant\'s network, most frequent first.'),
+  "frictionThemes": zod.array(zod.string()).describe('Emerging friction themes (from negative-sentiment feedback), most frequent first.'),
+  "partnerships": zod.array(zod.object({
+  "partnershipId": zod.number(),
+  "partnerTenantId": zod.number(),
+  "partnerName": zod.string(),
+  "perkTitle": zod.string(),
+  "responses": zod.number(),
+  "avgRating": zod.number().nullable().describe('Average 1-5 satisfaction rating (null when no rated responses).'),
+  "nps": zod.number().nullable().describe('NPS-style score in [-100, 100] from \"would recommend\" replies (null when unanswered).'),
+  "repeatVisitRate": zod.number().nullable().describe('Share (0-1) of resolved wallet customers with more than one redemption on this partnership.'),
+  "positive": zod.number(),
+  "neutral": zod.number(),
+  "negative": zod.number()
+}))
+})
+
+
+/**
+ * @summary Merchant-facing — generated weekly/monthly co-op sentiment insight reports, newest first; tenant scope via x-tenant-id
+ */
+export const ListCoopSentimentReportsResponseItem = zod.object({
+  "id": zod.number(),
+  "periodType": zod.enum(['weekly', 'monthly']),
+  "periodKey": zod.string().describe('\"2026-W30\" for weekly, \"2026-06\" for monthly.'),
+  "rankings": zod.array(zod.object({
+  "partnershipId": zod.number(),
+  "partnerName": zod.string(),
+  "perkTitle": zod.string(),
+  "responses": zod.number(),
+  "avgRating": zod.number().nullable(),
+  "nps": zod.number().nullable(),
+  "repeatVisitRate": zod.number().nullable(),
+  "positive": zod.number(),
+  "neutral": zod.number(),
+  "negative": zod.number()
+})).describe('Partnerships ranked by satisfaction (rating, then NPS, then repeat-visit rate).'),
+  "summary": zod.string().describe('Plain-language recommendations on which pairings drive the strongest retention and sentiment.'),
+  "createdAt": zod.string()
+})
+export const ListCoopSentimentReportsResponse = zod.array(ListCoopSentimentReportsResponseItem)
+
+
+/**
  * @summary Merchant-facing — invites this business sent to off-platform businesses, with tracking status; tenant scope via x-tenant-id
  */
 export const ListPlatformInvitesResponseItem = zod.object({
@@ -4272,7 +4325,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -4301,7 +4354,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

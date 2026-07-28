@@ -105,6 +105,7 @@ import {
   type SosServiceRow,
 } from "../lib/serviceCatalog";
 import { parseInboundKeyword, getInboundWebhookUrl } from "../lib/inboundSms";
+import { handleInboundCoopFeedback } from "../lib/coopFeedback";
 import { claimWaitlistSlot } from "../lib/waitlistClaim";
 import { updateProfileCadence } from "../lib/visitCadence";
 import {
@@ -2476,6 +2477,16 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
       { customerId: customer?.id ?? null, fromNumber },
       "Sender opted back in to SMS via START",
     );
+    res.type("text/xml").send(twiml);
+    return;
+  }
+
+  // Co-op post-redemption feedback replies ("<1-5> [Y/N] comments") are
+  // matched by sender phone to their newest open feedback request. Checked
+  // before customer-scoped keywords because perk-wallet customers may not
+  // exist as SOS customers, and a leading 1-5 rating never collides with
+  // STOP/START/YES keywords (already handled above).
+  if (await handleInboundCoopFeedback(fromNumber, body)) {
     res.type("text/xml").send(twiml);
     return;
   }

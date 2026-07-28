@@ -104,6 +104,8 @@ import type {
   CoopRetailSaleRequest,
   CoopRetailSaleResult,
   CoopRetailStockAdjustment,
+  CoopSentimentReport,
+  CoopSentimentSummary,
   CoopSponsorshipSlotsResponse,
   CoopStatsResponse,
   CoopSuggestion,
@@ -4427,6 +4429,160 @@ export function useListCoopMonthlyReports<TData = Awaited<ReturnType<typeof list
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListCoopMonthlyReportsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCoopSentimentSummaryUrl = () => {
+
+
+
+
+  return `/api/coop/sentiment/summary`
+}
+
+/**
+ * @summary Merchant-facing — cross-network post-redemption sentiment aggregates (avg rating, NPS, volume, themes) per accepted partnership and network-wide; tenant scope via x-tenant-id
+ */
+export const getCoopSentimentSummary = async ( options?: RequestInit): Promise<CoopSentimentSummary> => {
+
+  return customFetch<CoopSentimentSummary>(getGetCoopSentimentSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopSentimentSummaryQueryKey = () => {
+    return [
+    `/api/coop/sentiment/summary`
+    ] as const;
+    }
+
+
+export const getGetCoopSentimentSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getCoopSentimentSummary>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopSentimentSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopSentimentSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopSentimentSummary>>> = ({ signal }) => getCoopSentimentSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopSentimentSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopSentimentSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopSentimentSummary>>>
+export type GetCoopSentimentSummaryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — cross-network post-redemption sentiment aggregates (avg rating, NPS, volume, themes) per accepted partnership and network-wide; tenant scope via x-tenant-id
+ */
+
+export function useGetCoopSentimentSummary<TData = Awaited<ReturnType<typeof getCoopSentimentSummary>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopSentimentSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopSentimentSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCoopSentimentReportsUrl = () => {
+
+
+
+
+  return `/api/coop/sentiment/reports`
+}
+
+/**
+ * @summary Merchant-facing — generated weekly/monthly co-op sentiment insight reports, newest first; tenant scope via x-tenant-id
+ */
+export const listCoopSentimentReports = async ( options?: RequestInit): Promise<CoopSentimentReport[]> => {
+
+  return customFetch<CoopSentimentReport[]>(getListCoopSentimentReportsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopSentimentReportsQueryKey = () => {
+    return [
+    `/api/coop/sentiment/reports`
+    ] as const;
+    }
+
+
+export const getListCoopSentimentReportsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopSentimentReports>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSentimentReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopSentimentReportsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopSentimentReports>>> = ({ signal }) => listCoopSentimentReports({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopSentimentReports>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopSentimentReportsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopSentimentReports>>>
+export type ListCoopSentimentReportsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — generated weekly/monthly co-op sentiment insight reports, newest first; tenant scope via x-tenant-id
+ */
+
+export function useListCoopSentimentReports<TData = Awaited<ReturnType<typeof listCoopSentimentReports>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSentimentReports>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopSentimentReportsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

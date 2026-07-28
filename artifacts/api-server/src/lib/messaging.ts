@@ -38,7 +38,8 @@ export type OutboundMessageKind =
   | "emergency_broadcast"
   | "coop_event_broadcast"
   | "retail_low_stock"
-  | "coop_reputation";
+  | "coop_reputation"
+  | "coop_feedback_request";
 
 export type MessageOrigin = "operational" | "concierge" | "marketing";
 

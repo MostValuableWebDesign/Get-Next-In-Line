@@ -9,6 +9,7 @@ import { findWalletPass, isWalletPassToken } from "./perkPasses";
 import { recordPassportStampSafe } from "./passport";
 import { recordPerkRedemptionComplianceSafe } from "./coopCompliance";
 import { applyRedemptionSplitSafe } from "./coopSponsorship";
+import { requestCoopFeedbackSafe } from "./coopFeedback";
 import type { CoopDirection } from "./coopTracking";
 
 /**
@@ -118,6 +119,17 @@ export async function redeemWalletPassAsTenant(
     // wallet ledgers stay in parity across redemption paths. Safe/no-op when
     // the partnership carries no revenue-share terms.
     await applyRedemptionSplitSafe(row.partnership, redemption.id, tenantId);
+    // Post-redemption satisfaction follow-up: ask the wallet owner for a
+    // quick rating via SMS. Best-effort; never blocks the redemption.
+    await requestCoopFeedbackSafe({
+      partnershipId: p.id,
+      redemptionId: redemption.id,
+      redeemedByTenantId: tenantId,
+      customerPhone: row.pass.customerPhone,
+      customerName: row.pass.customerName ?? contact?.name ?? null,
+      perkTitle: p.perkTitle,
+      businessName: tenantId === p.hostTenantId ? row.hostTenantName : row.partnerTenantName,
+    });
   }
   return { status: "processed", detail: `Perk pass ${token} redeemed` };
 }
