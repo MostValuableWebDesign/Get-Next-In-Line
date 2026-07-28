@@ -177,6 +177,16 @@ app.use(express.urlencoded({ extended: true }));
 // is running on Replit (HTTPS) or in production.
 // ---------------------------------------------------------------------------
 const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret && process.env.NODE_ENV === "production") {
+  // Fail fast: running production with the hardcoded dev fallback would let
+  // anyone who reads the source forge session cookies. Abort before the
+  // server accepts any traffic.
+  throw new Error(
+    "FATAL: SESSION_SECRET is not set. The API server refuses to start in " +
+      "production without a real session secret — set the SESSION_SECRET " +
+      "environment variable (a long random string) and restart.",
+  );
+}
 if (!sessionSecret) {
   logger.warn(
     "SESSION_SECRET is not set — using an insecure fallback. Set SESSION_SECRET in production.",
@@ -210,8 +220,12 @@ const sessionStore = pool
       pool,
       tableName: "session",
       createTableIfMissing: false, // table is managed by Drizzle migrations
+      // VITEST covers suites that stub NODE_ENV (e.g. the production
+      // fail-fast guard test) — pruning timers must never keep vitest alive.
       pruneSessionInterval:
-        process.env.NODE_ENV === "test" ? false : 15 * 60, // seconds
+        process.env.NODE_ENV === "test" || process.env.VITEST
+          ? false
+          : 15 * 60, // seconds
     })
   : undefined;
 
