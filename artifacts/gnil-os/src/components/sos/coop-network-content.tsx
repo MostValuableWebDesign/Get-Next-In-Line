@@ -52,6 +52,7 @@ import {
 } from '@/components/sos/coop-financial-disputes-content';
 import { CoopMarketingSection } from '@/components/sos/coop-marketing-content';
 import { PassportChallengesSection } from '@/components/sos/passport-challenges-content';
+import { AmbassadorProgramSection } from '@/components/sos/ambassador-program-content';
 import { CoopEventsSection } from '@/components/sos/coop-events-content';
 import { CoopProcurementSection } from '@/components/sos/coop-procurement-content';
 import { CoopSurgeSection, CapacityStatusBadge } from '@/components/sos/coop-surge-content';
@@ -219,6 +220,10 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
           with accepted partners: post shifts, offer eligible staff, track the
           agreement (rate + hours) and cross-store ratings on a shared ledger. */}
       <ShiftCoverageSection tenantId={tenantId} />
+
+      {/* Ambassador Program — network-wide tiers, referral loops, and the
+          merchant-funded shared reward pool with attribution ledger. */}
+      <AmbassadorProgramSection tenantId={tenantId} />
 
       {/* Community events & sponsorship sync — joint neighborhood events with
           cost splitting, joint announcements, and check-in attribution. */}

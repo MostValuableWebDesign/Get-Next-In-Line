@@ -2242,6 +2242,165 @@ export interface PassportChallengeUpdate {
   isActive?: boolean;
 }
 
+export type AmbassadorTierKey = typeof AmbassadorTierKey[keyof typeof AmbassadorTierKey];
+
+
+export const AmbassadorTierKey = {
+  member: 'member',
+  advocate: 'advocate',
+  ambassador: 'ambassador',
+} as const;
+
+export interface AmbassadorTier {
+  key: AmbassadorTierKey;
+  name: string;
+  minPartners: number;
+  minReferrals: number;
+  discountPercent: number;
+  vip: boolean;
+}
+
+export interface AmbassadorProgramSettingsUpdate {
+  optedIn: boolean;
+  /**
+     * Dollars accrued into the shared pool for each co-op perk redemption at this storefront.
+     * @minimum 0
+     * @maximum 100
+     */
+  pledgePerRedemption?: number;
+}
+
+export interface AmbassadorTopAmbassador {
+  displayName: string;
+  /** @nullable */
+  phoneMasked: string | null;
+  tier: string;
+  distinctPartners: number;
+  convertedReferrals: number;
+}
+
+export type AmbassadorProgramViewSettings = {
+  optedIn: boolean;
+  pledgePerRedemption: number;
+};
+
+export type AmbassadorProgramViewReferralStats = {
+  totalReferrals: number;
+  convertedReferrals: number;
+  convertedAtThisBusiness: number;
+};
+
+export interface AmbassadorProgramView {
+  settings: AmbassadorProgramViewSettings;
+  poolBalance: number;
+  myContribution: number;
+  /** Acquisition cost attributed to this business (reward debits for referred foot traffic it received). */
+  myBenefit: number;
+  tiers: AmbassadorTier[];
+  topAmbassadors: AmbassadorTopAmbassador[];
+  referralStats: AmbassadorProgramViewReferralStats;
+}
+
+export type AmbassadorLedgerEntryEntryType = typeof AmbassadorLedgerEntryEntryType[keyof typeof AmbassadorLedgerEntryEntryType];
+
+
+export const AmbassadorLedgerEntryEntryType = {
+  contribution: 'contribution',
+  reward_debit: 'reward_debit',
+} as const;
+
+export interface AmbassadorLedgerEntry {
+  id: number;
+  entryType: AmbassadorLedgerEntryEntryType;
+  amount: number;
+  /** @nullable */
+  businessName: string | null;
+  description: string;
+  createdAt: string;
+}
+
+export interface AmbassadorLedger {
+  poolBalance: number;
+  entries: AmbassadorLedgerEntry[];
+}
+
+export interface AmbassadorRewardRedeemBody {
+  /**
+     * The staff-verifiable reward code shown in the customer's wallet (AMB-…).
+     * @minLength 1
+     */
+  code: string;
+}
+
+export type AmbassadorRewardViewSource = typeof AmbassadorRewardViewSource[keyof typeof AmbassadorRewardViewSource];
+
+
+export const AmbassadorRewardViewSource = {
+  referral_referrer: 'referral_referrer',
+  referral_friend: 'referral_friend',
+} as const;
+
+export type AmbassadorRewardViewStatus = typeof AmbassadorRewardViewStatus[keyof typeof AmbassadorRewardViewStatus];
+
+
+export const AmbassadorRewardViewStatus = {
+  issued: 'issued',
+  redeemed: 'redeemed',
+} as const;
+
+export interface AmbassadorRewardView {
+  id: number;
+  code: string;
+  source: AmbassadorRewardViewSource;
+  amount: number;
+  status: AmbassadorRewardViewStatus;
+  /** @nullable */
+  redeemedAtBusiness: string | null;
+  /** @nullable */
+  redeemedAt: string | null;
+  createdAt: string;
+}
+
+export interface AmbassadorRewardRedeemResult {
+  valid: boolean;
+  /** @nullable */
+  reason: string | null;
+  reward: AmbassadorRewardView | null;
+}
+
+export interface WalletReferralEnterBody {
+  /** @minLength 1 */
+  code: string;
+}
+
+export type WalletAmbassadorViewTier = {
+  key: string;
+  name: string;
+  discountPercent: number;
+  vip: boolean;
+};
+
+export type WalletAmbassadorViewNextTier = {
+  key: string;
+  name: string;
+  minPartners: number;
+  minReferrals: number;
+  partnersRemaining: number;
+  referralsRemaining: number;
+} | null;
+
+export interface WalletAmbassadorView {
+  tier: WalletAmbassadorViewTier;
+  distinctPartners: number;
+  convertedReferrals: number;
+  nextTier: WalletAmbassadorViewNextTier;
+  tiers: AmbassadorTier[];
+  referralCode: string;
+  /** @nullable */
+  referredByStatus: string | null;
+  rewards: AmbassadorRewardView[];
+}
+
 export interface CoopPerkRedeemRequest {
   /**
      * The partnership's redemption code, or a scanned wallet pass token (WPASS-…) which carries its own single-use state.

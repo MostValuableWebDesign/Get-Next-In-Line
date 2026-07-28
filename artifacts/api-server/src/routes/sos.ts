@@ -19,6 +19,7 @@ import {
   sosTipPoolLedgerTable,
   clientProfilesTable,
   tenantsTable,
+  merchantCoopPartnershipsTable,
   type ClientProfile,
 } from "@workspace/db";
 import {
@@ -121,6 +122,7 @@ import {
   tenantHasLivePartnership,
   writeGratuityLedger,
 } from "../lib/tipPooling";
+import { recordAmbassadorActivitySafe } from "../lib/ambassador";
 import {
   addressFieldsTouched,
   resolveSettings,
@@ -2121,6 +2123,15 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     // Deposit co-op perk passes into the customer's Local Perks wallet the
     // moment service completes. Safe: a grant problem never blocks checkout.
     await grantPerkPassesSafe({ tenantId: visit.tenantId, customerId: customer.id });
+    // Ambassador program: a completed booking is a qualifying visit — it can
+    // convert a pending referral and advances tier evaluation. Never blocks.
+    const ambassadorTenantId = updated.tenantId ?? tenantIdFrom(req);
+    if (ambassadorTenantId != null) {
+      await recordAmbassadorActivitySafe({
+        tenantId: ambassadorTenantId,
+        person: { phone: customer.phone, email: customer.email, name: customer.name },
+      });
+    }
   }
 
   const resourceName = updated.resourceId

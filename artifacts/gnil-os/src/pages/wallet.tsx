@@ -7,8 +7,12 @@ import {
   getListWalletPassesQueryKey,
   useGetWalletPassport,
   getGetWalletPassportQueryKey,
+  useGetWalletAmbassador,
+  getGetWalletAmbassadorQueryKey,
+  useEnterWalletReferralCode,
   type WalletPass,
 } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,7 +44,7 @@ function loadSession(): string | null {
 export default function WalletPage() {
   const [session, setSession] = useState<string | null>(loadSession);
   const [selected, setSelected] = useState<WalletPass | null>(null);
-  const [view, setView] = useState<'passes' | 'passport'>('passes');
+  const [view, setView] = useState<'passes' | 'passport' | 'ambassador'>('passes');
 
   const signOut = () => {
     try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
@@ -72,7 +76,7 @@ export default function WalletPage() {
           <PassDetail pass={selected} onBack={() => setSelected(null)} />
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-2" data-testid="tabs-wallet-view">
+            <div className="grid grid-cols-3 gap-2" data-testid="tabs-wallet-view">
               <Button
                 variant={view === 'passes' ? 'default' : 'outline'}
                 className={view === 'passes'
@@ -93,9 +97,21 @@ export default function WalletPage() {
               >
                 <Stamp className="h-4 w-4 mr-1.5" /> Passport
               </Button>
+              <Button
+                variant={view === 'ambassador' ? 'default' : 'outline'}
+                className={view === 'ambassador'
+                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold'
+                  : 'border-slate-700 bg-transparent text-slate-300 hover:bg-slate-900'}
+                onClick={() => setView('ambassador')}
+                data-testid="button-wallet-view-ambassador"
+              >
+                <Trophy className="h-4 w-4 mr-1.5" /> Ambassador
+              </Button>
             </div>
             {view === 'passport' ? (
               <PassportView session={session} onUnauthorized={signOut} />
+            ) : view === 'ambassador' ? (
+              <AmbassadorView session={session} onUnauthorized={signOut} />
             ) : (
               <PassList session={session} onSelect={setSelected} onUnauthorized={signOut} />
             )}
@@ -473,6 +489,168 @@ function PassportView({ session, onUnauthorized }: { session: string; onUnauthor
                   <p className="text-xs text-slate-500">
                     "{r.challengeTitle}" · {r.sponsorName} · {new Date(r.issuedAt).toLocaleDateString()}
                   </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+// ── Ambassador Program — tier, progress, referral code, network rewards ─────
+
+const AMBASSADOR_SOURCE_LABELS: Record<string, string> = {
+  referral_referrer: 'Friend referral',
+  referral_friend: 'Welcome reward',
+};
+
+function AmbassadorView({ session, onUnauthorized }: { session: string; onUnauthorized: () => void }) {
+  const queryClient = useQueryClient();
+  const { data, isLoading, isError, error } = useGetWalletAmbassador({
+    query: { queryKey: [...getGetWalletAmbassadorQueryKey(), session] },
+    request: { headers: { 'x-wallet-session': session } },
+  });
+  const [refCode, setRefCode] = useState('');
+  const [refError, setRefError] = useState<string | null>(null);
+  const enterCode = useEnterWalletReferralCode({
+    request: { headers: { 'x-wallet-session': session } },
+    mutation: {
+      onSuccess: () => {
+        setRefCode('');
+        setRefError(null);
+        queryClient.invalidateQueries({ queryKey: getGetWalletAmbassadorQueryKey() });
+      },
+      onError: (err: unknown) =>
+        setRefError((err as { data?: { message?: string } })?.data?.message ?? "That code didn't work."),
+    },
+  });
+
+  useEffect(() => {
+    if (isError && (error as { status?: number })?.status === 401) onUnauthorized();
+  }, [isError, error, onUnauthorized]);
+
+  if (isLoading || !data) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-32 w-full bg-slate-800" />
+        <Skeleton className="h-24 w-full bg-slate-800" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4" data-testid="view-wallet-ambassador">
+      {/* Tier + progress toward the next tier */}
+      <Card className="bg-slate-900 border-slate-800 text-slate-50">
+        <CardContent className="pt-6 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="font-bold text-lg flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-amber-400" /> Community Ambassador
+              </h2>
+              <p className="text-sm text-slate-400" data-testid="text-ambassador-progress">
+                {data.distinctPartners} {data.distinctPartners === 1 ? 'business' : 'businesses'} visited ·{' '}
+                {data.convertedReferrals} {data.convertedReferrals === 1 ? 'friend' : 'friends'} referred
+              </p>
+            </div>
+            <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 shrink-0" data-testid="badge-ambassador-tier">
+              {data.tier.name}
+            </Badge>
+          </div>
+          {(data.tier.discountPercent > 0 || data.tier.vip) && (
+            <p className="text-sm text-emerald-300" data-testid="text-ambassador-benefits">
+              <Sparkles className="h-3.5 w-3.5 inline mr-1" />
+              Network benefits: {data.tier.discountPercent > 0 ? `${data.tier.discountPercent}% off at every opted-in partner` : ''}
+              {data.tier.discountPercent > 0 && data.tier.vip ? ' · ' : ''}
+              {data.tier.vip ? 'VIP treatment' : ''}
+            </p>
+          )}
+          {data.nextTier && (
+            <p className="text-xs text-slate-400" data-testid="text-ambassador-next-tier">
+              Next: <span className="text-slate-200">{data.nextTier.name}</span> — visit{' '}
+              {data.nextTier.partnersRemaining} more {data.nextTier.partnersRemaining === 1 ? 'business' : 'businesses'} or refer{' '}
+              {data.nextTier.referralsRemaining} more {data.nextTier.referralsRemaining === 1 ? 'friend' : 'friends'}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Personal referral code */}
+      <Card className="bg-slate-900 border-slate-800 text-slate-50">
+        <CardContent className="pt-6 space-y-2 text-center">
+          <h3 className="font-semibold text-sm">Your referral code</h3>
+          <p className="text-2xl font-mono font-bold tracking-widest text-amber-300" data-testid="text-ambassador-referral-code">
+            {data.referralCode}
+          </p>
+          <p className="text-xs text-slate-500">
+            Share it with a friend — when they visit any participating business, you both earn a
+            reward good at every opted-in storefront.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Enter a friend's code (only until this customer is referred) */}
+      {data.referredByStatus == null && (
+        <Card className="bg-slate-900 border-slate-800 text-slate-50">
+          <CardContent className="pt-6 space-y-2">
+            <Label htmlFor="ambassador-ref-code" className="text-sm">Were you referred? Enter your friend's code</Label>
+            <div className="flex gap-2">
+              <Input
+                id="ambassador-ref-code"
+                value={refCode}
+                onChange={e => setRefCode(e.target.value)}
+                placeholder="FRIEND-XXXXXX"
+                className="bg-slate-950 border-slate-700"
+                data-testid="input-ambassador-referral-code"
+              />
+              <Button
+                disabled={!refCode.trim() || enterCode.isPending}
+                onClick={() => enterCode.mutate({ data: { code: refCode.trim() } })}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold"
+                data-testid="button-ambassador-enter-code"
+              >
+                {enterCode.isPending ? 'Saving…' : 'Apply'}
+              </Button>
+            </div>
+            {refError && <p className="text-xs text-red-400" data-testid="text-ambassador-referral-error">{refError}</p>}
+          </CardContent>
+        </Card>
+      )}
+      {data.referredByStatus === 'pending' && (
+        <p className="text-xs text-slate-400" data-testid="text-ambassador-referred-pending">
+          Referral applied — complete a visit at any participating business to unlock rewards for you and your friend.
+        </p>
+      )}
+
+      {/* Network-wide rewards */}
+      {data.rewards.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Network rewards</h3>
+          <div className="space-y-2" data-testid="list-ambassador-rewards">
+            {data.rewards.map(r => (
+              <Card key={r.id} className={`bg-slate-900 text-slate-50 ${r.status === 'issued' ? 'border-emerald-500/30' : 'border-slate-800 opacity-70'}`}>
+                <CardContent className="py-3 space-y-0.5" data-testid={`card-ambassador-reward-${r.id}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-sm">
+                      <Sparkles className="h-3.5 w-3.5 inline mr-1 text-emerald-400" />
+                      ${r.amount.toFixed(2)} · {AMBASSADOR_SOURCE_LABELS[r.source] ?? r.source}
+                    </span>
+                    {r.status === 'issued'
+                      ? <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30">Ready</Badge>
+                      : <Badge variant="outline" className="text-slate-400 border-slate-700">Used</Badge>}
+                  </div>
+                  {r.status === 'issued' ? (
+                    <p className="text-xs text-slate-400">
+                      Show code <span className="font-mono text-slate-200">{r.code}</span> at any opted-in business
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      Redeemed{r.redeemedAtBusiness ? ` at ${r.redeemedAtBusiness}` : ''}
+                      {r.redeemedAt ? ` on ${new Date(r.redeemedAt).toLocaleDateString()}` : ''}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             ))}

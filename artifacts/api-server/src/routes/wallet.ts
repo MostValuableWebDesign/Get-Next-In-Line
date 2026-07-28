@@ -21,8 +21,16 @@ import {
   ListWalletPassesResponse,
   GetWalletPassResponse,
   GetWalletPassportResponse,
+  GetWalletAmbassadorResponse,
+  EnterWalletReferralCodeBody,
+  EnterWalletReferralCodeResponse,
 } from "@workspace/api-zod";
-import { buildPassportView } from "../lib/passport";
+import { buildPassportView, findOrCreatePassportIdentity } from "../lib/passport";
+import {
+  attachReferral,
+  buildConsumerAmbassadorView,
+  ReferralAttachError,
+} from "../lib/ambassador";
 import { normalizeToE164 } from "../lib/sms";
 import { sendMessageSafe } from "../lib/messaging";
 import { redeemAtSide } from "../lib/perkPasses";
@@ -295,6 +303,57 @@ router.get("/wallet/passport", async (req, res): Promise<void> => {
   }
   const view = await buildPassportView({ phone: session.phone });
   res.json(GetWalletPassportResponse.parse({ phone: session.phone, ...view }));
+});
+
+// ── GET /wallet/ambassador — tier, progress, referral code, rewards ─────────
+// The customer's Ambassador Program view, keyed on the same phone-based
+// cross-tenant identity as the passport. Minting the referral code on first
+// read means every wallet customer can start referring immediately.
+router.get("/wallet/ambassador", async (req, res): Promise<void> => {
+  const session = await sessionFrom(req);
+  if (!session) {
+    res.status(401).json({ message: "Wallet session required" });
+    return;
+  }
+  const identity = await findOrCreatePassportIdentity({ phone: session.phone });
+  if (!identity) {
+    res.status(401).json({ message: "Wallet session required" });
+    return;
+  }
+  res.json(GetWalletAmbassadorResponse.parse(await buildConsumerAmbassadorView(identity)));
+});
+
+// ── POST /wallet/ambassador/referral — enter a friend's referral code ───────
+// The signed-in customer is the referred FRIEND. Attaching is pending until a
+// qualifying visit at a participating business converts it; anti-abuse guards
+// (self-referral, one referral per person, existing network activity) return
+// 409 with a human-readable reason.
+router.post("/wallet/ambassador/referral", async (req, res): Promise<void> => {
+  const session = await sessionFrom(req);
+  if (!session) {
+    res.status(401).json({ message: "Wallet session required" });
+    return;
+  }
+  const parsed = EnterWalletReferralCodeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const identity = await findOrCreatePassportIdentity({ phone: session.phone });
+  if (!identity) {
+    res.status(401).json({ message: "Wallet session required" });
+    return;
+  }
+  try {
+    await attachReferral(identity, parsed.data.code);
+  } catch (err) {
+    if (err instanceof ReferralAttachError) {
+      res.status(409).json({ message: err.message });
+      return;
+    }
+    throw err;
+  }
+  res.json(EnterWalletReferralCodeResponse.parse(await buildConsumerAmbassadorView(identity)));
 });
 
 export default router;

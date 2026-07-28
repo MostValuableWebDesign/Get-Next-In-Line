@@ -7,6 +7,7 @@ export * from "./pos";
 export * from "./gateway";
 export * from "./wallet";
 export * from "./passport";
+export * from "./ambassador";
 export * from "./safety";
 export * from "./emergency";
 export * from "./users";

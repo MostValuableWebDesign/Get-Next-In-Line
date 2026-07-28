@@ -36,6 +36,7 @@ import {
   perkWindowState,
   validatePerkWindow,
 } from "../lib/coopPerks";
+import { recordAmbassadorActivitySafe } from "../lib/ambassador";
 import {
   recordPassportStampSafe,
   personFromClassicPassCode,
@@ -3035,6 +3036,16 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
         businessName:
           tenantId === wp.hostTenantId ? walletRow!.hostTenantName : walletRow!.partnerTenantName,
       });
+      // Ambassador program: accrue the pool pledge, convert any pending
+      // referral, and re-evaluate the customer's tier. Never blocks.
+      await recordAmbassadorActivitySafe({
+        tenantId,
+        redemptionId: walletRedemption.id,
+        person: {
+          phone: walletRow!.pass.customerPhone,
+          name: walletRow!.pass.customerName,
+        },
+      });
     }
     res.json(
       RedeemCoopPerkResponse.parse({
@@ -3243,6 +3254,12 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
       customerName: passPerson.name,
       perkTitle: p.perkTitle,
       businessName: tenantId === p.hostTenantId ? row.hostTenantName : row.partnerTenantName,
+    });
+    // Ambassador program accrual mirrors the wallet-pass path.
+    await recordAmbassadorActivitySafe({
+      tenantId,
+      redemptionId: redemption.id,
+      person: passPerson,
     });
   }
 

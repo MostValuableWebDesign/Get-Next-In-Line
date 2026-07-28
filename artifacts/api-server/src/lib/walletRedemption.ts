@@ -9,6 +9,7 @@ import { findWalletPass, isWalletPassToken } from "./perkPasses";
 import { decoupledTenantIdSet } from "./coopReputation";
 import { activeSuspensionTenantIds } from "./coopFinancialDisputes";
 import { recordPassportStampSafe } from "./passport";
+import { recordAmbassadorActivitySafe } from "./ambassador";
 import { recordPerkRedemptionComplianceSafe } from "./coopCompliance";
 import { applyRedemptionSplitSafe } from "./coopSponsorship";
 import { requestCoopFeedbackSafe } from "./coopFeedback";
@@ -150,6 +151,17 @@ export async function redeemWalletPassAsTenant(
     // owner's passport (best-effort; never blocks the redemption).
     await recordPassportStampSafe({
       redeemedByTenantId: tenantId,
+      redemptionId: redemption.id,
+      person: {
+        phone: row.pass.customerPhone,
+        email: contact?.email ?? null,
+        name: row.pass.customerName ?? contact?.name ?? null,
+      },
+    });
+    // Ambassador program: accrue the pool pledge, convert any pending
+    // referral, and re-evaluate the customer's tier. Never blocks.
+    await recordAmbassadorActivitySafe({
+      tenantId,
       redemptionId: redemption.id,
       person: {
         phone: row.pass.customerPhone,

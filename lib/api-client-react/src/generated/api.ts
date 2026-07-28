@@ -32,6 +32,11 @@ import type {
   AgencyDashboard,
   AgencySettings,
   AgencySettingsUpdate,
+  AmbassadorLedger,
+  AmbassadorProgramSettingsUpdate,
+  AmbassadorProgramView,
+  AmbassadorRewardRedeemBody,
+  AmbassadorRewardRedeemResult,
   BillingSummary,
   CheckoutInput,
   CheckoutResult,
@@ -328,12 +333,14 @@ import type {
   TipPoolRuleInput,
   TipPoolRuleUpdate,
   TipSplitPreview,
+  WalletAmbassadorView,
   WalletLoginRequest,
   WalletLoginRequestResult,
   WalletLoginVerify,
   WalletPassDetail,
   WalletPassList,
   WalletPassportView,
+  WalletReferralEnterBody,
   WalletSessionResult
 } from './api.schemas';
 
@@ -20608,6 +20615,450 @@ export function useGetWalletPassport<TData = Awaited<ReturnType<typeof getWallet
 
 
 
+
+export const getGetWalletAmbassadorUrl = () => {
+
+
+
+
+  return `/api/wallet/ambassador`
+}
+
+/**
+ * @summary The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (x-wallet-session header)
+ */
+export const getWalletAmbassador = async ( options?: RequestInit): Promise<WalletAmbassadorView> => {
+
+  return customFetch<WalletAmbassadorView>(getGetWalletAmbassadorUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWalletAmbassadorQueryKey = () => {
+    return [
+    `/api/wallet/ambassador`
+    ] as const;
+    }
+
+
+export const getGetWalletAmbassadorQueryOptions = <TData = Awaited<ReturnType<typeof getWalletAmbassador>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalletAmbassador>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWalletAmbassadorQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWalletAmbassador>>> = ({ signal }) => getWalletAmbassador({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWalletAmbassador>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWalletAmbassadorQueryResult = NonNullable<Awaited<ReturnType<typeof getWalletAmbassador>>>
+export type GetWalletAmbassadorQueryError = ErrorType<void>
+
+
+/**
+ * @summary The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (x-wallet-session header)
+ */
+
+export function useGetWalletAmbassador<TData = Awaited<ReturnType<typeof getWalletAmbassador>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalletAmbassador>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWalletAmbassadorQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getEnterWalletReferralCodeUrl = () => {
+
+
+
+
+  return `/api/wallet/ambassador/referral`
+}
+
+/**
+ * @summary Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (x-wallet-session header)
+ */
+export const enterWalletReferralCode = async (walletReferralEnterBody: WalletReferralEnterBody, options?: RequestInit): Promise<WalletAmbassadorView> => {
+
+  return customFetch<WalletAmbassadorView>(getEnterWalletReferralCodeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(walletReferralEnterBody)
+  }
+);}
+
+
+
+
+
+export const getEnterWalletReferralCodeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enterWalletReferralCode>>, TError,{data: BodyType<WalletReferralEnterBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof enterWalletReferralCode>>, TError,{data: BodyType<WalletReferralEnterBody>}, TContext> => {
+
+const mutationKey = ['enterWalletReferralCode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof enterWalletReferralCode>>, {data: BodyType<WalletReferralEnterBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  enterWalletReferralCode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EnterWalletReferralCodeMutationResult = NonNullable<Awaited<ReturnType<typeof enterWalletReferralCode>>>
+    export type EnterWalletReferralCodeMutationBody = BodyType<WalletReferralEnterBody>
+    export type EnterWalletReferralCodeMutationError = ErrorType<void>
+
+    /**
+ * @summary Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (x-wallet-session header)
+ */
+export const useEnterWalletReferralCode = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enterWalletReferralCode>>, TError,{data: BodyType<WalletReferralEnterBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof enterWalletReferralCode>>,
+        TError,
+        {data: BodyType<WalletReferralEnterBody>},
+        TContext
+      > => {
+      return useMutation(getEnterWalletReferralCodeMutationOptions(options));
+    }
+
+export const getGetAmbassadorProgramUrl = () => {
+
+
+
+
+  return `/api/coop/ambassador/program`
+}
+
+/**
+ * @summary Merchant-facing — Ambassador Program overview for the scoped tenant (opt-in/pledge settings, pool balance, contribution vs. benefit, tiers, top ambassadors, referral stats); tenant scope via x-tenant-id
+ */
+export const getAmbassadorProgram = async ( options?: RequestInit): Promise<AmbassadorProgramView> => {
+
+  return customFetch<AmbassadorProgramView>(getGetAmbassadorProgramUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAmbassadorProgramQueryKey = () => {
+    return [
+    `/api/coop/ambassador/program`
+    ] as const;
+    }
+
+
+export const getGetAmbassadorProgramQueryOptions = <TData = Awaited<ReturnType<typeof getAmbassadorProgram>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAmbassadorProgram>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAmbassadorProgramQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAmbassadorProgram>>> = ({ signal }) => getAmbassadorProgram({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAmbassadorProgram>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAmbassadorProgramQueryResult = NonNullable<Awaited<ReturnType<typeof getAmbassadorProgram>>>
+export type GetAmbassadorProgramQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — Ambassador Program overview for the scoped tenant (opt-in/pledge settings, pool balance, contribution vs. benefit, tiers, top ambassadors, referral stats); tenant scope via x-tenant-id
+ */
+
+export function useGetAmbassadorProgram<TData = Awaited<ReturnType<typeof getAmbassadorProgram>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAmbassadorProgram>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAmbassadorProgramQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAmbassadorProgramUrl = () => {
+
+
+
+
+  return `/api/coop/ambassador/program`
+}
+
+/**
+ * @summary Merchant-facing — opt in/out and set the pool pledge accrued per co-op redemption; tenant scope via x-tenant-id
+ */
+export const updateAmbassadorProgram = async (ambassadorProgramSettingsUpdate: AmbassadorProgramSettingsUpdate, options?: RequestInit): Promise<AmbassadorProgramView> => {
+
+  return customFetch<AmbassadorProgramView>(getUpdateAmbassadorProgramUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(ambassadorProgramSettingsUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateAmbassadorProgramMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAmbassadorProgram>>, TError,{data: BodyType<AmbassadorProgramSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAmbassadorProgram>>, TError,{data: BodyType<AmbassadorProgramSettingsUpdate>}, TContext> => {
+
+const mutationKey = ['updateAmbassadorProgram'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAmbassadorProgram>>, {data: BodyType<AmbassadorProgramSettingsUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAmbassadorProgram(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAmbassadorProgramMutationResult = NonNullable<Awaited<ReturnType<typeof updateAmbassadorProgram>>>
+    export type UpdateAmbassadorProgramMutationBody = BodyType<AmbassadorProgramSettingsUpdate>
+    export type UpdateAmbassadorProgramMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — opt in/out and set the pool pledge accrued per co-op redemption; tenant scope via x-tenant-id
+ */
+export const useUpdateAmbassadorProgram = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAmbassadorProgram>>, TError,{data: BodyType<AmbassadorProgramSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAmbassadorProgram>>,
+        TError,
+        {data: BodyType<AmbassadorProgramSettingsUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateAmbassadorProgramMutationOptions(options));
+    }
+
+export const getGetAmbassadorLedgerUrl = () => {
+
+
+
+
+  return `/api/coop/ambassador/ledger`
+}
+
+/**
+ * @summary Merchant-facing — the shared ambassador pool ledger (contributions and attributed reward debits, newest first) with the current balance; tenant scope via x-tenant-id
+ */
+export const getAmbassadorLedger = async ( options?: RequestInit): Promise<AmbassadorLedger> => {
+
+  return customFetch<AmbassadorLedger>(getGetAmbassadorLedgerUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAmbassadorLedgerQueryKey = () => {
+    return [
+    `/api/coop/ambassador/ledger`
+    ] as const;
+    }
+
+
+export const getGetAmbassadorLedgerQueryOptions = <TData = Awaited<ReturnType<typeof getAmbassadorLedger>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAmbassadorLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAmbassadorLedgerQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAmbassadorLedger>>> = ({ signal }) => getAmbassadorLedger({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAmbassadorLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAmbassadorLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof getAmbassadorLedger>>>
+export type GetAmbassadorLedgerQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — the shared ambassador pool ledger (contributions and attributed reward debits, newest first) with the current balance; tenant scope via x-tenant-id
+ */
+
+export function useGetAmbassadorLedger<TData = Awaited<ReturnType<typeof getAmbassadorLedger>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAmbassadorLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAmbassadorLedgerQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRedeemAmbassadorRewardUrl = () => {
+
+
+
+
+  return `/api/coop/ambassador/rewards/redeem`
+}
+
+/**
+ * @summary Staff-facing — verify and redeem a customer's ambassador reward code at this storefront; always 200 with a valid flag; tenant scope via x-tenant-id
+ */
+export const redeemAmbassadorReward = async (ambassadorRewardRedeemBody: AmbassadorRewardRedeemBody, options?: RequestInit): Promise<AmbassadorRewardRedeemResult> => {
+
+  return customFetch<AmbassadorRewardRedeemResult>(getRedeemAmbassadorRewardUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(ambassadorRewardRedeemBody)
+  }
+);}
+
+
+
+
+
+export const getRedeemAmbassadorRewardMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof redeemAmbassadorReward>>, TError,{data: BodyType<AmbassadorRewardRedeemBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof redeemAmbassadorReward>>, TError,{data: BodyType<AmbassadorRewardRedeemBody>}, TContext> => {
+
+const mutationKey = ['redeemAmbassadorReward'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof redeemAmbassadorReward>>, {data: BodyType<AmbassadorRewardRedeemBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  redeemAmbassadorReward(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RedeemAmbassadorRewardMutationResult = NonNullable<Awaited<ReturnType<typeof redeemAmbassadorReward>>>
+    export type RedeemAmbassadorRewardMutationBody = BodyType<AmbassadorRewardRedeemBody>
+    export type RedeemAmbassadorRewardMutationError = ErrorType<void>
+
+    /**
+ * @summary Staff-facing — verify and redeem a customer's ambassador reward code at this storefront; always 200 with a valid flag; tenant scope via x-tenant-id
+ */
+export const useRedeemAmbassadorReward = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof redeemAmbassadorReward>>, TError,{data: BodyType<AmbassadorRewardRedeemBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof redeemAmbassadorReward>>,
+        TError,
+        {data: BodyType<AmbassadorRewardRedeemBody>},
+        TContext
+      > => {
+      return useMutation(getRedeemAmbassadorRewardMutationOptions(options));
+    }
 
 export const getListPassportChallengesUrl = () => {
 

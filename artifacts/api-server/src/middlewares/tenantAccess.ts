@@ -145,9 +145,15 @@ export async function authorizeTenantAccess(
 
   // Staff have read/operational access: on the governed management surfaces
   // (tenant management and co-op routes) they may look but not change.
+  // Checkout-counter verification flows are the deliberate exception — staff
+  // scan/enter customer reward codes at the register, exactly like perk
+  // redemption, so those POSTs stay open to staff (membership still checked).
+  const staffOperationalPost =
+    req.method === "POST" && req.path === "/coop/ambassador/rewards/redeem";
   if (
     role === "staff" &&
     !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
+    !staffOperationalPost &&
     (req.path.startsWith("/tenants") || req.path.startsWith("/coop"))
   ) {
     res.status(403).json({

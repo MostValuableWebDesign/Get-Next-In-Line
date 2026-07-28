@@ -8222,6 +8222,219 @@ export const GetWalletPassportResponse = zod.object({
 
 
 /**
+ * @summary The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (x-wallet-session header)
+ */
+export const GetWalletAmbassadorResponse = zod.object({
+  "tier": zod.object({
+  "key": zod.string(),
+  "name": zod.string(),
+  "discountPercent": zod.number(),
+  "vip": zod.boolean()
+}),
+  "distinctPartners": zod.number(),
+  "convertedReferrals": zod.number(),
+  "nextTier": zod.union([zod.object({
+  "key": zod.string(),
+  "name": zod.string(),
+  "minPartners": zod.number(),
+  "minReferrals": zod.number(),
+  "partnersRemaining": zod.number(),
+  "referralsRemaining": zod.number()
+}),zod.null()]),
+  "tiers": zod.array(zod.object({
+  "key": zod.enum(['member', 'advocate', 'ambassador']),
+  "name": zod.string(),
+  "minPartners": zod.number(),
+  "minReferrals": zod.number(),
+  "discountPercent": zod.number(),
+  "vip": zod.boolean()
+})),
+  "referralCode": zod.string(),
+  "referredByStatus": zod.string().nullable(),
+  "rewards": zod.array(zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "source": zod.enum(['referral_referrer', 'referral_friend']),
+  "amount": zod.number(),
+  "status": zod.enum(['issued', 'redeemed']),
+  "redeemedAtBusiness": zod.string().nullable(),
+  "redeemedAt": zod.string().nullable(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (x-wallet-session header)
+ */
+
+
+
+export const EnterWalletReferralCodeBody = zod.object({
+  "code": zod.string().min(1)
+})
+
+export const EnterWalletReferralCodeResponse = zod.object({
+  "tier": zod.object({
+  "key": zod.string(),
+  "name": zod.string(),
+  "discountPercent": zod.number(),
+  "vip": zod.boolean()
+}),
+  "distinctPartners": zod.number(),
+  "convertedReferrals": zod.number(),
+  "nextTier": zod.union([zod.object({
+  "key": zod.string(),
+  "name": zod.string(),
+  "minPartners": zod.number(),
+  "minReferrals": zod.number(),
+  "partnersRemaining": zod.number(),
+  "referralsRemaining": zod.number()
+}),zod.null()]),
+  "tiers": zod.array(zod.object({
+  "key": zod.enum(['member', 'advocate', 'ambassador']),
+  "name": zod.string(),
+  "minPartners": zod.number(),
+  "minReferrals": zod.number(),
+  "discountPercent": zod.number(),
+  "vip": zod.boolean()
+})),
+  "referralCode": zod.string(),
+  "referredByStatus": zod.string().nullable(),
+  "rewards": zod.array(zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "source": zod.enum(['referral_referrer', 'referral_friend']),
+  "amount": zod.number(),
+  "status": zod.enum(['issued', 'redeemed']),
+  "redeemedAtBusiness": zod.string().nullable(),
+  "redeemedAt": zod.string().nullable(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Merchant-facing — Ambassador Program overview for the scoped tenant (opt-in/pledge settings, pool balance, contribution vs. benefit, tiers, top ambassadors, referral stats); tenant scope via x-tenant-id
+ */
+export const GetAmbassadorProgramResponse = zod.object({
+  "settings": zod.object({
+  "optedIn": zod.boolean(),
+  "pledgePerRedemption": zod.number()
+}),
+  "poolBalance": zod.number(),
+  "myContribution": zod.number(),
+  "myBenefit": zod.number().describe('Acquisition cost attributed to this business (reward debits for referred foot traffic it received).'),
+  "tiers": zod.array(zod.object({
+  "key": zod.enum(['member', 'advocate', 'ambassador']),
+  "name": zod.string(),
+  "minPartners": zod.number(),
+  "minReferrals": zod.number(),
+  "discountPercent": zod.number(),
+  "vip": zod.boolean()
+})),
+  "topAmbassadors": zod.array(zod.object({
+  "displayName": zod.string(),
+  "phoneMasked": zod.string().nullable(),
+  "tier": zod.string(),
+  "distinctPartners": zod.number(),
+  "convertedReferrals": zod.number()
+})),
+  "referralStats": zod.object({
+  "totalReferrals": zod.number(),
+  "convertedReferrals": zod.number(),
+  "convertedAtThisBusiness": zod.number()
+})
+})
+
+
+/**
+ * @summary Merchant-facing — opt in/out and set the pool pledge accrued per co-op redemption; tenant scope via x-tenant-id
+ */
+export const updateAmbassadorProgramBodyPledgePerRedemptionMin = 0;
+export const updateAmbassadorProgramBodyPledgePerRedemptionMax = 100;
+
+
+
+export const UpdateAmbassadorProgramBody = zod.object({
+  "optedIn": zod.boolean(),
+  "pledgePerRedemption": zod.number().min(updateAmbassadorProgramBodyPledgePerRedemptionMin).max(updateAmbassadorProgramBodyPledgePerRedemptionMax).optional().describe('Dollars accrued into the shared pool for each co-op perk redemption at this storefront.')
+})
+
+export const UpdateAmbassadorProgramResponse = zod.object({
+  "settings": zod.object({
+  "optedIn": zod.boolean(),
+  "pledgePerRedemption": zod.number()
+}),
+  "poolBalance": zod.number(),
+  "myContribution": zod.number(),
+  "myBenefit": zod.number().describe('Acquisition cost attributed to this business (reward debits for referred foot traffic it received).'),
+  "tiers": zod.array(zod.object({
+  "key": zod.enum(['member', 'advocate', 'ambassador']),
+  "name": zod.string(),
+  "minPartners": zod.number(),
+  "minReferrals": zod.number(),
+  "discountPercent": zod.number(),
+  "vip": zod.boolean()
+})),
+  "topAmbassadors": zod.array(zod.object({
+  "displayName": zod.string(),
+  "phoneMasked": zod.string().nullable(),
+  "tier": zod.string(),
+  "distinctPartners": zod.number(),
+  "convertedReferrals": zod.number()
+})),
+  "referralStats": zod.object({
+  "totalReferrals": zod.number(),
+  "convertedReferrals": zod.number(),
+  "convertedAtThisBusiness": zod.number()
+})
+})
+
+
+/**
+ * @summary Merchant-facing — the shared ambassador pool ledger (contributions and attributed reward debits, newest first) with the current balance; tenant scope via x-tenant-id
+ */
+export const GetAmbassadorLedgerResponse = zod.object({
+  "poolBalance": zod.number(),
+  "entries": zod.array(zod.object({
+  "id": zod.number(),
+  "entryType": zod.enum(['contribution', 'reward_debit']),
+  "amount": zod.number(),
+  "businessName": zod.string().nullable(),
+  "description": zod.string(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Staff-facing — verify and redeem a customer's ambassador reward code at this storefront; always 200 with a valid flag; tenant scope via x-tenant-id
+ */
+
+
+
+export const RedeemAmbassadorRewardBody = zod.object({
+  "code": zod.string().min(1).describe('The staff-verifiable reward code shown in the customer\'s wallet (AMB-…).')
+})
+
+export const RedeemAmbassadorRewardResponse = zod.object({
+  "valid": zod.boolean(),
+  "reason": zod.string().nullable(),
+  "reward": zod.union([zod.object({
+  "id": zod.number(),
+  "code": zod.string(),
+  "source": zod.enum(['referral_referrer', 'referral_friend']),
+  "amount": zod.number(),
+  "status": zod.enum(['issued', 'redeemed']),
+  "redeemedAtBusiness": zod.string().nullable(),
+  "redeemedAt": zod.string().nullable(),
+  "createdAt": zod.string()
+}),zod.null()])
+})
+
+
+/**
  * @summary Merchant-facing — the scoped tenant's sponsored milestone challenges with completion counts; tenant scope via x-tenant-id
  */
 export const ListPassportChallengesResponseItem = zod.object({

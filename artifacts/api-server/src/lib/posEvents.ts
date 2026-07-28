@@ -18,6 +18,7 @@ import { updateProfileCadence } from "./visitCadence";
 import { grantPerkPassesSafe } from "./perkPasses";
 import { attachRevenueToRecentCrossoverSafe } from "./coopEvents";
 import { redeemWalletPassAsTenant } from "./walletRedemption";
+import { recordAmbassadorActivitySafe } from "./ambassador";
 import { translatePosPayload, type NormalizedPosEvent, type PosVendor } from "./posVendors";
 
 /**
@@ -187,6 +188,14 @@ async function applyServiceCompleted(
 
   // Co-op analytics attribution mirrors the native checkout path.
   await attachRevenueToRecentCrossoverSafe(tenantId, ev.paymentAmount ?? null);
+  // Ambassador program: POS-completed service is a qualifying visit, same as
+  // a native booking checkout.
+  if (tenantId != null && customer) {
+    await recordAmbassadorActivitySafe({
+      tenantId,
+      person: { phone: customer.phone, email: customer.email, name: customer.name },
+    });
+  }
 
   if (resourceId) {
     await db
@@ -236,12 +245,13 @@ async function applyPerkRedeemed(
 ): Promise<{ status: string; detail: string }> {
   // Shared with the /v1/gateway developer API — the same integrity rules
   // (participant enforcement, single-use lock, attribution, passport
-  // stamping) apply to every machine-driven redemption path. Contact info
-  // from the POS event enriches the passport identity.
+  // stamping, ambassador accrual) apply to every machine-driven redemption
+  // path. Contact info from the POS event enriches the passport identity.
   return redeemWalletPassAsTenant(integration.tenantId, ev.perkToken, {
     email: ev.customer?.email ?? null,
     name: ev.customer?.name ?? null,
-  });}
+  });
+}
 
 // ── pipeline entry ───────────────────────────────────────────────────────────
 

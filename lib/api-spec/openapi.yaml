@@ -5962,6 +5962,117 @@ paths:
         "401":
           description: Missing or expired wallet session
 
+  /wallet/ambassador:
+    get:
+      operationId: getWalletAmbassador
+      tags: [wallet]
+      summary: The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (x-wallet-session header)
+      responses:
+        "200":
+          description: The ambassador view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletAmbassadorView"
+        "401":
+          description: Missing or expired wallet session
+
+  /wallet/ambassador/referral:
+    post:
+      operationId: enterWalletReferralCode
+      tags: [wallet]
+      summary: Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (x-wallet-session header)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalletReferralEnterBody"
+      responses:
+        "200":
+          description: Referral attached (pending conversion)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletAmbassadorView"
+        "400":
+          description: Invalid body
+        "401":
+          description: Missing or expired wallet session
+        "409":
+          description: Unknown code, self-referral, already referred, or already active on the network
+
+  # ── Ambassador Program — merchant console ────────────────────────────────
+  /coop/ambassador/program:
+    get:
+      operationId: getAmbassadorProgram
+      tags: [coop]
+      summary: Merchant-facing — Ambassador Program overview for the scoped tenant (opt-in/pledge settings, pool balance, contribution vs. benefit, tiers, top ambassadors, referral stats); tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Program overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AmbassadorProgramView"
+        "400":
+          description: Missing x-tenant-id header
+    put:
+      operationId: updateAmbassadorProgram
+      tags: [coop]
+      summary: Merchant-facing — opt in/out and set the pool pledge accrued per co-op redemption; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AmbassadorProgramSettingsUpdate"
+      responses:
+        "200":
+          description: Updated program overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AmbassadorProgramView"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+
+  /coop/ambassador/ledger:
+    get:
+      operationId: getAmbassadorLedger
+      tags: [coop]
+      summary: Merchant-facing — the shared ambassador pool ledger (contributions and attributed reward debits, newest first) with the current balance; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Pool ledger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AmbassadorLedger"
+        "400":
+          description: Missing x-tenant-id header
+
+  /coop/ambassador/rewards/redeem:
+    post:
+      operationId: redeemAmbassadorReward
+      tags: [coop]
+      summary: Staff-facing — verify and redeem a customer's ambassador reward code at this storefront; always 200 with a valid flag; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AmbassadorRewardRedeemBody"
+      responses:
+        "200":
+          description: Redemption outcome
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AmbassadorRewardRedeemResult"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+
   # ── Neighborhood Passport — merchant sponsorship console ─────────────────
   /coop/passport/challenges:
     get:
@@ -9667,6 +9778,223 @@ components:
           type: ["string", "null"]
         isActive:
           type: boolean
+
+    AmbassadorTier:
+      type: object
+      required: [key, name, minPartners, minReferrals, discountPercent, vip]
+      properties:
+        key:
+          type: string
+          enum: [member, advocate, ambassador]
+        name:
+          type: string
+        minPartners:
+          type: integer
+        minReferrals:
+          type: integer
+        discountPercent:
+          type: integer
+        vip:
+          type: boolean
+
+    AmbassadorProgramSettingsUpdate:
+      type: object
+      required: [optedIn]
+      properties:
+        optedIn:
+          type: boolean
+        pledgePerRedemption:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Dollars accrued into the shared pool for each co-op perk redemption at this storefront.
+
+    AmbassadorTopAmbassador:
+      type: object
+      required: [displayName, phoneMasked, tier, distinctPartners, convertedReferrals]
+      properties:
+        displayName:
+          type: string
+        phoneMasked:
+          type: ["string", "null"]
+        tier:
+          type: string
+        distinctPartners:
+          type: integer
+        convertedReferrals:
+          type: integer
+
+    AmbassadorProgramView:
+      type: object
+      required: [settings, poolBalance, myContribution, myBenefit, tiers, topAmbassadors, referralStats]
+      properties:
+        settings:
+          type: object
+          required: [optedIn, pledgePerRedemption]
+          properties:
+            optedIn:
+              type: boolean
+            pledgePerRedemption:
+              type: number
+        poolBalance:
+          type: number
+        myContribution:
+          type: number
+        myBenefit:
+          type: number
+          description: Acquisition cost attributed to this business (reward debits for referred foot traffic it received).
+        tiers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AmbassadorTier"
+        topAmbassadors:
+          type: array
+          items:
+            $ref: "#/components/schemas/AmbassadorTopAmbassador"
+        referralStats:
+          type: object
+          required: [totalReferrals, convertedReferrals, convertedAtThisBusiness]
+          properties:
+            totalReferrals:
+              type: integer
+            convertedReferrals:
+              type: integer
+            convertedAtThisBusiness:
+              type: integer
+
+    AmbassadorLedgerEntry:
+      type: object
+      required: [id, entryType, amount, businessName, description, createdAt]
+      properties:
+        id:
+          type: integer
+        entryType:
+          type: string
+          enum: [contribution, reward_debit]
+        amount:
+          type: number
+        businessName:
+          type: ["string", "null"]
+        description:
+          type: string
+        createdAt:
+          type: string
+
+    AmbassadorLedger:
+      type: object
+      required: [poolBalance, entries]
+      properties:
+        poolBalance:
+          type: number
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AmbassadorLedgerEntry"
+
+    AmbassadorRewardRedeemBody:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          description: The staff-verifiable reward code shown in the customer's wallet (AMB-…).
+
+    AmbassadorRewardView:
+      type: object
+      required: [id, code, source, amount, status, redeemedAtBusiness, redeemedAt, createdAt]
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        source:
+          type: string
+          enum: [referral_referrer, referral_friend]
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [issued, redeemed]
+        redeemedAtBusiness:
+          type: ["string", "null"]
+        redeemedAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    AmbassadorRewardRedeemResult:
+      type: object
+      required: [valid, reason, reward]
+      properties:
+        valid:
+          type: boolean
+        reason:
+          type: ["string", "null"]
+        reward:
+          oneOf:
+            - $ref: "#/components/schemas/AmbassadorRewardView"
+            - type: "null"
+
+    WalletReferralEnterBody:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 1
+
+    WalletAmbassadorView:
+      type: object
+      required:
+        [tier, distinctPartners, convertedReferrals, nextTier, tiers, referralCode, referredByStatus, rewards]
+      properties:
+        tier:
+          type: object
+          required: [key, name, discountPercent, vip]
+          properties:
+            key:
+              type: string
+            name:
+              type: string
+            discountPercent:
+              type: integer
+            vip:
+              type: boolean
+        distinctPartners:
+          type: integer
+        convertedReferrals:
+          type: integer
+        nextTier:
+          oneOf:
+            - type: object
+              required: [key, name, minPartners, minReferrals, partnersRemaining, referralsRemaining]
+              properties:
+                key:
+                  type: string
+                name:
+                  type: string
+                minPartners:
+                  type: integer
+                minReferrals:
+                  type: integer
+                partnersRemaining:
+                  type: integer
+                referralsRemaining:
+                  type: integer
+            - type: "null"
+        tiers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AmbassadorTier"
+        referralCode:
+          type: string
+        referredByStatus:
+          type: ["string", "null"]
+        rewards:
+          type: array
+          items:
+            $ref: "#/components/schemas/AmbassadorRewardView"
 
     CoopPerkRedeemRequest:
       type: object
