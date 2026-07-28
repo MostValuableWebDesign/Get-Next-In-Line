@@ -384,6 +384,7 @@ export const ListCoopPartnershipsResponseItem = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -410,6 +411,8 @@ export const ListCoopPartnershipsResponse = zod.array(ListCoopPartnershipsRespon
  */
 
 export const createCoopPartnershipBodyRedemptionCodeRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$');
+export const createCoopPartnershipBodyPerkValueAmountMin = 0;
+
 
 
 export const CreateCoopPartnershipBody = zod.object({
@@ -418,6 +421,7 @@ export const CreateCoopPartnershipBody = zod.object({
   "perkTitle": zod.string().min(1),
   "perkDescription": zod.string().optional(),
   "redemptionCode": zod.string().regex(createCoopPartnershipBodyRedemptionCodeRegExp).optional().describe('Optional explicit redemption code; auto-generated when omitted.'),
+  "perkValueAmount": zod.number().min(createCoopPartnershipBodyPerkValueAmountMin).nullish().describe('Estimated monetary value of the perk in dollars (compliance-ledger trigger); null\/omitted = no monetary terms.'),
   "overrideIndustryBarrier": zod.boolean().optional().describe('Explicitly bypass the same-category (competitor) block.'),
   "perkStartsAt": zod.coerce.date().optional(),
   "perkEndsAt": zod.coerce.date().optional()
@@ -436,6 +440,7 @@ export const CreateCoopPartnershipResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -465,6 +470,8 @@ export const UpdateCoopPartnershipParams = zod.object({
 
 
 export const updateCoopPartnershipBodyRedemptionCodeRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$');
+export const updateCoopPartnershipBodyPerkValueAmountMin = 0;
+
 export const updateCoopPartnershipBodyHostReciprocityThresholdMax = 1000;
 
 export const updateCoopPartnershipBodyPartnerReciprocityThresholdMax = 1000;
@@ -476,6 +483,7 @@ export const UpdateCoopPartnershipBody = zod.object({
   "perkDescription": zod.string().nullish(),
   "redemptionCode": zod.string().regex(updateCoopPartnershipBodyRedemptionCodeRegExp).optional(),
   "isActive": zod.boolean().optional(),
+  "perkValueAmount": zod.number().min(updateCoopPartnershipBodyPerkValueAmountMin).nullish().describe('Estimated monetary value of the perk in dollars; changes only affect future redemptions\' ledger entries.'),
   "perkStartsAt": zod.coerce.date().nullish(),
   "perkEndsAt": zod.coerce.date().nullish(),
   "hostReciprocityThreshold": zod.number().min(1).max(updateCoopPartnershipBodyHostReciprocityThresholdMax).nullish().describe('Only the host may set this; null restores the platform default.'),
@@ -495,6 +503,7 @@ export const UpdateCoopPartnershipResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -535,6 +544,7 @@ export const ReactivateCoopPartnershipResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -635,6 +645,7 @@ export const ProposeCoopRenegotiationResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -679,6 +690,7 @@ export const RespondToCoopRenegotiationResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -719,6 +731,7 @@ export const PauseCoopPartnershipResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -759,6 +772,7 @@ export const ResumeCoopPartnershipResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -864,6 +878,7 @@ export const CreateCoopInviteResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -964,6 +979,7 @@ export const RespondToCoopInviteResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -1211,6 +1227,7 @@ export const RedeemCoopPerkResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -2137,6 +2154,7 @@ export const ValidateCoopRedemptionCodeResponse = zod.object({
   "status": zod.enum(['pending', 'accepted', 'declined']).describe('Invite lifecycle; admin-created partnerships are accepted from the start.'),
   "requestedByTenantId": zod.number().nullable().describe('Tenant that initiated the invite; null for admin-created partnerships.'),
   "mutualRewardTerms": zod.string().nullable(),
+  "perkValueAmount": zod.number().nullable().describe('Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.'),
   "perkStartsAt": zod.string().nullable().describe('ISO timestamp the perk goes live; null = active immediately.'),
   "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
   "disputeSuspended": zod.boolean().describe('True when an escalated dispute paused the perk and hid the partnership until an admin reinstates it.'),
@@ -2343,6 +2361,176 @@ export const GetActiveEmergencyBroadcastsResponseItem = zod.object({
   "updatedAt": zod.string()
 })
 export const GetActiveEmergencyBroadcastsResponse = zod.array(GetActiveEmergencyBroadcastsResponseItem)
+
+
+/**
+ * @summary Merchant-facing — the scoped tenant's estimated tax rates and 1099 threshold (auto-created with zeros); tenant scope via x-tenant-id
+ */
+export const GetCoopComplianceSettingsResponse = zod.object({
+  "stateRatePercent": zod.number(),
+  "localRatePercent": zod.number(),
+  "salesRatePercent": zod.number(),
+  "threshold1099": zod.number().describe('Calendar-year payout total at\/above which a payee is flagged for 1099 reporting (default 600).'),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — update estimated tax rates / 1099 threshold; changes only affect ledger entries going forward
+ */
+export const updateCoopComplianceSettingsBodyStateRatePercentMin = 0;
+export const updateCoopComplianceSettingsBodyStateRatePercentMax = 100;
+
+export const updateCoopComplianceSettingsBodyLocalRatePercentMin = 0;
+export const updateCoopComplianceSettingsBodyLocalRatePercentMax = 100;
+
+export const updateCoopComplianceSettingsBodySalesRatePercentMin = 0;
+export const updateCoopComplianceSettingsBodySalesRatePercentMax = 100;
+
+export const updateCoopComplianceSettingsBodyThreshold1099Min = 0;
+
+
+
+export const UpdateCoopComplianceSettingsBody = zod.object({
+  "stateRatePercent": zod.number().min(updateCoopComplianceSettingsBodyStateRatePercentMin).max(updateCoopComplianceSettingsBodyStateRatePercentMax).optional(),
+  "localRatePercent": zod.number().min(updateCoopComplianceSettingsBodyLocalRatePercentMin).max(updateCoopComplianceSettingsBodyLocalRatePercentMax).optional(),
+  "salesRatePercent": zod.number().min(updateCoopComplianceSettingsBodySalesRatePercentMin).max(updateCoopComplianceSettingsBodySalesRatePercentMax).optional(),
+  "threshold1099": zod.number().min(updateCoopComplianceSettingsBodyThreshold1099Min).optional()
+})
+
+export const UpdateCoopComplianceSettingsResponse = zod.object({
+  "stateRatePercent": zod.number(),
+  "localRatePercent": zod.number(),
+  "salesRatePercent": zod.number(),
+  "threshold1099": zod.number().describe('Calendar-year payout total at\/above which a payee is flagged for 1099 reporting (default 600).'),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — compliance ledger entries for a period (YYYY, YYYY-MM, or YYYY-Qn); tenant scope via x-tenant-id
+ */
+export const ListCoopComplianceLedgerQueryParams = zod.object({
+  "period": zod.coerce.string()
+})
+
+export const ListCoopComplianceLedgerResponseItem = zod.object({
+  "id": zod.number(),
+  "category": zod.enum(['perk_redemption', 'referral_commission', 'sponsorship', 'shared_expense']),
+  "direction": zod.enum(['income', 'expense']),
+  "counterpartTenantId": zod.number().nullable(),
+  "counterpartTenantName": zod.string().nullable(),
+  "payeeName": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "grossAmount": zod.number(),
+  "stateRatePercent": zod.number().describe('Rate snapshot in force when the entry was logged (immutable).'),
+  "localRatePercent": zod.number(),
+  "salesRatePercent": zod.number(),
+  "estimatedTaxAmount": zod.number(),
+  "sourceRef": zod.string(),
+  "occurredAt": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListCoopComplianceLedgerResponse = zod.array(ListCoopComplianceLedgerResponseItem)
+
+
+/**
+ * @summary Merchant-facing — manually log a referral commission, sponsorship, or shared event expense in the compliance ledger
+ */
+export const createCoopComplianceEntryBodyGrossAmountExclusiveMin = 0;
+
+
+
+
+export const CreateCoopComplianceEntryBody = zod.object({
+  "category": zod.enum(['referral_commission', 'sponsorship', 'shared_expense']),
+  "direction": zod.enum(['income', 'expense']),
+  "grossAmount": zod.number().gt(createCoopComplianceEntryBodyGrossAmountExclusiveMin),
+  "description": zod.string().min(1),
+  "counterpartTenantId": zod.number().nullish(),
+  "payeeName": zod.string().nullish(),
+  "occurredAt": zod.coerce.date().nullish().describe('When the financial event happened; defaults to now.')
+})
+
+export const CreateCoopComplianceEntryResponse = zod.object({
+  "id": zod.number(),
+  "category": zod.enum(['perk_redemption', 'referral_commission', 'sponsorship', 'shared_expense']),
+  "direction": zod.enum(['income', 'expense']),
+  "counterpartTenantId": zod.number().nullable(),
+  "counterpartTenantName": zod.string().nullable(),
+  "payeeName": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "grossAmount": zod.number(),
+  "stateRatePercent": zod.number().describe('Rate snapshot in force when the entry was logged (immutable).'),
+  "localRatePercent": zod.number(),
+  "salesRatePercent": zod.number(),
+  "estimatedTaxAmount": zod.number(),
+  "sourceRef": zod.string(),
+  "occurredAt": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — audit-ready period summary separating direct service revenue, referral commissions, sponsorships, perk redemptions, and shared expenses, each with estimated tax
+ */
+export const GetCoopComplianceSummaryQueryParams = zod.object({
+  "period": zod.coerce.string().describe('YYYY (year), YYYY-MM (month), or YYYY-Qn (quarter)')
+})
+
+export const GetCoopComplianceSummaryResponse = zod.object({
+  "period": zod.string(),
+  "from": zod.string(),
+  "to": zod.string().describe('Exclusive period end.'),
+  "sections": zod.array(zod.object({
+  "key": zod.enum(['direct_revenue', 'perk_redemption', 'referral_commission', 'sponsorship', 'shared_expense']),
+  "label": zod.string(),
+  "grossIncome": zod.number(),
+  "grossExpense": zod.number(),
+  "net": zod.number(),
+  "estimatedTax": zod.number(),
+  "entryCount": zod.number()
+})),
+  "totalEstimatedTax": zod.number(),
+  "disclaimer": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — cumulative calendar-year payouts per partner/payee with 1099 threshold flagging and readiness status
+ */
+export const ListCoopPartnerPayoutsQueryParams = zod.object({
+  "year": zod.coerce.number()
+})
+
+export const ListCoopPartnerPayoutsResponse = zod.object({
+  "year": zod.number(),
+  "threshold1099": zod.number(),
+  "payouts": zod.array(zod.object({
+  "payeeKey": zod.string(),
+  "payeeName": zod.string(),
+  "counterpartTenantId": zod.number().nullable(),
+  "calendarYear": zod.number(),
+  "totalPaid": zod.number(),
+  "threshold1099": zod.number(),
+  "thresholdCrossed": zod.boolean(),
+  "remainingBeforeThreshold": zod.number().describe('Dollars until the 1099 threshold; 0 once crossed.'),
+  "form1099Ready": zod.boolean().describe('True when the data needed for a 1099 (payee name + payments total) is on file.'),
+  "missingFields": zod.array(zod.string())
+}))
+})
+
+
+/**
+ * @summary Merchant-facing — period-scoped CSV export of the compliance ledger or 1099 payout data in QuickBooks, Xero, or plain audit layout
+ */
+export const ExportCoopComplianceQueryParams = zod.object({
+  "period": zod.coerce.string().describe('YYYY, YYYY-MM, or YYYY-Qn'),
+  "layout": zod.enum(['quickbooks', 'xero', 'audit']),
+  "dataset": zod.enum(['ledger', 'payouts']).optional().describe('ledger (default) or payouts (1099 tracking data for the period\'s calendar year)')
+})
+
+export const ExportCoopComplianceResponse = zod.unknown()
 
 
 /**

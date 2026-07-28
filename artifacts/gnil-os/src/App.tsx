@@ -17,6 +17,7 @@ import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
+import TaxCompliancePage from "@/pages/sos/tax-compliance";
 import { SosTenantSync } from "@/lib/sos-tenant";
 
 const queryClient = new QueryClient({
@@ -153,6 +154,8 @@ function ProtectedApp() {
           <RedirectSosBookings tab="reports" />
         </Route>
         <Route path="/sos/bookings" component={SosBookings} />
+        {/* Co-Op Tax & Revenue Compliance Ledger — tenant scope via ?tenant= */}
+        <Route path="/sos/tax-compliance" component={TaxCompliancePage} />
         {/* Membership plan management is now a tab inside Business Bookings */}
         <Route path="/sos/memberships">
           <RedirectSosBookings tab="plans" />

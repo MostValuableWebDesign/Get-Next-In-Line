@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'wouter';
+import { Link, useLocation, useSearch } from 'wouter';
+import { withSosTenant } from '@/lib/sos-tenant-url';
 import {
   Sidebar,
   SidebarContent,
@@ -13,7 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
   Activity, LayoutDashboard, WifiOff, X,
-  BookOpenCheck,
+  BookOpenCheck, Scale,
 } from 'lucide-react';
 
 type NavItem = {
@@ -61,6 +62,13 @@ const SOS_NAV_ITEMS: NavItem[] = [
     icon: BookOpenCheck,
     aliases: ['/sos', '/sos/calendar', '/sos/pos', '/sos/ai-receptionist', '/sos/marketing'],
   },
+  // Co-Op Tax & Revenue Compliance Ledger — period summaries, 1099 tracking,
+  // tax settings, and QuickBooks/Xero/audit exports.
+  {
+    name: 'Tax & Compliance',
+    path: '/sos/tax-compliance',
+    icon: Scale,
+  },
 ];
 
 import { useOnlineStatus } from '@/hooks/use-online';
@@ -69,6 +77,9 @@ import { EmergencyCheckinBanner } from '@/components/layout/EmergencyCheckinBann
 /** Nav list — closes the mobile drawer after each click */
 function NavMenu({ location, items }: { location: string; items: typeof NAV_ITEMS }) {
   const { isMobile, setOpenMobile } = useSidebar();
+  // Carry the active ?tenant=<id> scope forward on /sos links — dropping it
+  // would reset the tenant context (and tenant-required APIs would 400).
+  const search = useSearch();
 
   return (
     <SidebarMenu>
@@ -81,7 +92,7 @@ function NavMenu({ location, items }: { location: string; items: typeof NAV_ITEM
             className="data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium h-10"
           >
             <Link
-              href={item.path}
+              href={withSosTenant(item.path, search)}
               className="flex items-center gap-3 px-3"
               onClick={() => {
                 if (isMobile) setOpenMobile(false);

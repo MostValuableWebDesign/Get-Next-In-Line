@@ -188,6 +188,11 @@ export interface CoopPartnership {
   /** @nullable */
   mutualRewardTerms: string | null;
   /**
+     * Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.
+     * @nullable
+     */
+  perkValueAmount: number | null;
+  /**
      * ISO timestamp the perk goes live; null = active immediately.
      * @nullable
      */
@@ -457,6 +462,164 @@ export interface CoopDisputeCreate {
   partnershipId: number;
   category: CoopDisputeCreateCategory;
   details?: string;
+}
+
+export interface CoopTaxSettings {
+  stateRatePercent: number;
+  localRatePercent: number;
+  salesRatePercent: number;
+  /** Calendar-year payout total at/above which a payee is flagged for 1099 reporting (default 600). */
+  threshold1099: number;
+  updatedAt: string;
+}
+
+export interface CoopTaxSettingsUpdate {
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  stateRatePercent?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  localRatePercent?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  salesRatePercent?: number;
+  /** @minimum 0 */
+  threshold1099?: number;
+}
+
+export type CoopComplianceLedgerEntryCategory = typeof CoopComplianceLedgerEntryCategory[keyof typeof CoopComplianceLedgerEntryCategory];
+
+
+export const CoopComplianceLedgerEntryCategory = {
+  perk_redemption: 'perk_redemption',
+  referral_commission: 'referral_commission',
+  sponsorship: 'sponsorship',
+  shared_expense: 'shared_expense',
+} as const;
+
+export type CoopComplianceLedgerEntryDirection = typeof CoopComplianceLedgerEntryDirection[keyof typeof CoopComplianceLedgerEntryDirection];
+
+
+export const CoopComplianceLedgerEntryDirection = {
+  income: 'income',
+  expense: 'expense',
+} as const;
+
+export interface CoopComplianceLedgerEntry {
+  id: number;
+  category: CoopComplianceLedgerEntryCategory;
+  direction: CoopComplianceLedgerEntryDirection;
+  /** @nullable */
+  counterpartTenantId: number | null;
+  /** @nullable */
+  counterpartTenantName: string | null;
+  /** @nullable */
+  payeeName: string | null;
+  /** @nullable */
+  description: string | null;
+  grossAmount: number;
+  /** Rate snapshot in force when the entry was logged (immutable). */
+  stateRatePercent: number;
+  localRatePercent: number;
+  salesRatePercent: number;
+  estimatedTaxAmount: number;
+  sourceRef: string;
+  occurredAt: string;
+  createdAt: string;
+}
+
+export type CoopComplianceManualEntryCreateCategory = typeof CoopComplianceManualEntryCreateCategory[keyof typeof CoopComplianceManualEntryCreateCategory];
+
+
+export const CoopComplianceManualEntryCreateCategory = {
+  referral_commission: 'referral_commission',
+  sponsorship: 'sponsorship',
+  shared_expense: 'shared_expense',
+} as const;
+
+export type CoopComplianceManualEntryCreateDirection = typeof CoopComplianceManualEntryCreateDirection[keyof typeof CoopComplianceManualEntryCreateDirection];
+
+
+export const CoopComplianceManualEntryCreateDirection = {
+  income: 'income',
+  expense: 'expense',
+} as const;
+
+export interface CoopComplianceManualEntryCreate {
+  category: CoopComplianceManualEntryCreateCategory;
+  direction: CoopComplianceManualEntryCreateDirection;
+  /** @exclusiveMinimum 0 */
+  grossAmount: number;
+  /** @minLength 1 */
+  description: string;
+  /** @nullable */
+  counterpartTenantId?: number | null;
+  /** @nullable */
+  payeeName?: string | null;
+  /**
+     * When the financial event happened; defaults to now.
+     * @nullable
+     */
+  occurredAt?: string | null;
+}
+
+export type CoopComplianceSummarySectionKey = typeof CoopComplianceSummarySectionKey[keyof typeof CoopComplianceSummarySectionKey];
+
+
+export const CoopComplianceSummarySectionKey = {
+  direct_revenue: 'direct_revenue',
+  perk_redemption: 'perk_redemption',
+  referral_commission: 'referral_commission',
+  sponsorship: 'sponsorship',
+  shared_expense: 'shared_expense',
+} as const;
+
+export interface CoopComplianceSummarySection {
+  key: CoopComplianceSummarySectionKey;
+  label: string;
+  grossIncome: number;
+  grossExpense: number;
+  net: number;
+  estimatedTax: number;
+  entryCount: number;
+}
+
+export interface CoopComplianceSummary {
+  period: string;
+  from: string;
+  /** Exclusive period end. */
+  to: string;
+  sections: CoopComplianceSummarySection[];
+  totalEstimatedTax: number;
+  disclaimer: string;
+}
+
+export interface CoopPartnerPayout {
+  payeeKey: string;
+  payeeName: string;
+  /** @nullable */
+  counterpartTenantId: number | null;
+  calendarYear: number;
+  totalPaid: number;
+  threshold1099: number;
+  thresholdCrossed: boolean;
+  /** Dollars until the 1099 threshold; 0 once crossed. */
+  remainingBeforeThreshold: number;
+  /** True when the data needed for a 1099 (payee name + payments total) is on file. */
+  form1099Ready: boolean;
+  missingFields: string[];
+}
+
+export interface CoopPartnerPayoutsResponse {
+  year: number;
+  threshold1099: number;
+  payouts: CoopPartnerPayout[];
 }
 
 export interface CoopDisputeMediationNote {
@@ -1675,6 +1838,12 @@ export interface CoopPartnershipCreate {
      * @pattern ^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$
      */
   redemptionCode?: string;
+  /**
+     * Estimated monetary value of the perk in dollars (compliance-ledger trigger); null/omitted = no monetary terms.
+     * @minimum 0
+     * @nullable
+     */
+  perkValueAmount?: number | null;
   /** Explicitly bypass the same-category (competitor) block. */
   overrideIndustryBarrier?: boolean;
   perkStartsAt?: string;
@@ -1689,6 +1858,12 @@ export interface CoopPartnershipUpdate {
   /** @pattern ^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$ */
   redemptionCode?: string;
   isActive?: boolean;
+  /**
+     * Estimated monetary value of the perk in dollars; changes only affect future redemptions' ledger entries.
+     * @minimum 0
+     * @nullable
+     */
+  perkValueAmount?: number | null;
   /** @nullable */
   perkStartsAt?: string | null;
   /** @nullable */
@@ -4637,6 +4812,50 @@ export type GetCoopStatsWindowDays = typeof GetCoopStatsWindowDays[keyof typeof 
 export const GetCoopStatsWindowDays = {
   NUMBER_30: 30,
   NUMBER_90: 90,
+} as const;
+
+export type ListCoopComplianceLedgerParams = {
+period: string;
+};
+
+export type GetCoopComplianceSummaryParams = {
+/**
+ * YYYY (year), YYYY-MM (month), or YYYY-Qn (quarter)
+ */
+period: string;
+};
+
+export type ListCoopPartnerPayoutsParams = {
+year: number;
+};
+
+export type ExportCoopComplianceParams = {
+/**
+ * YYYY, YYYY-MM, or YYYY-Qn
+ */
+period: string;
+layout: ExportCoopComplianceLayout;
+/**
+ * ledger (default) or payouts (1099 tracking data for the period's calendar year)
+ */
+dataset?: ExportCoopComplianceDataset;
+};
+
+export type ExportCoopComplianceLayout = typeof ExportCoopComplianceLayout[keyof typeof ExportCoopComplianceLayout];
+
+
+export const ExportCoopComplianceLayout = {
+  quickbooks: 'quickbooks',
+  xero: 'xero',
+  audit: 'audit',
+} as const;
+
+export type ExportCoopComplianceDataset = typeof ExportCoopComplianceDataset[keyof typeof ExportCoopComplianceDataset];
+
+
+export const ExportCoopComplianceDataset = {
+  ledger: 'ledger',
+  payouts: 'payouts',
 } as const;
 
 export type ListAdminCoopDisputesParams = {

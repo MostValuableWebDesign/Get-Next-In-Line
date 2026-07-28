@@ -14,6 +14,12 @@ export interface CoopPartnershipUpdate {
   /** @pattern ^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$ */
   redemptionCode?: string;
   isActive?: boolean;
+  /**
+     * Estimated monetary value of the perk in dollars; changes only affect future redemptions' ledger entries.
+     * @minimum 0
+     * @nullable
+     */
+  perkValueAmount?: number | null;
   /** @nullable */
   perkStartsAt?: Date | null;
   /** @nullable */

@@ -49,6 +49,9 @@ import type {
   CoopCampaignTemplate,
   CoopCapacityStatus,
   CoopCapacityUpdate,
+  CoopComplianceLedgerEntry,
+  CoopComplianceManualEntryCreate,
+  CoopComplianceSummary,
   CoopDirectoryEntry,
   CoopDispute,
   CoopDisputeCreate,
@@ -67,6 +70,7 @@ import type {
   CoopInviteRespond,
   CoopLedgerResponse,
   CoopMonthlyReport,
+  CoopPartnerPayoutsResponse,
   CoopPartnerPerformance,
   CoopPartnerRating,
   CoopPartnerRatingSubmit,
@@ -95,6 +99,8 @@ import type {
   CoopSurgeRule,
   CoopSurgeRuleCreate,
   CoopSurgeRuleUpdate,
+  CoopTaxSettings,
+  CoopTaxSettingsUpdate,
   CoopTaxonomyIndustry,
   CreateGatewayTokenRequest,
   DeleteCoopSurgeRule200,
@@ -107,6 +113,7 @@ import type {
   EngagementRuleInput,
   EngagementRuleUpdate,
   ExportAdminComplianceReportParams,
+  ExportCoopComplianceParams,
   FranchiseOrg,
   FranchiseOrgCreate,
   FranchiseOrgDetail,
@@ -129,13 +136,16 @@ import type {
   GatewayToken,
   GatewayTokenWithSecret,
   GetAdminComplianceSummaryParams,
+  GetCoopComplianceSummaryParams,
   GetCoopLedgerParams,
   GetCoopStatsParams,
   GetSosStaffEarningsParams,
   GetTenantActivityParams,
   HealthStatus,
   ListAdminCoopDisputesParams,
+  ListCoopComplianceLedgerParams,
   ListCoopDirectoryParams,
+  ListCoopPartnerPayoutsParams,
   ListCoopPartnerPerformanceParams,
   ListCoopPartnershipsParams,
   ListPosEventsParams,
@@ -6096,6 +6106,561 @@ export function useGetActiveEmergencyBroadcasts<TData = Awaited<ReturnType<typeo
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetActiveEmergencyBroadcastsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCoopComplianceSettingsUrl = () => {
+
+
+
+
+  return `/api/coop/compliance/settings`
+}
+
+/**
+ * @summary Merchant-facing — the scoped tenant's estimated tax rates and 1099 threshold (auto-created with zeros); tenant scope via x-tenant-id
+ */
+export const getCoopComplianceSettings = async ( options?: RequestInit): Promise<CoopTaxSettings> => {
+
+  return customFetch<CoopTaxSettings>(getGetCoopComplianceSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopComplianceSettingsQueryKey = () => {
+    return [
+    `/api/coop/compliance/settings`
+    ] as const;
+    }
+
+
+export const getGetCoopComplianceSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getCoopComplianceSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopComplianceSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopComplianceSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopComplianceSettings>>> = ({ signal }) => getCoopComplianceSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopComplianceSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopComplianceSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopComplianceSettings>>>
+export type GetCoopComplianceSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Merchant-facing — the scoped tenant's estimated tax rates and 1099 threshold (auto-created with zeros); tenant scope via x-tenant-id
+ */
+
+export function useGetCoopComplianceSettings<TData = Awaited<ReturnType<typeof getCoopComplianceSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopComplianceSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopComplianceSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateCoopComplianceSettingsUrl = () => {
+
+
+
+
+  return `/api/coop/compliance/settings`
+}
+
+/**
+ * @summary Merchant-facing — update estimated tax rates / 1099 threshold; changes only affect ledger entries going forward
+ */
+export const updateCoopComplianceSettings = async (coopTaxSettingsUpdate: CoopTaxSettingsUpdate, options?: RequestInit): Promise<CoopTaxSettings> => {
+
+  return customFetch<CoopTaxSettings>(getUpdateCoopComplianceSettingsUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopTaxSettingsUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCoopComplianceSettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopComplianceSettings>>, TError,{data: BodyType<CoopTaxSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCoopComplianceSettings>>, TError,{data: BodyType<CoopTaxSettingsUpdate>}, TContext> => {
+
+const mutationKey = ['updateCoopComplianceSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCoopComplianceSettings>>, {data: BodyType<CoopTaxSettingsUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateCoopComplianceSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCoopComplianceSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateCoopComplianceSettings>>>
+    export type UpdateCoopComplianceSettingsMutationBody = BodyType<CoopTaxSettingsUpdate>
+    export type UpdateCoopComplianceSettingsMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — update estimated tax rates / 1099 threshold; changes only affect ledger entries going forward
+ */
+export const useUpdateCoopComplianceSettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopComplianceSettings>>, TError,{data: BodyType<CoopTaxSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCoopComplianceSettings>>,
+        TError,
+        {data: BodyType<CoopTaxSettingsUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCoopComplianceSettingsMutationOptions(options));
+    }
+
+export const getListCoopComplianceLedgerUrl = (params: ListCoopComplianceLedgerParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/coop/compliance/ledger?${stringifiedParams}` : `/api/coop/compliance/ledger`
+}
+
+/**
+ * @summary Merchant-facing — compliance ledger entries for a period (YYYY, YYYY-MM, or YYYY-Qn); tenant scope via x-tenant-id
+ */
+export const listCoopComplianceLedger = async (params: ListCoopComplianceLedgerParams, options?: RequestInit): Promise<CoopComplianceLedgerEntry[]> => {
+
+  return customFetch<CoopComplianceLedgerEntry[]>(getListCoopComplianceLedgerUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopComplianceLedgerQueryKey = (params?: ListCoopComplianceLedgerParams,) => {
+    return [
+    `/api/coop/compliance/ledger`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCoopComplianceLedgerQueryOptions = <TData = Awaited<ReturnType<typeof listCoopComplianceLedger>>, TError = ErrorType<void>>(params: ListCoopComplianceLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopComplianceLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopComplianceLedgerQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopComplianceLedger>>> = ({ signal }) => listCoopComplianceLedger(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopComplianceLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopComplianceLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopComplianceLedger>>>
+export type ListCoopComplianceLedgerQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — compliance ledger entries for a period (YYYY, YYYY-MM, or YYYY-Qn); tenant scope via x-tenant-id
+ */
+
+export function useListCoopComplianceLedger<TData = Awaited<ReturnType<typeof listCoopComplianceLedger>>, TError = ErrorType<void>>(
+ params: ListCoopComplianceLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopComplianceLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopComplianceLedgerQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopComplianceEntryUrl = () => {
+
+
+
+
+  return `/api/coop/compliance/entries`
+}
+
+/**
+ * @summary Merchant-facing — manually log a referral commission, sponsorship, or shared event expense in the compliance ledger
+ */
+export const createCoopComplianceEntry = async (coopComplianceManualEntryCreate: CoopComplianceManualEntryCreate, options?: RequestInit): Promise<CoopComplianceLedgerEntry> => {
+
+  return customFetch<CoopComplianceLedgerEntry>(getCreateCoopComplianceEntryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopComplianceManualEntryCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopComplianceEntryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopComplianceEntry>>, TError,{data: BodyType<CoopComplianceManualEntryCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopComplianceEntry>>, TError,{data: BodyType<CoopComplianceManualEntryCreate>}, TContext> => {
+
+const mutationKey = ['createCoopComplianceEntry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopComplianceEntry>>, {data: BodyType<CoopComplianceManualEntryCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopComplianceEntry(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopComplianceEntryMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopComplianceEntry>>>
+    export type CreateCoopComplianceEntryMutationBody = BodyType<CoopComplianceManualEntryCreate>
+    export type CreateCoopComplianceEntryMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — manually log a referral commission, sponsorship, or shared event expense in the compliance ledger
+ */
+export const useCreateCoopComplianceEntry = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopComplianceEntry>>, TError,{data: BodyType<CoopComplianceManualEntryCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopComplianceEntry>>,
+        TError,
+        {data: BodyType<CoopComplianceManualEntryCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopComplianceEntryMutationOptions(options));
+    }
+
+export const getGetCoopComplianceSummaryUrl = (params: GetCoopComplianceSummaryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/coop/compliance/summary?${stringifiedParams}` : `/api/coop/compliance/summary`
+}
+
+/**
+ * @summary Merchant-facing — audit-ready period summary separating direct service revenue, referral commissions, sponsorships, perk redemptions, and shared expenses, each with estimated tax
+ */
+export const getCoopComplianceSummary = async (params: GetCoopComplianceSummaryParams, options?: RequestInit): Promise<CoopComplianceSummary> => {
+
+  return customFetch<CoopComplianceSummary>(getGetCoopComplianceSummaryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopComplianceSummaryQueryKey = (params?: GetCoopComplianceSummaryParams,) => {
+    return [
+    `/api/coop/compliance/summary`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCoopComplianceSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getCoopComplianceSummary>>, TError = ErrorType<void>>(params: GetCoopComplianceSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopComplianceSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopComplianceSummaryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopComplianceSummary>>> = ({ signal }) => getCoopComplianceSummary(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopComplianceSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopComplianceSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopComplianceSummary>>>
+export type GetCoopComplianceSummaryQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — audit-ready period summary separating direct service revenue, referral commissions, sponsorships, perk redemptions, and shared expenses, each with estimated tax
+ */
+
+export function useGetCoopComplianceSummary<TData = Awaited<ReturnType<typeof getCoopComplianceSummary>>, TError = ErrorType<void>>(
+ params: GetCoopComplianceSummaryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopComplianceSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopComplianceSummaryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCoopPartnerPayoutsUrl = (params: ListCoopPartnerPayoutsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/coop/compliance/payouts?${stringifiedParams}` : `/api/coop/compliance/payouts`
+}
+
+/**
+ * @summary Merchant-facing — cumulative calendar-year payouts per partner/payee with 1099 threshold flagging and readiness status
+ */
+export const listCoopPartnerPayouts = async (params: ListCoopPartnerPayoutsParams, options?: RequestInit): Promise<CoopPartnerPayoutsResponse> => {
+
+  return customFetch<CoopPartnerPayoutsResponse>(getListCoopPartnerPayoutsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopPartnerPayoutsQueryKey = (params?: ListCoopPartnerPayoutsParams,) => {
+    return [
+    `/api/coop/compliance/payouts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListCoopPartnerPayoutsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopPartnerPayouts>>, TError = ErrorType<void>>(params: ListCoopPartnerPayoutsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnerPayouts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopPartnerPayoutsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopPartnerPayouts>>> = ({ signal }) => listCoopPartnerPayouts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnerPayouts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopPartnerPayoutsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopPartnerPayouts>>>
+export type ListCoopPartnerPayoutsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — cumulative calendar-year payouts per partner/payee with 1099 threshold flagging and readiness status
+ */
+
+export function useListCoopPartnerPayouts<TData = Awaited<ReturnType<typeof listCoopPartnerPayouts>>, TError = ErrorType<void>>(
+ params: ListCoopPartnerPayoutsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnerPayouts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopPartnerPayoutsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getExportCoopComplianceUrl = (params: ExportCoopComplianceParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/coop/compliance/export?${stringifiedParams}` : `/api/coop/compliance/export`
+}
+
+/**
+ * @summary Merchant-facing — period-scoped CSV export of the compliance ledger or 1099 payout data in QuickBooks, Xero, or plain audit layout
+ */
+export const exportCoopCompliance = async (params: ExportCoopComplianceParams, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getExportCoopComplianceUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getExportCoopComplianceQueryKey = (params?: ExportCoopComplianceParams,) => {
+    return [
+    `/api/coop/compliance/export`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getExportCoopComplianceQueryOptions = <TData = Awaited<ReturnType<typeof exportCoopCompliance>>, TError = ErrorType<void>>(params: ExportCoopComplianceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportCoopCompliance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getExportCoopComplianceQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportCoopCompliance>>> = ({ signal }) => exportCoopCompliance(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportCoopCompliance>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ExportCoopComplianceQueryResult = NonNullable<Awaited<ReturnType<typeof exportCoopCompliance>>>
+export type ExportCoopComplianceQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — period-scoped CSV export of the compliance ledger or 1099 payout data in QuickBooks, Xero, or plain audit layout
+ */
+
+export function useExportCoopCompliance<TData = Awaited<ReturnType<typeof exportCoopCompliance>>, TError = ErrorType<void>>(
+ params: ExportCoopComplianceParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof exportCoopCompliance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getExportCoopComplianceQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

@@ -33,13 +33,8 @@ setTenantHeaderGetter((url) => {
     : null;
 });
 
-/** Parse a positive-integer tenant id out of a ?tenant= search param. */
-export function parseTenantParam(search: string): number | null {
-  const raw = new URLSearchParams(search).get('tenant');
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isInteger(n) && n > 0 ? n : null;
-}
+import { parseTenantParam } from './sos-tenant-url';
+export { parseTenantParam, withSosTenant } from './sos-tenant-url';
 
 /** The tenant id currently applied to /api/sos/* requests (for tests). */
 export function getCurrentSosTenantId(): number | null {

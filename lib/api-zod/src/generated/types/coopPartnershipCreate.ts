@@ -17,6 +17,12 @@ export interface CoopPartnershipCreate {
      * @pattern ^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$
      */
   redemptionCode?: string;
+  /**
+     * Estimated monetary value of the perk in dollars (compliance-ledger trigger); null/omitted = no monetary terms.
+     * @minimum 0
+     * @nullable
+     */
+  perkValueAmount?: number | null;
   /** Explicitly bypass the same-category (competitor) block. */
   overrideIndustryBarrier?: boolean;
   perkStartsAt?: Date;

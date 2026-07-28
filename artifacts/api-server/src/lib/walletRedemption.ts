@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { findWalletPass, isWalletPassToken } from "./perkPasses";
 import { recordPassportStampSafe } from "./passport";
+import { recordPerkRedemptionComplianceSafe } from "./coopCompliance";
 import type { CoopDirection } from "./coopTracking";
 
 /**
@@ -100,6 +101,16 @@ export async function redeemWalletPassAsTenant(
         email: contact?.email ?? null,
         name: row.pass.customerName ?? contact?.name ?? null,
       },
+    });
+    // Tax compliance ledger: log the redemption when the perk has monetary
+    // terms. Observes only — never blocks or alters redemption processing.
+    await recordPerkRedemptionComplianceSafe({
+      redemptionId: redemption.id,
+      redeemedByTenantId: tenantId,
+      otherTenantId: tenantId === p.hostTenantId ? p.partnerTenantId : p.hostTenantId,
+      perkValueAmount: p.perkValueAmount,
+      perkTitle: p.perkTitle,
+      redeemedAt: redemption.redeemedAt ?? new Date(),
     });
   }
   return { status: "processed", detail: `Perk pass ${token} redeemed` };

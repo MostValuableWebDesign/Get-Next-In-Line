@@ -12,3 +12,4 @@ export * from "./emergency";
 export * from "./users";
 export * from "./franchise";
 export * from "./procurement";
+export * from "./coopCompliance";

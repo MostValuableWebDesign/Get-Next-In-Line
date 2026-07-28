@@ -12,6 +12,7 @@
 - [Drizzle silent migrate failures](drizzle-migrations.md) — fixed: db:push uses a custom loud migrator; recover out-of-band/mixed-state DDL via `pnpm run db:reconcile`, never hand-stamp hashes.
 - api-zod schemas come from a different zod instance than api-server's; `instanceof ZodError` fails across them — duck-type on `err.name === "ZodError"` in error middleware.
 - [Validation gates](validation-gates.md) — api-server-test now runs the full suite (exclude removed); fix red suites at root cause (often DB drift) instead of excluding.
+- api-server vitest runs files serially (fileParallelism: false): suites share one dev DB plus global co-op state (perk feeds, concierge sweeps), so parallel files caused rare cross-suite races — keep it serial.
 - orval: an operation with both path and query params generates a zod `<Op>Params` and a TS type `<Op>Params` that collide on re-export; avoid query params on parameterized paths or rename. Same for request bodies: never name a component schema `<OperationId>Body` — orval already emits that name; use a distinct component name.
 - [Artifact path shadowing](artifact-path-shadowing.md) — an artifact's registered path prefix shadows same-prefix routes in the root app; re-path retired artifacts to free the prefix.
 - Artifact-managed workflows can't be removed via removeWorkflow; deleting the artifact directory auto-deregisters both the artifact and its workflow.
@@ -40,5 +41,6 @@
 - Coop route convention: when x-tenant-id is present, treat the caller strictly as that tenant — no platform-admin bypass on visibility/resolve checks; admin superpowers apply only to unscoped requests. Tests rely on this.
 - [Co-op developer API gateway](gateway-api.md) — bearer tokens stored as SHA-256 hashes shown once; tenant scope from token only; sandbox = in-code fixtures; all machine redemptions via redeemWalletPassAsTenant.
 - [Co-op Reputation Shield](coop-reputation-shield.md) — B2B ratings internal-only; new co-op read surfaces must filter decoupledTenantIdSet(); reinstate restores only the decouple-recorded partnership ids.
+- Co-op tax compliance ledger: entries snapshot the tenant's rates at write time (never recompute); 1099 payout accumulation must only run for rows the idempotent insert actually created; export CSVs are raw routes (not zod-parsed).
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.
 - [Co-op surge boosts](coop-surge.md) — capacity status has a 30s in-process cache (tests must clear it); surge activation lock = partial unique index on live activations; firewall backstop re-checked at sweep time.

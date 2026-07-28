@@ -1777,6 +1777,159 @@ paths:
         "400":
           description: Missing x-tenant-id scope
 
+  /coop/compliance/settings:
+    get:
+      operationId: getCoopComplianceSettings
+      tags: [coop]
+      summary: Merchant-facing — the scoped tenant's estimated tax rates and 1099 threshold (auto-created with zeros); tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Tax settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopTaxSettings"
+    patch:
+      operationId: updateCoopComplianceSettings
+      tags: [coop]
+      summary: Merchant-facing — update estimated tax rates / 1099 threshold; changes only affect ledger entries going forward
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopTaxSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopTaxSettings"
+        "400":
+          description: Invalid body
+
+  /coop/compliance/ledger:
+    get:
+      operationId: listCoopComplianceLedger
+      tags: [coop]
+      summary: Merchant-facing — compliance ledger entries for a period (YYYY, YYYY-MM, or YYYY-Qn); tenant scope via x-tenant-id
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ledger entries, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopComplianceLedgerEntry"
+        "400":
+          description: Invalid period
+
+  /coop/compliance/entries:
+    post:
+      operationId: createCoopComplianceEntry
+      tags: [coop]
+      summary: Merchant-facing — manually log a referral commission, sponsorship, or shared event expense in the compliance ledger
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopComplianceManualEntryCreate"
+      responses:
+        "201":
+          description: Created ledger entry with the tax-rate snapshot applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopComplianceLedgerEntry"
+        "400":
+          description: Invalid body
+
+  /coop/compliance/summary:
+    get:
+      operationId: getCoopComplianceSummary
+      tags: [coop]
+      summary: Merchant-facing — audit-ready period summary separating direct service revenue, referral commissions, sponsorships, perk redemptions, and shared expenses, each with estimated tax
+      parameters:
+        - name: period
+          in: query
+          required: true
+          description: "YYYY (year), YYYY-MM (month), or YYYY-Qn (quarter)"
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Period summary (all tax figures are merchant-configured estimates)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopComplianceSummary"
+        "400":
+          description: Invalid period
+
+  /coop/compliance/payouts:
+    get:
+      operationId: listCoopPartnerPayouts
+      tags: [coop]
+      summary: Merchant-facing — cumulative calendar-year payouts per partner/payee with 1099 threshold flagging and readiness status
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payout accumulations for the year, largest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPartnerPayoutsResponse"
+        "400":
+          description: Invalid year
+
+  /coop/compliance/export:
+    get:
+      operationId: exportCoopCompliance
+      tags: [coop]
+      summary: Merchant-facing — period-scoped CSV export of the compliance ledger or 1099 payout data in QuickBooks, Xero, or plain audit layout
+      parameters:
+        - name: period
+          in: query
+          required: true
+          description: "YYYY, YYYY-MM, or YYYY-Qn"
+          schema:
+            type: string
+        - name: layout
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [quickbooks, xero, audit]
+        - name: dataset
+          in: query
+          required: false
+          description: ledger (default) or payouts (1099 tracking data for the period's calendar year)
+          schema:
+            type: string
+            enum: [ledger, payouts]
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          description: Invalid period/layout/dataset
   /coop/safety/incidents:
     get:
       operationId: listSafetyIncidents
@@ -5356,6 +5509,7 @@ components:
           status,
           requestedByTenantId,
           mutualRewardTerms,
+          perkValueAmount,
           perkStartsAt,
           perkEndsAt,
           disputeSuspended,
@@ -5402,6 +5556,9 @@ components:
           description: Tenant that initiated the invite; null for admin-created partnerships.
         mutualRewardTerms:
           type: ["string", "null"]
+        perkValueAmount:
+          type: ["number", "null"]
+          description: Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.
         perkStartsAt:
           type: ["string", "null"]
           description: ISO timestamp the perk goes live; null = active immediately.
@@ -5718,6 +5875,214 @@ components:
         details:
           type: string
 
+    CoopTaxSettings:
+      type: object
+      required: [stateRatePercent, localRatePercent, salesRatePercent, threshold1099, updatedAt]
+      properties:
+        stateRatePercent:
+          type: number
+        localRatePercent:
+          type: number
+        salesRatePercent:
+          type: number
+        threshold1099:
+          type: number
+          description: Calendar-year payout total at/above which a payee is flagged for 1099 reporting (default 600).
+        updatedAt:
+          type: string
+
+    CoopTaxSettingsUpdate:
+      type: object
+      properties:
+        stateRatePercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        localRatePercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        salesRatePercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        threshold1099:
+          type: number
+          minimum: 0
+
+    CoopComplianceLedgerEntry:
+      type: object
+      required:
+        [
+          id,
+          category,
+          direction,
+          counterpartTenantId,
+          counterpartTenantName,
+          payeeName,
+          description,
+          grossAmount,
+          stateRatePercent,
+          localRatePercent,
+          salesRatePercent,
+          estimatedTaxAmount,
+          sourceRef,
+          occurredAt,
+          createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+          enum: [perk_redemption, referral_commission, sponsorship, shared_expense]
+        direction:
+          type: string
+          enum: [income, expense]
+        counterpartTenantId:
+          type: ["integer", "null"]
+        counterpartTenantName:
+          type: ["string", "null"]
+        payeeName:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        grossAmount:
+          type: number
+        stateRatePercent:
+          type: number
+          description: Rate snapshot in force when the entry was logged (immutable).
+        localRatePercent:
+          type: number
+        salesRatePercent:
+          type: number
+        estimatedTaxAmount:
+          type: number
+        sourceRef:
+          type: string
+        occurredAt:
+          type: string
+        createdAt:
+          type: string
+
+    CoopComplianceManualEntryCreate:
+      type: object
+      required: [category, direction, grossAmount, description]
+      properties:
+        category:
+          type: string
+          enum: [referral_commission, sponsorship, shared_expense]
+        direction:
+          type: string
+          enum: [income, expense]
+        grossAmount:
+          type: number
+          exclusiveMinimum: 0
+        description:
+          type: string
+          minLength: 1
+        counterpartTenantId:
+          type: ["integer", "null"]
+        payeeName:
+          type: ["string", "null"]
+        occurredAt:
+          type: ["string", "null"]
+          format: date-time
+          description: When the financial event happened; defaults to now.
+
+    CoopComplianceSummarySection:
+      type: object
+      required: [key, label, grossIncome, grossExpense, net, estimatedTax, entryCount]
+      properties:
+        key:
+          type: string
+          enum: [direct_revenue, perk_redemption, referral_commission, sponsorship, shared_expense]
+        label:
+          type: string
+        grossIncome:
+          type: number
+        grossExpense:
+          type: number
+        net:
+          type: number
+        estimatedTax:
+          type: number
+        entryCount:
+          type: integer
+
+    CoopComplianceSummary:
+      type: object
+      required: [period, from, to, sections, totalEstimatedTax, disclaimer]
+      properties:
+        period:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+          description: Exclusive period end.
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopComplianceSummarySection"
+        totalEstimatedTax:
+          type: number
+        disclaimer:
+          type: string
+
+    CoopPartnerPayout:
+      type: object
+      required:
+        [
+          payeeKey,
+          payeeName,
+          counterpartTenantId,
+          calendarYear,
+          totalPaid,
+          threshold1099,
+          thresholdCrossed,
+          remainingBeforeThreshold,
+          form1099Ready,
+          missingFields,
+        ]
+      properties:
+        payeeKey:
+          type: string
+        payeeName:
+          type: string
+        counterpartTenantId:
+          type: ["integer", "null"]
+        calendarYear:
+          type: integer
+        totalPaid:
+          type: number
+        threshold1099:
+          type: number
+        thresholdCrossed:
+          type: boolean
+        remainingBeforeThreshold:
+          type: number
+          description: Dollars until the 1099 threshold; 0 once crossed.
+        form1099Ready:
+          type: boolean
+          description: True when the data needed for a 1099 (payee name + payments total) is on file.
+        missingFields:
+          type: array
+          items:
+            type: string
+
+    CoopPartnerPayoutsResponse:
+      type: object
+      required: [year, threshold1099, payouts]
+      properties:
+        year:
+          type: integer
+        threshold1099:
+          type: number
+        payouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopPartnerPayout"
     CoopDisputeMediationNote:
       type: object
       required: [note]
@@ -7283,6 +7648,10 @@ components:
           type: string
           pattern: "^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$"
           description: Optional explicit redemption code; auto-generated when omitted.
+        perkValueAmount:
+          type: ["number", "null"]
+          minimum: 0
+          description: Estimated monetary value of the perk in dollars (compliance-ledger trigger); null/omitted = no monetary terms.
         overrideIndustryBarrier:
           type: boolean
           description: Explicitly bypass the same-category (competitor) block.
@@ -7306,6 +7675,10 @@ components:
           pattern: "^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$"
         isActive:
           type: boolean
+        perkValueAmount:
+          type: ["number", "null"]
+          minimum: 0
+          description: Estimated monetary value of the perk in dollars; changes only affect future redemptions' ledger entries.
         perkStartsAt:
           type: ["string", "null"]
           format: date-time

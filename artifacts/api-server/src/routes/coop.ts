@@ -22,6 +22,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, gte, inArray, isNull, ne, or } from "drizzle-orm";
 import { isWalletPassToken, findWalletPass, type WalletPassRow } from "../lib/perkPasses";
 import { sendMessageSafe } from "../lib/messaging";
+import { recordPerkRedemptionComplianceSafe } from "../lib/coopCompliance";
 import { sessionIsPlatformAdmin } from "../middlewares/tenantAccess";
 import {
   generateTrackingCode,
@@ -235,6 +236,7 @@ function serialize(
     status: p.status,
     requestedByTenantId: p.requestedByTenantId,
     mutualRewardTerms: p.mutualRewardTerms,
+    perkValueAmount: p.perkValueAmount != null ? parseFloat(p.perkValueAmount) : null,
     perkStartsAt: p.perkStartsAt ? p.perkStartsAt.toISOString() : null,
     perkEndsAt: p.perkEndsAt ? p.perkEndsAt.toISOString() : null,
     disputeSuspended: p.disputeSuspended,
@@ -678,6 +680,8 @@ router.post("/coop/partnerships", async (req, res): Promise<void> => {
           perkDescription: parsed.data.perkDescription ?? null,
           redemptionCode: code,
           industryBarrierOverridden: override,
+          perkValueAmount:
+            parsed.data.perkValueAmount != null ? parsed.data.perkValueAmount.toFixed(2) : null,
           perkStartsAt: parsed.data.perkStartsAt ? new Date(parsed.data.perkStartsAt) : null,
           perkEndsAt: parsed.data.perkEndsAt ? new Date(parsed.data.perkEndsAt) : null,
           hostTrackingCode: generateTrackingCode(),
@@ -726,6 +730,9 @@ router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
   if (parsed.data.perkDescription !== undefined) updates.perkDescription = parsed.data.perkDescription;
   if (parsed.data.redemptionCode !== undefined) updates.redemptionCode = parsed.data.redemptionCode;
   if (parsed.data.isActive !== undefined) updates.isActive = parsed.data.isActive;
+  if (parsed.data.perkValueAmount !== undefined)
+    updates.perkValueAmount =
+      parsed.data.perkValueAmount != null ? parsed.data.perkValueAmount.toFixed(2) : null;
   if (parsed.data.perkStartsAt !== undefined)
     updates.perkStartsAt = parsed.data.perkStartsAt ? new Date(parsed.data.perkStartsAt) : null;
   if (parsed.data.perkEndsAt !== undefined)
@@ -2788,6 +2795,16 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
           name: walletRow!.pass.customerName,
         },
       });
+      // Tax compliance ledger: log the redemption when the perk has monetary
+      // terms. Observes only — never blocks or alters the redemption.
+      await recordPerkRedemptionComplianceSafe({
+        redemptionId: walletRedemption.id,
+        redeemedByTenantId: tenantId,
+        otherTenantId: tenantId === wp.hostTenantId ? wp.partnerTenantId : wp.hostTenantId,
+        perkValueAmount: wp.perkValueAmount,
+        perkTitle: wp.perkTitle,
+        redeemedAt: redeemedPass.redeemedAt!,
+      });
     }
     res.json(
       RedeemCoopPerkResponse.parse({
@@ -2962,6 +2979,17 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
       person: passPerson,
     });
   }
+
+  // Tax compliance ledger: log the redemption when the perk has monetary
+  // terms. Observes only — never blocks or alters the redemption.
+  await recordPerkRedemptionComplianceSafe({
+    redemptionId: redemption.id,
+    redeemedByTenantId: tenantId,
+    otherTenantId: tenantId === p.hostTenantId ? p.partnerTenantId : p.hostTenantId,
+    perkValueAmount: p.perkValueAmount,
+    perkTitle: p.perkTitle,
+    redeemedAt: redemption.redeemedAt,
+  });
 
   res.json(
     RedeemCoopPerkResponse.parse({

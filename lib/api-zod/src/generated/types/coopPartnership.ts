@@ -29,6 +29,11 @@ export interface CoopPartnership {
   /** @nullable */
   mutualRewardTerms: string | null;
   /**
+     * Estimated monetary value of the perk in dollars; when set, counted redemptions are logged in the co-op tax compliance ledger.
+     * @nullable
+     */
+  perkValueAmount: number | null;
+  /**
      * ISO timestamp the perk goes live; null = active immediately.
      * @nullable
      */

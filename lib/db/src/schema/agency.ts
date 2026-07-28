@@ -191,6 +191,10 @@ export const merchantCoopPartnershipsTable = pgTable(
     }),
     // Free-form description of what each side owes the other (mutual terms).
     mutualRewardTerms: text("mutual_reward_terms"),
+    // Estimated monetary value of the perk (dollars). When set, each counted
+    // redemption is logged in the co-op tax compliance ledger; NULL means the
+    // perk has no monetary terms and redemptions are not ledgered.
+    perkValueAmount: numeric("perk_value_amount", { precision: 10, scale: 2 }),
     // Optional perk availability window. NULL = always active on that side.
     // Outside the window the perk never appears on customer-facing surfaces
     // and its redemption code fails validation.
