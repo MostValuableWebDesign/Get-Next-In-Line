@@ -26,6 +26,9 @@ vi.mock('@workspace/api-client-react', () => ({
   getGetSosSettingsQueryKey: () => ['/api/sos/settings'],
   // Tenant-scoped variants (unused on the legacy /settings route, but the
   // component calls the hooks unconditionally with `enabled: false`).
+  // Live Twilio webhook console check shown in the SMS section.
+  useGetSosTwilioWebhookStatus: () => ({ data: undefined, isLoading: false }),
+  getGetSosTwilioWebhookStatusQueryKey: () => ['/api/sos/twilio/webhook-status'],
   useGetTenant: () => ({ data: undefined, isLoading: false }),
   getGetTenantQueryKey: (id: number) => ['/api/tenants', id],
   useGetTenantSettings: () => ({ data: undefined, isLoading: false }),

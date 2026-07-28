@@ -3,6 +3,8 @@ import {
   useGetSosSettings,
   useUpdateSosSettings,
   getGetSosSettingsQueryKey,
+  useGetSosTwilioWebhookStatus,
+  getGetSosTwilioWebhookStatusQueryKey,
   useGetTenantSettings,
   useUpdateTenantSettings,
   getGetTenantSettingsQueryKey,
@@ -68,6 +70,17 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
     : globalQuery.data;
   const isLoading = isTenantScoped ? tenantQuery.isLoading : globalQuery.isLoading;
   const loadError = isTenantScoped ? tenantQuery.error : globalQuery.error;
+
+  // Live Twilio console check: is the number's "A message comes in" webhook
+  // actually pointed at this app? Scoped like the settings record itself.
+  const webhookScope = isTenantScoped ? String(tenantId) : 'legacy';
+  const webhookQuery = useGetSosTwilioWebhookStatus({
+    query: {
+      queryKey: [...getGetSosTwilioWebhookStatusQueryKey(), { scope: webhookScope }],
+    },
+    request: { headers: { 'x-tenant-id': webhookScope } },
+  });
+  const webhook = webhookQuery.data;
 
   const updateGlobal = useUpdateSosSettings();
   const updateTenant = useUpdateTenantSettings();
@@ -706,6 +719,65 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
                 Connect Twilio (auth token) so inbound webhook requests can be verified.
               </p>
             )}
+
+            {/* Live Twilio console check — is the number actually pointed here? */}
+            <div
+              className="mt-2 pt-3 border-t space-y-1"
+              data-testid="twilio-webhook-check"
+            >
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Twilio console check</Label>
+                {webhookQuery.isLoading ? (
+                  <Badge variant="secondary" data-testid="badge-webhook-check">
+                    Checking…
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant={webhook?.status === 'configured' ? 'default' : 'secondary'}
+                    data-testid="badge-webhook-check"
+                  >
+                    {webhook?.status === 'configured' ? 'Configured' : 'Not configured'}
+                  </Badge>
+                )}
+              </div>
+              {!webhookQuery.isLoading && (
+                <p className="text-xs text-muted-foreground" data-testid="text-webhook-check-detail">
+                  {webhook?.status === 'configured' ? (
+                    <>
+                      Twilio number <span className="font-medium">{webhook.phoneNumber}</span> is
+                      pointed at this app's inbound webhook. Replies and reply-to-claim will
+                      arrive here.
+                    </>
+                  ) : webhook?.status === 'misconfigured' ? (
+                    <>
+                      Twilio number <span className="font-medium">{webhook.phoneNumber}</span>{' '}
+                      currently points at{' '}
+                      <span className="font-mono break-all">
+                        {webhook.configuredUrl ?? 'no URL'}
+                      </span>
+                      . Inbound texts will not reach this app — paste the URL above into the
+                      number's "A message comes in" field in the Twilio console.
+                    </>
+                  ) : webhook?.status === 'number_not_found' ? (
+                    <>
+                      Number <span className="font-medium">{webhook.phoneNumber}</span> was not
+                      found in the connected Twilio account, so its webhook can't be verified.
+                    </>
+                  ) : webhook?.status === 'no_number' ? (
+                    'No SMS number is set, so there is no Twilio number to verify yet.'
+                  ) : webhook?.status === 'no_credentials' ? (
+                    'Twilio credentials are not connected, so the console configuration can\'t be verified.'
+                  ) : webhook?.status === 'no_public_url' ? (
+                    'This environment has no public URL yet, so there is nothing for Twilio to point at.'
+                  ) : (
+                    <>
+                      Couldn't reach Twilio to verify the webhook
+                      {webhook?.errorMessage ? `: ${webhook.errorMessage}` : '.'}
+                    </>
+                  )}
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="grid gap-2">

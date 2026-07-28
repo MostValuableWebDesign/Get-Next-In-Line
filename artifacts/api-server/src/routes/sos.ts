@@ -89,10 +89,11 @@ import {
   UpdateSosGratuityConfigBody,
   UpdateSosGratuityConfigResponse,
   GetSosGratuityLedgerResponse,
+  GetSosTwilioWebhookStatusResponse,
 } from "@workspace/api-zod";
 import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import twilio from "twilio";
-import { getSmsStatus, getTwilioAuthToken, normalizeToE164 } from "../lib/sms";
+import { getSmsStatus, getTwilioAuthToken, getTwilioWebhookStatus, normalizeToE164 } from "../lib/sms";
 import {
   sendMessage,
   sendMessageSafe,
@@ -465,6 +466,14 @@ router.patch("/sos/settings", async (req, res): Promise<void> => {
   // Address changed → re-run co-op density detection in the background.
   if (addressFieldsTouched(body)) scheduleDensityDetection(updated.id);
   res.json(UpdateSosSettingsResponse.parse(await serializeSettings(updated)));
+});
+
+// Live check (Twilio API) of whether the active SMS number's "A message
+// comes in" webhook actually points at this app's inbound URL. Scoped like
+// settings: the tenant's From-number override wins over the connector's.
+router.get("/sos/twilio/webhook-status", async (req, res): Promise<void> => {
+  const result = await getTwilioWebhookStatus(tenantIdFrom(req));
+  res.json(GetSosTwilioWebhookStatusResponse.parse(result));
 });
 
 // ── resources ────────────────────────────────────────────────────────────────

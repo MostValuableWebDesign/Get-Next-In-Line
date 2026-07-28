@@ -3502,6 +3502,44 @@ export interface ConciergeClientProfileUpdate {
   averageCycleDays?: number | null;
 }
 
+/**
+ * Result of the live Twilio console check. "configured" means the number's "A message comes in" URL matches the app's inbound webhook.
+ */
+export type SosTwilioWebhookStatusStatus = typeof SosTwilioWebhookStatusStatus[keyof typeof SosTwilioWebhookStatusStatus];
+
+
+export const SosTwilioWebhookStatusStatus = {
+  configured: 'configured',
+  misconfigured: 'misconfigured',
+  no_credentials: 'no_credentials',
+  no_public_url: 'no_public_url',
+  no_number: 'no_number',
+  number_not_found: 'number_not_found',
+  error: 'error',
+} as const;
+
+export interface SosTwilioWebhookStatus {
+  /** Result of the live Twilio console check. "configured" means the number's "A message comes in" URL matches the app's inbound webhook. */
+  status: SosTwilioWebhookStatusStatus;
+  /**
+     * The E.164 SMS number whose Twilio configuration was checked.
+     * @nullable
+     */
+  phoneNumber: string | null;
+  /**
+     * The inbound webhook URL the app expects Twilio to point at.
+     * @nullable
+     */
+  expectedUrl: string | null;
+  /**
+     * The URL currently configured on the number in the Twilio console, when reachable.
+     * @nullable
+     */
+  configuredUrl: string | null;
+  /** @nullable */
+  errorMessage: string | null;
+}
+
 export type SosSettingsSmsMode = typeof SosSettingsSmsMode[keyof typeof SosSettingsSmsMode];
 
 

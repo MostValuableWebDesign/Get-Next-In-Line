@@ -5281,6 +5281,18 @@ export const UpdateSosSettingsResponse = zod.object({
 
 
 /**
+ * @summary Live check of the Twilio number's inbound "A message comes in" webhook vs the app's expected URL
+ */
+export const GetSosTwilioWebhookStatusResponse = zod.object({
+  "status": zod.enum(['configured', 'misconfigured', 'no_credentials', 'no_public_url', 'no_number', 'number_not_found', 'error']).describe('Result of the live Twilio console check. \"configured\" means the number\'s \"A message comes in\" URL matches the app\'s inbound webhook.'),
+  "phoneNumber": zod.string().nullable().describe('The E.164 SMS number whose Twilio configuration was checked.'),
+  "expectedUrl": zod.string().nullable().describe('The inbound webhook URL the app expects Twilio to point at.'),
+  "configuredUrl": zod.string().nullable().describe('The URL currently configured on the number in the Twilio console, when reachable.'),
+  "errorMessage": zod.string().nullable()
+})
+
+
+/**
  * @summary List all configurable resources (chairs, rooms, tables, bays, etc.)
  */
 export const ListSosResourcesResponseItem = zod.object({

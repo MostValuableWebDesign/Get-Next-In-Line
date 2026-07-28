@@ -3753,6 +3753,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/SosSettings"
 
+  /sos/twilio/webhook-status:
+    get:
+      operationId: getSosTwilioWebhookStatus
+      tags: [sos]
+      summary: Live check of the Twilio number's inbound "A message comes in" webhook vs the app's expected URL
+      responses:
+        "200":
+          description: Webhook configuration check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosTwilioWebhookStatus"
+
   /sos/resources:
     get:
       operationId: listSosResources
@@ -11376,6 +11389,26 @@ components:
           type: ["string", "null"]
         averageCycleDays:
           type: ["integer", "null"]
+
+    SosTwilioWebhookStatus:
+      type: object
+      required: [status, phoneNumber, expectedUrl, configuredUrl, errorMessage]
+      properties:
+        status:
+          type: string
+          enum: [configured, misconfigured, no_credentials, no_public_url, no_number, number_not_found, error]
+          description: Result of the live Twilio console check. "configured" means the number's "A message comes in" URL matches the app's inbound webhook.
+        phoneNumber:
+          type: ["string", "null"]
+          description: The E.164 SMS number whose Twilio configuration was checked.
+        expectedUrl:
+          type: ["string", "null"]
+          description: The inbound webhook URL the app expects Twilio to point at.
+        configuredUrl:
+          type: ["string", "null"]
+          description: The URL currently configured on the number in the Twilio console, when reachable.
+        errorMessage:
+          type: ["string", "null"]
 
     SosSettings:
       type: object

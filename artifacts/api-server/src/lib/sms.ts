@@ -2,7 +2,7 @@ import { db, sosSettingsTable } from "@workspace/db";
 import { eq, isNull } from "drizzle-orm";
 import twilio from "twilio";
 import { logger } from "./logger";
-import { getStatusCallbackUrl } from "./inboundSms";
+import { getStatusCallbackUrl, getInboundWebhookUrl } from "./inboundSms";
 
 /**
  * Low-level SMS transport. Uses Twilio when credentials are available (via
@@ -139,6 +139,90 @@ export async function getSmsStatus(tenantId?: number | null): Promise<{
     smsMode: creds && fromNumber ? "live" : "simulated",
     activeFromNumber: fromNumber,
   };
+}
+
+export type TwilioWebhookCheckStatus =
+  | "configured"
+  | "misconfigured"
+  | "no_credentials"
+  | "no_public_url"
+  | "no_number"
+  | "number_not_found"
+  | "error";
+
+export interface TwilioWebhookCheck {
+  status: TwilioWebhookCheckStatus;
+  /** The E.164 number whose console configuration was checked. */
+  phoneNumber: string | null;
+  /** The URL the app expects Twilio's "A message comes in" webhook to be. */
+  expectedUrl: string | null;
+  /** The URL currently configured on the number in Twilio (when reachable). */
+  configuredUrl: string | null;
+  errorMessage: string | null;
+}
+
+/** Ignore trailing-slash and case-of-scheme/host differences when comparing webhook URLs. */
+function normalizeWebhookUrl(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    const path = u.pathname.replace(/\/+$/, "");
+    return `${u.protocol}//${u.host}${path}${u.search}`;
+  } catch {
+    return url.trim().replace(/\/+$/, "");
+  }
+}
+
+/**
+ * Live check (via Twilio's API) of whether the active SMS number's
+ * "A message comes in" webhook actually points at this app's inbound URL.
+ * Never throws — every failure mode is reported as a status so the Settings
+ * page can render it.
+ */
+export async function getTwilioWebhookStatus(
+  tenantId?: number | null,
+): Promise<TwilioWebhookCheck> {
+  const expectedUrl = getInboundWebhookUrl();
+  const base: TwilioWebhookCheck = {
+    status: "error",
+    phoneNumber: null,
+    expectedUrl,
+    configuredUrl: null,
+    errorMessage: null,
+  };
+  if (!expectedUrl) return { ...base, status: "no_public_url" };
+
+  const creds = await getTwilioCreds();
+  if (!creds) return { ...base, status: "no_credentials" };
+
+  const settings = await getSmsSettings(tenantId);
+  const phoneNumber = normalizeToE164(settings?.smsFromNumber ?? creds.fromNumber);
+  if (!phoneNumber) return { ...base, status: "no_number" };
+
+  try {
+    const client = twilio(creds.accountSid, creds.authToken);
+    const numbers = await client.incomingPhoneNumbers.list({ phoneNumber, limit: 1 });
+    const row = numbers[0];
+    if (!row) return { ...base, phoneNumber, status: "number_not_found" };
+    const configuredUrl = row.smsUrl?.trim() ? row.smsUrl.trim() : null;
+    const matches =
+      configuredUrl != null &&
+      normalizeWebhookUrl(configuredUrl) === normalizeWebhookUrl(expectedUrl);
+    return {
+      ...base,
+      phoneNumber,
+      configuredUrl,
+      status: matches ? "configured" : "misconfigured",
+    };
+  } catch (err) {
+    const e = err as { message?: string };
+    logger.warn({ err }, "Twilio webhook-status check failed");
+    return {
+      ...base,
+      phoneNumber,
+      status: "error",
+      errorMessage: e.message ?? "Twilio API request failed",
+    };
+  }
 }
 
 export interface DeliverSmsResult {

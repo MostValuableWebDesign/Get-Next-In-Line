@@ -320,6 +320,7 @@ import type {
   SosStaffMemberInput,
   SosStaffMemberUpdate,
   SosTimelineEntry,
+  SosTwilioWebhookStatus,
   SosVisit,
   SosVisitAdvance,
   SosVisitInput,
@@ -13175,6 +13176,83 @@ export const useUpdateSosSettings = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getUpdateSosSettingsMutationOptions(options));
     }
+
+export const getGetSosTwilioWebhookStatusUrl = () => {
+
+
+
+
+  return `/api/sos/twilio/webhook-status`
+}
+
+/**
+ * @summary Live check of the Twilio number's inbound "A message comes in" webhook vs the app's expected URL
+ */
+export const getSosTwilioWebhookStatus = async ( options?: RequestInit): Promise<SosTwilioWebhookStatus> => {
+
+  return customFetch<SosTwilioWebhookStatus>(getGetSosTwilioWebhookStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSosTwilioWebhookStatusQueryKey = () => {
+    return [
+    `/api/sos/twilio/webhook-status`
+    ] as const;
+    }
+
+
+export const getGetSosTwilioWebhookStatusQueryOptions = <TData = Awaited<ReturnType<typeof getSosTwilioWebhookStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosTwilioWebhookStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSosTwilioWebhookStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSosTwilioWebhookStatus>>> = ({ signal }) => getSosTwilioWebhookStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSosTwilioWebhookStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSosTwilioWebhookStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getSosTwilioWebhookStatus>>>
+export type GetSosTwilioWebhookStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Live check of the Twilio number's inbound "A message comes in" webhook vs the app's expected URL
+ */
+
+export function useGetSosTwilioWebhookStatus<TData = Awaited<ReturnType<typeof getSosTwilioWebhookStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosTwilioWebhookStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSosTwilioWebhookStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListSosResourcesUrl = () => {
 
