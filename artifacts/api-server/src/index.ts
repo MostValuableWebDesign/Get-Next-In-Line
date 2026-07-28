@@ -1,3 +1,9 @@
+import { assertProductionEnv } from "./lib/startupChecks";
+
+// Fail fast BEFORE loading app/session middleware: production with missing
+// critical secrets must abort with an actionable message, never serve.
+assertProductionEnv();
+
 import app from "./app";
 import { logger } from "./lib/logger";
 import { seedConnectorMapping } from "./lib/connectorSeed";
@@ -33,8 +39,22 @@ if (Number.isNaN(port) || port <= 0) {
 // seed so partner brands / hidden connectors / markups are backfilled into
 // the repaired schema. All steps are idempotent and safe to re-run.
 async function ensureDatabaseReady(): Promise<void> {
+  const isProduction = process.env.NODE_ENV === "production";
   try {
     let report = await checkSchemaDrift(pool);
+    if (!report.ok && isProduction) {
+      // Production must never auto-apply migrations on boot. Report the
+      // drift loudly and refuse to serve until it is resolved deliberately
+      // (run the migration workflow, then redeploy).
+      logger.error(
+        { report },
+        `FATAL: production database schema does not match the code schema. ` +
+          `Refusing to start — apply pending migrations deliberately ` +
+          `(pnpm run db:push / db:reconcile against the production DB) and redeploy.\n` +
+          formatDriftReport(report),
+      );
+      process.exit(1);
+    }
     if (!report.ok) {
       logger.warn(
         { report },
