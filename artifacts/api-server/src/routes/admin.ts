@@ -15,6 +15,20 @@ import {
 } from "@workspace/db";
 import { disputeRows, serializeDispute } from "./coop";
 import {
+  coopFinancialDisputesTable,
+  coopLedgerAdjustmentsTable,
+  coopTenantSuspensionsTable,
+} from "@workspace/db";
+import {
+  financialDisputeRows,
+  serializeFinancialDisputes,
+  serializedFinancialDispute,
+  recordDisputeEvent,
+  serializeSuspension,
+  notifyTenantSafe,
+  checkRepeatViolator,
+} from "../lib/coopFinancialDisputes";
+import {
   GetAdminComplianceSummaryResponse,
   GetConnectorRegistryResponse,
   UpdateConnectorRegistryEntryBody,
@@ -32,6 +46,15 @@ import {
   AddCoopDisputeMediationNoteResponse,
   ListAdminCoopReputationResponse,
   ReinstateCoopReputationResponse,
+  ListAdminCoopFinancialDisputesResponse,
+  CreateCoopFinancialAdjustmentBody,
+  CreateCoopFinancialAdjustmentResponse,
+  IssueCoopFinancialRulingBody,
+  IssueCoopFinancialRulingResponse,
+  ListCoopSuspensionsResponse,
+  CreateCoopSuspensionBody,
+  CreateCoopSuspensionResponse,
+  LiftCoopSuspensionResponse,
 } from "@workspace/api-zod";
 import {
   coopReputationStatesTable,
@@ -803,6 +826,284 @@ router.post("/admin/coop/disputes/:id/mediation-notes", async (req, res): Promis
     .set({ mediationNotes, updatedAt: now })
     .where(eq(coopDisputesTable.id, dispute.id));
   await respondWithDispute(res, dispute.id, AddCoopDisputeMediationNoteResponse);
+});
+
+// ---------------------------------------------------------------------------
+// Mediation Hub — escalated financial disputes between co-op partners.
+// Admins record compensating ledger adjustments and referral bounty
+// reversals (persisted entries that inform settlement — no money movement),
+// close tickets with rulings, and manage tenant co-op suspensions.
+// ---------------------------------------------------------------------------
+
+const FINANCIAL_DISPUTE_STATUSES = new Set([
+  "filed",
+  "auto_resolved",
+  "escalated",
+  "resolved",
+  "adjusted",
+]);
+
+// ── GET /admin/coop/financial-disputes — mediation queue ────────────────────
+router.get("/admin/coop/financial-disputes", async (req, res): Promise<void> => {
+  const status = typeof req.query.status === "string" ? req.query.status : undefined;
+  if (status !== undefined && !FINANCIAL_DISPUTE_STATUSES.has(status)) {
+    res.status(400).json({ message: "Unknown status filter" });
+    return;
+  }
+  let query = financialDisputeRows().$dynamic();
+  if (status) query = query.where(eq(coopFinancialDisputesTable.status, status));
+  const rows = await query.orderBy(
+    desc(coopFinancialDisputesTable.createdAt),
+    desc(coopFinancialDisputesTable.id)
+  );
+  res.json(ListAdminCoopFinancialDisputesResponse.parse(await serializeFinancialDisputes(rows)));
+});
+
+async function loadFinancialDispute(
+  req: import("express").Request,
+  res: import("express").Response
+) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return null;
+  }
+  const [dispute] = await db
+    .select()
+    .from(coopFinancialDisputesTable)
+    .where(eq(coopFinancialDisputesTable.id, id));
+  if (!dispute) {
+    res.status(404).json({ message: "Not found" });
+    return null;
+  }
+  return dispute;
+}
+
+// ── POST /admin/coop/financial-disputes/:id/adjustments ─────────────────────
+router.post(
+  "/admin/coop/financial-disputes/:id/adjustments",
+  async (req, res): Promise<void> => {
+    const parsed = CreateCoopFinancialAdjustmentBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+      return;
+    }
+    const dispute = await loadFinancialDispute(req, res);
+    if (!dispute) return;
+    if (dispute.status !== "escalated") {
+      res.status(409).json({ message: "Adjustments can only be recorded on escalated tickets" });
+      return;
+    }
+    const parties = new Set([dispute.filedByTenantId, dispute.respondentTenantId]);
+    const { creditTenantId, debitTenantId } = parsed.data;
+    if (
+      !parties.has(creditTenantId) ||
+      !parties.has(debitTenantId) ||
+      creditTenantId === debitTenantId
+    ) {
+      res.status(400).json({
+        message: "Credit and debit tenants must be the two parties of this dispute",
+      });
+      return;
+    }
+    await db.insert(coopLedgerAdjustmentsTable).values({
+      disputeId: dispute.id,
+      partnershipId: dispute.partnershipId,
+      adjustmentType: parsed.data.adjustmentType,
+      amount: parsed.data.amount.toFixed(2),
+      creditTenantId,
+      debitTenantId,
+      reason: parsed.data.reason.trim(),
+    });
+    await recordDisputeEvent({
+      disputeId: dispute.id,
+      eventType: "adjustment_recorded",
+      actorType: "admin",
+      note:
+        `${parsed.data.adjustmentType === "bounty_reversal" ? "Referral bounty reversal" : "Ledger adjustment"} ` +
+        `of $${parsed.data.amount.toFixed(2)} recorded (credit tenant #${creditTenantId}, ` +
+        `debit tenant #${debitTenantId}): ${parsed.data.reason.trim()}`,
+    });
+    await db
+      .update(coopFinancialDisputesTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(coopFinancialDisputesTable.id, dispute.id));
+    res.json(
+      CreateCoopFinancialAdjustmentResponse.parse(await serializedFinancialDispute(dispute.id))
+    );
+  }
+);
+
+// ── POST /admin/coop/financial-disputes/:id/ruling — close with a ruling ────
+// Closing status is "adjusted" when any compensating entries were recorded,
+// otherwise "resolved". A ruling against a tenant feeds the repeat-violator
+// counter and may auto-suspend its co-op participation.
+router.post("/admin/coop/financial-disputes/:id/ruling", async (req, res): Promise<void> => {
+  const parsed = IssueCoopFinancialRulingBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const dispute = await loadFinancialDispute(req, res);
+  if (!dispute) return;
+  if (dispute.status !== "escalated") {
+    res.status(409).json({ message: "Only escalated tickets can be closed with a ruling" });
+    return;
+  }
+  const ruledAgainstTenantId = parsed.data.ruledAgainstTenantId ?? null;
+  if (
+    ruledAgainstTenantId != null &&
+    ruledAgainstTenantId !== dispute.filedByTenantId &&
+    ruledAgainstTenantId !== dispute.respondentTenantId
+  ) {
+    res.status(400).json({ message: "The ruled-against tenant must be a party to this dispute" });
+    return;
+  }
+  const [{ n: adjustmentCount }] = await db
+    .select({ n: count() })
+    .from(coopLedgerAdjustmentsTable)
+    .where(eq(coopLedgerAdjustmentsTable.disputeId, dispute.id));
+  const now = new Date();
+  // Conditional update guards against concurrent double-rulings.
+  const [updated] = await db
+    .update(coopFinancialDisputesTable)
+    .set({
+      status: adjustmentCount > 0 ? "adjusted" : "resolved",
+      ruling: parsed.data.ruling.trim(),
+      ruledAgainstTenantId,
+      resolvedAt: now,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(coopFinancialDisputesTable.id, dispute.id),
+        eq(coopFinancialDisputesTable.status, "escalated")
+      )
+    )
+    .returning();
+  if (!updated) {
+    res.status(409).json({ message: "This ticket was already closed" });
+    return;
+  }
+  await recordDisputeEvent({
+    disputeId: dispute.id,
+    eventType: "ruling_issued",
+    actorType: "admin",
+    note:
+      parsed.data.ruling.trim() +
+      (ruledAgainstTenantId != null ? ` (ruled against tenant #${ruledAgainstTenantId})` : ""),
+  });
+  // Notify both parties of the ruling through the unified messaging layer.
+  for (const partyId of [dispute.filedByTenantId, dispute.respondentTenantId]) {
+    await notifyTenantSafe(
+      partyId,
+      "coop_financial_dispute",
+      `Co-Op mediation update: a platform mediator has closed the financial dispute on your ` +
+        `partnership with a written ruling. Review it in your Co-Op hub.`,
+      { disputeId: dispute.id, ruling: true }
+    );
+  }
+  // Repeat-violator automation runs on every ruling against a tenant.
+  if (ruledAgainstTenantId != null) {
+    await checkRepeatViolator(ruledAgainstTenantId, updated);
+  }
+  res.json(IssueCoopFinancialRulingResponse.parse(await serializedFinancialDispute(dispute.id)));
+});
+
+// ── GET /admin/coop/suspensions — suspension history, newest first ──────────
+router.get("/admin/coop/suspensions", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({ suspension: coopTenantSuspensionsTable, tenantName: tenantsTable.brandName })
+    .from(coopTenantSuspensionsTable)
+    .innerJoin(tenantsTable, eq(coopTenantSuspensionsTable.tenantId, tenantsTable.id))
+    .orderBy(desc(coopTenantSuspensionsTable.suspendedAt), desc(coopTenantSuspensionsTable.id));
+  res.json(
+    ListCoopSuspensionsResponse.parse(rows.map((r) => serializeSuspension(r.suspension, r.tenantName)))
+  );
+});
+
+// ── POST /admin/coop/suspensions — manual suspension ────────────────────────
+router.post("/admin/coop/suspensions", async (req, res): Promise<void> => {
+  const parsed = CreateCoopSuspensionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const [tenant] = await db
+    .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, parsed.data.tenantId));
+  if (!tenant) {
+    res.status(404).json({ message: "Tenant not found" });
+    return;
+  }
+  // Partial unique index (one active suspension per tenant) makes the insert
+  // race-safe; a conflict means one already exists.
+  const [created] = await db
+    .insert(coopTenantSuspensionsTable)
+    .values({
+      tenantId: tenant.id,
+      status: "active",
+      trigger: "manual",
+      reason: parsed.data.reason?.trim() || null,
+    })
+    .onConflictDoNothing()
+    .returning();
+  if (!created) {
+    res.status(409).json({ message: "This tenant already has an active co-op suspension" });
+    return;
+  }
+  await notifyTenantSafe(
+    tenant.id,
+    "coop_financial_dispute",
+    `Co-Op notice: a platform admin has suspended your co-op participation` +
+      `${parsed.data.reason ? ` (${parsed.data.reason.trim()})` : ""}. Your perks are paused and ` +
+      `new partnerships are blocked until you are reinstated.`,
+    { suspensionId: created.id, trigger: "manual" }
+  );
+  res.status(201).json(CreateCoopSuspensionResponse.parse(serializeSuspension(created, tenant.brandName)));
+});
+
+// ── POST /admin/coop/suspensions/:id/lift — reinstate a tenant ──────────────
+router.post("/admin/coop/suspensions/:id/lift", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const now = new Date();
+  // Conditional update: only an active suspension can be lifted.
+  const [lifted] = await db
+    .update(coopTenantSuspensionsTable)
+    .set({ status: "lifted", liftedAt: now })
+    .where(
+      and(eq(coopTenantSuspensionsTable.id, id), eq(coopTenantSuspensionsTable.status, "active"))
+    )
+    .returning();
+  if (!lifted) {
+    const [existing] = await db
+      .select()
+      .from(coopTenantSuspensionsTable)
+      .where(eq(coopTenantSuspensionsTable.id, id));
+    res
+      .status(existing ? 409 : 404)
+      .json({ message: existing ? "This suspension was already lifted" : "Not found" });
+    return;
+  }
+  const [tenant] = await db
+    .select({ brandName: tenantsTable.brandName })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, lifted.tenantId));
+  await notifyTenantSafe(
+    lifted.tenantId,
+    "coop_financial_dispute",
+    `Co-Op notice: your co-op participation has been reinstated by a platform admin. ` +
+      `Your perks are live again and you can form new partnerships.`,
+    { suspensionId: lifted.id, lifted: true }
+  );
+  res.json(
+    LiftCoopSuspensionResponse.parse(serializeSuspension(lifted, tenant?.brandName ?? "Unknown"))
+  );
 });
 
 export default router;

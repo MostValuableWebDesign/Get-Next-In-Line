@@ -1051,6 +1051,196 @@ export const insertCoopTrafficEventSchema = createInsertSchema(coopTrafficEvents
 export type InsertCoopTrafficEvent = z.infer<typeof insertCoopTrafficEventSchema>;
 export type CoopTrafficEvent = typeof coopTrafficEventsTable.$inferSelect;
 
+// ── Co-op financial dispute tickets ──────────────────────────────────────────
+// Money/count disagreements between the two parties of a co-op partnership:
+// mismatched referral counts, unfulfilled redemptions, shared expense
+// discrepancies. Filed with structured evidence; the platform immediately runs
+// automated reconciliation against its own redemption ledger and either
+// auto-resolves the ticket (with a stored summary both parties can read) or
+// escalates it to the admin Mediation Hub. Distinct from conduct disputes
+// (coop_disputes), which run on a grace-period model.
+export const coopFinancialDisputesTable = pgTable(
+  "coop_financial_disputes",
+  {
+    id: serial("id").primaryKey(),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    filedByTenantId: integer("filed_by_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    respondentTenantId: integer("respondent_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // commission_mismatch | unfulfilled_redemption | shared_expense
+    disputeType: text("dispute_type").notNull(),
+    // Filer's claimed figure vs. what the counterparty asserted/expected.
+    // Counts for redemption/commission disputes; amounts for expense splits.
+    claimedCount: integer("claimed_count"),
+    expectedCount: integer("expected_count"),
+    claimedAmount: numeric("claimed_amount", { precision: 12, scale: 2 }),
+    expectedAmount: numeric("expected_amount", { precision: 12, scale: 2 }),
+    // Date range the claim covers.
+    windowStartAt: timestamp("window_start_at").notNull(),
+    windowEndAt: timestamp("window_end_at").notNull(),
+    details: text("details"),
+    // filed → auto_resolved | escalated → resolved | adjusted
+    status: text("status").notNull().default("filed"),
+    // Automated reconciliation report — persisted either way.
+    reconciliationSummary: text("reconciliation_summary"),
+    // Redemptions the platform counted for the partnership + window.
+    reconciliationSystemCount: integer("reconciliation_system_count"),
+    // Counterparty's written response, if any.
+    counterpartyResponse: text("counterparty_response"),
+    respondedAt: timestamp("responded_at"),
+    // Admin's written ruling when closing an escalated ticket.
+    ruling: text("ruling"),
+    // The party the ruling went against (feeds repeat-violator automation).
+    ruledAgainstTenantId: integer("ruled_against_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    escalatedAt: timestamp("escalated_at"),
+    resolvedAt: timestamp("resolved_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_financial_disputes_partnership_idx").on(t.partnershipId),
+    index("coop_financial_disputes_status_idx").on(t.status),
+    index("coop_financial_disputes_filed_by_idx").on(t.filedByTenantId),
+    index("coop_financial_disputes_ruled_against_idx").on(t.ruledAgainstTenantId, t.resolvedAt),
+  ]
+);
+
+export type CoopFinancialDispute = typeof coopFinancialDisputesTable.$inferSelect;
+
+// Structured evidence attached to a financial dispute ticket: either a link to
+// a system redemption record (kind "redemption") or a manual receipt/
+// transaction entry (kind "receipt"). No binary uploads — evidence is data.
+export const coopFinancialDisputeEvidenceTable = pgTable(
+  "coop_financial_dispute_evidence",
+  {
+    id: serial("id").primaryKey(),
+    disputeId: integer("dispute_id")
+      .notNull()
+      .references(() => coopFinancialDisputesTable.id, { onDelete: "cascade" }),
+    addedByTenantId: integer("added_by_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    // redemption | receipt
+    kind: text("kind").notNull(),
+    // For kind "redemption": the linked system redemption record. Must belong
+    // to the ticket's partnership (validated at attach time).
+    redemptionId: integer("redemption_id").references(() => coopPerkRedemptionsTable.id, {
+      onDelete: "set null",
+    }),
+    // For kind "receipt": structured receipt/transaction fields.
+    referenceNumber: text("reference_number"),
+    amount: numeric("amount", { precision: 12, scale: 2 }),
+    entryDate: timestamp("entry_date"),
+    description: text("description"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_financial_dispute_evidence_dispute_idx").on(t.disputeId)]
+);
+
+export type CoopFinancialDisputeEvidence = typeof coopFinancialDisputeEvidenceTable.$inferSelect;
+
+// Append-style status/audit history for a financial dispute: every state
+// change, evidence addition, adjustment, ruling, and suspension trigger is
+// recorded with a timestamp and actor identity.
+export const coopFinancialDisputeEventsTable = pgTable(
+  "coop_financial_dispute_events",
+  {
+    id: serial("id").primaryKey(),
+    disputeId: integer("dispute_id")
+      .notNull()
+      .references(() => coopFinancialDisputesTable.id, { onDelete: "cascade" }),
+    // filed | evidence_added | auto_resolved | escalated | responded |
+    // adjustment_recorded | ruling_issued | suspension_triggered
+    eventType: text("event_type").notNull(),
+    // tenant | admin | system
+    actorType: text("actor_type").notNull(),
+    actorTenantId: integer("actor_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    note: text("note"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_financial_dispute_events_dispute_idx").on(t.disputeId, t.createdAt)]
+);
+
+export type CoopFinancialDisputeEvent = typeof coopFinancialDisputeEventsTable.$inferSelect;
+
+// Persisted compensating entries admins record while mediating a financial
+// dispute: ledger adjustments and referral bounty reversals. These inform
+// settlement between the two businesses — no actual money movement.
+export const coopLedgerAdjustmentsTable = pgTable(
+  "coop_ledger_adjustments",
+  {
+    id: serial("id").primaryKey(),
+    disputeId: integer("dispute_id")
+      .notNull()
+      .references(() => coopFinancialDisputesTable.id, { onDelete: "cascade" }),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    // adjustment | bounty_reversal (bounty reversals are negative entries
+    // tied to the original referral claim).
+    adjustmentType: text("adjustment_type").notNull(),
+    // Always positive; direction is carried by credit/debit tenant fields.
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    creditTenantId: integer("credit_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    debitTenantId: integer("debit_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    reason: text("reason").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_ledger_adjustments_dispute_idx").on(t.disputeId)]
+);
+
+export type CoopLedgerAdjustment = typeof coopLedgerAdjustmentsTable.$inferSelect;
+
+// ── Tenant co-op participation suspensions ───────────────────────────────────
+// A suspended tenant's perks stop being served on every surface and it cannot
+// form new partnerships until an admin lifts the suspension. Triggered
+// manually by an admin or automatically when repeat-violator thresholds are
+// crossed (trigger metadata persisted for the audit trail).
+export const coopTenantSuspensionsTable = pgTable(
+  "coop_tenant_suspensions",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // active | lifted
+    status: text("status").notNull().default("active"),
+    // manual | repeat_violator
+    trigger: text("trigger").notNull(),
+    reason: text("reason"),
+    // Repeat-violator trigger metadata: rulings counted and the rolling
+    // window (days) in force when the suspension fired. NULL for manual.
+    rulingsCount: integer("rulings_count"),
+    windowDays: integer("window_days"),
+    suspendedAt: timestamp("suspended_at").notNull().defaultNow(),
+    liftedAt: timestamp("lifted_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_tenant_suspensions_tenant_idx").on(t.tenantId),
+    // At most one active suspension per tenant, even under concurrency.
+    uniqueIndex("coop_tenant_suspensions_one_active_idx")
+      .on(t.tenantId)
+      .where(sql`status = 'active'`),
+  ]
+);
+
+export type CoopTenantSuspension = typeof coopTenantSuspensionsTable.$inferSelect;
+
+
 // ── Co-op surge traffic-routing rules ────────────────────────────────────────
 // Per-partnership peak-hour traffic balancing: when the OWNER tenant (the
 // busy business) hits its trigger condition — a live-wait threshold or the

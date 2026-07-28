@@ -654,6 +654,257 @@ export interface CoopDisputeMediationNote {
   note: string;
 }
 
+export type CoopFinancialDisputeEvidenceItemKind = typeof CoopFinancialDisputeEvidenceItemKind[keyof typeof CoopFinancialDisputeEvidenceItemKind];
+
+
+export const CoopFinancialDisputeEvidenceItemKind = {
+  redemption: 'redemption',
+  receipt: 'receipt',
+} as const;
+
+export interface CoopFinancialDisputeEvidenceItem {
+  id: number;
+  kind: CoopFinancialDisputeEvidenceItemKind;
+  /** @nullable */
+  addedByTenantId: number | null;
+  /** @nullable */
+  redemptionId: number | null;
+  /** @nullable */
+  redemptionPassCode: string | null;
+  /** @nullable */
+  redemptionRedeemedAt: string | null;
+  /** @nullable */
+  referenceNumber: string | null;
+  /** @nullable */
+  amount: number | null;
+  /** @nullable */
+  entryDate: string | null;
+  /** @nullable */
+  description: string | null;
+  createdAt: string;
+}
+
+export type CoopFinancialDisputeEventActorType = typeof CoopFinancialDisputeEventActorType[keyof typeof CoopFinancialDisputeEventActorType];
+
+
+export const CoopFinancialDisputeEventActorType = {
+  tenant: 'tenant',
+  admin: 'admin',
+  system: 'system',
+} as const;
+
+export interface CoopFinancialDisputeEvent {
+  id: number;
+  eventType: string;
+  actorType: CoopFinancialDisputeEventActorType;
+  /** @nullable */
+  actorTenantId: number | null;
+  /** @nullable */
+  note: string | null;
+  createdAt: string;
+}
+
+export type CoopLedgerAdjustmentAdjustmentType = typeof CoopLedgerAdjustmentAdjustmentType[keyof typeof CoopLedgerAdjustmentAdjustmentType];
+
+
+export const CoopLedgerAdjustmentAdjustmentType = {
+  adjustment: 'adjustment',
+  bounty_reversal: 'bounty_reversal',
+} as const;
+
+export interface CoopLedgerAdjustment {
+  id: number;
+  adjustmentType: CoopLedgerAdjustmentAdjustmentType;
+  amount: number;
+  /** @nullable */
+  creditTenantId: number | null;
+  /** @nullable */
+  creditTenantName: string | null;
+  /** @nullable */
+  debitTenantId: number | null;
+  /** @nullable */
+  debitTenantName: string | null;
+  reason: string;
+  createdAt: string;
+}
+
+export type CoopFinancialDisputeDisputeType = typeof CoopFinancialDisputeDisputeType[keyof typeof CoopFinancialDisputeDisputeType];
+
+
+export const CoopFinancialDisputeDisputeType = {
+  commission_mismatch: 'commission_mismatch',
+  unfulfilled_redemption: 'unfulfilled_redemption',
+  shared_expense: 'shared_expense',
+} as const;
+
+export type CoopFinancialDisputeStatus = typeof CoopFinancialDisputeStatus[keyof typeof CoopFinancialDisputeStatus];
+
+
+export const CoopFinancialDisputeStatus = {
+  filed: 'filed',
+  auto_resolved: 'auto_resolved',
+  escalated: 'escalated',
+  resolved: 'resolved',
+  adjusted: 'adjusted',
+} as const;
+
+export interface CoopFinancialDispute {
+  id: number;
+  partnershipId: number;
+  perkTitle: string;
+  filedByTenantId: number;
+  filedByTenantName: string;
+  respondentTenantId: number;
+  respondentTenantName: string;
+  disputeType: CoopFinancialDisputeDisputeType;
+  /** @nullable */
+  claimedCount: number | null;
+  /** @nullable */
+  expectedCount: number | null;
+  /** @nullable */
+  claimedAmount: number | null;
+  /** @nullable */
+  expectedAmount: number | null;
+  windowStartAt: string;
+  windowEndAt: string;
+  /** @nullable */
+  details: string | null;
+  status: CoopFinancialDisputeStatus;
+  /** @nullable */
+  reconciliationSummary: string | null;
+  /** @nullable */
+  reconciliationSystemCount: number | null;
+  /** @nullable */
+  counterpartyResponse: string | null;
+  /** @nullable */
+  respondedAt: string | null;
+  /** @nullable */
+  ruling: string | null;
+  /** @nullable */
+  ruledAgainstTenantId: number | null;
+  /** @nullable */
+  escalatedAt: string | null;
+  /** @nullable */
+  resolvedAt: string | null;
+  evidence: CoopFinancialDisputeEvidenceItem[];
+  events: CoopFinancialDisputeEvent[];
+  adjustments: CoopLedgerAdjustment[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CoopFinancialDisputeEvidenceCreateReceiptsItem = {
+  /** @minLength 1 */
+  referenceNumber: string;
+  amount: number;
+  entryDate: string;
+  description?: string;
+};
+
+export interface CoopFinancialDisputeEvidenceCreate {
+  redemptionIds?: number[];
+  receipts?: CoopFinancialDisputeEvidenceCreateReceiptsItem[];
+}
+
+export type CoopFinancialDisputeCreateDisputeType = typeof CoopFinancialDisputeCreateDisputeType[keyof typeof CoopFinancialDisputeCreateDisputeType];
+
+
+export const CoopFinancialDisputeCreateDisputeType = {
+  commission_mismatch: 'commission_mismatch',
+  unfulfilled_redemption: 'unfulfilled_redemption',
+  shared_expense: 'shared_expense',
+} as const;
+
+export interface CoopFinancialDisputeCreate {
+  partnershipId: number;
+  disputeType: CoopFinancialDisputeCreateDisputeType;
+  claimedCount?: number;
+  expectedCount?: number;
+  claimedAmount?: number;
+  expectedAmount?: number;
+  windowStartAt: string;
+  windowEndAt: string;
+  details?: string;
+  evidence?: CoopFinancialDisputeEvidenceCreate;
+}
+
+export interface CoopFinancialDisputeRespond {
+  /** @minLength 1 */
+  response: string;
+}
+
+export type CoopFinancialAdjustmentCreateAdjustmentType = typeof CoopFinancialAdjustmentCreateAdjustmentType[keyof typeof CoopFinancialAdjustmentCreateAdjustmentType];
+
+
+export const CoopFinancialAdjustmentCreateAdjustmentType = {
+  adjustment: 'adjustment',
+  bounty_reversal: 'bounty_reversal',
+} as const;
+
+export interface CoopFinancialAdjustmentCreate {
+  adjustmentType: CoopFinancialAdjustmentCreateAdjustmentType;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  creditTenantId: number;
+  debitTenantId: number;
+  /** @minLength 1 */
+  reason: string;
+}
+
+export interface CoopFinancialRulingCreate {
+  /** @minLength 1 */
+  ruling: string;
+  ruledAgainstTenantId?: number;
+}
+
+export interface CoopPartnershipRedemption {
+  id: number;
+  passCode: string;
+  /** @nullable */
+  redeemedByTenantId: number | null;
+  /** @nullable */
+  redeemedByTenantName: string | null;
+  redeemedAt: string;
+}
+
+export type CoopTenantSuspensionStatus = typeof CoopTenantSuspensionStatus[keyof typeof CoopTenantSuspensionStatus];
+
+
+export const CoopTenantSuspensionStatus = {
+  active: 'active',
+  lifted: 'lifted',
+} as const;
+
+export type CoopTenantSuspensionTrigger = typeof CoopTenantSuspensionTrigger[keyof typeof CoopTenantSuspensionTrigger];
+
+
+export const CoopTenantSuspensionTrigger = {
+  manual: 'manual',
+  repeat_violator: 'repeat_violator',
+} as const;
+
+export interface CoopTenantSuspension {
+  id: number;
+  tenantId: number;
+  tenantName: string;
+  status: CoopTenantSuspensionStatus;
+  trigger: CoopTenantSuspensionTrigger;
+  /** @nullable */
+  reason: string | null;
+  /** @nullable */
+  rulingsCount: number | null;
+  /** @nullable */
+  windowDays: number | null;
+  suspendedAt: string;
+  /** @nullable */
+  liftedAt: string | null;
+}
+
+export interface CoopSuspensionCreate {
+  tenantId: number;
+  reason?: string;
+}
+
 export interface CoopRenegotiationPropose {
   /** @minLength 1 */
   perkTitle?: string;
@@ -4125,6 +4376,7 @@ export const SosMessageKind = {
   retail_low_stock: 'retail_low_stock',
   coop_reputation: 'coop_reputation',
   coop_feedback_request: 'coop_feedback_request',
+  coop_financial_dispute: 'coop_financial_dispute',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];
@@ -5680,6 +5932,21 @@ export const ListAdminCoopDisputesStatus = {
   resolved: 'resolved',
   withdrawn: 'withdrawn',
   banned: 'banned',
+} as const;
+
+export type ListAdminCoopFinancialDisputesParams = {
+status?: ListAdminCoopFinancialDisputesStatus;
+};
+
+export type ListAdminCoopFinancialDisputesStatus = typeof ListAdminCoopFinancialDisputesStatus[keyof typeof ListAdminCoopFinancialDisputesStatus];
+
+
+export const ListAdminCoopFinancialDisputesStatus = {
+  filed: 'filed',
+  auto_resolved: 'auto_resolved',
+  escalated: 'escalated',
+  resolved: 'resolved',
+  adjusted: 'adjusted',
 } as const;
 
 export type GetAdminComplianceSummaryParams = {

@@ -3443,6 +3443,695 @@ export const AddCoopDisputeMediationNoteResponse = zod.object({
 
 
 /**
+ * @summary Merchant-facing — financial dispute tickets on the scoped tenant's partnerships (as filer or respondent); tenant scope via x-tenant-id
+ */
+export const ListCoopFinancialDisputesResponseItem = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "filedByTenantId": zod.number(),
+  "filedByTenantName": zod.string(),
+  "respondentTenantId": zod.number(),
+  "respondentTenantName": zod.string(),
+  "disputeType": zod.enum(['commission_mismatch', 'unfulfilled_redemption', 'shared_expense']),
+  "claimedCount": zod.number().nullable(),
+  "expectedCount": zod.number().nullable(),
+  "claimedAmount": zod.number().nullable(),
+  "expectedAmount": zod.number().nullable(),
+  "windowStartAt": zod.string(),
+  "windowEndAt": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['filed', 'auto_resolved', 'escalated', 'resolved', 'adjusted']),
+  "reconciliationSummary": zod.string().nullable(),
+  "reconciliationSystemCount": zod.number().nullable(),
+  "counterpartyResponse": zod.string().nullable(),
+  "respondedAt": zod.string().nullable(),
+  "ruling": zod.string().nullable(),
+  "ruledAgainstTenantId": zod.number().nullable(),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "evidence": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['redemption', 'receipt']),
+  "addedByTenantId": zod.number().nullable(),
+  "redemptionId": zod.number().nullable(),
+  "redemptionPassCode": zod.string().nullable(),
+  "redemptionRedeemedAt": zod.string().nullable(),
+  "referenceNumber": zod.string().nullable(),
+  "amount": zod.number().nullable(),
+  "entryDate": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "actorType": zod.enum(['tenant', 'admin', 'system']),
+  "actorTenantId": zod.number().nullable(),
+  "note": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "adjustments": zod.array(zod.object({
+  "id": zod.number(),
+  "adjustmentType": zod.enum(['adjustment', 'bounty_reversal']),
+  "amount": zod.number(),
+  "creditTenantId": zod.number().nullable(),
+  "creditTenantName": zod.string().nullable(),
+  "debitTenantId": zod.number().nullable(),
+  "debitTenantName": zod.string().nullable(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListCoopFinancialDisputesResponse = zod.array(ListCoopFinancialDisputesResponseItem)
+
+
+/**
+ * @summary Merchant-facing — file a financial dispute on a partnership with evidence; automated reconciliation runs immediately; tenant scope via x-tenant-id
+ */
+
+
+
+export const CreateCoopFinancialDisputeBody = zod.object({
+  "partnershipId": zod.number(),
+  "disputeType": zod.enum(['commission_mismatch', 'unfulfilled_redemption', 'shared_expense']),
+  "claimedCount": zod.number().optional(),
+  "expectedCount": zod.number().optional(),
+  "claimedAmount": zod.number().optional(),
+  "expectedAmount": zod.number().optional(),
+  "windowStartAt": zod.string(),
+  "windowEndAt": zod.string(),
+  "details": zod.string().optional(),
+  "evidence": zod.object({
+  "redemptionIds": zod.array(zod.number()).optional(),
+  "receipts": zod.array(zod.object({
+  "referenceNumber": zod.string().min(1),
+  "amount": zod.number(),
+  "entryDate": zod.string(),
+  "description": zod.string().optional()
+})).optional()
+}).optional()
+})
+
+export const CreateCoopFinancialDisputeResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "filedByTenantId": zod.number(),
+  "filedByTenantName": zod.string(),
+  "respondentTenantId": zod.number(),
+  "respondentTenantName": zod.string(),
+  "disputeType": zod.enum(['commission_mismatch', 'unfulfilled_redemption', 'shared_expense']),
+  "claimedCount": zod.number().nullable(),
+  "expectedCount": zod.number().nullable(),
+  "claimedAmount": zod.number().nullable(),
+  "expectedAmount": zod.number().nullable(),
+  "windowStartAt": zod.string(),
+  "windowEndAt": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['filed', 'auto_resolved', 'escalated', 'resolved', 'adjusted']),
+  "reconciliationSummary": zod.string().nullable(),
+  "reconciliationSystemCount": zod.number().nullable(),
+  "counterpartyResponse": zod.string().nullable(),
+  "respondedAt": zod.string().nullable(),
+  "ruling": zod.string().nullable(),
+  "ruledAgainstTenantId": zod.number().nullable(),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "evidence": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['redemption', 'receipt']),
+  "addedByTenantId": zod.number().nullable(),
+  "redemptionId": zod.number().nullable(),
+  "redemptionPassCode": zod.string().nullable(),
+  "redemptionRedeemedAt": zod.string().nullable(),
+  "referenceNumber": zod.string().nullable(),
+  "amount": zod.number().nullable(),
+  "entryDate": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "actorType": zod.enum(['tenant', 'admin', 'system']),
+  "actorTenantId": zod.number().nullable(),
+  "note": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "adjustments": zod.array(zod.object({
+  "id": zod.number(),
+  "adjustmentType": zod.enum(['adjustment', 'bounty_reversal']),
+  "amount": zod.number(),
+  "creditTenantId": zod.number().nullable(),
+  "creditTenantName": zod.string().nullable(),
+  "debitTenantId": zod.number().nullable(),
+  "debitTenantName": zod.string().nullable(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — full ticket detail with evidence, status history, reconciliation summary, and adjustments; parties only
+ */
+export const GetCoopFinancialDisputeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCoopFinancialDisputeResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "filedByTenantId": zod.number(),
+  "filedByTenantName": zod.string(),
+  "respondentTenantId": zod.number(),
+  "respondentTenantName": zod.string(),
+  "disputeType": zod.enum(['commission_mismatch', 'unfulfilled_redemption', 'shared_expense']),
+  "claimedCount": zod.number().nullable(),
+  "expectedCount": zod.number().nullable(),
+  "claimedAmount": zod.number().nullable(),
+  "expectedAmount": zod.number().nullable(),
+  "windowStartAt": zod.string(),
+  "windowEndAt": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['filed', 'auto_resolved', 'escalated', 'resolved', 'adjusted']),
+  "reconciliationSummary": zod.string().nullable(),
+  "reconciliationSystemCount": zod.number().nullable(),
+  "counterpartyResponse": zod.string().nullable(),
+  "respondedAt": zod.string().nullable(),
+  "ruling": zod.string().nullable(),
+  "ruledAgainstTenantId": zod.number().nullable(),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "evidence": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['redemption', 'receipt']),
+  "addedByTenantId": zod.number().nullable(),
+  "redemptionId": zod.number().nullable(),
+  "redemptionPassCode": zod.string().nullable(),
+  "redemptionRedeemedAt": zod.string().nullable(),
+  "referenceNumber": zod.string().nullable(),
+  "amount": zod.number().nullable(),
+  "entryDate": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "actorType": zod.enum(['tenant', 'admin', 'system']),
+  "actorTenantId": zod.number().nullable(),
+  "note": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "adjustments": zod.array(zod.object({
+  "id": zod.number(),
+  "adjustmentType": zod.enum(['adjustment', 'bounty_reversal']),
+  "amount": zod.number(),
+  "creditTenantId": zod.number().nullable(),
+  "creditTenantName": zod.string().nullable(),
+  "debitTenantId": zod.number().nullable(),
+  "debitTenantName": zod.string().nullable(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — attach evidence (system redemption links and/or structured receipt entries) to an open ticket; parties only
+ */
+export const AddCoopFinancialDisputeEvidenceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const AddCoopFinancialDisputeEvidenceBody = zod.object({
+  "redemptionIds": zod.array(zod.number()).optional(),
+  "receipts": zod.array(zod.object({
+  "referenceNumber": zod.string().min(1),
+  "amount": zod.number(),
+  "entryDate": zod.string(),
+  "description": zod.string().optional()
+})).optional()
+})
+
+export const AddCoopFinancialDisputeEvidenceResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "filedByTenantId": zod.number(),
+  "filedByTenantName": zod.string(),
+  "respondentTenantId": zod.number(),
+  "respondentTenantName": zod.string(),
+  "disputeType": zod.enum(['commission_mismatch', 'unfulfilled_redemption', 'shared_expense']),
+  "claimedCount": zod.number().nullable(),
+  "expectedCount": zod.number().nullable(),
+  "claimedAmount": zod.number().nullable(),
+  "expectedAmount": zod.number().nullable(),
+  "windowStartAt": zod.string(),
+  "windowEndAt": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['filed', 'auto_resolved', 'escalated', 'resolved', 'adjusted']),
+  "reconciliationSummary": zod.string().nullable(),
+  "reconciliationSystemCount": zod.number().nullable(),
+  "counterpartyResponse": zod.string().nullable(),
+  "respondedAt": zod.string().nullable(),
+  "ruling": zod.string().nullable(),
+  "ruledAgainstTenantId": zod.number().nullable(),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "evidence": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['redemption', 'receipt']),
+  "addedByTenantId": zod.number().nullable(),
+  "redemptionId": zod.number().nullable(),
+  "redemptionPassCode": zod.string().nullable(),
+  "redemptionRedeemedAt": zod.string().nullable(),
+  "referenceNumber": zod.string().nullable(),
+  "amount": zod.number().nullable(),
+  "entryDate": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "actorType": zod.enum(['tenant', 'admin', 'system']),
+  "actorTenantId": zod.number().nullable(),
+  "note": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "adjustments": zod.array(zod.object({
+  "id": zod.number(),
+  "adjustmentType": zod.enum(['adjustment', 'bounty_reversal']),
+  "amount": zod.number(),
+  "creditTenantId": zod.number().nullable(),
+  "creditTenantName": zod.string().nullable(),
+  "debitTenantId": zod.number().nullable(),
+  "debitTenantName": zod.string().nullable(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — the respondent records a written response on an open ticket
+ */
+export const RespondToCoopFinancialDisputeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const RespondToCoopFinancialDisputeBody = zod.object({
+  "response": zod.string().min(1)
+})
+
+export const RespondToCoopFinancialDisputeResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "filedByTenantId": zod.number(),
+  "filedByTenantName": zod.string(),
+  "respondentTenantId": zod.number(),
+  "respondentTenantName": zod.string(),
+  "disputeType": zod.enum(['commission_mismatch', 'unfulfilled_redemption', 'shared_expense']),
+  "claimedCount": zod.number().nullable(),
+  "expectedCount": zod.number().nullable(),
+  "claimedAmount": zod.number().nullable(),
+  "expectedAmount": zod.number().nullable(),
+  "windowStartAt": zod.string(),
+  "windowEndAt": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['filed', 'auto_resolved', 'escalated', 'resolved', 'adjusted']),
+  "reconciliationSummary": zod.string().nullable(),
+  "reconciliationSystemCount": zod.number().nullable(),
+  "counterpartyResponse": zod.string().nullable(),
+  "respondedAt": zod.string().nullable(),
+  "ruling": zod.string().nullable(),
+  "ruledAgainstTenantId": zod.number().nullable(),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "evidence": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['redemption', 'receipt']),
+  "addedByTenantId": zod.number().nullable(),
+  "redemptionId": zod.number().nullable(),
+  "redemptionPassCode": zod.string().nullable(),
+  "redemptionRedeemedAt": zod.string().nullable(),
+  "referenceNumber": zod.string().nullable(),
+  "amount": zod.number().nullable(),
+  "entryDate": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "actorType": zod.enum(['tenant', 'admin', 'system']),
+  "actorTenantId": zod.number().nullable(),
+  "note": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "adjustments": zod.array(zod.object({
+  "id": zod.number(),
+  "adjustmentType": zod.enum(['adjustment', 'bounty_reversal']),
+  "amount": zod.number(),
+  "creditTenantId": zod.number().nullable(),
+  "creditTenantName": zod.string().nullable(),
+  "debitTenantId": zod.number().nullable(),
+  "debitTenantName": zod.string().nullable(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — the partnership's system redemption records for the evidence picker; parties only
+ */
+export const ListCoopPartnershipRedemptionsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListCoopPartnershipRedemptionsResponseItem = zod.object({
+  "id": zod.number(),
+  "passCode": zod.string(),
+  "redeemedByTenantId": zod.number().nullable(),
+  "redeemedByTenantName": zod.string().nullable(),
+  "redeemedAt": zod.string()
+})
+export const ListCoopPartnershipRedemptionsResponse = zod.array(ListCoopPartnershipRedemptionsResponseItem)
+
+
+/**
+ * @summary Admin-only — Mediation Hub queue of financial disputes with evidence and reconciliation reports, optionally filtered by status
+ */
+export const ListAdminCoopFinancialDisputesQueryParams = zod.object({
+  "status": zod.enum(['filed', 'auto_resolved', 'escalated', 'resolved', 'adjusted']).optional()
+})
+
+export const ListAdminCoopFinancialDisputesResponseItem = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "filedByTenantId": zod.number(),
+  "filedByTenantName": zod.string(),
+  "respondentTenantId": zod.number(),
+  "respondentTenantName": zod.string(),
+  "disputeType": zod.enum(['commission_mismatch', 'unfulfilled_redemption', 'shared_expense']),
+  "claimedCount": zod.number().nullable(),
+  "expectedCount": zod.number().nullable(),
+  "claimedAmount": zod.number().nullable(),
+  "expectedAmount": zod.number().nullable(),
+  "windowStartAt": zod.string(),
+  "windowEndAt": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['filed', 'auto_resolved', 'escalated', 'resolved', 'adjusted']),
+  "reconciliationSummary": zod.string().nullable(),
+  "reconciliationSystemCount": zod.number().nullable(),
+  "counterpartyResponse": zod.string().nullable(),
+  "respondedAt": zod.string().nullable(),
+  "ruling": zod.string().nullable(),
+  "ruledAgainstTenantId": zod.number().nullable(),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "evidence": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['redemption', 'receipt']),
+  "addedByTenantId": zod.number().nullable(),
+  "redemptionId": zod.number().nullable(),
+  "redemptionPassCode": zod.string().nullable(),
+  "redemptionRedeemedAt": zod.string().nullable(),
+  "referenceNumber": zod.string().nullable(),
+  "amount": zod.number().nullable(),
+  "entryDate": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "actorType": zod.enum(['tenant', 'admin', 'system']),
+  "actorTenantId": zod.number().nullable(),
+  "note": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "adjustments": zod.array(zod.object({
+  "id": zod.number(),
+  "adjustmentType": zod.enum(['adjustment', 'bounty_reversal']),
+  "amount": zod.number(),
+  "creditTenantId": zod.number().nullable(),
+  "creditTenantName": zod.string().nullable(),
+  "debitTenantId": zod.number().nullable(),
+  "debitTenantName": zod.string().nullable(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListAdminCoopFinancialDisputesResponse = zod.array(ListAdminCoopFinancialDisputesResponseItem)
+
+
+/**
+ * @summary Admin-only — record a compensating ledger adjustment or referral bounty reversal on an escalated ticket
+ */
+export const CreateCoopFinancialAdjustmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const createCoopFinancialAdjustmentBodyAmountExclusiveMin = 0;
+
+
+
+
+export const CreateCoopFinancialAdjustmentBody = zod.object({
+  "adjustmentType": zod.enum(['adjustment', 'bounty_reversal']),
+  "amount": zod.number().gt(createCoopFinancialAdjustmentBodyAmountExclusiveMin),
+  "creditTenantId": zod.number(),
+  "debitTenantId": zod.number(),
+  "reason": zod.string().min(1)
+})
+
+export const CreateCoopFinancialAdjustmentResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "filedByTenantId": zod.number(),
+  "filedByTenantName": zod.string(),
+  "respondentTenantId": zod.number(),
+  "respondentTenantName": zod.string(),
+  "disputeType": zod.enum(['commission_mismatch', 'unfulfilled_redemption', 'shared_expense']),
+  "claimedCount": zod.number().nullable(),
+  "expectedCount": zod.number().nullable(),
+  "claimedAmount": zod.number().nullable(),
+  "expectedAmount": zod.number().nullable(),
+  "windowStartAt": zod.string(),
+  "windowEndAt": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['filed', 'auto_resolved', 'escalated', 'resolved', 'adjusted']),
+  "reconciliationSummary": zod.string().nullable(),
+  "reconciliationSystemCount": zod.number().nullable(),
+  "counterpartyResponse": zod.string().nullable(),
+  "respondedAt": zod.string().nullable(),
+  "ruling": zod.string().nullable(),
+  "ruledAgainstTenantId": zod.number().nullable(),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "evidence": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['redemption', 'receipt']),
+  "addedByTenantId": zod.number().nullable(),
+  "redemptionId": zod.number().nullable(),
+  "redemptionPassCode": zod.string().nullable(),
+  "redemptionRedeemedAt": zod.string().nullable(),
+  "referenceNumber": zod.string().nullable(),
+  "amount": zod.number().nullable(),
+  "entryDate": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "actorType": zod.enum(['tenant', 'admin', 'system']),
+  "actorTenantId": zod.number().nullable(),
+  "note": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "adjustments": zod.array(zod.object({
+  "id": zod.number(),
+  "adjustmentType": zod.enum(['adjustment', 'bounty_reversal']),
+  "amount": zod.number(),
+  "creditTenantId": zod.number().nullable(),
+  "creditTenantName": zod.string().nullable(),
+  "debitTenantId": zod.number().nullable(),
+  "debitTenantName": zod.string().nullable(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Admin-only — close an escalated ticket with a written ruling; rulings against a tenant feed repeat-violator auto-suspension
+ */
+export const IssueCoopFinancialRulingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const IssueCoopFinancialRulingBody = zod.object({
+  "ruling": zod.string().min(1),
+  "ruledAgainstTenantId": zod.number().optional()
+})
+
+export const IssueCoopFinancialRulingResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "filedByTenantId": zod.number(),
+  "filedByTenantName": zod.string(),
+  "respondentTenantId": zod.number(),
+  "respondentTenantName": zod.string(),
+  "disputeType": zod.enum(['commission_mismatch', 'unfulfilled_redemption', 'shared_expense']),
+  "claimedCount": zod.number().nullable(),
+  "expectedCount": zod.number().nullable(),
+  "claimedAmount": zod.number().nullable(),
+  "expectedAmount": zod.number().nullable(),
+  "windowStartAt": zod.string(),
+  "windowEndAt": zod.string(),
+  "details": zod.string().nullable(),
+  "status": zod.enum(['filed', 'auto_resolved', 'escalated', 'resolved', 'adjusted']),
+  "reconciliationSummary": zod.string().nullable(),
+  "reconciliationSystemCount": zod.number().nullable(),
+  "counterpartyResponse": zod.string().nullable(),
+  "respondedAt": zod.string().nullable(),
+  "ruling": zod.string().nullable(),
+  "ruledAgainstTenantId": zod.number().nullable(),
+  "escalatedAt": zod.string().nullable(),
+  "resolvedAt": zod.string().nullable(),
+  "evidence": zod.array(zod.object({
+  "id": zod.number(),
+  "kind": zod.enum(['redemption', 'receipt']),
+  "addedByTenantId": zod.number().nullable(),
+  "redemptionId": zod.number().nullable(),
+  "redemptionPassCode": zod.string().nullable(),
+  "redemptionRedeemedAt": zod.string().nullable(),
+  "referenceNumber": zod.string().nullable(),
+  "amount": zod.number().nullable(),
+  "entryDate": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.string(),
+  "actorType": zod.enum(['tenant', 'admin', 'system']),
+  "actorTenantId": zod.number().nullable(),
+  "note": zod.string().nullable(),
+  "createdAt": zod.string()
+})),
+  "adjustments": zod.array(zod.object({
+  "id": zod.number(),
+  "adjustmentType": zod.enum(['adjustment', 'bounty_reversal']),
+  "amount": zod.number(),
+  "creditTenantId": zod.number().nullable(),
+  "creditTenantName": zod.string().nullable(),
+  "debitTenantId": zod.number().nullable(),
+  "debitTenantName": zod.string().nullable(),
+  "reason": zod.string(),
+  "createdAt": zod.string()
+})),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Admin-only — tenant co-op participation suspensions (active and lifted) with trigger metadata
+ */
+export const ListCoopSuspensionsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['active', 'lifted']),
+  "trigger": zod.enum(['manual', 'repeat_violator']),
+  "reason": zod.string().nullable(),
+  "rulingsCount": zod.number().nullable(),
+  "windowDays": zod.number().nullable(),
+  "suspendedAt": zod.string(),
+  "liftedAt": zod.string().nullable()
+})
+export const ListCoopSuspensionsResponse = zod.array(ListCoopSuspensionsResponseItem)
+
+
+/**
+ * @summary Admin-only — suspend a tenant's co-op participation (perks stop serving; no new partnerships)
+ */
+export const CreateCoopSuspensionBody = zod.object({
+  "tenantId": zod.number(),
+  "reason": zod.string().optional()
+})
+
+export const CreateCoopSuspensionResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['active', 'lifted']),
+  "trigger": zod.enum(['manual', 'repeat_violator']),
+  "reason": zod.string().nullable(),
+  "rulingsCount": zod.number().nullable(),
+  "windowDays": zod.number().nullable(),
+  "suspendedAt": zod.string(),
+  "liftedAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Admin-only — reinstate a suspended tenant's co-op participation
+ */
+export const LiftCoopSuspensionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const LiftCoopSuspensionResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "status": zod.enum(['active', 'lifted']),
+  "trigger": zod.enum(['manual', 'repeat_violator']),
+  "reason": zod.string().nullable(),
+  "rulingsCount": zod.number().nullable(),
+  "windowDays": zod.number().nullable(),
+  "suspendedAt": zod.string(),
+  "liftedAt": zod.string().nullable()
+})
+
+
+/**
  * @summary Admin-only — list campaign redirect links with click counts
  */
 export const ListAdminCampaignsResponseItem = zod.object({
@@ -4328,7 +5017,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -4357,7 +5046,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

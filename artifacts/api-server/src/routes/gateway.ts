@@ -21,7 +21,7 @@ import {
 } from "@workspace/api-zod";
 import { perkWindowOpen } from "../lib/coopPerks";
 import { findWalletPass, isWalletPassToken } from "../lib/perkPasses";
-import { redeemWalletPassAsTenant } from "../lib/walletRedemption";
+import { redeemWalletPassAsTenant, coopRedemptionBlockReason } from "../lib/walletRedemption";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -414,11 +414,12 @@ router.post("/v1/gateway/vouchers/validate", async (req, res): Promise<void> => 
     res.json({ sandbox: false, code, valid: false, reason: "Unknown or inaccessible voucher", perkTitle: null });
     return;
   }
-  let reason: string | null = null;
-  if (!row.partnership.isActive || row.partnership.status !== "accepted") {
-    reason = "This partnership is no longer active";
-  } else if (row.pass.redeemedAt != null) reason = "This pass was already redeemed";
-  else if (row.pass.expiresAt <= new Date()) reason = "This pass has expired";
+  // Centralized policy guard so validate answers match redeem behavior:
+  // inactive, dispute-suspended, banned, decoupled-reputation, and
+  // mediation-suspended partnerships all fail validation here too.
+  let reason: string | null = await coopRedemptionBlockReason(row.partnership);
+  if (reason == null && row.pass.redeemedAt != null) reason = "This pass was already redeemed";
+  else if (reason == null && row.pass.expiresAt <= new Date()) reason = "This pass has expired";
   await logCall(req, auth, 200, "ok", `Validate ${code}: ${reason ?? "valid"}`);
   res.json({
     sandbox: false,

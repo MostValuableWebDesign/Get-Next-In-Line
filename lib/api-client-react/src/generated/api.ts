@@ -77,6 +77,12 @@ import type {
   CoopEventParticipantUpdate,
   CoopEventRespond,
   CoopFeaturedBoost,
+  CoopFinancialAdjustmentCreate,
+  CoopFinancialDispute,
+  CoopFinancialDisputeCreate,
+  CoopFinancialDisputeEvidenceCreate,
+  CoopFinancialDisputeRespond,
+  CoopFinancialRulingCreate,
   CoopIndustryBarrierError,
   CoopInviteCreate,
   CoopInviteRespond,
@@ -88,6 +94,7 @@ import type {
   CoopPartnerRatingSubmit,
   CoopPartnership,
   CoopPartnershipCreate,
+  CoopPartnershipRedemption,
   CoopPartnershipUpdate,
   CoopPerkRedeemRequest,
   CoopPerkRedeemResult,
@@ -114,9 +121,11 @@ import type {
   CoopSurgeRule,
   CoopSurgeRuleCreate,
   CoopSurgeRuleUpdate,
+  CoopSuspensionCreate,
   CoopTaxSettings,
   CoopTaxSettingsUpdate,
   CoopTaxonomyIndustry,
+  CoopTenantSuspension,
   CoopWalletResponse,
   CreateGatewayTokenRequest,
   DeleteCoopSurgeRule200,
@@ -164,6 +173,7 @@ import type {
   GratuityShiftReportRow,
   HealthStatus,
   ListAdminCoopDisputesParams,
+  ListAdminCoopFinancialDisputesParams,
   ListCoopComplianceLedgerParams,
   ListCoopDirectoryParams,
   ListCoopPartnerPayoutsParams,
@@ -9294,6 +9304,899 @@ export const useAddCoopDisputeMediationNote = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getAddCoopDisputeMediationNoteMutationOptions(options));
+    }
+
+export const getListCoopFinancialDisputesUrl = () => {
+
+
+
+
+  return `/api/coop/financial-disputes`
+}
+
+/**
+ * @summary Merchant-facing — financial dispute tickets on the scoped tenant's partnerships (as filer or respondent); tenant scope via x-tenant-id
+ */
+export const listCoopFinancialDisputes = async ( options?: RequestInit): Promise<CoopFinancialDispute[]> => {
+
+  return customFetch<CoopFinancialDispute[]>(getListCoopFinancialDisputesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopFinancialDisputesQueryKey = () => {
+    return [
+    `/api/coop/financial-disputes`
+    ] as const;
+    }
+
+
+export const getListCoopFinancialDisputesQueryOptions = <TData = Awaited<ReturnType<typeof listCoopFinancialDisputes>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopFinancialDisputes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopFinancialDisputesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopFinancialDisputes>>> = ({ signal }) => listCoopFinancialDisputes({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopFinancialDisputes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopFinancialDisputesQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopFinancialDisputes>>>
+export type ListCoopFinancialDisputesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — financial dispute tickets on the scoped tenant's partnerships (as filer or respondent); tenant scope via x-tenant-id
+ */
+
+export function useListCoopFinancialDisputes<TData = Awaited<ReturnType<typeof listCoopFinancialDisputes>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopFinancialDisputes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopFinancialDisputesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopFinancialDisputeUrl = () => {
+
+
+
+
+  return `/api/coop/financial-disputes`
+}
+
+/**
+ * @summary Merchant-facing — file a financial dispute on a partnership with evidence; automated reconciliation runs immediately; tenant scope via x-tenant-id
+ */
+export const createCoopFinancialDispute = async (coopFinancialDisputeCreate: CoopFinancialDisputeCreate, options?: RequestInit): Promise<CoopFinancialDispute> => {
+
+  return customFetch<CoopFinancialDispute>(getCreateCoopFinancialDisputeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopFinancialDisputeCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopFinancialDisputeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopFinancialDispute>>, TError,{data: BodyType<CoopFinancialDisputeCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopFinancialDispute>>, TError,{data: BodyType<CoopFinancialDisputeCreate>}, TContext> => {
+
+const mutationKey = ['createCoopFinancialDispute'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopFinancialDispute>>, {data: BodyType<CoopFinancialDisputeCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopFinancialDispute(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopFinancialDisputeMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopFinancialDispute>>>
+    export type CreateCoopFinancialDisputeMutationBody = BodyType<CoopFinancialDisputeCreate>
+    export type CreateCoopFinancialDisputeMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — file a financial dispute on a partnership with evidence; automated reconciliation runs immediately; tenant scope via x-tenant-id
+ */
+export const useCreateCoopFinancialDispute = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopFinancialDispute>>, TError,{data: BodyType<CoopFinancialDisputeCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopFinancialDispute>>,
+        TError,
+        {data: BodyType<CoopFinancialDisputeCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopFinancialDisputeMutationOptions(options));
+    }
+
+export const getGetCoopFinancialDisputeUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/financial-disputes/${id}`
+}
+
+/**
+ * @summary Merchant-facing — full ticket detail with evidence, status history, reconciliation summary, and adjustments; parties only
+ */
+export const getCoopFinancialDispute = async (id: number, options?: RequestInit): Promise<CoopFinancialDispute> => {
+
+  return customFetch<CoopFinancialDispute>(getGetCoopFinancialDisputeUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopFinancialDisputeQueryKey = (id: number,) => {
+    return [
+    `/api/coop/financial-disputes/${id}`
+    ] as const;
+    }
+
+
+export const getGetCoopFinancialDisputeQueryOptions = <TData = Awaited<ReturnType<typeof getCoopFinancialDispute>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopFinancialDispute>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopFinancialDisputeQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopFinancialDispute>>> = ({ signal }) => getCoopFinancialDispute(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopFinancialDispute>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopFinancialDisputeQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopFinancialDispute>>>
+export type GetCoopFinancialDisputeQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — full ticket detail with evidence, status history, reconciliation summary, and adjustments; parties only
+ */
+
+export function useGetCoopFinancialDispute<TData = Awaited<ReturnType<typeof getCoopFinancialDispute>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopFinancialDispute>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopFinancialDisputeQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAddCoopFinancialDisputeEvidenceUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/financial-disputes/${id}/evidence`
+}
+
+/**
+ * @summary Merchant-facing — attach evidence (system redemption links and/or structured receipt entries) to an open ticket; parties only
+ */
+export const addCoopFinancialDisputeEvidence = async (id: number,
+    coopFinancialDisputeEvidenceCreate: CoopFinancialDisputeEvidenceCreate, options?: RequestInit): Promise<CoopFinancialDispute> => {
+
+  return customFetch<CoopFinancialDispute>(getAddCoopFinancialDisputeEvidenceUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopFinancialDisputeEvidenceCreate)
+  }
+);}
+
+
+
+
+
+export const getAddCoopFinancialDisputeEvidenceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCoopFinancialDisputeEvidence>>, TError,{id: number;data: BodyType<CoopFinancialDisputeEvidenceCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addCoopFinancialDisputeEvidence>>, TError,{id: number;data: BodyType<CoopFinancialDisputeEvidenceCreate>}, TContext> => {
+
+const mutationKey = ['addCoopFinancialDisputeEvidence'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addCoopFinancialDisputeEvidence>>, {id: number;data: BodyType<CoopFinancialDisputeEvidenceCreate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  addCoopFinancialDisputeEvidence(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddCoopFinancialDisputeEvidenceMutationResult = NonNullable<Awaited<ReturnType<typeof addCoopFinancialDisputeEvidence>>>
+    export type AddCoopFinancialDisputeEvidenceMutationBody = BodyType<CoopFinancialDisputeEvidenceCreate>
+    export type AddCoopFinancialDisputeEvidenceMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — attach evidence (system redemption links and/or structured receipt entries) to an open ticket; parties only
+ */
+export const useAddCoopFinancialDisputeEvidence = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addCoopFinancialDisputeEvidence>>, TError,{id: number;data: BodyType<CoopFinancialDisputeEvidenceCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addCoopFinancialDisputeEvidence>>,
+        TError,
+        {id: number;data: BodyType<CoopFinancialDisputeEvidenceCreate>},
+        TContext
+      > => {
+      return useMutation(getAddCoopFinancialDisputeEvidenceMutationOptions(options));
+    }
+
+export const getRespondToCoopFinancialDisputeUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/financial-disputes/${id}/respond`
+}
+
+/**
+ * @summary Merchant-facing — the respondent records a written response on an open ticket
+ */
+export const respondToCoopFinancialDispute = async (id: number,
+    coopFinancialDisputeRespond: CoopFinancialDisputeRespond, options?: RequestInit): Promise<CoopFinancialDispute> => {
+
+  return customFetch<CoopFinancialDispute>(getRespondToCoopFinancialDisputeUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopFinancialDisputeRespond)
+  }
+);}
+
+
+
+
+
+export const getRespondToCoopFinancialDisputeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopFinancialDispute>>, TError,{id: number;data: BodyType<CoopFinancialDisputeRespond>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondToCoopFinancialDispute>>, TError,{id: number;data: BodyType<CoopFinancialDisputeRespond>}, TContext> => {
+
+const mutationKey = ['respondToCoopFinancialDispute'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondToCoopFinancialDispute>>, {id: number;data: BodyType<CoopFinancialDisputeRespond>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  respondToCoopFinancialDispute(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondToCoopFinancialDisputeMutationResult = NonNullable<Awaited<ReturnType<typeof respondToCoopFinancialDispute>>>
+    export type RespondToCoopFinancialDisputeMutationBody = BodyType<CoopFinancialDisputeRespond>
+    export type RespondToCoopFinancialDisputeMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — the respondent records a written response on an open ticket
+ */
+export const useRespondToCoopFinancialDispute = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopFinancialDispute>>, TError,{id: number;data: BodyType<CoopFinancialDisputeRespond>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondToCoopFinancialDispute>>,
+        TError,
+        {id: number;data: BodyType<CoopFinancialDisputeRespond>},
+        TContext
+      > => {
+      return useMutation(getRespondToCoopFinancialDisputeMutationOptions(options));
+    }
+
+export const getListCoopPartnershipRedemptionsUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/partnerships/${id}/redemptions`
+}
+
+/**
+ * @summary Merchant-facing — the partnership's system redemption records for the evidence picker; parties only
+ */
+export const listCoopPartnershipRedemptions = async (id: number, options?: RequestInit): Promise<CoopPartnershipRedemption[]> => {
+
+  return customFetch<CoopPartnershipRedemption[]>(getListCoopPartnershipRedemptionsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopPartnershipRedemptionsQueryKey = (id: number,) => {
+    return [
+    `/api/coop/partnerships/${id}/redemptions`
+    ] as const;
+    }
+
+
+export const getListCoopPartnershipRedemptionsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopPartnershipRedemptions>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnershipRedemptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopPartnershipRedemptionsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopPartnershipRedemptions>>> = ({ signal }) => listCoopPartnershipRedemptions(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnershipRedemptions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopPartnershipRedemptionsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopPartnershipRedemptions>>>
+export type ListCoopPartnershipRedemptionsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — the partnership's system redemption records for the evidence picker; parties only
+ */
+
+export function useListCoopPartnershipRedemptions<TData = Awaited<ReturnType<typeof listCoopPartnershipRedemptions>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPartnershipRedemptions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopPartnershipRedemptionsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAdminCoopFinancialDisputesUrl = (params?: ListAdminCoopFinancialDisputesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/coop/financial-disputes?${stringifiedParams}` : `/api/admin/coop/financial-disputes`
+}
+
+/**
+ * @summary Admin-only — Mediation Hub queue of financial disputes with evidence and reconciliation reports, optionally filtered by status
+ */
+export const listAdminCoopFinancialDisputes = async (params?: ListAdminCoopFinancialDisputesParams, options?: RequestInit): Promise<CoopFinancialDispute[]> => {
+
+  return customFetch<CoopFinancialDispute[]>(getListAdminCoopFinancialDisputesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminCoopFinancialDisputesQueryKey = (params?: ListAdminCoopFinancialDisputesParams,) => {
+    return [
+    `/api/admin/coop/financial-disputes`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAdminCoopFinancialDisputesQueryOptions = <TData = Awaited<ReturnType<typeof listAdminCoopFinancialDisputes>>, TError = ErrorType<unknown>>(params?: ListAdminCoopFinancialDisputesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopFinancialDisputes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminCoopFinancialDisputesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminCoopFinancialDisputes>>> = ({ signal }) => listAdminCoopFinancialDisputes(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopFinancialDisputes>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminCoopFinancialDisputesQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminCoopFinancialDisputes>>>
+export type ListAdminCoopFinancialDisputesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Admin-only — Mediation Hub queue of financial disputes with evidence and reconciliation reports, optionally filtered by status
+ */
+
+export function useListAdminCoopFinancialDisputes<TData = Awaited<ReturnType<typeof listAdminCoopFinancialDisputes>>, TError = ErrorType<unknown>>(
+ params?: ListAdminCoopFinancialDisputesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopFinancialDisputes>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminCoopFinancialDisputesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopFinancialAdjustmentUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/coop/financial-disputes/${id}/adjustments`
+}
+
+/**
+ * @summary Admin-only — record a compensating ledger adjustment or referral bounty reversal on an escalated ticket
+ */
+export const createCoopFinancialAdjustment = async (id: number,
+    coopFinancialAdjustmentCreate: CoopFinancialAdjustmentCreate, options?: RequestInit): Promise<CoopFinancialDispute> => {
+
+  return customFetch<CoopFinancialDispute>(getCreateCoopFinancialAdjustmentUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopFinancialAdjustmentCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopFinancialAdjustmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopFinancialAdjustment>>, TError,{id: number;data: BodyType<CoopFinancialAdjustmentCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopFinancialAdjustment>>, TError,{id: number;data: BodyType<CoopFinancialAdjustmentCreate>}, TContext> => {
+
+const mutationKey = ['createCoopFinancialAdjustment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopFinancialAdjustment>>, {id: number;data: BodyType<CoopFinancialAdjustmentCreate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createCoopFinancialAdjustment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopFinancialAdjustmentMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopFinancialAdjustment>>>
+    export type CreateCoopFinancialAdjustmentMutationBody = BodyType<CoopFinancialAdjustmentCreate>
+    export type CreateCoopFinancialAdjustmentMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — record a compensating ledger adjustment or referral bounty reversal on an escalated ticket
+ */
+export const useCreateCoopFinancialAdjustment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopFinancialAdjustment>>, TError,{id: number;data: BodyType<CoopFinancialAdjustmentCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopFinancialAdjustment>>,
+        TError,
+        {id: number;data: BodyType<CoopFinancialAdjustmentCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopFinancialAdjustmentMutationOptions(options));
+    }
+
+export const getIssueCoopFinancialRulingUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/coop/financial-disputes/${id}/ruling`
+}
+
+/**
+ * @summary Admin-only — close an escalated ticket with a written ruling; rulings against a tenant feed repeat-violator auto-suspension
+ */
+export const issueCoopFinancialRuling = async (id: number,
+    coopFinancialRulingCreate: CoopFinancialRulingCreate, options?: RequestInit): Promise<CoopFinancialDispute> => {
+
+  return customFetch<CoopFinancialDispute>(getIssueCoopFinancialRulingUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopFinancialRulingCreate)
+  }
+);}
+
+
+
+
+
+export const getIssueCoopFinancialRulingMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueCoopFinancialRuling>>, TError,{id: number;data: BodyType<CoopFinancialRulingCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof issueCoopFinancialRuling>>, TError,{id: number;data: BodyType<CoopFinancialRulingCreate>}, TContext> => {
+
+const mutationKey = ['issueCoopFinancialRuling'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof issueCoopFinancialRuling>>, {id: number;data: BodyType<CoopFinancialRulingCreate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  issueCoopFinancialRuling(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IssueCoopFinancialRulingMutationResult = NonNullable<Awaited<ReturnType<typeof issueCoopFinancialRuling>>>
+    export type IssueCoopFinancialRulingMutationBody = BodyType<CoopFinancialRulingCreate>
+    export type IssueCoopFinancialRulingMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — close an escalated ticket with a written ruling; rulings against a tenant feed repeat-violator auto-suspension
+ */
+export const useIssueCoopFinancialRuling = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueCoopFinancialRuling>>, TError,{id: number;data: BodyType<CoopFinancialRulingCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof issueCoopFinancialRuling>>,
+        TError,
+        {id: number;data: BodyType<CoopFinancialRulingCreate>},
+        TContext
+      > => {
+      return useMutation(getIssueCoopFinancialRulingMutationOptions(options));
+    }
+
+export const getListCoopSuspensionsUrl = () => {
+
+
+
+
+  return `/api/admin/coop/suspensions`
+}
+
+/**
+ * @summary Admin-only — tenant co-op participation suspensions (active and lifted) with trigger metadata
+ */
+export const listCoopSuspensions = async ( options?: RequestInit): Promise<CoopTenantSuspension[]> => {
+
+  return customFetch<CoopTenantSuspension[]>(getListCoopSuspensionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopSuspensionsQueryKey = () => {
+    return [
+    `/api/admin/coop/suspensions`
+    ] as const;
+    }
+
+
+export const getListCoopSuspensionsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopSuspensions>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSuspensions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopSuspensionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopSuspensions>>> = ({ signal }) => listCoopSuspensions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopSuspensions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopSuspensionsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopSuspensions>>>
+export type ListCoopSuspensionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Admin-only — tenant co-op participation suspensions (active and lifted) with trigger metadata
+ */
+
+export function useListCoopSuspensions<TData = Awaited<ReturnType<typeof listCoopSuspensions>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSuspensions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopSuspensionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopSuspensionUrl = () => {
+
+
+
+
+  return `/api/admin/coop/suspensions`
+}
+
+/**
+ * @summary Admin-only — suspend a tenant's co-op participation (perks stop serving; no new partnerships)
+ */
+export const createCoopSuspension = async (coopSuspensionCreate: CoopSuspensionCreate, options?: RequestInit): Promise<CoopTenantSuspension> => {
+
+  return customFetch<CoopTenantSuspension>(getCreateCoopSuspensionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopSuspensionCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopSuspensionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopSuspension>>, TError,{data: BodyType<CoopSuspensionCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopSuspension>>, TError,{data: BodyType<CoopSuspensionCreate>}, TContext> => {
+
+const mutationKey = ['createCoopSuspension'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopSuspension>>, {data: BodyType<CoopSuspensionCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopSuspension(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopSuspensionMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopSuspension>>>
+    export type CreateCoopSuspensionMutationBody = BodyType<CoopSuspensionCreate>
+    export type CreateCoopSuspensionMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — suspend a tenant's co-op participation (perks stop serving; no new partnerships)
+ */
+export const useCreateCoopSuspension = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopSuspension>>, TError,{data: BodyType<CoopSuspensionCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopSuspension>>,
+        TError,
+        {data: BodyType<CoopSuspensionCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopSuspensionMutationOptions(options));
+    }
+
+export const getLiftCoopSuspensionUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/coop/suspensions/${id}/lift`
+}
+
+/**
+ * @summary Admin-only — reinstate a suspended tenant's co-op participation
+ */
+export const liftCoopSuspension = async (id: number, options?: RequestInit): Promise<CoopTenantSuspension> => {
+
+  return customFetch<CoopTenantSuspension>(getLiftCoopSuspensionUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLiftCoopSuspensionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof liftCoopSuspension>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof liftCoopSuspension>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['liftCoopSuspension'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof liftCoopSuspension>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  liftCoopSuspension(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LiftCoopSuspensionMutationResult = NonNullable<Awaited<ReturnType<typeof liftCoopSuspension>>>
+
+    export type LiftCoopSuspensionMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — reinstate a suspended tenant's co-op participation
+ */
+export const useLiftCoopSuspension = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof liftCoopSuspension>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof liftCoopSuspension>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getLiftCoopSuspensionMutationOptions(options));
     }
 
 export const getListAdminCampaignsUrl = () => {

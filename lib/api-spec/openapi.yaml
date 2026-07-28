@@ -2651,6 +2651,307 @@ paths:
         "404":
           description: Not found
 
+  /coop/financial-disputes:
+    get:
+      operationId: listCoopFinancialDisputes
+      tags: [coop]
+      summary: Merchant-facing — financial dispute tickets on the scoped tenant's partnerships (as filer or respondent); tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Financial disputes involving the scoped tenant, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopFinancialDispute"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createCoopFinancialDispute
+      tags: [coop]
+      summary: Merchant-facing — file a financial dispute on a partnership with evidence; automated reconciliation runs immediately; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopFinancialDisputeCreate"
+      responses:
+        "201":
+          description: Ticket filed and reconciled (auto-resolved or escalated); counterparty notified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopFinancialDispute"
+        "400":
+          description: Invalid body, invalid date range, or missing x-tenant-id header
+        "403":
+          description: The filer is not a party to this partnership
+        "404":
+          description: Partnership not found
+        "409":
+          description: Linked redemption does not belong to this partnership
+
+  /coop/financial-disputes/{id}:
+    get:
+      operationId: getCoopFinancialDispute
+      tags: [coop]
+      summary: Merchant-facing — full ticket detail with evidence, status history, reconciliation summary, and adjustments; parties only
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ticket detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopFinancialDispute"
+        "403":
+          description: The scoped tenant is not a party to this ticket
+        "404":
+          description: Not found
+
+  /coop/financial-disputes/{id}/evidence:
+    post:
+      operationId: addCoopFinancialDisputeEvidence
+      tags: [coop]
+      summary: Merchant-facing — attach evidence (system redemption links and/or structured receipt entries) to an open ticket; parties only
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopFinancialDisputeEvidenceCreate"
+      responses:
+        "200":
+          description: Updated ticket with the new evidence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopFinancialDispute"
+        "400":
+          description: Invalid body
+        "403":
+          description: The scoped tenant is not a party to this ticket
+        "404":
+          description: Not found
+        "409":
+          description: Ticket already closed, or a linked redemption does not belong to the partnership
+
+  /coop/financial-disputes/{id}/respond:
+    post:
+      operationId: respondToCoopFinancialDispute
+      tags: [coop]
+      summary: Merchant-facing — the respondent records a written response on an open ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopFinancialDisputeRespond"
+      responses:
+        "200":
+          description: Updated ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopFinancialDispute"
+        "400":
+          description: Invalid body
+        "403":
+          description: Only the respondent can record a response
+        "404":
+          description: Not found
+        "409":
+          description: Ticket already closed
+
+  /coop/partnerships/{id}/redemptions:
+    get:
+      operationId: listCoopPartnershipRedemptions
+      tags: [coop]
+      summary: Merchant-facing — the partnership's system redemption records for the evidence picker; parties only
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Redemption records, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopPartnershipRedemption"
+        "403":
+          description: The scoped tenant is not a party to this partnership
+        "404":
+          description: Not found
+
+  /admin/coop/financial-disputes:
+    get:
+      operationId: listAdminCoopFinancialDisputes
+      tags: [admin]
+      summary: Admin-only — Mediation Hub queue of financial disputes with evidence and reconciliation reports, optionally filtered by status
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [filed, auto_resolved, escalated, resolved, adjusted]
+      responses:
+        "200":
+          description: Financial disputes, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopFinancialDispute"
+
+  /admin/coop/financial-disputes/{id}/adjustments:
+    post:
+      operationId: createCoopFinancialAdjustment
+      tags: [admin]
+      summary: Admin-only — record a compensating ledger adjustment or referral bounty reversal on an escalated ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopFinancialAdjustmentCreate"
+      responses:
+        "200":
+          description: Updated ticket with the recorded adjustment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopFinancialDispute"
+        "400":
+          description: Invalid body, or credit/debit tenants are not the ticket's parties
+        "404":
+          description: Not found
+        "409":
+          description: Ticket is not escalated
+
+  /admin/coop/financial-disputes/{id}/ruling:
+    post:
+      operationId: issueCoopFinancialRuling
+      tags: [admin]
+      summary: Admin-only — close an escalated ticket with a written ruling; rulings against a tenant feed repeat-violator auto-suspension
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopFinancialRulingCreate"
+      responses:
+        "200":
+          description: Closed ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopFinancialDispute"
+        "400":
+          description: Invalid body, or ruled-against tenant is not a party
+        "404":
+          description: Not found
+        "409":
+          description: Ticket is not escalated
+
+  /admin/coop/suspensions:
+    get:
+      operationId: listCoopSuspensions
+      tags: [admin]
+      summary: Admin-only — tenant co-op participation suspensions (active and lifted) with trigger metadata
+      responses:
+        "200":
+          description: Suspensions, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopTenantSuspension"
+    post:
+      operationId: createCoopSuspension
+      tags: [admin]
+      summary: Admin-only — suspend a tenant's co-op participation (perks stop serving; no new partnerships)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopSuspensionCreate"
+      responses:
+        "201":
+          description: Suspension recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopTenantSuspension"
+        "400":
+          description: Invalid body
+        "404":
+          description: Tenant not found
+        "409":
+          description: Tenant already has an active suspension
+
+  /admin/coop/suspensions/{id}/lift:
+    post:
+      operationId: liftCoopSuspension
+      tags: [admin]
+      summary: Admin-only — reinstate a suspended tenant's co-op participation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lifted suspension
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopTenantSuspension"
+        "404":
+          description: Not found
+        "409":
+          description: Suspension already lifted
+
   /admin/campaigns:
     get:
       operationId: listAdminCampaigns
@@ -6835,6 +7136,317 @@ components:
         note:
           type: string
           minLength: 1
+    CoopFinancialDisputeEvidenceItem:
+      type: object
+      required:
+        [id, kind, addedByTenantId, redemptionId, redemptionPassCode, redemptionRedeemedAt, referenceNumber, amount, entryDate, description, createdAt]
+      properties:
+        id:
+          type: integer
+        kind:
+          type: string
+          enum: [redemption, receipt]
+        addedByTenantId:
+          type: ["integer", "null"]
+        redemptionId:
+          type: ["integer", "null"]
+        redemptionPassCode:
+          type: ["string", "null"]
+        redemptionRedeemedAt:
+          type: ["string", "null"]
+        referenceNumber:
+          type: ["string", "null"]
+        amount:
+          type: ["number", "null"]
+        entryDate:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    CoopFinancialDisputeEvent:
+      type: object
+      required: [id, eventType, actorType, actorTenantId, note, createdAt]
+      properties:
+        id:
+          type: integer
+        eventType:
+          type: string
+        actorType:
+          type: string
+          enum: [tenant, admin, system]
+        actorTenantId:
+          type: ["integer", "null"]
+        note:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    CoopLedgerAdjustment:
+      type: object
+      required:
+        [id, adjustmentType, amount, creditTenantId, creditTenantName, debitTenantId, debitTenantName, reason, createdAt]
+      properties:
+        id:
+          type: integer
+        adjustmentType:
+          type: string
+          enum: [adjustment, bounty_reversal]
+        amount:
+          type: number
+        creditTenantId:
+          type: ["integer", "null"]
+        creditTenantName:
+          type: ["string", "null"]
+        debitTenantId:
+          type: ["integer", "null"]
+        debitTenantName:
+          type: ["string", "null"]
+        reason:
+          type: string
+        createdAt:
+          type: string
+
+    CoopFinancialDispute:
+      type: object
+      required:
+        [
+          id,
+          partnershipId,
+          perkTitle,
+          filedByTenantId,
+          filedByTenantName,
+          respondentTenantId,
+          respondentTenantName,
+          disputeType,
+          claimedCount,
+          expectedCount,
+          claimedAmount,
+          expectedAmount,
+          windowStartAt,
+          windowEndAt,
+          details,
+          status,
+          reconciliationSummary,
+          reconciliationSystemCount,
+          counterpartyResponse,
+          respondedAt,
+          ruling,
+          ruledAgainstTenantId,
+          escalatedAt,
+          resolvedAt,
+          evidence,
+          events,
+          adjustments,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id:
+          type: integer
+        partnershipId:
+          type: integer
+        perkTitle:
+          type: string
+        filedByTenantId:
+          type: integer
+        filedByTenantName:
+          type: string
+        respondentTenantId:
+          type: integer
+        respondentTenantName:
+          type: string
+        disputeType:
+          type: string
+          enum: [commission_mismatch, unfulfilled_redemption, shared_expense]
+        claimedCount:
+          type: ["integer", "null"]
+        expectedCount:
+          type: ["integer", "null"]
+        claimedAmount:
+          type: ["number", "null"]
+        expectedAmount:
+          type: ["number", "null"]
+        windowStartAt:
+          type: string
+        windowEndAt:
+          type: string
+        details:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [filed, auto_resolved, escalated, resolved, adjusted]
+        reconciliationSummary:
+          type: ["string", "null"]
+        reconciliationSystemCount:
+          type: ["integer", "null"]
+        counterpartyResponse:
+          type: ["string", "null"]
+        respondedAt:
+          type: ["string", "null"]
+        ruling:
+          type: ["string", "null"]
+        ruledAgainstTenantId:
+          type: ["integer", "null"]
+        escalatedAt:
+          type: ["string", "null"]
+        resolvedAt:
+          type: ["string", "null"]
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopFinancialDisputeEvidenceItem"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopFinancialDisputeEvent"
+        adjustments:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopLedgerAdjustment"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    CoopFinancialDisputeEvidenceCreate:
+      type: object
+      properties:
+        redemptionIds:
+          type: array
+          items:
+            type: integer
+        receipts:
+          type: array
+          items:
+            type: object
+            required: [referenceNumber, amount, entryDate]
+            properties:
+              referenceNumber:
+                type: string
+                minLength: 1
+              amount:
+                type: number
+              entryDate:
+                type: string
+              description:
+                type: string
+
+    CoopFinancialDisputeCreate:
+      type: object
+      required: [partnershipId, disputeType, windowStartAt, windowEndAt]
+      properties:
+        partnershipId:
+          type: integer
+        disputeType:
+          type: string
+          enum: [commission_mismatch, unfulfilled_redemption, shared_expense]
+        claimedCount:
+          type: integer
+        expectedCount:
+          type: integer
+        claimedAmount:
+          type: number
+        expectedAmount:
+          type: number
+        windowStartAt:
+          type: string
+        windowEndAt:
+          type: string
+        details:
+          type: string
+        evidence:
+          $ref: "#/components/schemas/CoopFinancialDisputeEvidenceCreate"
+
+    CoopFinancialDisputeRespond:
+      type: object
+      required: [response]
+      properties:
+        response:
+          type: string
+          minLength: 1
+
+    CoopFinancialAdjustmentCreate:
+      type: object
+      required: [adjustmentType, amount, creditTenantId, debitTenantId, reason]
+      properties:
+        adjustmentType:
+          type: string
+          enum: [adjustment, bounty_reversal]
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        creditTenantId:
+          type: integer
+        debitTenantId:
+          type: integer
+        reason:
+          type: string
+          minLength: 1
+
+    CoopFinancialRulingCreate:
+      type: object
+      required: [ruling]
+      properties:
+        ruling:
+          type: string
+          minLength: 1
+        ruledAgainstTenantId:
+          type: integer
+
+    CoopPartnershipRedemption:
+      type: object
+      required: [id, passCode, redeemedByTenantId, redeemedByTenantName, redeemedAt]
+      properties:
+        id:
+          type: integer
+        passCode:
+          type: string
+        redeemedByTenantId:
+          type: ["integer", "null"]
+        redeemedByTenantName:
+          type: ["string", "null"]
+        redeemedAt:
+          type: string
+
+    CoopTenantSuspension:
+      type: object
+      required:
+        [id, tenantId, tenantName, status, trigger, reason, rulingsCount, windowDays, suspendedAt, liftedAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        status:
+          type: string
+          enum: [active, lifted]
+        trigger:
+          type: string
+          enum: [manual, repeat_violator]
+        reason:
+          type: ["string", "null"]
+        rulingsCount:
+          type: ["integer", "null"]
+        windowDays:
+          type: ["integer", "null"]
+        suspendedAt:
+          type: string
+        liftedAt:
+          type: ["string", "null"]
+
+    CoopSuspensionCreate:
+      type: object
+      required: [tenantId]
+      properties:
+        tenantId:
+          type: integer
+        reason:
+          type: string
+
     CoopRenegotiationPropose:
       type: object
       properties:
@@ -11017,7 +11629,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock, coop_reputation, coop_feedback_request]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock, coop_reputation, coop_feedback_request, coop_financial_dispute]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

@@ -47,6 +47,9 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { CoopCampaignsSection } from '@/components/sos/coop-campaigns-content';
+import {
+  FileFinancialDisputeDialog, FinancialDisputesSection,
+} from '@/components/sos/coop-financial-disputes-content';
 import { PassportChallengesSection } from '@/components/sos/passport-challenges-content';
 import { CoopEventsSection } from '@/components/sos/coop-events-content';
 import { CoopProcurementSection } from '@/components/sos/coop-procurement-content';
@@ -240,6 +243,7 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
               ledger={ledger ?? null}
               reputation={reputation ?? null}
             />
+            <FinancialDisputesSection tenantId={tenantId} />
           </div>
           <Directory tenantId={tenantId} partneredTenantIds={partneredTenantIds} />
         </div>
@@ -996,6 +1000,7 @@ function ActivePartnerships({
 }) {
   const [reportTarget, setReportTarget] = useState<CoopPartnership | null>(null);
   const [rateTarget, setRateTarget] = useState<CoopPartnership | null>(null);
+  const [financialTarget, setFinancialTarget] = useState<CoopPartnership | null>(null);
   const partnerRepFor = (partnerTenantId: number): CoopPartnerReputation | null =>
     reputation?.partners.find(pr => pr.tenantId === partnerTenantId) ?? null;
   const activeDisputeFor = (partnershipId: number) =>
@@ -1111,6 +1116,15 @@ function ActivePartnerships({
                   >
                     <Pause className="w-3.5 h-3.5" /> Pause
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5"
+                    onClick={() => setFinancialTarget(p)}
+                    data-testid={`button-file-financial-dispute-${p.id}`}
+                  >
+                    <Scale className="w-3.5 h-3.5" /> File Financial Dispute
+                  </Button>
                 </div>
               </div>
             );
@@ -1188,6 +1202,11 @@ function ActivePartnerships({
         tenantId={tenantId}
         target={reportTarget}
         onClose={() => setReportTarget(null)}
+      />
+      <FileFinancialDisputeDialog
+        tenantId={tenantId}
+        target={financialTarget}
+        onClose={() => setFinancialTarget(null)}
       />
     </Card>
   );

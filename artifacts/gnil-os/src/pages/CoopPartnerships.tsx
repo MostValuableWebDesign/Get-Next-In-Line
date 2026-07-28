@@ -40,6 +40,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { EmergencyBroadcastContent } from '@/components/sos/emergency-broadcast-content';
 import { ProcurementAdminSection } from '@/components/sos/procurement-admin-content';
+import { MediationHub } from '@/components/admin/coop-mediation-hub';
 import {
   AlertTriangle, ArrowLeftRight, Ban, Gavel, Handshake, MapPin, NotebookPen, Plus, Power,
   RotateCcw, ShieldAlert, ShieldOff, Ticket, Unlock, Wallet,
@@ -210,6 +211,7 @@ export default function CoopPartnerships() {
       )}
 
       <DisputeQueue />
+      <MediationHub />
       <PlazaConflictsSection />
 
       {/* Co-Op Supplier & Procurement Marketplace — vendor directory curation

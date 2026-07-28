@@ -21,6 +21,7 @@ import { samePlaza, type PlazaAddress } from "../lib/plaza";
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, gte, inArray, isNull, ne, or } from "drizzle-orm";
 import { isWalletPassToken, findWalletPass, type WalletPassRow } from "../lib/perkPasses";
+import { coopRedemptionBlockReason } from "../lib/walletRedemption";
 import { sendMessageSafe } from "../lib/messaging";
 import { recordPerkRedemptionComplianceSafe } from "../lib/coopCompliance";
 import { requestCoopFeedbackSafe, sentimentSummaryForTenant } from "../lib/coopFeedback";
@@ -199,6 +200,31 @@ import {
   withinDiscoveryRange,
   filterPartnershipsForConsumerSurface,
 } from "../lib/coopFirewall";
+import {
+  coopFinancialDisputesTable,
+  coopFinancialDisputeEvidenceTable,
+} from "@workspace/db";
+import {
+  financialDisputeRows,
+  serializeFinancialDisputes,
+  serializedFinancialDispute,
+  recordDisputeEvent,
+  systemRedemptionCount,
+  reconcileClaim,
+  activeSuspensionTenantIds,
+  notifyTenantSafe,
+} from "../lib/coopFinancialDisputes";
+import {
+  ListCoopFinancialDisputesResponse,
+  CreateCoopFinancialDisputeBody,
+  CreateCoopFinancialDisputeResponse,
+  GetCoopFinancialDisputeResponse,
+  AddCoopFinancialDisputeEvidenceBody,
+  AddCoopFinancialDisputeEvidenceResponse,
+  RespondToCoopFinancialDisputeBody,
+  RespondToCoopFinancialDisputeResponse,
+  ListCoopPartnershipRedemptionsResponse,
+} from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -552,14 +578,15 @@ function generateCode(): string {
  * partnership, expired pass, and already-redeemed pass all fail with a clear
  * reason. `reason == null` means the pass is redeemable right now.
  */
-function walletPassState(row: WalletPassRow | null): { reason: string | null } {
+async function walletPassState(row: WalletPassRow | null): Promise<{ reason: string | null }> {
   if (!row) return { reason: "Unknown pass" };
-  if (!row.partnership.isActive || row.partnership.status !== "accepted") {
-    return { reason: "This partnership is no longer active" };
-  }
+  // Centralized policy guard (inactive, dispute-suspended, banned, decoupled,
+  // mediation-suspended) shared with every machine redemption channel.
   // NOTE: performance-paused partnerships intentionally still redeem — a
   // pause hides the perk from new customers, but honoring already-issued
   // passes/codes is exactly how traffic resumes and auto-reactivates the pact.
+  const blockReason = await coopRedemptionBlockReason(row.partnership);
+  if (blockReason != null) return { reason: blockReason };
   if (row.pass.redeemedAt != null) return { reason: "This pass was already redeemed" };
   if (row.pass.expiresAt <= new Date()) return { reason: "This pass has expired" };
   return { reason: null };
@@ -1348,6 +1375,27 @@ router.post("/coop/invites", async (req, res): Promise<void> => {
     return;
   }
 
+  // Mediation Hub enforcement: a co-op-suspended tenant can neither send nor
+  // receive new partnership invites until an admin reinstates it.
+  {
+    const suspended = await activeSuspensionTenantIds([tenantId, partnerTenantId]);
+    if (suspended.has(tenantId)) {
+      res.status(403).json({
+        code: "COOP_SUSPENDED",
+        message:
+          "Your co-op participation is suspended pending platform mediation — new partnerships are blocked until an admin reinstates you.",
+      });
+      return;
+    }
+    if (suspended.has(partnerTenantId)) {
+      res.status(403).json({
+        code: "COOP_SUSPENDED",
+        message: "That business's co-op participation is currently suspended by the platform.",
+      });
+      return;
+    }
+  }
+
   // Sub-category firewall backstop: the directory already hides direct
   // competitors, but a hand-crafted request must hit the same wall. Blocks
   // same Level 2 sub-category and persisted isolation pairs; same-industry
@@ -1610,6 +1658,23 @@ router.post("/coop/invites/:id/respond", async (req, res): Promise<void> => {
     return;
   }
   const accept = parsed.data.action === "accept";
+  // Mediation Hub enforcement: a co-op-suspended tenant on either side blocks
+  // acceptance — no new partnerships can form until reinstatement.
+  if (accept) {
+    const suspended = await activeSuspensionTenantIds([
+      invite.hostTenantId,
+      invite.partnerTenantId,
+    ]);
+    if (suspended.size > 0) {
+      res.status(403).json({
+        code: "COOP_SUSPENDED",
+        message: suspended.has(tenantId)
+          ? "Your co-op participation is suspended pending platform mediation — new partnerships are blocked until an admin reinstates you."
+          : "That business's co-op participation is currently suspended by the platform.",
+      });
+      return;
+    }
+  }
   // Conditional update guards against a concurrent double-respond.
   const [updated] = await db
     .update(merchantCoopPartnershipsTable)
@@ -2589,11 +2654,21 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
   // isActive were toggled through some path, decoupled tenants' perks must
   // never reach customer surfaces until admin reinstatement.
   const decoupledForPerks = await decoupledTenantIdSet();
+  // Mediation Hub enforcement: a tenant whose co-op participation is
+  // suspended (repeat violator or manual admin action) has its perks pulled
+  // from every surface — both sides of any partnership it participates in.
+  const suspendedIds = await activeSuspensionTenantIds(
+    Array.from(
+      new Set(allRows.flatMap((r) => [r.partnership.hostTenantId, r.partnership.partnerTenantId]))
+    )
+  );
   const rows = allRows.filter(
     (r) =>
       visibleIds.has(r.partnership.id) &&
       !decoupledForPerks.has(r.partnership.hostTenantId) &&
-      !decoupledForPerks.has(r.partnership.partnerTenantId)
+      !decoupledForPerks.has(r.partnership.partnerTenantId) &&
+      !suspendedIds.has(r.partnership.hostTenantId) &&
+      !suspendedIds.has(r.partnership.partnerTenantId)
   );
   // Analytics: each perk served to this business's customer surfaces
   // (checkout ticket, receipt, pass) counts as one impression. Best-effort.
@@ -2659,7 +2734,7 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
   // the pass, which carries its own expiry and single-use state.
   if (isWalletPassToken(code)) {
     const walletRow = await findWalletPass(code);
-    const outcome = walletPassState(walletRow);
+    const outcome = await walletPassState(walletRow);
     res.json(
       ValidateCoopRedemptionCodeResponse.parse({
         valid: outcome.reason == null,
@@ -2701,6 +2776,24 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
       })
     );
     return;
+  }
+  // Mediation Hub enforcement: perks of a co-op-suspended tenant never
+  // validate, on either side of the partnership.
+  {
+    const suspended = await activeSuspensionTenantIds([
+      row.partnership.hostTenantId,
+      row.partnership.partnerTenantId,
+    ]);
+    if (suspended.size > 0) {
+      res.json(
+        ValidateCoopRedemptionCodeResponse.parse({
+          valid: false,
+          reason: "This partnership is suspended pending platform mediation",
+          partnership: serialize(row.partnership, row.hostTenantName, row.partnerTenantName),
+        })
+      );
+      return;
+    }
   }
   const windowState = perkWindowState(row.partnership);
   if (windowState !== "open") {
@@ -2789,7 +2882,7 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
   // itself is the redemption instance (no separate passCode needed).
   if (isWalletPassToken(code)) {
     const walletRow = await findWalletPass(code);
-    const outcome = walletPassState(walletRow);
+    const outcome = await walletPassState(walletRow);
     const partnershipJson = walletRow
       ? serialize(walletRow.partnership, walletRow.hostTenantName, walletRow.partnerTenantName)
       : null;
@@ -2950,6 +3043,18 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
   ) {
     fail("This partnership is no longer active", row);
     return;
+  }
+  // Mediation Hub enforcement: a co-op-suspended tenant's partnerships can't
+  // record redemptions at all.
+  {
+    const suspended = await activeSuspensionTenantIds([
+      row.partnership.hostTenantId,
+      row.partnership.partnerTenantId,
+    ]);
+    if (suspended.size > 0) {
+      fail("This partnership is suspended pending platform mediation", row);
+      return;
+    }
   }
   const windowState = perkWindowState(row.partnership);
   if (windowState !== "open") {
@@ -3403,6 +3508,395 @@ router.post("/coop/disputes/:id/withdraw", async (req, res): Promise<void> => {
       serializeDispute(row.dispute, row.reportingTenantName, row.reportedTenantName, row.perkTitle)
     )
   );
+});
+
+// ---------------------------------------------------------------------------
+// Financial dispute mediation — money/count disagreements between partners,
+// filed with structured evidence. On filing, the platform immediately
+// reconciles the claim against its own redemption ledger: matching within
+// tolerance auto-resolves the ticket; anything else escalates to the admin
+// Mediation Hub. Distinct from conduct disputes above (grace-period model).
+// ---------------------------------------------------------------------------
+
+const FINANCIAL_DISPUTE_TYPES = new Set([
+  "commission_mismatch",
+  "unfulfilled_redemption",
+  "shared_expense",
+]);
+
+/** Validate + insert evidence entries. Returns an error message or null. */
+async function attachEvidence(
+  disputeId: number,
+  partnershipId: number,
+  tenantId: number,
+  evidence: {
+    redemptionIds?: number[];
+    receipts?: { referenceNumber: string; amount: number; entryDate: string; description?: string }[];
+  }
+): Promise<string | null> {
+  const redemptionIds = evidence.redemptionIds ?? [];
+  const receipts = evidence.receipts ?? [];
+  if (redemptionIds.length === 0 && receipts.length === 0) {
+    return "At least one redemption link or receipt entry is required";
+  }
+  if (redemptionIds.length > 0) {
+    // Linked redemptions must belong to THIS partnership — otherwise a filer
+    // could pad a ticket with another partnership's activity.
+    const rows = await db
+      .select({ id: coopPerkRedemptionsTable.id })
+      .from(coopPerkRedemptionsTable)
+      .where(
+        and(
+          inArray(coopPerkRedemptionsTable.id, redemptionIds),
+          eq(coopPerkRedemptionsTable.partnershipId, partnershipId)
+        )
+      );
+    if (rows.length !== new Set(redemptionIds).size) {
+      return "One or more linked redemptions do not belong to this partnership";
+    }
+  }
+  for (const r of receipts) {
+    const entryDate = new Date(r.entryDate);
+    if (Number.isNaN(entryDate.getTime())) return "Invalid receipt entry date";
+  }
+  const values = [
+    ...[...new Set(redemptionIds)].map((rid) => ({
+      disputeId,
+      addedByTenantId: tenantId,
+      kind: "redemption" as const,
+      redemptionId: rid,
+    })),
+    ...receipts.map((r) => ({
+      disputeId,
+      addedByTenantId: tenantId,
+      kind: "receipt" as const,
+      referenceNumber: r.referenceNumber.trim(),
+      amount: r.amount.toFixed(2),
+      entryDate: new Date(r.entryDate),
+      description: r.description?.trim() || null,
+    })),
+  ];
+  await db.insert(coopFinancialDisputeEvidenceTable).values(values);
+  return null;
+}
+
+// ── GET /coop/financial-disputes — tickets involving the scoped tenant ──────
+router.get("/coop/financial-disputes", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const rows = await financialDisputeRows()
+    .where(
+      or(
+        eq(coopFinancialDisputesTable.filedByTenantId, tenantId),
+        eq(coopFinancialDisputesTable.respondentTenantId, tenantId)
+      )
+    )
+    .orderBy(desc(coopFinancialDisputesTable.createdAt), desc(coopFinancialDisputesTable.id));
+  res.json(ListCoopFinancialDisputesResponse.parse(await serializeFinancialDisputes(rows)));
+});
+
+// ── GET /coop/partnerships/:id/redemptions — evidence picker source ─────────
+router.get("/coop/partnerships/:id/redemptions", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const [partnership] = await db
+    .select()
+    .from(merchantCoopPartnershipsTable)
+    .where(eq(merchantCoopPartnershipsTable.id, id));
+  if (!partnership) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  if (partnership.hostTenantId !== tenantId && partnership.partnerTenantId !== tenantId) {
+    res.status(403).json({ message: "Only a party to this partnership can view its redemptions" });
+    return;
+  }
+  const rows = await db
+    .select({
+      redemption: coopPerkRedemptionsTable,
+      redeemedByTenantName: tenantsTable.brandName,
+    })
+    .from(coopPerkRedemptionsTable)
+    .leftJoin(tenantsTable, eq(coopPerkRedemptionsTable.redeemedByTenantId, tenantsTable.id))
+    .where(eq(coopPerkRedemptionsTable.partnershipId, id))
+    .orderBy(desc(coopPerkRedemptionsTable.redeemedAt), desc(coopPerkRedemptionsTable.id));
+  res.json(
+    ListCoopPartnershipRedemptionsResponse.parse(
+      rows.map((r) => ({
+        id: r.redemption.id,
+        passCode: r.redemption.passCode,
+        redeemedByTenantId: r.redemption.redeemedByTenantId,
+        redeemedByTenantName: r.redeemedByTenantName ?? null,
+        redeemedAt: r.redemption.redeemedAt.toISOString(),
+      }))
+    )
+  );
+});
+
+// ── POST /coop/financial-disputes — file a ticket; reconciliation runs now ──
+router.post("/coop/financial-disputes", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = CreateCoopFinancialDisputeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const body = parsed.data;
+  if (!FINANCIAL_DISPUTE_TYPES.has(body.disputeType)) {
+    res.status(400).json({ message: "Unknown dispute type" });
+    return;
+  }
+  const windowStartAt = new Date(body.windowStartAt);
+  const windowEndAt = new Date(body.windowEndAt);
+  if (
+    Number.isNaN(windowStartAt.getTime()) ||
+    Number.isNaN(windowEndAt.getTime()) ||
+    windowEndAt <= windowStartAt
+  ) {
+    res.status(400).json({ message: "Invalid date range" });
+    return;
+  }
+  const [partnership] = await db
+    .select()
+    .from(merchantCoopPartnershipsTable)
+    .where(eq(merchantCoopPartnershipsTable.id, body.partnershipId));
+  if (!partnership) {
+    res.status(404).json({ message: "Partnership not found" });
+    return;
+  }
+  if (partnership.hostTenantId !== tenantId && partnership.partnerTenantId !== tenantId) {
+    res.status(403).json({ message: "Only a party to this partnership can file a dispute" });
+    return;
+  }
+  const respondentTenantId =
+    partnership.hostTenantId === tenantId ? partnership.partnerTenantId : partnership.hostTenantId;
+
+  const [tenantRows, systemCount] = await Promise.all([
+    db
+      .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
+      .from(tenantsTable)
+      .where(inArray(tenantsTable.id, [tenantId, respondentTenantId])),
+    systemRedemptionCount(body.partnershipId, windowStartAt, windowEndAt),
+  ]);
+  const filerName = tenantRows.find((t) => t.id === tenantId)?.brandName ?? "The filing business";
+  const respondentName =
+    tenantRows.find((t) => t.id === respondentTenantId)?.brandName ?? "The partner business";
+
+  const outcome = reconcileClaim({
+    disputeType: body.disputeType,
+    claimedCount: body.claimedCount ?? null,
+    expectedCount: body.expectedCount ?? null,
+    systemCount,
+    filerName,
+    respondentName,
+    windowStartAt,
+    windowEndAt,
+  });
+  const now = new Date();
+  const [created] = await db
+    .insert(coopFinancialDisputesTable)
+    .values({
+      partnershipId: body.partnershipId,
+      filedByTenantId: tenantId,
+      respondentTenantId,
+      disputeType: body.disputeType,
+      claimedCount: body.claimedCount ?? null,
+      expectedCount: body.expectedCount ?? null,
+      claimedAmount: body.claimedAmount != null ? body.claimedAmount.toFixed(2) : null,
+      expectedAmount: body.expectedAmount != null ? body.expectedAmount.toFixed(2) : null,
+      windowStartAt,
+      windowEndAt,
+      details: body.details?.trim() || null,
+      status: outcome.resolved ? "auto_resolved" : "escalated",
+      reconciliationSummary: outcome.summary,
+      reconciliationSystemCount: systemCount,
+      escalatedAt: outcome.resolved ? null : now,
+      resolvedAt: outcome.resolved ? now : null,
+    })
+    .returning();
+
+  if (body.evidence && ((body.evidence.redemptionIds?.length ?? 0) > 0 || (body.evidence.receipts?.length ?? 0) > 0)) {
+    const err = await attachEvidence(created.id, body.partnershipId, tenantId, body.evidence);
+    if (err) {
+      // Evidence is invalid — the whole filing is rejected, not half-saved.
+      await db.delete(coopFinancialDisputesTable).where(eq(coopFinancialDisputesTable.id, created.id));
+      res.status(409).json({ message: err });
+      return;
+    }
+  }
+
+  await recordDisputeEvent({
+    disputeId: created.id,
+    eventType: "filed",
+    actorType: "tenant",
+    actorTenantId: tenantId,
+    note: `Filed by ${filerName} (${body.disputeType.replace(/_/g, " ")}).`,
+  });
+  await recordDisputeEvent({
+    disputeId: created.id,
+    eventType: outcome.resolved ? "auto_resolved" : "escalated",
+    actorType: "system",
+    note: outcome.summary,
+  });
+
+  // Counterparty is notified either way through the unified messaging layer.
+  await notifyTenantSafe(
+    respondentTenantId,
+    "coop_financial_dispute",
+    outcome.resolved
+      ? `Co-Op notice: ${filerName} filed a financial dispute on your "${partnership.perkTitle}" partnership. ` +
+          `The platform's records settled it automatically — no action needed. Review the reconciliation summary in your Co-Op hub.`
+      : `Co-Op alert: ${filerName} filed a financial dispute on your "${partnership.perkTitle}" partnership. ` +
+          `Platform records could not settle it automatically, so it has been escalated to a platform mediator. ` +
+          `You can add evidence and a response in your Co-Op hub.`,
+    { disputeId: created.id, partnershipId: body.partnershipId, disputeType: body.disputeType }
+  );
+
+  res
+    .status(201)
+    .json(CreateCoopFinancialDisputeResponse.parse(await serializedFinancialDispute(created.id)));
+});
+
+// ── GET /coop/financial-disputes/:id — full detail, parties only ────────────
+router.get("/coop/financial-disputes/:id", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const [dispute] = await db
+    .select()
+    .from(coopFinancialDisputesTable)
+    .where(eq(coopFinancialDisputesTable.id, id));
+  if (!dispute) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  if (dispute.filedByTenantId !== tenantId && dispute.respondentTenantId !== tenantId) {
+    res.status(403).json({ message: "Only a party to this dispute can view it" });
+    return;
+  }
+  res.json(GetCoopFinancialDisputeResponse.parse(await serializedFinancialDispute(id)));
+});
+
+// ── POST /coop/financial-disputes/:id/evidence — attach more evidence ───────
+router.post("/coop/financial-disputes/:id/evidence", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const parsed = AddCoopFinancialDisputeEvidenceBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const [dispute] = await db
+    .select()
+    .from(coopFinancialDisputesTable)
+    .where(eq(coopFinancialDisputesTable.id, id));
+  if (!dispute) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  if (dispute.filedByTenantId !== tenantId && dispute.respondentTenantId !== tenantId) {
+    res.status(403).json({ message: "Only a party to this dispute can add evidence" });
+    return;
+  }
+  if (dispute.status !== "filed" && dispute.status !== "escalated") {
+    res.status(409).json({ message: "This ticket is closed — evidence can no longer be added" });
+    return;
+  }
+  const err = await attachEvidence(id, dispute.partnershipId, tenantId, parsed.data);
+  if (err) {
+    res.status(409).json({ message: err });
+    return;
+  }
+  await recordDisputeEvent({
+    disputeId: id,
+    eventType: "evidence_added",
+    actorType: "tenant",
+    actorTenantId: tenantId,
+    note: null,
+  });
+  await db
+    .update(coopFinancialDisputesTable)
+    .set({ updatedAt: new Date() })
+    .where(eq(coopFinancialDisputesTable.id, id));
+  res.json(AddCoopFinancialDisputeEvidenceResponse.parse(await serializedFinancialDispute(id)));
+});
+
+// ── POST /coop/financial-disputes/:id/respond — counterparty statement ──────
+router.post("/coop/financial-disputes/:id/respond", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const parsed = RespondToCoopFinancialDisputeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const [dispute] = await db
+    .select()
+    .from(coopFinancialDisputesTable)
+    .where(eq(coopFinancialDisputesTable.id, id));
+  if (!dispute) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  if (dispute.respondentTenantId !== tenantId) {
+    res.status(403).json({ message: "Only the respondent can record a response" });
+    return;
+  }
+  if (dispute.status !== "filed" && dispute.status !== "escalated") {
+    res.status(409).json({ message: "This ticket is closed" });
+    return;
+  }
+  const now = new Date();
+  await db
+    .update(coopFinancialDisputesTable)
+    .set({ counterpartyResponse: parsed.data.response.trim(), respondedAt: now, updatedAt: now })
+    .where(eq(coopFinancialDisputesTable.id, id));
+  await recordDisputeEvent({
+    disputeId: id,
+    eventType: "responded",
+    actorType: "tenant",
+    actorTenantId: tenantId,
+    note: parsed.data.response.trim(),
+  });
+  res.json(RespondToCoopFinancialDisputeResponse.parse(await serializedFinancialDispute(id)));
 });
 
 // ── GET /coop/stats — cross-promotion traffic for the scoped tenant ─────────
