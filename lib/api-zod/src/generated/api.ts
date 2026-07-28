@@ -631,6 +631,7 @@ export const GetTenantModulesResponseItem = zod.object({
   "category": zod.string(),
   "categorySlug": zod.string(),
   "billingCadence": zod.enum(['monthly', 'biweekly']),
+  "paymentMode": zod.enum(['simulated', 'live']).optional(),
   "provisionedAt": zod.string()
 })
 export const GetTenantModulesResponse = zod.array(GetTenantModulesResponseItem)
@@ -5106,7 +5107,9 @@ export const SimulateCheckoutResponse = zod.object({
   "margin": zod.number(),
   "modulesProvisioned": zod.number(),
   "modulesSkipped": zod.number().optional(),
-  "message": zod.string()
+  "message": zod.string(),
+  "paymentMode": zod.enum(['simulated', 'live_pending']).optional(),
+  "checkoutUrl": zod.string().nullish()
 })
 
 

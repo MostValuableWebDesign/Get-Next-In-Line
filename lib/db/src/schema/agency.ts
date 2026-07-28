@@ -106,10 +106,43 @@ export const tenantModulesTable = pgTable(
     // these columns existed — reporting falls back to the current markup.
     chargedWholesale: numeric("charged_wholesale", { precision: 10, scale: 2 }),
     chargedResale: numeric("charged_resale", { precision: 10, scale: 2 }),
+    // How the provisioning charge was collected: "simulated" (no real money —
+    // Stripe not configured at checkout time, plus all legacy rows) or "live"
+    // (a real Stripe payment completed before provisioning).
+    paymentMode: text("payment_mode").notNull().default("simulated"),
+    // Stripe Checkout session that paid for this provisioning (live mode only).
+    stripeCheckoutSessionId: text("stripe_checkout_session_id"),
     provisionedAt: timestamp("provisioned_at").notNull().defaultNow(),
   },
   (t) => [unique("tenant_modules_tenant_module_unique").on(t.tenantId, t.moduleId)]
 );
+
+// ── Pending module checkout payments ─────────────────────────────────────────
+// When Stripe is configured, module checkout creates a real Stripe Checkout
+// session and provisions NOTHING until the checkout.session.completed webhook
+// arrives. This table snapshots the priced cart so the webhook can provision
+// exactly what was quoted, and its status is the send-once claim that makes
+// webhook handling idempotent (pending → completed exactly once).
+export const moduleCheckoutSessionsTable = pgTable("module_checkout_sessions", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id, { onDelete: "cascade" }),
+  stripeSessionId: text("stripe_session_id").notNull().unique(),
+  checkoutUrl: text("checkout_url"),
+  // pending → completed (paid, modules provisioned) | failed (expired/failed —
+  // nothing provisioned).
+  status: text("status").notNull().default("pending"),
+  // Priced cart snapshot: [{ moduleId, cadence, wholesale, resale }] — the
+  // amounts actually quoted at checkout time, never re-derived at webhook time.
+  items: jsonb("items").notNull(),
+  totalWholesale: numeric("total_wholesale", { precision: 10, scale: 2 }).notNull(),
+  totalResale: numeric("total_resale", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export type ModuleCheckoutSession = typeof moduleCheckoutSessionsTable.$inferSelect;
 
 // ── Marketing campaign redirect links ────────────────────────────────────────
 // Trackable /r/:code links: each campaign belongs to a tenant; visiting the

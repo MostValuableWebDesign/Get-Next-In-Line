@@ -4,7 +4,6 @@ import {
   modulesTable,
   agencySettingsTable,
   tenantsTable,
-  tenantActivitiesTable,
   tenantModulesTable,
 } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -15,7 +14,20 @@ import {
 } from "@workspace/api-zod";
 import { randomUUID } from "crypto";
 import { effectiveMarkupPercent } from "../lib/pricing";
-import { recordLedgerEventsSafe } from "../lib/platformLedger";
+import { getUncachableStripeClient } from "../lib/stripeClient";
+import {
+  liveModuleCheckoutEnabled,
+  provisionModuleItems,
+  type ModuleCheckoutItem,
+} from "../lib/moduleCheckout";
+import { moduleCheckoutSessionsTable } from "@workspace/db";
+import { logger } from "../lib/logger";
+
+/** Public base URL for Stripe redirect targets (dev domain fallback). */
+function appBaseUrl(): string {
+  const base = process.env.APP_BASE_URL || process.env.REPLIT_DOMAINS?.split(",")[0];
+  return base ? (base.startsWith("http") ? base : `https://${base}`) : "http://localhost:5000";
+}
 
 const router: IRouter = Router();
 
@@ -112,107 +124,108 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
     }
   }
 
-  // Bi-weekly charges recur 26 times/year — convert to a monthly-equivalent
-  // amount (×26/12) when rolling into tenant MRR.
-  const BIWEEKLY_TO_MONTHLY = 26 / 12;
-
+  // Price the cart. Per-module override (0% partner-direct, 25% resale
+  // engines) beats the agency-wide markup; applyMarkup=false still forces
+  // pass-through.
   let totalWholesale = 0;
   let totalResale = 0;
-  let mrrDelta = 0;
-  const chargedById = new Map<number, { wholesale: number; resale: number }>();
+  const items: ModuleCheckoutItem[] = [];
   for (const mod of modulesToProvision) {
     const cadence = cadenceById.get(mod.id) ?? "monthly";
     const wholesale =
       cadence === "biweekly" ? parseFloat(mod.wholesalePriceBiweekly!) : parseFloat(mod.wholesalePrice);
-    // Per-module override (0% partner-direct, 25% resale engines) beats the
-    // agency-wide markup; applyMarkup=false still forces pass-through.
     const moduleMarkup = effectiveMarkupPercent(mod, markup);
     const resale = applyMarkup !== false ? wholesale * (1 + moduleMarkup / 100) : wholesale;
-    chargedById.set(mod.id, {
+    items.push({
+      moduleId: mod.id,
+      cadence,
       wholesale: Math.round(wholesale * 100) / 100,
       resale: Math.round(resale * 100) / 100,
     });
     totalWholesale += wholesale;
     totalResale += resale;
-    mrrDelta += cadence === "biweekly" ? resale * BIWEEKLY_TO_MONTHLY : resale;
   }
 
   totalWholesale = Math.round(totalWholesale * 100) / 100;
   totalResale = Math.round(totalResale * 100) / 100;
   const margin = Math.round((totalResale - totalWholesale) * 100) / 100;
 
-  // Update tenant MRR (monthly-equivalent) and modules count
-  const newMrr = parseFloat(tenant.mrr ?? "0") + mrrDelta;
-
-  // Record per-tenant module assignments with their billing cadence
-  if (modulesToProvision.length > 0) {
-    const created = await db
-      .insert(tenantModulesTable)
-      .values(
-        modulesToProvision.map((m) => ({
-          tenantId,
-          moduleId: m.id,
-          billingCadence: cadenceById.get(m.id) ?? "monthly",
-          // Persist realized per-charge pricing so profit reporting reflects
-          // what was actually charged (e.g. zero margin when markup was off).
-          chargedWholesale: String(chargedById.get(m.id)!.wholesale),
-          chargedResale: String(chargedById.get(m.id)!.resale),
-        }))
-      )
-      .onConflictDoNothing()
-      .returning();
-
-    // Compliance ledger: one immutable entry per provisioned charge, carrying
-    // the realized wholesale/resale so reports never re-derive pricing.
-    const moduleById = new Map(modulesToProvision.map((m) => [m.id, m]));
-    await recordLedgerEventsSafe(
-      created.flatMap((row) => {
-        const mod = moduleById.get(row.moduleId);
-        const charged = chargedById.get(row.moduleId);
-        if (!mod || !charged) return [];
-        return [{
-          source: "module_subscription" as const,
-          sourceRef: `tenant_modules:${row.id}`,
-          tenantId,
-          category: mod.category,
-          description: `${mod.name} (${row.billingCadence})`,
-          amount: charged.resale.toFixed(2),
-          wholesaleAmount: charged.wholesale.toFixed(2),
-          platformMargin: (Math.round((charged.resale - charged.wholesale) * 100) / 100).toFixed(2),
-          occurredAt: row.provisionedAt,
-        }];
-      }),
-    );
-  }
-
-  // Derive modulesEnabled from the join table so the two can never drift apart.
-  const assignmentsAfter = await db
-    .select()
-    .from(tenantModulesTable)
-    .where(eq(tenantModulesTable.tenantId, tenantId));
-  const newModulesEnabled = assignmentsAfter.length;
-
-  await db
-    .update(tenantsTable)
-    .set({
-      mrr: String(Math.round(newMrr * 100) / 100),
-      modulesEnabled: newModulesEnabled,
-    })
-    .where(eq(tenantsTable.id, tenantId));
-
-  const transactionId = `txn_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
-
-  // Log activity
-  await db.insert(tenantActivitiesTable).values({
-    tenantId,
-    action: `Modules provisioned`,
-    details: `${modulesToProvision.length} module(s) activated — ${modulesToProvision.map((m) => `${m.name} (${(cadenceById.get(m.id) ?? "monthly") === "biweekly" ? "bi-weekly" : "monthly"})`).join(", ")}${skippedModules.length > 0 ? ` (skipped already-active: ${skippedModules.map((m) => m.name).join(", ")})` : ""}`,
-  });
-
   const skippedNote =
     skippedModules.length > 0
       ? ` Skipped ${skippedModules.length} already-provisioned module(s): ${skippedModules.map((m) => m.name).join(", ")}.`
       : "";
+
+  // ── LIVE payment path ──────────────────────────────────────────────────────
+  // Stripe is configured: collect a real payment first. Nothing is provisioned
+  // here — the checkout.session.completed webhook provisions the snapshotted
+  // cart, so a failed or abandoned payment provisions nothing.
+  if (liveModuleCheckoutEnabled() && totalResale > 0) {
+    try {
+      const stripe = await getUncachableStripeClient();
+      const itemModById = new Map(modulesToProvision.map((m) => [m.id, m]));
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        payment_method_types: ["card"],
+        line_items: items.map((i) => ({
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(i.resale * 100),
+            product_data: {
+              name: `${itemModById.get(i.moduleId)?.name ?? `Module ${i.moduleId}`} (${i.cadence === "biweekly" ? "bi-weekly" : "monthly"})`,
+              description: `Module subscription for ${tenant.brandName} — first ${i.cadence === "biweekly" ? "bi-weekly" : "monthly"} charge`,
+            },
+          },
+        })),
+        metadata: { moduleCheckout: "1", tenantId: String(tenantId) },
+        success_url: `${appBaseUrl()}/?module_checkout=paid`,
+        cancel_url: `${appBaseUrl()}/?module_checkout=cancelled`,
+      });
+
+      await db.insert(moduleCheckoutSessionsTable).values({
+        tenantId,
+        stripeSessionId: session.id,
+        checkoutUrl: session.url ?? null,
+        status: "pending",
+        items,
+        totalWholesale: totalWholesale.toFixed(2),
+        totalResale: totalResale.toFixed(2),
+      });
+
+      res.json(
+        SimulateCheckoutResponse.parse({
+          success: true,
+          transactionId: session.id,
+          totalWholesale,
+          totalResale,
+          margin,
+          modulesProvisioned: 0,
+          modulesSkipped: skippedModules.length,
+          paymentMode: "live_pending",
+          checkoutUrl: session.url ?? null,
+          message: `Payment required: complete the Stripe checkout to provision ${modulesToProvision.length} module(s) for ${tenant.brandName}. Modules activate as soon as the payment succeeds.${skippedNote}`,
+        })
+      );
+    } catch (err) {
+      // A real payment could not be initiated — provision nothing and say so.
+      logger.error({ err, tenantId }, "Stripe module checkout session could not be created");
+      res.status(502).json({
+        error: `Stripe payment could not be started — no modules were provisioned. ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
+    return;
+  }
+
+  // ── SIMULATED fallback ─────────────────────────────────────────────────────
+  // Stripe isn't configured (or the cart totals $0): provision immediately,
+  // clearly labeled as simulated so real revenue is never conflated with it.
+  const result = await provisionModuleItems({
+    tenantId,
+    items,
+    paymentMode: "simulated",
+  });
+
+  const transactionId = `sim_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
 
   res.json(
     SimulateCheckoutResponse.parse({
@@ -221,9 +234,10 @@ router.post("/billing/checkout", async (req, res): Promise<void> => {
       totalWholesale,
       totalResale,
       margin,
-      modulesProvisioned: modulesToProvision.length,
+      modulesProvisioned: result.provisionedCount,
       modulesSkipped: skippedModules.length,
-      message: `Successfully provisioned ${modulesToProvision.length} module(s) for ${tenant.brandName}. Transaction ${transactionId} authorized.${skippedNote}`,
+      paymentMode: "simulated",
+      message: `SIMULATED checkout (Stripe not configured — no payment collected): provisioned ${result.provisionedCount} module(s) for ${tenant.brandName}. Transaction ${transactionId}.${skippedNote}`,
     })
   );
 });

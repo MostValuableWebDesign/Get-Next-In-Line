@@ -94,10 +94,24 @@ export function CheckoutSimulationDialog({
         queryClient.invalidateQueries({ queryKey: getGetBillingSummaryQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetAgencyDashboardQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetTenantActivityQueryKey() });
-        toast({
-          title: "Checkout Simulation Successful",
-          description: `Transaction ID: ${res.transactionId} | Total: ${formatCurrency(res.totalResale)}`,
-        });
+        if (res.paymentMode === 'live_pending' && res.checkoutUrl) {
+          // Real Stripe payment: modules provision only after payment succeeds.
+          window.open(res.checkoutUrl, '_blank', 'noopener');
+          toast({
+            title: 'Stripe Payment Required',
+            description: `Complete the payment (${formatCurrency(res.totalResale)}) in the Stripe tab — modules will be provisioned as soon as the charge succeeds.`,
+          });
+        } else if (res.paymentMode === 'simulated') {
+          toast({
+            title: 'Simulated Checkout Successful',
+            description: `No payment collected (Stripe not configured). Transaction ID: ${res.transactionId} | Total: ${formatCurrency(res.totalResale)}`,
+          });
+        } else {
+          toast({
+            title: "Checkout Simulation Successful",
+            description: `Transaction ID: ${res.transactionId} | Total: ${formatCurrency(res.totalResale)}`,
+          });
+        }
       },
       onError: () => {
         toast({

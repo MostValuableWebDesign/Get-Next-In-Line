@@ -289,6 +289,15 @@ export default function TenantDetail() {
                       <div className="text-xs text-muted-foreground truncate">{m.category}</div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {m.paymentMode && (
+                        <Badge
+                          variant={m.paymentMode === 'live' ? 'default' : 'secondary'}
+                          className="text-[9px] uppercase"
+                          data-testid={`badge-payment-mode-${m.moduleId}`}
+                        >
+                          {m.paymentMode === 'live' ? 'Paid (Stripe)' : 'Simulated'}
+                        </Badge>
+                      )}
                       <Badge
                         variant="outline"
                         className="text-[9px] uppercase"

@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { CheckoutResultPaymentMode } from './checkoutResultPaymentMode';
 
 export interface CheckoutResult {
   success: boolean;
@@ -15,4 +16,7 @@ export interface CheckoutResult {
   modulesProvisioned: number;
   modulesSkipped?: number;
   message: string;
+  paymentMode?: CheckoutResultPaymentMode;
+  /** @nullable */
+  checkoutUrl?: string | null;
 }

@@ -5574,12 +5574,21 @@ export const TenantSubscribedModuleBillingCadence = {
   biweekly: 'biweekly',
 } as const;
 
+export type TenantSubscribedModulePaymentMode = typeof TenantSubscribedModulePaymentMode[keyof typeof TenantSubscribedModulePaymentMode];
+
+
+export const TenantSubscribedModulePaymentMode = {
+  simulated: 'simulated',
+  live: 'live',
+} as const;
+
 export interface TenantSubscribedModule {
   moduleId: number;
   name: string;
   category: string;
   categorySlug: string;
   billingCadence: TenantSubscribedModuleBillingCadence;
+  paymentMode?: TenantSubscribedModulePaymentMode;
   provisionedAt: string;
 }
 
@@ -5736,6 +5745,14 @@ export interface CheckoutInput {
   moduleCadences?: ModuleCadenceSelection[];
 }
 
+export type CheckoutResultPaymentMode = typeof CheckoutResultPaymentMode[keyof typeof CheckoutResultPaymentMode];
+
+
+export const CheckoutResultPaymentMode = {
+  simulated: 'simulated',
+  live_pending: 'live_pending',
+} as const;
+
 export interface CheckoutResult {
   success: boolean;
   transactionId: string;
@@ -5745,6 +5762,9 @@ export interface CheckoutResult {
   modulesProvisioned: number;
   modulesSkipped?: number;
   message: string;
+  paymentMode?: CheckoutResultPaymentMode;
+  /** @nullable */
+  checkoutUrl?: string | null;
 }
 
 export type EmergencyBroadcastScope = typeof EmergencyBroadcastScope[keyof typeof EmergencyBroadcastScope];

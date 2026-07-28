@@ -13700,6 +13700,10 @@ components:
         billingCadence:
           type: string
           enum: [monthly, biweekly]
+        # simulated = provisioned without a real charge; live = paid via Stripe.
+        paymentMode:
+          type: string
+          enum: [simulated, live]
         provisionedAt:
           type: string
 
@@ -13940,6 +13944,16 @@ components:
           type: integer
         message:
           type: string
+        # How payment was (or will be) collected for this checkout:
+        # - simulated: Stripe not configured — modules provisioned with no real charge
+        # - live_pending: real Stripe Checkout created — modules provision only
+        #   after the payment webhook confirms the charge
+        paymentMode:
+          type: string
+          enum: [simulated, live_pending]
+        # Stripe-hosted payment page URL. Present only when paymentMode is live_pending.
+        checkoutUrl:
+          type: ["string", "null"]
 
     EmergencyBroadcast:
       type: object

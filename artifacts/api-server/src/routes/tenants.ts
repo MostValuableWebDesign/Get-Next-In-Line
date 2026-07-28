@@ -291,6 +291,7 @@ router.get("/tenants/:id/modules", async (req, res): Promise<void> => {
       category: modulesTable.category,
       categorySlug: modulesTable.categorySlug,
       billingCadence: tenantModulesTable.billingCadence,
+      paymentMode: tenantModulesTable.paymentMode,
       provisionedAt: tenantModulesTable.provisionedAt,
     })
     .from(tenantModulesTable)

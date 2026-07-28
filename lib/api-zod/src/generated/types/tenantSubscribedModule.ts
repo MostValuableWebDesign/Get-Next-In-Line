@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { TenantSubscribedModuleBillingCadence } from './tenantSubscribedModuleBillingCadence';
+import type { TenantSubscribedModulePaymentMode } from './tenantSubscribedModulePaymentMode';
 
 export interface TenantSubscribedModule {
   moduleId: number;
@@ -13,5 +14,6 @@ export interface TenantSubscribedModule {
   category: string;
   categorySlug: string;
   billingCadence: TenantSubscribedModuleBillingCadence;
+  paymentMode?: TenantSubscribedModulePaymentMode;
   provisionedAt: string;
 }

@@ -540,6 +540,13 @@
       "when": 1785253079525,
       "tag": "0076_icy_speed",
       "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1785255939469,
+      "tag": "0077_fearless_grim_reaper",
+      "breakpoints": true
     }
   ]
 }

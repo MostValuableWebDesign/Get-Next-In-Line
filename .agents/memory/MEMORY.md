@@ -1,5 +1,7 @@
 # Memory index
 
+- [Module checkout payment modes](module-checkout.md) — live Stripe path provisions only via webhook (snapshot + pending→completed claim); simulated path is test default; all provisioning through provisionModuleItems.
+
 - Sessions are Postgres-backed (connect-pg-simple, "session" table owned by Drizzle); api-server rate limiters (global + login guard) are disabled under NODE_ENV=test — tests force-enable via `__configure*ForTests` hooks. Any test mocking @workspace/db must export `pool` (even undefined) or app.ts import fails.
 
 - [Testing admin APIs with curl](api-testing-auth.md) — session cookie is Secure; authenticate over https://$REPLIT_DEV_DOMAIN, not localhost:80.
