@@ -738,6 +738,93 @@ export const coopCommunityEventCheckinsTable = pgTable(
 );
 
 export type CoopCommunityEventCheckin = typeof coopCommunityEventCheckinsTable.$inferSelect;
+// ── Co-op B2B partner ratings (Review & Reputation Shield) ──────────────────
+// Internal business-to-business ratings a merchant leaves about a partner
+// after working together: three 1–5 star dimensions plus optional comments.
+// STRICTLY INTERNAL — these rows must never surface on public landing pages,
+// customer perk surfaces, or the customer review system (sos_reviews).
+// One CURRENT rating per rater per rated partner (DB-enforced partial unique
+// index); re-rating within the rolling period updates the current row, a new
+// period supersedes it (old row flips is_current = false, kept for audit).
+export const coopPartnerRatingsTable = pgTable(
+  "coop_partner_ratings",
+  {
+    id: serial("id").primaryKey(),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    raterTenantId: integer("rater_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    ratedTenantId: integer("rated_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // 1–5 stars each (validated at the API layer).
+    reliability: integer("reliability").notNull(),
+    professionalism: integer("professionalism").notNull(),
+    trafficValue: integer("traffic_value").notNull(),
+    comment: text("comment"),
+    // The single live rating for this rater→rated pair. Superseded ratings
+    // stay for audit but never count toward the reputation score.
+    isCurrent: boolean("is_current").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("coop_partner_ratings_current_pair_uq")
+      .on(t.raterTenantId, t.ratedTenantId)
+      .where(sql`is_current`),
+    index("coop_partner_ratings_rated_idx").on(t.ratedTenantId),
+  ]
+);
+
+export type CoopPartnerRating = typeof coopPartnerRatingsTable.$inferSelect;
+
+// ── Per-tenant reputation state (Reputation Shield) ──────────────────────────
+// Current recency-weighted reputation score computed from received B2B
+// ratings, plus the enforcement lifecycle: ok → flagged (warning + owner
+// alert) → decoupled (partnerships deactivated, hidden from discovery) →
+// reinstated by a platform admin. Flags clear automatically on recovery.
+export const coopReputationStatesTable = pgTable("coop_reputation_states", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id")
+    .notNull()
+    .unique()
+    .references(() => tenantsTable.id, { onDelete: "cascade" }),
+  // Recency-weighted average across the three dimensions (1–5). NULL until
+  // the minimum-distinct-rater floor is met.
+  score: numeric("score", { precision: 4, scale: 2 }),
+  raterCount: integer("rater_count").notNull().default(0),
+  // ok | flagged | decoupled
+  status: text("status").notNull().default("ok"),
+  flaggedAt: timestamp("flagged_at"),
+  decoupledAt: timestamp("decoupled_at"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type CoopReputationState = typeof coopReputationStatesTable.$inferSelect;
+
+// Append-only audit trail of every flag / decouple / flag-clear / reinstate
+// transition, timestamped, with the score at transition time and structured
+// details (e.g. the partnership ids a decouple deactivated, so an admin
+// reinstate restores exactly those).
+export const coopReputationEventsTable = pgTable(
+  "coop_reputation_events",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // flagged | decoupled | flag_cleared | reinstated
+    eventType: text("event_type").notNull(),
+    score: numeric("score", { precision: 4, scale: 2 }),
+    details: jsonb("details").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_reputation_events_tenant_idx").on(t.tenantId, t.createdAt.desc())]
+);
+
+export type CoopReputationEvent = typeof coopReputationEventsTable.$inferSelect;
 
 export const insertCoopDisputeSchema = createInsertSchema(coopDisputesTable).omit({
   id: true,

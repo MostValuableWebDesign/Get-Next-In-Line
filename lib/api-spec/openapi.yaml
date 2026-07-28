@@ -2134,6 +2134,92 @@ paths:
         "409":
           description: Dispute already escalated or closed
 
+  /coop/partnerships/{id}/rating:
+    put:
+      operationId: submitCoopPartnerRating
+      tags: [coop]
+      summary: Merchant-facing — rate the partner on an accepted partnership (internal B2B only, never public); one rating per partner per rolling period, updatable; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopPartnerRatingSubmit"
+      responses:
+        "200":
+          description: The saved (created or updated) current rating
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPartnerRating"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+        "403":
+          description: The rater is not a party to this partnership
+        "404":
+          description: Partnership not found
+        "409":
+          description: Partnership is not accepted, or a concurrent rating submission won
+
+  /coop/reputation:
+    get:
+      operationId: getCoopReputationOverview
+      tags: [coop]
+      summary: Merchant-facing — internal-only Reputation Shield overview; the scoped tenant's own status plus each partner's aggregate score, per-dimension averages, and the viewer's latest rating; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Internal reputation overview (never exposed publicly)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopReputationOverview"
+        "400":
+          description: Missing x-tenant-id header
+
+  /admin/coop/reputation:
+    get:
+      operationId: listAdminCoopReputation
+      tags: [admin]
+      summary: Admin-only — Reputation Shield console; flagged and decoupled businesses with score history
+      responses:
+        "200":
+          description: Flagged/decoupled tenants, most recently updated first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminCoopReputationEntry"
+
+  /admin/coop/reputation/{tenantId}/reinstate:
+    post:
+      operationId: reinstateCoopReputation
+      tags: [admin]
+      summary: Admin-only — reinstate a decoupled business, reactivating the partnerships the decouple deactivated and restoring directory visibility (audited)
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated reputation entry after reinstatement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCoopReputationEntry"
+        "404":
+          description: No reputation record for this business
+        "409":
+          description: The business is not decoupled
+
   /admin/coop/disputes:
     get:
       operationId: listAdminCoopDisputes
@@ -4970,6 +5056,193 @@ components:
           type: boolean
         createdAt:
           type: string
+
+    CoopPartnerRatingSubmit:
+      type: object
+      required: [reliability, professionalism, trafficValue]
+      properties:
+        reliability:
+          type: integer
+          minimum: 1
+          maximum: 5
+        professionalism:
+          type: integer
+          minimum: 1
+          maximum: 5
+        trafficValue:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: ["string", "null"]
+          maxLength: 2000
+
+    CoopPartnerRating:
+      type: object
+      required:
+        [
+          id,
+          partnershipId,
+          raterTenantId,
+          ratedTenantId,
+          reliability,
+          professionalism,
+          trafficValue,
+          comment,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id:
+          type: integer
+        partnershipId:
+          type: integer
+        raterTenantId:
+          type: integer
+        ratedTenantId:
+          type: integer
+        reliability:
+          type: integer
+        professionalism:
+          type: integer
+        trafficValue:
+          type: integer
+        comment:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    CoopReputationDimensions:
+      type: object
+      required: [reliability, professionalism, trafficValue]
+      properties:
+        reliability:
+          type: number
+        professionalism:
+          type: number
+        trafficValue:
+          type: number
+
+    CoopPartnerReputation:
+      type: object
+      required:
+        [
+          tenantId,
+          tenantName,
+          partnershipId,
+          score,
+          raterCount,
+          sufficient,
+          dimensions,
+          status,
+          myRating,
+        ]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        partnershipId:
+          type: ["integer", "null"]
+          description: Latest accepted partnership with this partner (target of the rating action).
+        score:
+          type: ["number", "null"]
+          description: Recency-weighted overall average (1–5); null until the minimum-rater floor is met.
+        raterCount:
+          type: integer
+        sufficient:
+          type: boolean
+        dimensions:
+          oneOf:
+            - $ref: "#/components/schemas/CoopReputationDimensions"
+            - type: "null"
+        status:
+          type: string
+          enum: [ok, flagged, decoupled]
+        myRating:
+          oneOf:
+            - $ref: "#/components/schemas/CoopPartnerRating"
+            - type: "null"
+
+    CoopReputationOverview:
+      type: object
+      required: [minRaters, threshold, ratingPeriodDays, self, partners]
+      properties:
+        minRaters:
+          type: integer
+        threshold:
+          type: number
+        ratingPeriodDays:
+          type: integer
+        self:
+          oneOf:
+            - type: object
+              required: [status, score, flaggedAt, decoupledAt]
+              properties:
+                status:
+                  type: string
+                  enum: [ok, flagged, decoupled]
+                score:
+                  type: ["number", "null"]
+                flaggedAt:
+                  type: ["string", "null"]
+                decoupledAt:
+                  type: ["string", "null"]
+            - type: "null"
+        partners:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopPartnerReputation"
+
+    AdminCoopReputationEntry:
+      type: object
+      required:
+        [
+          tenantId,
+          tenantName,
+          score,
+          raterCount,
+          status,
+          flaggedAt,
+          decoupledAt,
+          updatedAt,
+          events,
+        ]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        score:
+          type: ["number", "null"]
+        raterCount:
+          type: integer
+        status:
+          type: string
+          enum: [ok, flagged, decoupled]
+        flaggedAt:
+          type: ["string", "null"]
+        decoupledAt:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+        events:
+          type: array
+          items:
+            type: object
+            required: [id, eventType, score, createdAt]
+            properties:
+              id:
+                type: integer
+              eventType:
+                type: string
+                enum: [flagged, decoupled, flag_cleared, reinstated]
+              score:
+                type: ["number", "null"]
+              createdAt:
+                type: string
 
     CoopDispute:
       type: object
@@ -8245,7 +8518,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock, coop_reputation]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

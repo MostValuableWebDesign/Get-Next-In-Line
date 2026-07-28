@@ -16,6 +16,10 @@ import {
   useReleaseCoopPlazaConflict,
   type CoopPartnership,
   type CoopDispute,
+  useListAdminCoopReputation,
+  getListAdminCoopReputationQueryKey,
+  useReinstateCoopReputation,
+  type AdminCoopReputationEntry,
 } from '@workspace/api-client-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +39,7 @@ import { useToast } from '@/hooks/use-toast';
 import { EmergencyBroadcastContent } from '@/components/sos/emergency-broadcast-content';
 import {
   AlertTriangle, ArrowLeftRight, Ban, Gavel, Handshake, MapPin, NotebookPen, Plus, Power,
-  RotateCcw, Ticket, Unlock,
+  RotateCcw, ShieldAlert, ShieldOff, Ticket, Unlock,
 } from 'lucide-react';
 
 /**
@@ -208,6 +212,8 @@ export default function CoopPartnerships() {
       {/* Co-Op Emergency & Crisis Network Broadcast — admin console (unscoped):
           platform-wide or selected-tenant crisis alerts with live check-ins. */}
       <EmergencyBroadcastContent tenantId={null} />
+
+      <ReputationShieldQueue />
     </div>
   );
 }
@@ -792,6 +798,114 @@ export function TenantCoopPartnershipsSection({ tenantId }: { tenantId: number }
               );
             })}
           </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Reputation Shield — flagged/decoupled businesses ─────────────────────────
+
+const REPUTATION_EVENT_LABELS: Record<string, string> = {
+  flagged: 'Flagged',
+  decoupled: 'Decoupled',
+  flag_cleared: 'Flag cleared',
+  reinstated: 'Reinstated',
+};
+
+function ReputationShieldQueue() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: entries, isLoading } = useListAdminCoopReputation({
+    query: { queryKey: getListAdminCoopReputationQueryKey() },
+  });
+  const reinstate = useReinstateCoopReputation();
+
+  const doReinstate = (e: AdminCoopReputationEntry) => {
+    reinstate.mutate(
+      { tenantId: e.tenantId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListAdminCoopReputationQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListCoopPartnershipsQueryKey(undefined) });
+          toast({
+            title: 'Business reinstated',
+            description: `${e.tenantName} is back in the co-op directory and its partnerships are reactivated.`,
+          });
+        },
+        onError: (err: unknown) => {
+          const er = err as { data?: { message?: string }; message?: string };
+          toast({
+            title: 'Could not reinstate',
+            description: er?.data?.message ?? er?.message ?? 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <Card data-testid="card-reputation-shield">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4 text-amber-600" /> Reputation Shield
+        </CardTitle>
+        <CardDescription>
+          Businesses flagged or decoupled by the internal B2B rating loop (partner reliability,
+          professionalism, mutual traffic value). Flags clear automatically on recovery; a
+          decoupled business needs an admin reinstate.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? (
+          <Skeleton className="h-16 w-full rounded-lg" />
+        ) : !entries || entries.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-testid="text-no-reputation-entries">
+            No businesses are currently flagged or decoupled.
+          </p>
+        ) : (
+          entries.map(e => (
+            <div key={e.tenantId} className="border rounded-lg p-3 space-y-2" data-testid={`row-reputation-${e.tenantId}`}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold">{e.tenantName}</span>
+                {e.status === 'decoupled' ? (
+                  <Badge variant="destructive" className="gap-1" data-testid={`badge-reputation-status-${e.tenantId}`}>
+                    <ShieldOff className="w-3 h-3" /> Decoupled
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="gap-1 border-amber-400 text-amber-700 dark:text-amber-400" data-testid={`badge-reputation-status-${e.tenantId}`}>
+                    <ShieldAlert className="w-3 h-3" /> Flagged
+                  </Badge>
+                )}
+                <span className="text-xs text-muted-foreground" data-testid={`text-reputation-score-${e.tenantId}`}>
+                  Score {e.score == null ? '—' : e.score.toFixed(2)} · {e.raterCount} rater{e.raterCount === 1 ? '' : 's'}
+                </span>
+                {e.status === 'decoupled' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="ml-auto gap-1.5"
+                    disabled={reinstate.isPending}
+                    onClick={() => doReinstate(e)}
+                    data-testid={`button-reinstate-reputation-${e.tenantId}`}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Reinstate
+                  </Button>
+                )}
+              </div>
+              {e.events.length > 0 && (
+                <div className="text-xs text-muted-foreground space-y-0.5" data-testid={`list-reputation-events-${e.tenantId}`}>
+                  {e.events.slice(0, 6).map(ev => (
+                    <div key={ev.id}>
+                      {new Date(ev.createdAt).toLocaleString()} — {REPUTATION_EVENT_LABELS[ev.eventType] ?? ev.eventType}
+                      {ev.score != null ? ` (score ${ev.score.toFixed(2)})` : ''}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))
         )}
       </CardContent>
     </Card>

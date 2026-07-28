@@ -31,4 +31,5 @@ export const SosMessageKind = {
   emergency_broadcast: 'emergency_broadcast',
   coop_event_broadcast: 'coop_event_broadcast',
   retail_low_stock: 'retail_low_stock',
+  coop_reputation: 'coop_reputation',
 } as const;

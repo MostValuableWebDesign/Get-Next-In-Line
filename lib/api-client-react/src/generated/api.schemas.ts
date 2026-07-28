@@ -254,6 +254,147 @@ export interface CoopPartnership {
   createdAt: string;
 }
 
+export interface CoopPartnerRatingSubmit {
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  reliability: number;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  professionalism: number;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  trafficValue: number;
+  /**
+     * @maxLength 2000
+     * @nullable
+     */
+  comment?: string | null;
+}
+
+export interface CoopPartnerRating {
+  id: number;
+  partnershipId: number;
+  raterTenantId: number;
+  ratedTenantId: number;
+  reliability: number;
+  professionalism: number;
+  trafficValue: number;
+  /** @nullable */
+  comment: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CoopReputationDimensions {
+  reliability: number;
+  professionalism: number;
+  trafficValue: number;
+}
+
+export type CoopPartnerReputationStatus = typeof CoopPartnerReputationStatus[keyof typeof CoopPartnerReputationStatus];
+
+
+export const CoopPartnerReputationStatus = {
+  ok: 'ok',
+  flagged: 'flagged',
+  decoupled: 'decoupled',
+} as const;
+
+export interface CoopPartnerReputation {
+  tenantId: number;
+  tenantName: string;
+  /**
+     * Latest accepted partnership with this partner (target of the rating action).
+     * @nullable
+     */
+  partnershipId: number | null;
+  /**
+     * Recency-weighted overall average (1–5); null until the minimum-rater floor is met.
+     * @nullable
+     */
+  score: number | null;
+  raterCount: number;
+  sufficient: boolean;
+  dimensions: CoopReputationDimensions | null;
+  status: CoopPartnerReputationStatus;
+  myRating: CoopPartnerRating | null;
+}
+
+export type CoopReputationOverviewSelfStatus = typeof CoopReputationOverviewSelfStatus[keyof typeof CoopReputationOverviewSelfStatus];
+
+
+export const CoopReputationOverviewSelfStatus = {
+  ok: 'ok',
+  flagged: 'flagged',
+  decoupled: 'decoupled',
+} as const;
+
+export type CoopReputationOverviewSelf = {
+  status: CoopReputationOverviewSelfStatus;
+  /** @nullable */
+  score: number | null;
+  /** @nullable */
+  flaggedAt: string | null;
+  /** @nullable */
+  decoupledAt: string | null;
+} | null;
+
+export interface CoopReputationOverview {
+  minRaters: number;
+  threshold: number;
+  ratingPeriodDays: number;
+  self: CoopReputationOverviewSelf;
+  partners: CoopPartnerReputation[];
+}
+
+export type AdminCoopReputationEntryStatus = typeof AdminCoopReputationEntryStatus[keyof typeof AdminCoopReputationEntryStatus];
+
+
+export const AdminCoopReputationEntryStatus = {
+  ok: 'ok',
+  flagged: 'flagged',
+  decoupled: 'decoupled',
+} as const;
+
+export type AdminCoopReputationEntryEventsItemEventType = typeof AdminCoopReputationEntryEventsItemEventType[keyof typeof AdminCoopReputationEntryEventsItemEventType];
+
+
+export const AdminCoopReputationEntryEventsItemEventType = {
+  flagged: 'flagged',
+  decoupled: 'decoupled',
+  flag_cleared: 'flag_cleared',
+  reinstated: 'reinstated',
+} as const;
+
+export type AdminCoopReputationEntryEventsItem = {
+  id: number;
+  eventType: AdminCoopReputationEntryEventsItemEventType;
+  /** @nullable */
+  score: number | null;
+  createdAt: string;
+};
+
+export interface AdminCoopReputationEntry {
+  tenantId: number;
+  tenantName: string;
+  /** @nullable */
+  score: number | null;
+  raterCount: number;
+  status: AdminCoopReputationEntryStatus;
+  /** @nullable */
+  flaggedAt: string | null;
+  /** @nullable */
+  decoupledAt: string | null;
+  updatedAt: string;
+  events: AdminCoopReputationEntryEventsItem[];
+}
+
 export type CoopDisputeCategory = typeof CoopDisputeCategory[keyof typeof CoopDisputeCategory];
 
 
@@ -3009,6 +3150,7 @@ export const SosMessageKind = {
   emergency_broadcast: 'emergency_broadcast',
   coop_event_broadcast: 'coop_event_broadcast',
   retail_low_stock: 'retail_low_stock',
+  coop_reputation: 'coop_reputation',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];

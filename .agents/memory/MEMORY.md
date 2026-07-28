@@ -39,5 +39,6 @@
 - [Neighborhood Passport](passport.md) — global (non-tenant) identities: tests must clean by phone block; every new redemption path must call recordPassportStampSafe.
 - Coop route convention: when x-tenant-id is present, treat the caller strictly as that tenant — no platform-admin bypass on visibility/resolve checks; admin superpowers apply only to unscoped requests. Tests rely on this.
 - [Co-op developer API gateway](gateway-api.md) — bearer tokens stored as SHA-256 hashes shown once; tenant scope from token only; sandbox = in-code fixtures; all machine redemptions via redeemWalletPassAsTenant.
+- [Co-op Reputation Shield](coop-reputation-shield.md) — B2B ratings internal-only; new co-op read surfaces must filter decoupledTenantIdSet(); reinstate restores only the decouple-recorded partnership ids.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.
 - [Co-op surge boosts](coop-surge.md) — capacity status has a 30s in-process cache (tests must clear it); surge activation lock = partial unique index on live activations; firewall backstop re-checked at sweep time.

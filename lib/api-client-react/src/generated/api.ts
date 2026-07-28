@@ -24,6 +24,7 @@ import type {
   AdminCampaignCreate,
   AdminCampaignUpdate,
   AdminComplianceSummary,
+  AdminCoopReputationEntry,
   AdminModuleDetail,
   AgencyDashboard,
   AgencySettings,
@@ -67,6 +68,8 @@ import type {
   CoopLedgerResponse,
   CoopMonthlyReport,
   CoopPartnerPerformance,
+  CoopPartnerRating,
+  CoopPartnerRatingSubmit,
   CoopPartnership,
   CoopPartnershipCreate,
   CoopPartnershipUpdate,
@@ -76,6 +79,7 @@ import type {
   CoopPlazaNotification,
   CoopRedemptionValidation,
   CoopRenegotiationPropose,
+  CoopReputationOverview,
   CoopRetailItem,
   CoopRetailItemCreate,
   CoopRetailItemUpdate,
@@ -7325,6 +7329,303 @@ export const useWithdrawCoopDispute = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getWithdrawCoopDisputeMutationOptions(options));
+    }
+
+export const getSubmitCoopPartnerRatingUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/partnerships/${id}/rating`
+}
+
+/**
+ * @summary Merchant-facing — rate the partner on an accepted partnership (internal B2B only, never public); one rating per partner per rolling period, updatable; tenant scope via x-tenant-id
+ */
+export const submitCoopPartnerRating = async (id: number,
+    coopPartnerRatingSubmit: CoopPartnerRatingSubmit, options?: RequestInit): Promise<CoopPartnerRating> => {
+
+  return customFetch<CoopPartnerRating>(getSubmitCoopPartnerRatingUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopPartnerRatingSubmit)
+  }
+);}
+
+
+
+
+
+export const getSubmitCoopPartnerRatingMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitCoopPartnerRating>>, TError,{id: number;data: BodyType<CoopPartnerRatingSubmit>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitCoopPartnerRating>>, TError,{id: number;data: BodyType<CoopPartnerRatingSubmit>}, TContext> => {
+
+const mutationKey = ['submitCoopPartnerRating'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitCoopPartnerRating>>, {id: number;data: BodyType<CoopPartnerRatingSubmit>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  submitCoopPartnerRating(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitCoopPartnerRatingMutationResult = NonNullable<Awaited<ReturnType<typeof submitCoopPartnerRating>>>
+    export type SubmitCoopPartnerRatingMutationBody = BodyType<CoopPartnerRatingSubmit>
+    export type SubmitCoopPartnerRatingMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — rate the partner on an accepted partnership (internal B2B only, never public); one rating per partner per rolling period, updatable; tenant scope via x-tenant-id
+ */
+export const useSubmitCoopPartnerRating = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitCoopPartnerRating>>, TError,{id: number;data: BodyType<CoopPartnerRatingSubmit>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitCoopPartnerRating>>,
+        TError,
+        {id: number;data: BodyType<CoopPartnerRatingSubmit>},
+        TContext
+      > => {
+      return useMutation(getSubmitCoopPartnerRatingMutationOptions(options));
+    }
+
+export const getGetCoopReputationOverviewUrl = () => {
+
+
+
+
+  return `/api/coop/reputation`
+}
+
+/**
+ * @summary Merchant-facing — internal-only Reputation Shield overview; the scoped tenant's own status plus each partner's aggregate score, per-dimension averages, and the viewer's latest rating; tenant scope via x-tenant-id
+ */
+export const getCoopReputationOverview = async ( options?: RequestInit): Promise<CoopReputationOverview> => {
+
+  return customFetch<CoopReputationOverview>(getGetCoopReputationOverviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopReputationOverviewQueryKey = () => {
+    return [
+    `/api/coop/reputation`
+    ] as const;
+    }
+
+
+export const getGetCoopReputationOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getCoopReputationOverview>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopReputationOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopReputationOverviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopReputationOverview>>> = ({ signal }) => getCoopReputationOverview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopReputationOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopReputationOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopReputationOverview>>>
+export type GetCoopReputationOverviewQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — internal-only Reputation Shield overview; the scoped tenant's own status plus each partner's aggregate score, per-dimension averages, and the viewer's latest rating; tenant scope via x-tenant-id
+ */
+
+export function useGetCoopReputationOverview<TData = Awaited<ReturnType<typeof getCoopReputationOverview>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopReputationOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopReputationOverviewQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAdminCoopReputationUrl = () => {
+
+
+
+
+  return `/api/admin/coop/reputation`
+}
+
+/**
+ * @summary Admin-only — Reputation Shield console; flagged and decoupled businesses with score history
+ */
+export const listAdminCoopReputation = async ( options?: RequestInit): Promise<AdminCoopReputationEntry[]> => {
+
+  return customFetch<AdminCoopReputationEntry[]>(getListAdminCoopReputationUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminCoopReputationQueryKey = () => {
+    return [
+    `/api/admin/coop/reputation`
+    ] as const;
+    }
+
+
+export const getListAdminCoopReputationQueryOptions = <TData = Awaited<ReturnType<typeof listAdminCoopReputation>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopReputation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminCoopReputationQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminCoopReputation>>> = ({ signal }) => listAdminCoopReputation({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopReputation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminCoopReputationQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminCoopReputation>>>
+export type ListAdminCoopReputationQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Admin-only — Reputation Shield console; flagged and decoupled businesses with score history
+ */
+
+export function useListAdminCoopReputation<TData = Awaited<ReturnType<typeof listAdminCoopReputation>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopReputation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminCoopReputationQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReinstateCoopReputationUrl = (tenantId: number,) => {
+
+
+
+
+  return `/api/admin/coop/reputation/${tenantId}/reinstate`
+}
+
+/**
+ * @summary Admin-only — reinstate a decoupled business, reactivating the partnerships the decouple deactivated and restoring directory visibility (audited)
+ */
+export const reinstateCoopReputation = async (tenantId: number, options?: RequestInit): Promise<AdminCoopReputationEntry> => {
+
+  return customFetch<AdminCoopReputationEntry>(getReinstateCoopReputationUrl(tenantId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReinstateCoopReputationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reinstateCoopReputation>>, TError,{tenantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reinstateCoopReputation>>, TError,{tenantId: number}, TContext> => {
+
+const mutationKey = ['reinstateCoopReputation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reinstateCoopReputation>>, {tenantId: number}> = (props) => {
+          const {tenantId} = props ?? {};
+
+          return  reinstateCoopReputation(tenantId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReinstateCoopReputationMutationResult = NonNullable<Awaited<ReturnType<typeof reinstateCoopReputation>>>
+
+    export type ReinstateCoopReputationMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — reinstate a decoupled business, reactivating the partnerships the decouple deactivated and restoring directory visibility (audited)
+ */
+export const useReinstateCoopReputation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reinstateCoopReputation>>, TError,{tenantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reinstateCoopReputation>>,
+        TError,
+        {tenantId: number},
+        TContext
+      > => {
+      return useMutation(getReinstateCoopReputationMutationOptions(options));
     }
 
 export const getListAdminCoopDisputesUrl = (params?: ListAdminCoopDisputesParams,) => {

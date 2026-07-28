@@ -2731,6 +2731,133 @@ export const WithdrawCoopDisputeResponse = zod.object({
 
 
 /**
+ * @summary Merchant-facing — rate the partner on an accepted partnership (internal B2B only, never public); one rating per partner per rolling period, updatable; tenant scope via x-tenant-id
+ */
+export const SubmitCoopPartnerRatingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const submitCoopPartnerRatingBodyReliabilityMax = 5;
+
+export const submitCoopPartnerRatingBodyProfessionalismMax = 5;
+
+export const submitCoopPartnerRatingBodyTrafficValueMax = 5;
+
+export const submitCoopPartnerRatingBodyCommentMax = 2000;
+
+
+
+export const SubmitCoopPartnerRatingBody = zod.object({
+  "reliability": zod.number().min(1).max(submitCoopPartnerRatingBodyReliabilityMax),
+  "professionalism": zod.number().min(1).max(submitCoopPartnerRatingBodyProfessionalismMax),
+  "trafficValue": zod.number().min(1).max(submitCoopPartnerRatingBodyTrafficValueMax),
+  "comment": zod.string().max(submitCoopPartnerRatingBodyCommentMax).nullish()
+})
+
+export const SubmitCoopPartnerRatingResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "raterTenantId": zod.number(),
+  "ratedTenantId": zod.number(),
+  "reliability": zod.number(),
+  "professionalism": zod.number(),
+  "trafficValue": zod.number(),
+  "comment": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — internal-only Reputation Shield overview; the scoped tenant's own status plus each partner's aggregate score, per-dimension averages, and the viewer's latest rating; tenant scope via x-tenant-id
+ */
+export const GetCoopReputationOverviewResponse = zod.object({
+  "minRaters": zod.number(),
+  "threshold": zod.number(),
+  "ratingPeriodDays": zod.number(),
+  "self": zod.union([zod.object({
+  "status": zod.enum(['ok', 'flagged', 'decoupled']),
+  "score": zod.number().nullable(),
+  "flaggedAt": zod.string().nullable(),
+  "decoupledAt": zod.string().nullable()
+}),zod.null()]),
+  "partners": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "partnershipId": zod.number().nullable().describe('Latest accepted partnership with this partner (target of the rating action).'),
+  "score": zod.number().nullable().describe('Recency-weighted overall average (1–5); null until the minimum-rater floor is met.'),
+  "raterCount": zod.number(),
+  "sufficient": zod.boolean(),
+  "dimensions": zod.union([zod.object({
+  "reliability": zod.number(),
+  "professionalism": zod.number(),
+  "trafficValue": zod.number()
+}),zod.null()]),
+  "status": zod.enum(['ok', 'flagged', 'decoupled']),
+  "myRating": zod.union([zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "raterTenantId": zod.number(),
+  "ratedTenantId": zod.number(),
+  "reliability": zod.number(),
+  "professionalism": zod.number(),
+  "trafficValue": zod.number(),
+  "comment": zod.string().nullable(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}),zod.null()])
+}))
+})
+
+
+/**
+ * @summary Admin-only — Reputation Shield console; flagged and decoupled businesses with score history
+ */
+export const ListAdminCoopReputationResponseItem = zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "score": zod.number().nullable(),
+  "raterCount": zod.number(),
+  "status": zod.enum(['ok', 'flagged', 'decoupled']),
+  "flaggedAt": zod.string().nullable(),
+  "decoupledAt": zod.string().nullable(),
+  "updatedAt": zod.string(),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.enum(['flagged', 'decoupled', 'flag_cleared', 'reinstated']),
+  "score": zod.number().nullable(),
+  "createdAt": zod.string()
+}))
+})
+export const ListAdminCoopReputationResponse = zod.array(ListAdminCoopReputationResponseItem)
+
+
+/**
+ * @summary Admin-only — reinstate a decoupled business, reactivating the partnerships the decouple deactivated and restoring directory visibility (audited)
+ */
+export const ReinstateCoopReputationParams = zod.object({
+  "tenantId": zod.coerce.number()
+})
+
+export const ReinstateCoopReputationResponse = zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "score": zod.number().nullable(),
+  "raterCount": zod.number(),
+  "status": zod.enum(['ok', 'flagged', 'decoupled']),
+  "flaggedAt": zod.string().nullable(),
+  "decoupledAt": zod.string().nullable(),
+  "updatedAt": zod.string(),
+  "events": zod.array(zod.object({
+  "id": zod.number(),
+  "eventType": zod.enum(['flagged', 'decoupled', 'flag_cleared', 'reinstated']),
+  "score": zod.number().nullable(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
  * @summary Admin-only — dispute escalation queue, optionally filtered by status
  */
 export const ListAdminCoopDisputesQueryParams = zod.object({
@@ -3724,7 +3851,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -3753,7 +3880,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

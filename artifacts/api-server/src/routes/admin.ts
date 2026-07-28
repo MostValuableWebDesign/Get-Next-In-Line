@@ -30,7 +30,17 @@ import {
   BanCoopDisputePartnershipResponse,
   AddCoopDisputeMediationNoteBody,
   AddCoopDisputeMediationNoteResponse,
+  ListAdminCoopReputationResponse,
+  ReinstateCoopReputationResponse,
 } from "@workspace/api-zod";
+import {
+  coopReputationStatesTable,
+  coopReputationEventsTable,
+  type CoopReputationState,
+  type CoopReputationEvent,
+} from "@workspace/db";
+import { reinstateReputation } from "../lib/coopReputation";
+import { inArray, ne } from "drizzle-orm";
 import { CAMPAIGN_CODE_RE } from "./campaignRedirect";
 
 import { effectiveMarkupPercent } from "../lib/pricing";
@@ -672,6 +682,108 @@ router.post("/admin/coop/disputes/:id/ban", async (req, res): Promise<void> => {
     .set({ bannedAt: now, disputeSuspended: true, updatedAt: now })
     .where(eq(merchantCoopPartnershipsTable.id, dispute.partnershipId));
   await respondWithDispute(res, dispute.id, BanCoopDisputePartnershipResponse);
+});
+
+// ── Co-op Reputation Shield console ─────────────────────────────────────────
+// Flagged/decoupled tenants with their score history, and admin
+// reinstatement after an automatic decouple.
+
+function serializeReputationEntry(
+  state: CoopReputationState,
+  tenantName: string,
+  events: CoopReputationEvent[],
+) {
+  return {
+    tenantId: state.tenantId,
+    tenantName,
+    score: state.score == null ? null : Number(state.score),
+    raterCount: state.raterCount,
+    status: state.status,
+    flaggedAt: state.flaggedAt?.toISOString() ?? null,
+    decoupledAt: state.decoupledAt?.toISOString() ?? null,
+    updatedAt: state.updatedAt.toISOString(),
+    events: events.map((e) => ({
+      id: e.id,
+      eventType: e.eventType,
+      score: e.score == null ? null : Number(e.score),
+      createdAt: e.createdAt.toISOString(),
+    })),
+  };
+}
+
+router.get("/admin/coop/reputation", async (_req, res): Promise<void> => {
+  const states = await db
+    .select()
+    .from(coopReputationStatesTable)
+    .where(ne(coopReputationStatesTable.status, "ok"))
+    .orderBy(desc(coopReputationStatesTable.updatedAt));
+  const tenantIds = states.map((s) => s.tenantId);
+  const [tenants, events] = tenantIds.length
+    ? await Promise.all([
+        db
+          .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
+          .from(tenantsTable)
+          .where(inArray(tenantsTable.id, tenantIds)),
+        db
+          .select()
+          .from(coopReputationEventsTable)
+          .where(inArray(coopReputationEventsTable.tenantId, tenantIds))
+          .orderBy(desc(coopReputationEventsTable.createdAt)),
+      ])
+    : [[], []];
+  const nameById = new Map(tenants.map((t) => [t.id, t.brandName]));
+  res.json(
+    ListAdminCoopReputationResponse.parse(
+      states.map((s) =>
+        serializeReputationEntry(
+          s,
+          nameById.get(s.tenantId) ?? "Unknown business",
+          events.filter((e) => e.tenantId === s.tenantId),
+        ),
+      ),
+    ),
+  );
+});
+
+// Reinstate a decoupled tenant: reactivates exactly the partnerships the
+// decouple deactivated and restores directory visibility. Audited.
+router.post("/admin/coop/reputation/:tenantId/reinstate", async (req, res): Promise<void> => {
+  const tenantId = Number(req.params.tenantId);
+  if (!Number.isInteger(tenantId) || tenantId <= 0) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  const [existing] = await db
+    .select()
+    .from(coopReputationStatesTable)
+    .where(eq(coopReputationStatesTable.tenantId, tenantId));
+  if (!existing) {
+    res.status(404).json({ message: "Not found" });
+    return;
+  }
+  if (existing.status !== "decoupled") {
+    res.status(409).json({ message: "This business is not decoupled" });
+    return;
+  }
+  const updated = await reinstateReputation(tenantId);
+  if (!updated) {
+    res.status(409).json({ message: "This business is not decoupled" });
+    return;
+  }
+  const [tenant] = await db
+    .select({ brandName: tenantsTable.brandName })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, tenantId));
+  const events = await db
+    .select()
+    .from(coopReputationEventsTable)
+    .where(eq(coopReputationEventsTable.tenantId, tenantId))
+    .orderBy(desc(coopReputationEventsTable.createdAt));
+  res.json(
+    ReinstateCoopReputationResponse.parse(
+      serializeReputationEntry(updated, tenant?.brandName ?? "Unknown business", events),
+    ),
+  );
 });
 
 // Append a timestamped mediation note; the dispute stays in its current state.

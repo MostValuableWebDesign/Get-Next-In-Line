@@ -11,6 +11,7 @@ import { getSettingsForTenant } from "../lib/settings";
 import { cachedCapacityStatus } from "../lib/capacityStatus";
 import { COOP_PERK_DISCLAIMER, perkWindowOpen } from "../lib/coopPerks";
 import { filterPartnershipsForConsumerSurface } from "../lib/coopFirewall";
+import { decoupledTenantIdSet } from "../lib/coopReputation";
 import { recordCoopEventsSafe } from "../lib/coopEvents";
 import { recordCoopTrafficEvent } from "../lib/coopTraffic";
 import { listServicesForScope } from "../lib/serviceCatalog";
@@ -106,7 +107,14 @@ export async function getPublicCoopPerkRows(
   // Category-firewall consumer exclusion: a customer of this business must
   // never see a perk from a same-sub-category competitor or an
   // isolation-paired business, however the partnership was created.
-  const rows = await filterPartnershipsForConsumerSurface(tenantId, allRows);
+  const filtered = await filterPartnershipsForConsumerSurface(tenantId, allRows);
+  // Reputation Shield: a decoupled business's perks never reach any public
+  // surface. Note: only the exclusion applies here — B2B rating data itself
+  // is never serialized on public routes.
+  const decoupled = await decoupledTenantIdSet();
+  const rows = filtered.filter(
+    (r) => !decoupled.has(r.hostTenantId) && !decoupled.has(r.partnerTenantId),
+  );
   return rows.map((r) => {
     const isHost = r.hostTenantId === tenantId;
     return {

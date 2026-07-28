@@ -148,6 +148,23 @@ import {
   flashPerksForTenant,
   runCampaignBlast,
 } from "../lib/coopCampaigns";
+import {
+  SubmitCoopPartnerRatingBody,
+  SubmitCoopPartnerRatingResponse,
+  GetCoopReputationOverviewResponse,
+} from "@workspace/api-zod";
+import {
+  coopPartnerRatingsTable,
+  coopReputationStatesTable,
+  type CoopPartnerRating,
+} from "@workspace/db";
+import {
+  RATING_PERIOD_DAYS,
+  REPUTATION_MIN_RATERS,
+  REPUTATION_FLAG_THRESHOLD,
+  computeReputations,
+  decoupledTenantIdSet,
+} from "../lib/coopReputation";
 import { coopSuggestionsTable, coopSuggestionDismissalsTable } from "@workspace/db";
 import {
   computeSuggestions,
@@ -958,6 +975,8 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
   const radiusMiles = meRow != null ? effectiveCoopRadiusMiles(meRow) : null;
   if (radiusMiles != null) me.radiusMiles = radiusMiles;
   const isolated = await isolationPartnersOf(tenantId);
+  // Reputation Shield: decoupled businesses are hidden from discovery.
+  const decoupled = await decoupledTenantIdSet();
   const [myPlazaRow] = await plazaSettingsFor([tenantId]);
   const myPlaza = myPlazaRow ?? null;
   const myIndustry = industryOf(myPlaza);
@@ -1106,6 +1125,7 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
     })
     // Discovery-level firewall: same L2 sub-category or isolation-paired
     // businesses never appear — the block happens here, not at invite time.
+    .filter(({ entry }) => !decoupled.has(entry.id))
     .filter(({ profile, entry }) => !isBlockedPair(me, profile, isolated.has(entry.id)))
     // Proximity scope: viewer's radius (coords), city fallback otherwise.
     .filter(({ profile }) => withinDiscoveryRange(me, profile))
@@ -1159,7 +1179,7 @@ router.get("/coop/suggestions", async (req, res): Promise<void> => {
     res.status(404).json({ message: "Business not found" });
     return;
   }
-  const [suggestions, myProfiles, stored] = await Promise.all([
+  const [rawSuggestions, myProfiles, stored, decoupledSet] = await Promise.all([
     computeSuggestions(tenantId),
     loadCoopProfiles([tenantId]),
     db
@@ -1167,7 +1187,10 @@ router.get("/coop/suggestions", async (req, res): Promise<void> => {
       .from(coopSuggestionsTable)
       .where(eq(coopSuggestionsTable.tenantId, tenantId))
       .limit(1),
+    // Reputation Shield: decoupled businesses never surface in discovery.
+    decoupledTenantIdSet(),
   ]);
+  const suggestions = rawSuggestions.filter((s) => !decoupledSet.has(s.tenantId));
   // Lazy backfill: a business created before the matchmaking engine existed
   // gets its feed persisted on first view with zero manual steps.
   if (stored.length === 0 && suggestions.length > 0) {
@@ -2569,11 +2592,16 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
     );
     return;
   }
+  // Reputation Shield: perks of decoupled businesses never redeem.
+  const decoupledForValidate = await decoupledTenantIdSet();
   if (
     !row.partnership.isActive ||
     row.partnership.status !== "accepted" ||
     row.partnership.disputeSuspended ||
-    row.partnership.bannedAt != null
+    row.partnership.bannedAt != null ||
+    // Reputation Shield: perks of decoupled businesses never redeem.
+    decoupledForValidate.has(row.partnership.hostTenantId) ||
+    decoupledForValidate.has(row.partnership.partnerTenantId)
   ) {
     res.json(
       ValidateCoopRedemptionCodeResponse.parse({
@@ -2795,11 +2823,15 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
     fail("Unknown redemption code");
     return;
   }
+  const decoupledForRedeem = await decoupledTenantIdSet();
   if (
     !row.partnership.isActive ||
     row.partnership.status !== "accepted" ||
     row.partnership.disputeSuspended ||
-    row.partnership.bannedAt != null
+    row.partnership.bannedAt != null ||
+    // Reputation Shield: perks of decoupled businesses never redeem.
+    decoupledForRedeem.has(row.partnership.hostTenantId) ||
+    decoupledForRedeem.has(row.partnership.partnerTenantId)
   ) {
     fail("This partnership is no longer active", row);
     return;
@@ -3578,6 +3610,236 @@ router.patch("/coop/passport/challenges/:id", async (req, res): Promise<void> =>
     UpdatePassportChallengeResponse.parse(
       serializePassportChallenge(updated, counts.get(updated.id) ?? 0),
     ),
+  );
+});
+
+// ═══ Co-Op Review & Reputation Shield ════════════════════════════════════════
+// Internal B2B ratings between partners. STRICTLY INTERNAL: served only
+// through these authenticated, tenant-scoped endpoints — never on public
+// landing pages, customer perk surfaces, or the customer review system.
+
+function serializeRating(r: CoopPartnerRating) {
+  return {
+    id: r.id,
+    partnershipId: r.partnershipId,
+    raterTenantId: r.raterTenantId,
+    ratedTenantId: r.ratedTenantId,
+    reliability: r.reliability,
+    professionalism: r.professionalism,
+    trafficValue: r.trafficValue,
+    comment: r.comment,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+// ── PUT /coop/partnerships/:id/rating — rate a partner ──────────────────────
+// One rating per rater per partner per rolling period: re-rating inside the
+// period updates the latest rating; a new period supersedes the old one
+// (kept, non-current, for audit and recency-weighted history).
+router.put("/coop/partnerships/:id/rating", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Partnership not found" });
+    return;
+  }
+  const parsed = SubmitCoopPartnerRatingBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const [partnership] = await db
+    .select()
+    .from(merchantCoopPartnershipsTable)
+    .where(eq(merchantCoopPartnershipsTable.id, id));
+  if (!partnership) {
+    res.status(404).json({ message: "Partnership not found" });
+    return;
+  }
+  if (partnership.hostTenantId !== tenantId && partnership.partnerTenantId !== tenantId) {
+    res.status(403).json({ message: "Only a party to this partnership can rate it" });
+    return;
+  }
+  if (partnership.status !== "accepted") {
+    res.status(409).json({ message: "Only accepted partnerships can be rated" });
+    return;
+  }
+  const ratedTenantId =
+    partnership.hostTenantId === tenantId ? partnership.partnerTenantId : partnership.hostTenantId;
+  const now = new Date();
+  const values = {
+    reliability: parsed.data.reliability,
+    professionalism: parsed.data.professionalism,
+    trafficValue: parsed.data.trafficValue,
+    comment: parsed.data.comment?.trim() || null,
+  };
+
+  const [current] = await db
+    .select()
+    .from(coopPartnerRatingsTable)
+    .where(
+      and(
+        eq(coopPartnerRatingsTable.raterTenantId, tenantId),
+        eq(coopPartnerRatingsTable.ratedTenantId, ratedTenantId),
+        eq(coopPartnerRatingsTable.isCurrent, true)
+      )
+    );
+
+  const withinPeriod =
+    current != null &&
+    now.getTime() - current.createdAt.getTime() < RATING_PERIOD_DAYS * 86_400_000;
+
+  let saved: CoopPartnerRating;
+  if (current && withinPeriod) {
+    // Update the latest rating in place within the rolling period.
+    [saved] = await db
+      .update(coopPartnerRatingsTable)
+      .set({ ...values, partnershipId: id, updatedAt: now })
+      .where(eq(coopPartnerRatingsTable.id, current.id))
+      .returning();
+  } else {
+    // New period (or first rating): supersede the previous current rating.
+    if (current) {
+      await db
+        .update(coopPartnerRatingsTable)
+        .set({ isCurrent: false, updatedAt: now })
+        .where(eq(coopPartnerRatingsTable.id, current.id));
+    }
+    try {
+      [saved] = await db
+        .insert(coopPartnerRatingsTable)
+        .values({
+          partnershipId: id,
+          raterTenantId: tenantId,
+          ratedTenantId,
+          ...values,
+          isCurrent: true,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+    } catch (err) {
+      const code = (err as { cause?: { code?: string }; code?: string })?.cause?.code ??
+        (err as { code?: string })?.code;
+      if (code === "23505") {
+        // Concurrent submit won the partial-unique race — treat as conflict.
+        res.status(409).json({ message: "A rating was just submitted — refresh and try again" });
+        return;
+      }
+      throw err;
+    }
+  }
+  res.json(SubmitCoopPartnerRatingResponse.parse(serializeRating(saved)));
+});
+
+// ── GET /coop/reputation — partner reputation overview (internal only) ──────
+// The scoped tenant's own Reputation Shield status plus, for every business
+// it has an accepted partnership with, the partner's aggregate score,
+// per-dimension averages, flag/decouple status, and the viewer's own latest
+// rating. Never exposed publicly.
+router.get("/coop/reputation", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const partnerships = await db
+    .select()
+    .from(merchantCoopPartnershipsTable)
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.status, "accepted"),
+        or(
+          eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
+          eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId)
+        )
+      )
+    )
+    .orderBy(desc(merchantCoopPartnershipsTable.createdAt));
+
+  const partnerIds = [
+    ...new Set(
+      partnerships.map((p) =>
+        p.hostTenantId === tenantId ? p.partnerTenantId : p.hostTenantId
+      )
+    ),
+  ];
+  // Latest accepted partnership per partner drives the "rate this partner"
+  // action in the hub.
+  const partnershipByPartner = new Map<number, number>();
+  for (const p of partnerships) {
+    const other = p.hostTenantId === tenantId ? p.partnerTenantId : p.hostTenantId;
+    if (!partnershipByPartner.has(other)) partnershipByPartner.set(other, p.id);
+  }
+
+  const [computed, names, states, myRatings, selfStates] = await Promise.all([
+    computeReputations(partnerIds),
+    partnerIds.length
+      ? db
+          .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
+          .from(tenantsTable)
+          .where(inArray(tenantsTable.id, partnerIds))
+      : Promise.resolve([]),
+    partnerIds.length
+      ? db
+          .select()
+          .from(coopReputationStatesTable)
+          .where(inArray(coopReputationStatesTable.tenantId, partnerIds))
+      : Promise.resolve([]),
+    db
+      .select()
+      .from(coopPartnerRatingsTable)
+      .where(
+        and(
+          eq(coopPartnerRatingsTable.raterTenantId, tenantId),
+          eq(coopPartnerRatingsTable.isCurrent, true)
+        )
+      ),
+    db
+      .select()
+      .from(coopReputationStatesTable)
+      .where(eq(coopReputationStatesTable.tenantId, tenantId)),
+  ]);
+  const nameById = new Map(names.map((t) => [t.id, t.brandName]));
+  const stateById = new Map(states.map((s) => [s.tenantId, s]));
+  const myRatingByPartner = new Map(myRatings.map((r) => [r.ratedTenantId, r]));
+  const self = selfStates[0] ?? null;
+
+  res.json(
+    GetCoopReputationOverviewResponse.parse({
+      minRaters: REPUTATION_MIN_RATERS,
+      threshold: REPUTATION_FLAG_THRESHOLD,
+      ratingPeriodDays: RATING_PERIOD_DAYS,
+      self: self
+        ? {
+            status: self.status,
+            score: self.score == null ? null : Number(self.score),
+            flaggedAt: self.flaggedAt?.toISOString() ?? null,
+            decoupledAt: self.decoupledAt?.toISOString() ?? null,
+          }
+        : null,
+      partners: partnerIds.map((pid) => {
+        const comp = computed.get(pid)!;
+        const state = stateById.get(pid);
+        const mine = myRatingByPartner.get(pid);
+        return {
+          tenantId: pid,
+          tenantName: nameById.get(pid) ?? "Unknown business",
+          partnershipId: partnershipByPartner.get(pid) ?? null,
+          score: comp.score,
+          raterCount: comp.raterCount,
+          sufficient: comp.score != null,
+          dimensions: comp.dimensions,
+          status: state?.status ?? "ok",
+          myRating: mine ? serializeRating(mine) : null,
+        };
+      }),
+    })
   );
 });
 

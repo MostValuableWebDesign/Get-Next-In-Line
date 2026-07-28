@@ -393,6 +393,13 @@
       "when": 1785237478925,
       "tag": "0055_pale_puff_adder",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1785238199403,
+      "tag": "0056_majestic_silvermane",
+      "breakpoints": true
     }
   ]
 }

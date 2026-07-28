@@ -37,7 +37,8 @@ export type OutboundMessageKind =
   | "passport_reward"
   | "emergency_broadcast"
   | "coop_event_broadcast"
-  | "retail_low_stock";
+  | "retail_low_stock"
+  | "coop_reputation";
 
 export type MessageOrigin = "operational" | "concierge" | "marketing";
 

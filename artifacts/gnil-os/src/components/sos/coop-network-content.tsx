@@ -26,6 +26,9 @@ import {
   usePauseCoopPartnership, useResumeCoopPartnership,
   useProposeCoopRenegotiation, useRespondToCoopRenegotiation,
   type CoopLedgerEntry, type CoopLedgerResponse,
+  useGetCoopReputationOverview, getGetCoopReputationOverviewQueryKey,
+  useSubmitCoopPartnerRating,
+  type CoopReputationOverview, type CoopPartnerReputation,
 } from '@workspace/api-client-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ShelfSpaceTrackerSection } from '@/components/sos/coop-retail-content';
@@ -50,8 +53,8 @@ import { CoopSurgeSection, CapacityStatusBadge } from '@/components/sos/coop-sur
 import {
   AlertTriangle, ArrowDownLeft, ArrowDownToLine, ArrowLeftRight, ArrowUpDown, ArrowUpFromLine,
   ArrowUpRight, BarChart3, Bell, CalendarClock, Check, Copy, DollarSign, Eye, FileSignature, Flag,
-  Handshake, Keyboard, Link2, MapPin, Pause, PauseCircle, Play, ScanLine, Scale, Search,
-  Send, Store, Ticket, TrendingUp, Undo2, UserPlus, Users, X, XCircle,
+  Handshake, Keyboard, Link2, Lock, MapPin, Pause, PauseCircle, Play, ScanLine, Scale, Search,
+  Send, ShieldAlert, ShieldOff, Star, Store, Ticket, TrendingUp, Undo2, UserPlus, Users, X, XCircle,
 } from 'lucide-react';
 
 const DISPUTE_CATEGORIES = [
@@ -100,6 +103,9 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
   });
   const { data: ledger } = useGetCoopLedger(undefined, {
     query: { queryKey: getGetCoopLedgerQueryKey(undefined) },
+  });
+  const { data: reputation } = useGetCoopReputationOverview({
+    query: { queryKey: getGetCoopReputationOverviewQueryKey() },
   });
 
   const received = (partnerships ?? []).filter(
@@ -162,6 +168,29 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
         </div>
       )}
 
+      {reputation?.self && reputation.self.status !== 'ok' && (
+        <div
+          className={`flex items-start gap-2 rounded-lg border p-3 text-sm ${
+            reputation.self.status === 'decoupled'
+              ? 'border-destructive/50 bg-destructive/10'
+              : 'border-amber-300 bg-amber-50 dark:bg-amber-950/30'
+          }`}
+          role="alert"
+          data-testid="alert-own-reputation-status"
+        >
+          {reputation.self.status === 'decoupled' ? (
+            <ShieldOff className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+          ) : (
+            <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          )}
+          <span>
+            {reputation.self.status === 'decoupled'
+              ? 'Your co-op partnerships are paused: partner ratings of your business stayed below the network standard. A platform admin can reinstate you.'
+              : 'Heads up: partners have rated recent experiences with your business below the network standard. Honor valid perks and respond to partners — if the score stays low, your partnerships will be paused automatically.'}
+          </span>
+        </div>
+      )}
+
       <SuggestedPartners tenantId={tenantId} />
 
       {/* Flash campaigns & seasonal blasts — synchronized limited-time perks
@@ -196,6 +225,7 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
               tenantId={tenantId}
               disputes={disputes ?? []}
               ledger={ledger ?? null}
+              reputation={reputation ?? null}
             />
           </div>
           <Directory tenantId={tenantId} partneredTenantIds={partneredTenantIds} />
@@ -930,7 +960,7 @@ function PendingProposal({ partnership, tenantId }: { partnership: CoopPartnersh
 }
 
 function ActivePartnerships({
-  partnerships, paused, expired, disclaimer, tenantId, disputes, ledger,
+  partnerships, paused, expired, disclaimer, tenantId, disputes, ledger, reputation,
 }: {
   partnerships: CoopPartnership[];
   paused: CoopPartnership[];
@@ -939,8 +969,12 @@ function ActivePartnerships({
   tenantId: number;
   disputes: CoopDispute[];
   ledger: CoopLedgerResponse | null;
+  reputation: CoopReputationOverview | null;
 }) {
   const [reportTarget, setReportTarget] = useState<CoopPartnership | null>(null);
+  const [rateTarget, setRateTarget] = useState<CoopPartnership | null>(null);
+  const partnerRepFor = (partnerTenantId: number): CoopPartnerReputation | null =>
+    reputation?.partners.find(pr => pr.tenantId === partnerTenantId) ?? null;
   const activeDisputeFor = (partnershipId: number) =>
     disputes.find(d => d.partnershipId === partnershipId && (d.status === 'open' || d.status === 'escalated')) ?? null;
   const queryClient = useQueryClient();
@@ -1028,6 +1062,12 @@ function ActivePartnerships({
                   <Ticket className="w-3 h-3" /> {p.redemptionCode}
                 </div>
                 <TierControls partnership={p} tenantId={tenantId} />
+                <PartnerReputationBlock
+                  partnership={p}
+                  tenantId={tenantId}
+                  rep={partnerRepFor(p.hostTenantId === tenantId ? p.partnerTenantId : p.hostTenantId)}
+                  onRate={() => setRateTarget(p)}
+                />
                 <DisputeStatus
                   partnership={p}
                   dispute={dispute}
@@ -1115,6 +1155,12 @@ function ActivePartnerships({
           </p>
         )}
       </CardContent>
+      <RatePartnerDialog
+        target={rateTarget}
+        tenantId={tenantId}
+        reputation={reputation}
+        onClose={() => setRateTarget(null)}
+      />
       <ReportPartnerIssueDialog
         tenantId={tenantId}
         target={reportTarget}
@@ -1230,6 +1276,263 @@ function DisputeStatus({
         </Button>
       )}
     </div>
+  );
+}
+
+// ── Partner reputation (internal B2B — never public) ────────────────────────
+
+function ScoreStars({ value }: { value: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-label={`${value.toFixed(1)} out of 5`}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <Star
+          key={i}
+          className={`w-3 h-3 ${i <= Math.round(value) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40'}`}
+        />
+      ))}
+    </span>
+  );
+}
+
+function PartnerReputationBlock({
+  partnership, tenantId, rep, onRate,
+}: {
+  partnership: CoopPartnership;
+  tenantId: number;
+  rep: CoopPartnerReputation | null;
+  onRate: () => void;
+}) {
+  const otherName = partnership.hostTenantId === tenantId
+    ? partnership.partnerTenantName
+    : partnership.hostTenantName;
+  return (
+    <div
+      className="mt-1.5 rounded-md border bg-muted/40 p-2.5 text-xs space-y-1.5"
+      data-testid={`reputation-block-${partnership.id}`}
+    >
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="font-medium">Partner reputation</span>
+        <Badge variant="outline" className="gap-1 text-[10px] font-normal" data-testid={`badge-internal-only-${partnership.id}`}>
+          <Lock className="w-2.5 h-2.5" /> Internal only — not public
+        </Badge>
+        {rep?.status === 'flagged' && (
+          <Badge variant="outline" className="gap-1 border-amber-400 text-amber-700 dark:text-amber-400" data-testid={`badge-partner-flagged-${partnership.id}`}>
+            <ShieldAlert className="w-3 h-3" /> Flagged
+          </Badge>
+        )}
+        {rep?.status === 'decoupled' && (
+          <Badge variant="destructive" className="gap-1" data-testid={`badge-partner-decoupled-${partnership.id}`}>
+            <ShieldOff className="w-3 h-3" /> Decoupled
+          </Badge>
+        )}
+      </div>
+      {rep && rep.sufficient && rep.score != null && rep.dimensions ? (
+        <div className="space-y-1">
+          <div className="flex items-center gap-2" data-testid={`text-partner-score-${partnership.id}`}>
+            <ScoreStars value={rep.score} />
+            <span className="font-semibold">{rep.score.toFixed(1)}</span>
+            <span className="text-muted-foreground">
+              from {rep.raterCount} partner{rep.raterCount === 1 ? '' : 's'}
+            </span>
+          </div>
+          <div className="text-muted-foreground">
+            Reliability {rep.dimensions.reliability.toFixed(1)} · Professionalism{' '}
+            {rep.dimensions.professionalism.toFixed(1)} · Traffic value{' '}
+            {rep.dimensions.trafficValue.toFixed(1)}
+          </div>
+        </div>
+      ) : (
+        <p className="text-muted-foreground" data-testid={`text-partner-score-pending-${partnership.id}`}>
+          Not enough partner ratings yet — scores appear once several businesses have rated{' '}
+          {otherName}.
+        </p>
+      )}
+      {rep?.status === 'flagged' && (
+        <p className="text-amber-700 dark:text-amber-400">
+          This business has been rated below the network standard recently. If its score stays
+          low, its partnerships will be paused automatically.
+        </p>
+      )}
+      {rep?.status === 'decoupled' && (
+        <p className="text-destructive">
+          This business's partnerships are paused by the network's reputation shield until a
+          platform admin reviews it.
+        </p>
+      )}
+      <Button
+        size="sm"
+        variant="outline"
+        className="gap-1.5 h-7"
+        onClick={onRate}
+        data-testid={`button-rate-partner-${partnership.id}`}
+      >
+        <Star className="w-3 h-3" /> {rep?.myRating ? 'Update your rating' : 'Rate this partner'}
+      </Button>
+    </div>
+  );
+}
+
+const RATING_DIMENSIONS = [
+  { key: 'reliability', label: 'Reliability', hint: 'Do they honor perks and show up as agreed?' },
+  { key: 'professionalism', label: 'Professionalism', hint: 'How do they treat your customers and staff?' },
+  { key: 'trafficValue', label: 'Mutual traffic value', hint: 'Does the partnership actually send you customers?' },
+] as const;
+
+function StarPicker({
+  value, onChange, testIdPrefix,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  testIdPrefix: string;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map(i => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => onChange(i)}
+          className="p-0.5"
+          aria-label={`${i} star${i === 1 ? '' : 's'}`}
+          data-testid={`${testIdPrefix}-${i}`}
+        >
+          <Star
+            className={`w-5 h-5 ${i <= value ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40'}`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function RatePartnerDialog({
+  target, tenantId, reputation, onClose,
+}: {
+  target: CoopPartnership | null;
+  tenantId: number;
+  reputation: CoopReputationOverview | null;
+  onClose: () => void;
+}) {
+  const [scores, setScores] = useState<Record<string, number>>({});
+  const [comment, setComment] = useState('');
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const submitRating = useSubmitCoopPartnerRating();
+
+  const otherId = target
+    ? (target.hostTenantId === tenantId ? target.partnerTenantId : target.hostTenantId)
+    : null;
+  const otherName = target
+    ? (target.hostTenantId === tenantId ? target.partnerTenantName : target.hostTenantName)
+    : '';
+  const existing = otherId != null
+    ? reputation?.partners.find(p => p.tenantId === otherId)?.myRating ?? null
+    : null;
+
+  // Pre-fill from the merchant's current rating when reopening the dialog.
+  useEffect(() => {
+    if (!target) return;
+    if (existing) {
+      setScores({
+        reliability: existing.reliability,
+        professionalism: existing.professionalism,
+        trafficValue: existing.trafficValue,
+      });
+      setComment(existing.comment ?? '');
+    } else {
+      setScores({});
+      setComment('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target?.id]);
+
+  const complete = RATING_DIMENSIONS.every(d => (scores[d.key] ?? 0) >= 1);
+
+  const submit = () => {
+    if (!target || !complete) return;
+    submitRating.mutate(
+      {
+        id: target.id,
+        data: {
+          reliability: scores.reliability,
+          professionalism: scores.professionalism,
+          trafficValue: scores.trafficValue,
+          ...(comment.trim() ? { comment: comment.trim() } : {}),
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({
+            predicate: q => typeof q.queryKey[0] === 'string' && q.queryKey[0].includes('/api/coop/'),
+          });
+          toast({
+            title: 'Rating saved',
+            description: `Your rating of ${otherName} stays inside the partner network — it never appears publicly.`,
+          });
+          onClose();
+        },
+        onError: (err: unknown) => {
+          const e = err as { data?: { message?: string }; message?: string };
+          toast({
+            title: 'Could not save the rating',
+            description: e?.data?.message ?? e?.message ?? 'Please try again.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={target != null} onOpenChange={o => { if (!o) onClose(); }}>
+      <DialogContent data-testid="dialog-rate-partner">
+        <DialogHeader>
+          <DialogTitle>Rate {otherName}</DialogTitle>
+          <DialogDescription>
+            Internal business-to-business feedback only — it is never shown on public pages or
+            customer reviews. You can update your rating anytime this period.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {RATING_DIMENSIONS.map(d => (
+            <div key={d.key} className="flex items-start justify-between gap-3">
+              <div>
+                <Label>{d.label}</Label>
+                <p className="text-xs text-muted-foreground">{d.hint}</p>
+              </div>
+              <StarPicker
+                value={scores[d.key] ?? 0}
+                onChange={n => setScores(s => ({ ...s, [d.key]: n }))}
+                testIdPrefix={`star-${d.key}`}
+              />
+            </div>
+          ))}
+          <div className="space-y-1.5">
+            <Label htmlFor="rating-comment">Comments (optional)</Label>
+            <Textarea
+              id="rating-comment"
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              placeholder="Anything other merchants or the platform should know?"
+              rows={3}
+              data-testid="input-rating-comment"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} data-testid="button-cancel-rating">
+            Cancel
+          </Button>
+          <Button
+            onClick={submit}
+            disabled={!complete || submitRating.isPending}
+            data-testid="button-submit-rating"
+          >
+            {existing ? 'Update rating' : 'Submit rating'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
