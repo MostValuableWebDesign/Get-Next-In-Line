@@ -1,4 +1,5 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { deriveEncryptionKey } from "./cryptoSecret";
 
 /**
  * AES-256-GCM encryption for partner credential tokens at rest.
@@ -10,9 +11,11 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypt
  */
 const KEY_LABEL = "gnil:partner-credentials:v1";
 
+// Production fail-fast: throws when SESSION_SECRET is missing (see
+// cryptoSecret.ts) — partner credential encryption never silently uses the
+// hardcoded dev fallback in production.
 function encryptionKey(): Buffer {
-  const secret = process.env.SESSION_SECRET ?? "dev-fallback-secret-change-me";
-  return createHash("sha256").update(`${KEY_LABEL}:${secret}`).digest();
+  return deriveEncryptionKey(KEY_LABEL);
 }
 
 export function encryptToken(plaintext: string): string {

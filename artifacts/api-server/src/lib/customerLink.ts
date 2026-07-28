@@ -1,5 +1,5 @@
 import { db, sosCustomersTable, clientProfilesTable, type ClientProfile } from "@workspace/db";
-import { eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { normalizeToE164 } from "./sms";
 import { logger } from "./logger";
 
@@ -17,13 +17,30 @@ export async function findProfileByPhone(
 ): Promise<ClientProfile | null> {
   const target = normalizeToE164(phone);
   if (!target) return null;
+  const last10 = target.replace(/\D/g, "").slice(-10);
+  if (!last10) return null;
+  // Bounded lookup: prefilter in SQL on the last 10 digits (served by the
+  // client_profiles_phone_digits_idx expression index) instead of loading the
+  // whole table. Any profile that normalizes to `target` necessarily shares
+  // those digits, so the candidate set is a superset of the true matches.
   const candidates = await db
     .select()
     .from(clientProfilesTable)
-    .where(isNotNull(clientProfilesTable.phone));
+    .where(
+      and(
+        isNotNull(clientProfilesTable.phone),
+        sql`right(regexp_replace(${clientProfilesTable.phone}, '\\D', '', 'g'), 10) = ${last10}`,
+      ),
+    )
+    .limit(PHONE_MATCH_CANDIDATE_LIMIT);
+  // A truncated candidate set can't prove uniqueness — treat as ambiguous.
+  if (candidates.length >= PHONE_MATCH_CANDIDATE_LIMIT) return null;
   const matches = candidates.filter((p) => normalizeToE164(p.phone) === target);
   return matches.length === 1 ? matches[0] : null;
 }
+
+/** More same-digit candidates than this is inherently ambiguous — never auto-link. */
+const PHONE_MATCH_CANDIDATE_LIMIT = 25;
 
 /**
  * Try to link an unlinked SOS customer to a concierge profile by phone match.
@@ -55,8 +72,17 @@ export async function autoLinkCustomer(customer: {
  * (e.g. at startup) — already-linked customers are never touched.
  */
 export async function backfillCustomerLinks(): Promise<number> {
+  // Bounded: only unlinked customers with a phone can possibly be linked, so
+  // never load already-linked or phoneless rows.
   const [customers, profiles] = await Promise.all([
-    db.select().from(sosCustomersTable),
+    db
+      .select({
+        id: sosCustomersTable.id,
+        phone: sosCustomersTable.phone,
+        clientProfileId: sosCustomersTable.clientProfileId,
+      })
+      .from(sosCustomersTable)
+      .where(and(isNull(sosCustomersTable.clientProfileId), isNotNull(sosCustomersTable.phone))),
     db.select().from(clientProfilesTable).where(isNotNull(clientProfilesTable.phone)),
   ]);
   const byPhone = new Map<string, ClientProfile[]>();

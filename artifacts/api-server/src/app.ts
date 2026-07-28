@@ -16,7 +16,7 @@ import pinoHttp from "pino-http";
 import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { globalRateLimit } from "./middlewares/rateLimit";
+import { globalRateLimit, webhookRateLimit } from "./middlewares/rateLimit";
 
 // ---------------------------------------------------------------------------
 // Allowed CORS origins
@@ -113,8 +113,13 @@ app.use(
 
 // Stripe webhook must be registered BEFORE express.json(): signature
 // verification requires the raw request body as a Buffer.
+// Both raw-body webhook mounts below bypass the global rate limiter (mounted
+// after them), so they carry their own cheap per-IP flood throttle that runs
+// BEFORE body parsing and signature verification — a flood of unsigned junk
+// gets 429s instead of exhausting the server on crypto work.
 app.post(
   "/api/stripe/webhook",
+  webhookRateLimit,
   express.raw({ type: "application/json" }),
   async (req, res) => {
     const signature = req.headers["stripe-signature"];
@@ -139,6 +144,7 @@ app.post(
 // sent. Signature is the only authentication — no session involved.
 app.post(
   "/api/v1/partners/:partnerId/webhook",
+  webhookRateLimit,
   express.raw({ type: "*/*" }),
   async (req, res) => {
     try {
@@ -148,7 +154,9 @@ app.post(
       const sig = req.headers[PARTNER_WEBHOOK_SIGNATURE_HEADER];
       const tenantHeader = req.headers["x-tenant-id"];
       const out = await handlePartnerWebhook(
-        req.params.partnerId,
+        // Adding the throttle middleware widens express's params inference to
+        // string | string[]; the single-segment param is always a string.
+        String(req.params.partnerId),
         Array.isArray(tenantHeader) ? tenantHeader[0] : tenantHeader,
         Buffer.isBuffer(req.body) ? req.body : Buffer.from(""),
         Array.isArray(sig) ? sig[0] : sig,

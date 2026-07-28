@@ -15,6 +15,7 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 import { and, count, eq, gte, inArray, lte, asc } from "drizzle-orm";
 import { sendMessageSafe } from "./messaging";
+import { logger } from "./logger";
 
 // ---------------------------------------------------------------------------
 // Co-op financial dispute mediation: reconciliation engine, serialization,
@@ -377,8 +378,13 @@ export async function checkRepeatViolator(
       })
       .onConflictDoNothing()
       .returning();
-  } catch {
-    return null; // defensive — conflict path already handled by onConflictDoNothing
+  } catch (err) {
+    // defensive — conflict path already handled by onConflictDoNothing
+    logger.error(
+      { err, disputeId: triggeringDispute.id },
+      "Repeat-violator auto-suspension insert failed unexpectedly",
+    );
+    return null;
   }
   if (!created) return null;
   await recordDisputeEvent({

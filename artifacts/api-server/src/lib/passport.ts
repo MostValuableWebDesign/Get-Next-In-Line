@@ -98,9 +98,13 @@ export async function findOrCreatePassportIdentity(
           .where(eq(passportIdentitiesTable.id, existing.id))
           .returning();
         return updated;
-      } catch {
+      } catch (err) {
         // Unique collision (the other key already belongs to another
         // identity) — keep the matched row as-is.
+        logger.warn(
+          { err, identityId: existing.id },
+          "Passport identity enrichment skipped: update collided with another identity",
+        );
         return existing;
       }
     }
@@ -113,8 +117,9 @@ export async function findOrCreatePassportIdentity(
       .values({ phone, email, displayName: person.name ?? null })
       .returning();
     return created;
-  } catch {
+  } catch (err) {
     // Concurrent create raced us — re-select.
+    logger.warn({ err }, "Passport identity insert raced a concurrent create — re-selecting");
     const [row] = await db
       .select()
       .from(passportIdentitiesTable)

@@ -49,6 +49,7 @@ export const JOB_REBOOKING_NUDGE = "REBOOKING_NUDGE";
 const MS_PER_HOUR = 60 * 60 * 1000;
 const MS_PER_DAY = 24 * MS_PER_HOUR;
 
+// Served by engagement_rules_rule_type_active_idx — stays fast as rules grow.
 async function activeRulesByTenant(ruleType: string): Promise<EngagementRule[]> {
   return db
     .select()
@@ -154,6 +155,11 @@ export async function handleRebookingNudge(now: Date = new Date()): Promise<numb
     // default cycle so they aren't invisible to the automation.
     const defaultCycleDays = (await resolveSettings(rule.tenantId)).defaultCycleDays;
 
+    // Bounded scan: push the overdue check into SQL (served by the
+    // tenant+last_visit index) so only clients past their effective cycle are
+    // loaded, instead of every client with any visit history. The exact
+    // floor-based day comparison below stays as the source of truth; this
+    // WHERE clause is a strict superset of it.
     const profiles: ClientProfile[] = await db
       .select()
       .from(clientProfilesTable)
@@ -161,6 +167,7 @@ export async function handleRebookingNudge(now: Date = new Date()): Promise<numb
         and(
           eq(clientProfilesTable.tenantId, rule.tenantId),
           isNotNull(clientProfilesTable.lastVisitAt),
+          sql`${clientProfilesTable.lastVisitAt} < ${now}::timestamp - make_interval(days => coalesce(${clientProfilesTable.averageCycleDays}, ${defaultCycleDays}))`,
         ),
       );
 

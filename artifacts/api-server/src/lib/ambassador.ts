@@ -106,8 +106,9 @@ export async function getOrCreateReferralCode(identityId: number): Promise<strin
         .from(ambassadorReferralCodesTable)
         .where(eq(ambassadorReferralCodesTable.identityId, identityId));
       if (raced) return raced.code;
-    } catch {
+    } catch (err) {
       // code collision — try a fresh code
+      logger.warn({ err, identityId }, "Referral code mint collided — retrying with a fresh code");
     }
   }
   throw new Error("Could not mint a referral code");

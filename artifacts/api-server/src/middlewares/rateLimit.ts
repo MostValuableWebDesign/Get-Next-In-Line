@@ -86,6 +86,59 @@ export function globalRateLimit(req: Request, res: Response, next: NextFunction)
   next();
 }
 
+// ── Webhook flood throttle ───────────────────────────────────────────────────
+// Vendor webhooks (Stripe, Twilio, partner POS) bypass the global limiter so
+// legitimately signed deliveries are never dropped behind normal API traffic.
+// That bypass would let a flood of unsigned junk exhaust the server on
+// signature verification alone, so they get their own cheap per-IP throttle
+// mounted BEFORE any body parsing / signature work. The ceiling is far above
+// any real vendor's delivery rate (Stripe/Twilio retry with backoff and stay
+// in the low tens per minute even under load), so legitimate traffic is
+// never throttled — only abusive hammering from a single source trips it.
+// Known limitation: per-process in-memory, like the other limiters here —
+// distributed rate limiting across instances is explicitly out of scope.
+
+const WEBHOOK_WINDOW_MS = 60 * 1000;
+const WEBHOOK_DEFAULT_MAX = 300; // 300 webhook requests / minute / IP
+
+let webhookConfig = {
+  enabled: !isTestEnv(),
+  windowMs: WEBHOOK_WINDOW_MS,
+  max: Number(process.env.WEBHOOK_RATE_LIMIT_MAX) > 0
+    ? Number(process.env.WEBHOOK_RATE_LIMIT_MAX)
+    : WEBHOOK_DEFAULT_MAX,
+};
+
+const webhookHits = new Map<string, WindowEntry>();
+
+/** Pre-verification throttle for webhook endpoints. Mount before raw-body parsing. */
+export function webhookRateLimit(req: Request, res: Response, next: NextFunction): void {
+  if (!webhookConfig.enabled) return next();
+  const now = Date.now();
+  const key = clientKey(req);
+  const entry = webhookHits.get(key);
+  if (!entry || now - entry.windowStart >= webhookConfig.windowMs) {
+    webhookHits.set(key, { windowStart: now, count: 1 });
+    sweep(webhookHits, webhookConfig.windowMs, now);
+    return next();
+  }
+  entry.count++;
+  if (entry.count > webhookConfig.max) {
+    const retryAfterSec = Math.max(
+      1,
+      Math.ceil((entry.windowStart + webhookConfig.windowMs - now) / 1000),
+    );
+    res.setHeader("Retry-After", String(retryAfterSec));
+    res.status(429).json({
+      error: "Too many requests",
+      message: `Webhook rate limit exceeded. Try again in ${retryAfterSec} second(s).`,
+      retryAfterSeconds: retryAfterSec,
+    });
+    return;
+  }
+  next();
+}
+
 // ── Login brute-force guard ──────────────────────────────────────────────────
 // Counts FAILED login attempts per source IP. After too many failures within
 // the window the source is locked out for the remainder of the window and
@@ -163,6 +216,20 @@ export function __configureGlobalRateLimitForTests(opts: {
   globalHits.clear();
 }
 
+/** Test-only: force-enable/tune the webhook throttle (disabled under NODE_ENV=test). */
+export function __configureWebhookRateLimitForTests(opts: {
+  enabled: boolean;
+  windowMs?: number;
+  max?: number;
+}): void {
+  webhookConfig = {
+    enabled: opts.enabled,
+    windowMs: opts.windowMs ?? WEBHOOK_WINDOW_MS,
+    max: opts.max ?? WEBHOOK_DEFAULT_MAX,
+  };
+  webhookHits.clear();
+}
+
 /** Test-only: force-enable/tune the login guard (disabled under NODE_ENV=test). */
 export function __configureLoginGuardForTests(opts: {
   enabled: boolean;
@@ -180,5 +247,6 @@ export function __configureLoginGuardForTests(opts: {
 /** Test-only: clear all limiter state and restore env-derived defaults. */
 export function __resetRateLimitsForTests(): void {
   __configureGlobalRateLimitForTests({ enabled: !isTestEnv() });
+  __configureWebhookRateLimitForTests({ enabled: !isTestEnv() });
   __configureLoginGuardForTests({ enabled: !isTestEnv() });
 }

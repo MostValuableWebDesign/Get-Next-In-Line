@@ -1,0 +1,2 @@
+CREATE INDEX "client_profiles_phone_digits_idx" ON "client_profiles" USING btree (right(regexp_replace("phone", '\D', '', 'g'), 10));--> statement-breakpoint
+CREATE INDEX "engagement_rules_rule_type_active_idx" ON "engagement_rules" USING btree ("rule_type","is_active");

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { webhookRateLimit } from "../middlewares/rateLimit";
 import {
   db,
   sosSettingsTable,
@@ -2647,7 +2648,7 @@ const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
 // Public endpoint Twilio calls when a text arrives ("A message comes in").
 // Authenticated via Twilio's request signature, not the session — spoofed
 // requests without a valid X-Twilio-Signature are rejected.
-router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
+router.post("/sos/twilio/inbound", webhookRateLimit, async (req, res): Promise<void> => {
   const authToken = await getTwilioAuthToken();
   if (!authToken) {
     logger.warn("Inbound SMS webhook hit but no Twilio auth token is configured");
@@ -2799,7 +2800,7 @@ router.post("/sos/twilio/inbound", async (req, res): Promise<void> => {
 // Public endpoint Twilio POSTs per-message delivery updates to (the
 // StatusCallback URL passed on every send). Authenticated by Twilio's
 // request signature, not the session.
-router.post("/sos/twilio/status", async (req, res): Promise<void> => {
+router.post("/sos/twilio/status", webhookRateLimit, async (req, res): Promise<void> => {
   const authToken = await getTwilioAuthToken();
   if (!authToken) {
     logger.warn("Status callback hit but no Twilio auth token is configured");

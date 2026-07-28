@@ -8,6 +8,7 @@ import {
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { tenantsTable } from "./agency";
@@ -45,6 +46,12 @@ export const clientProfilesTable = pgTable(
     index("client_profiles_tenant_next_visit_idx").on(t.tenantId, t.nextVisitAt),
     // Rebooking scans: overdue clients per tenant
     index("client_profiles_tenant_last_visit_idx").on(t.tenantId, t.lastVisitAt),
+    // Customer-link phone matching: bounded lookup by the last 10 digits of
+    // the stored phone (see api-server lib/customerLink.ts findProfileByPhone).
+    index("client_profiles_phone_digits_idx").using(
+      "btree",
+      sql`right(regexp_replace(${t.phone}, '\\D', '', 'g'), 10)`,
+    ),
   ],
 );
 
@@ -74,7 +81,11 @@ export const engagementRulesTable = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [index("engagement_rules_tenant_rule_type_idx").on(t.tenantId, t.ruleType)],
+  (t) => [
+    index("engagement_rules_tenant_rule_type_idx").on(t.tenantId, t.ruleType),
+    // Worker scans: active rules of a type across all tenants (concierge tick).
+    index("engagement_rules_rule_type_active_idx").on(t.ruleType, t.isActive),
+  ],
 );
 
 export const insertEngagementRuleSchema = createInsertSchema(engagementRulesTable).omit({
