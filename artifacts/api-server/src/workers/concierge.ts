@@ -32,6 +32,7 @@ import { runSurgeSweep } from "../lib/surgeEngine";
 import { runReputationEnforcement } from "../lib/coopReputation";
 import { sweepSupplyReorders } from "../lib/procurement";
 import { expireStaleNotifiedWaitlistEntries } from "../lib/waitlistClaim";
+import { recordConciergeHeartbeat } from "../lib/workerHeartbeat";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -431,6 +432,10 @@ export interface ConciergeTickResult {
  * always sits on the same connection that acquired it.
  */
 export async function runConciergeTick(now: Date = new Date()): Promise<ConciergeTickResult> {
+  // Heartbeat for the readiness health check: a tick ATTEMPT (even one that
+  // loses the advisory lock to another instance) proves this process's
+  // scheduler is alive, which is what readiness measures.
+  recordConciergeHeartbeat(now);
   return db.transaction(async (tx) => {
     const res = await tx.execute(
       sql`select pg_try_advisory_xact_lock(${CONCIERGE_LOCK_KEY}) as locked`,
@@ -530,6 +535,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
+      recordConciergeHeartbeat();
       const handler = JOB_HANDLERS[job.name];
       if (!handler) {
         logger.warn({ jobName: job.name }, "Unknown concierge job");
@@ -561,6 +567,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
     logger.error({ err, jobName: job?.name }, "Concierge job failed");
   });
 
+  recordConciergeHeartbeat();
   logger.info("Concierge worker started (BullMQ + Redis)");
   return {
     mode: "bullmq",
@@ -592,6 +599,7 @@ function startIntervalWorker(): ConciergeWorkerHandle {
   };
   const timer = setInterval(tick, INTERVAL_MS);
   timer.unref();
+  recordConciergeHeartbeat();
   logger.info("Concierge worker started (in-process interval scheduler)");
   return {
     mode: "interval",

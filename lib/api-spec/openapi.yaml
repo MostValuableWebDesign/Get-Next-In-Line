@@ -224,6 +224,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /healthz/ready:
+    get:
+      operationId: readinessCheck
+      tags: [health]
+      summary: Readiness check — DB connectivity and worker heartbeat
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+        "503":
+          description: Degraded or unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+
   /agency/dashboard:
     get:
       operationId: getAgencyDashboard
@@ -13365,6 +13384,39 @@ components:
       properties:
         status:
           type: string
+
+    ReadinessCheckDetail:
+      type: object
+      required: [status, detail]
+      properties:
+        status:
+          type: string
+          enum: [ok, failed, stale, not_started]
+        detail:
+          type: string
+          nullable: true
+
+    ReadinessStatus:
+      type: object
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unhealthy]
+        checks:
+          type: object
+          required: [database, worker]
+          properties:
+            database:
+              $ref: "#/components/schemas/ReadinessCheckDetail"
+            worker:
+              allOf:
+                - $ref: "#/components/schemas/ReadinessCheckDetail"
+                - type: object
+                  properties:
+                    lastHeartbeatAt:
+                      type: string
+                      nullable: true
 
     AgencyDashboard:
       type: object

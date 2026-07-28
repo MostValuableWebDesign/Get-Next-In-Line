@@ -59,7 +59,8 @@ const globalHits = new Map<string, WindowEntry>();
  */
 export function globalRateLimit(req: Request, res: Response, next: NextFunction): void {
   if (!globalConfig.enabled) return next();
-  if (req.path === "/api/healthz") return next();
+  // Liveness + readiness probes — uptime monitors must never be throttled.
+  if (req.path === "/api/healthz" || req.path === "/api/healthz/ready") return next();
 
   const now = Date.now();
   const key = clientKey(req);

@@ -231,6 +231,26 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Readiness check — DB connectivity and worker heartbeat
+ */
+export const ReadinessCheckResponse = zod.object({
+  "status": zod.enum(['ok', 'degraded', 'unhealthy']),
+  "checks": zod.object({
+  "database": zod.object({
+  "status": zod.enum(['ok', 'failed', 'stale', 'not_started']),
+  "detail": zod.string().nullable()
+}),
+  "worker": zod.object({
+  "status": zod.enum(['ok', 'failed', 'stale', 'not_started']),
+  "detail": zod.string().nullable()
+}).and(zod.object({
+  "lastHeartbeatAt": zod.string().nullish()
+}))
+})
+})
+
+
+/**
  * @summary Get agency dashboard summary — MRR, tenant counts, revenue totals
  */
 export const GetAgencyDashboardResponse = zod.object({

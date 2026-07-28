@@ -181,6 +181,15 @@ initStripe().catch((err) => {
   logger.error({ err }, "Stripe initialization failed");
 });
 
+// One structured summary of which optional integrations (Stripe, Twilio SMS,
+// email, OpenAI) are live vs simulated, so misconfiguration is visible at
+// boot. Never throws; required-setting fail-fast stays in app.ts.
+import("./lib/startupConfig")
+  .then(({ logStartupConfigReport }) => logStartupConfigReport())
+  .catch((err) => {
+    logger.error({ err }, "Startup config report failed to load");
+  });
+
 // Concierge background worker (reminders + rebooking nudges). BullMQ when
 // REDIS_URL is set; in-process interval scheduler otherwise.
 let conciergeWorker: ConciergeWorkerHandle | null = null;

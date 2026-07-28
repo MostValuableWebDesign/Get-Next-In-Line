@@ -5353,6 +5353,44 @@ export interface HealthStatus {
   status: string;
 }
 
+export type ReadinessCheckDetailStatus = typeof ReadinessCheckDetailStatus[keyof typeof ReadinessCheckDetailStatus];
+
+
+export const ReadinessCheckDetailStatus = {
+  ok: 'ok',
+  failed: 'failed',
+  stale: 'stale',
+  not_started: 'not_started',
+} as const;
+
+export interface ReadinessCheckDetail {
+  status: ReadinessCheckDetailStatus;
+  detail: string | null;
+}
+
+export type ReadinessStatusStatus = typeof ReadinessStatusStatus[keyof typeof ReadinessStatusStatus];
+
+
+export const ReadinessStatusStatus = {
+  ok: 'ok',
+  degraded: 'degraded',
+  unhealthy: 'unhealthy',
+} as const;
+
+export type ReadinessStatusChecksWorker = ReadinessCheckDetail & ({
+  lastHeartbeatAt?: string | null;
+});
+
+export type ReadinessStatusChecks = {
+  database: ReadinessCheckDetail;
+  worker: ReadinessStatusChecksWorker;
+};
+
+export interface ReadinessStatus {
+  status: ReadinessStatusStatus;
+  checks: ReadinessStatusChecks;
+}
+
 export interface CategoryRevenue {
   category: string;
   mrr: number;
