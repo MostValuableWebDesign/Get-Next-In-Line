@@ -134,33 +134,6 @@ app.post(
   },
 );
 
-// POS vendor webhooks (Square, Clover, Boulevard, Vagaro) also need the raw
-// body: each vendor's HMAC signature is verified over the exact bytes sent.
-// Authenticated per-integration by signing secret — no session involved.
-app.post(
-  "/api/pos/webhooks/:vendor/:token",
-  express.raw({ type: "*/*" }),
-  async (req, res) => {
-    try {
-      const { handlePosDelivery } = await import("./routes/pos");
-      const { POS_SIGNATURE_HEADERS } = await import("./lib/posVendors");
-      const headerName =
-        POS_SIGNATURE_HEADERS[req.params.vendor as keyof typeof POS_SIGNATURE_HEADERS];
-      const sig = headerName ? req.headers[headerName] : undefined;
-      const out = await handlePosDelivery(
-        req.params.vendor,
-        req.params.token,
-        Buffer.isBuffer(req.body) ? req.body : Buffer.from(""),
-        Array.isArray(sig) ? sig[0] : sig,
-      );
-      res.status(out.http).json(out.body);
-    } catch (err) {
-      logger.error({ err }, "POS webhook processing failed");
-      res.status(500).json({ error: "Webhook processing error" });
-    }
-  },
-);
-
 // Partner-Direct webhooks also need the raw body: each connection's HMAC
 // signature (issued at authorization time) is verified over the exact bytes
 // sent. Signature is the only authentication — no session involved.
@@ -189,7 +162,7 @@ app.post(
 );
 
 // Global rate limit. Mounted AFTER the raw-body webhook routes above, so
-// vendor-signed webhook deliveries (Stripe, POS) are never throttled, and it
+// vendor-signed webhook deliveries (Stripe, partners) are never throttled, and it
 // internally skips /api/healthz. Everything else gets a generous per-IP
 // ceiling that returns 429 + Retry-After when exceeded.
 app.use(globalRateLimit);

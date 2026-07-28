@@ -3,7 +3,6 @@ export * from "./sos";
 export * from "./concierge";
 export * from "./messages";
 export * from "./partners";
-export * from "./pos";
 export * from "./gateway";
 export * from "./wallet";
 export * from "./passport";

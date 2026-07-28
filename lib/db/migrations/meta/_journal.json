@@ -533,6 +533,13 @@
       "when": 1785252682646,
       "tag": "0075_old_multiple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1785253079525,
+      "tag": "0076_icy_speed",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@ import {
   tenantsTable,
   merchantCoopPartnershipsTable,
   sosTipPoolLedgerTable,
+  sosGratuityLedgerTable,
   sosPlanTransactionsTable,
   sosCustomerPlansTable,
   sosCustomersTable,
@@ -568,5 +569,28 @@ describe("earnings & shift reporting", () => {
     expect(line.ownTips).toBe(12);
     expect(line.partnerTips).toBe(0);
     expect(line.totalTips).toBe(12);
+  });
+});
+
+describe("native checkout is the sole tip entry point", () => {
+  it("a checkout tip writes exactly one ledger (tip-pool), never both", async () => {
+    // Barber has a live co-op partnership + servicing staff → the tip-pool
+    // engine owns the tip (no rule resolves, so the whole tip goes to the
+    // servicing staff member) and the classic gratuity pool writes nothing.
+    const visitId = await visitInService(barberId, `SoleEntry ${RUN}`);
+    await checkOut(barberId, visitId, { paymentAmount: 90, tipAmount: 18, staffId: barberStaff });
+
+    const poolRows = await ledgerForVisit(visitId);
+    expect(poolRows).toHaveLength(1);
+    expect(poolRows[0].recipientStaffId).toBe(barberStaff);
+    expect(poolRows[0].recipientTenantId).toBe(barberId);
+    expect(poolRows[0].allocatedShare).toBe("18.00");
+    expect(poolRows[0].grossTip).toBe("18.00");
+
+    const gratuityRows = await db
+      .select()
+      .from(sosGratuityLedgerTable)
+      .where(eq(sosGratuityLedgerTable.visitId, visitId));
+    expect(gratuityRows).toHaveLength(0);
   });
 });

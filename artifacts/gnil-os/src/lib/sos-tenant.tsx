@@ -22,7 +22,7 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 let currentSosTenantId: number | null = null;
 
 setTenantHeaderGetter((url) => {
-  // Only SOS operational endpoints and the merchant-facing co-op, POS, and
+  // Only SOS operational endpoints and the merchant-facing co-op and
   // gateway endpoints understand this header; everything else must stay
   // unscoped. The API now requires explicit tenant context on /api/sos and
   // /api/coop — with no business selected, the legacy (combined
@@ -31,7 +31,7 @@ setTenantHeaderGetter((url) => {
   if (url.includes('/api/sos/') || url.includes('/api/coop/')) {
     return currentSosTenantId == null ? 'legacy' : String(currentSosTenantId);
   }
-  if (url.includes('/api/pos/') || url.includes('/api/gateway/')) {
+  if (url.includes('/api/gateway/')) {
     return currentSosTenantId == null ? null : String(currentSosTenantId);
   }
   return null;
@@ -53,7 +53,6 @@ function dropSosQueries(queryClient: QueryClient) {
       typeof q.queryKey[0] === 'string' &&
       (q.queryKey[0].includes('/api/sos/') ||
         q.queryKey[0].includes('/api/coop/') ||
-        q.queryKey[0].includes('/api/pos/') ||
         q.queryKey[0].includes('/api/gateway/')),
   });
 }

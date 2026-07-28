@@ -26,7 +26,6 @@ import { ServiceMenuContent } from '@/components/sos/service-menu-content';
 import { AiReceptionistPage } from '@/pages/sos/ai-receptionist';
 import { StaffContent } from '@/components/sos/staff-content';
 import { CoopNetworkContent } from '@/components/sos/coop-network-content';
-import { PosIntegrationsContent } from '@/components/sos/pos-integrations-content';
 import { SafetyAlertsContent } from '@/components/sos/safety-alerts-content';
 import { CoopSentimentContent } from '@/components/sos/coop-sentiment-content';
 import { TipPoolingContent } from '@/components/sos/tip-pooling-content';
@@ -38,7 +37,7 @@ import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
   Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
   Activity, ListOrdered, CheckCircle2, Phone, DollarSign, Search,
-  ChevronLeft, ChevronRight, UtensilsCrossed, Handshake, ShieldAlert, Cable, Heart, HandCoins,
+  ChevronLeft, ChevronRight, UtensilsCrossed, Handshake, ShieldAlert, Heart, HandCoins,
 } from 'lucide-react';
 
 /**
@@ -46,7 +45,7 @@ import {
  * List and Calendar views of appointments (the old standalone Calendar page
  * redirects here), plus the one place open tickets are checked out.
  */
-const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'services', 'plans', 'staff', 'ai-receptionist', 'coop', 'coop-sentiment', 'tips', 'safety', 'pos-sync'] as const;
+const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'services', 'plans', 'staff', 'ai-receptionist', 'coop', 'coop-sentiment', 'tips', 'safety'] as const;
 
 export function BookingsPage() {
   // Tab state lives in the URL (?tab=) so /sos/bookings?tab=reports deep
@@ -255,9 +254,6 @@ export function BookingsPage() {
           <TabsTrigger value="safety" data-testid="tab-safety-alerts">
             <ShieldAlert className="h-4 w-4 mr-1.5" /> Safety Alerts
           </TabsTrigger>
-          <TabsTrigger value="pos-sync" data-testid="tab-pos-sync">
-            <Cable className="h-4 w-4 mr-1.5" /> POS Sync
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="mt-0">
@@ -357,12 +353,6 @@ export function BookingsPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="pos-sync" className="mt-0">
-          {/* External POS webhook connectors (Square, Clover, Boulevard,
-              Vagaro) — endpoint + signing secret per vendor, inbound event
-              log, and a dev simulator for vendor-shaped payloads */}
-          <PosIntegrationsContent tenantId={selectedTenant} />
-        </TabsContent>
       </Tabs>
     </div>
   );

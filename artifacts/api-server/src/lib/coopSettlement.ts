@@ -80,7 +80,7 @@ export async function recordObligationsSafe(events: ObligationEvent[]): Promise<
 /**
  * Obligation hook for a perk redemption. Called from the single revenue
  * accounting choke point every redemption path (native route, wallet,
- * POS webhooks, gateway) already flows through.
+ * gateway) already flows through.
  *
  *  - Revenue-share partnerships: the redeeming business owes the referring
  *    partner the GROSS share (referral_fee). Amounts come from the terms
