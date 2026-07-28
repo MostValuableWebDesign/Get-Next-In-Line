@@ -110,7 +110,28 @@ export interface CoopApplicationReview {
      * @maxLength 1000
      */
   rejectionReason?: string;
+  /** On approval, also create a merchant user scoped to the provisioned tenant */
+  createMerchantLogin?: boolean;
+  /**
+     * Preferred username for the created merchant login (defaults to a name derived from the application)
+     * @minLength 2
+     * @maxLength 80
+     */
+  merchantUsername?: string;
 }
+
+/**
+ * Present only when approval created a merchant login — the token is shown exactly once
+ */
+export type CoopApplicationReviewOutcomeProvisionedLogin = {
+  username: string;
+  loginToken: string;
+};
+
+export type CoopApplicationReviewOutcome = CoopApplicationRecord & {
+  /** Present only when approval created a merchant login — the token is shown exactly once */
+  provisionedLogin?: CoopApplicationReviewOutcomeProvisionedLogin;
+};
 
 export interface CoopApplicationSubmission {
   /**

@@ -137,12 +137,17 @@ export const reviewCoopApplicationBodyReviewNotesMax = 4000;
 
 export const reviewCoopApplicationBodyRejectionReasonMax = 1000;
 
+export const reviewCoopApplicationBodyMerchantUsernameMin = 2;
+export const reviewCoopApplicationBodyMerchantUsernameMax = 80;
+
 
 
 export const ReviewCoopApplicationBody = zod.object({
   "status": zod.enum(['under_review', 'approved', 'rejected']).optional(),
   "reviewNotes": zod.string().max(reviewCoopApplicationBodyReviewNotesMax).optional().describe('Reviewer-only verification\/vetting notes'),
-  "rejectionReason": zod.string().max(reviewCoopApplicationBodyRejectionReasonMax).optional().describe('Shown to the applicant when rejected')
+  "rejectionReason": zod.string().max(reviewCoopApplicationBodyRejectionReasonMax).optional().describe('Shown to the applicant when rejected'),
+  "createMerchantLogin": zod.boolean().optional().describe('On approval, also create a merchant user scoped to the provisioned tenant'),
+  "merchantUsername": zod.string().min(reviewCoopApplicationBodyMerchantUsernameMin).max(reviewCoopApplicationBodyMerchantUsernameMax).optional().describe('Preferred username for the created merchant login (defaults to a name derived from the application)')
 })
 
 export const ReviewCoopApplicationResponse = zod.object({
@@ -159,7 +164,12 @@ export const ReviewCoopApplicationResponse = zod.object({
   "resultingTenantId": zod.number().nullable(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
-})
+}).and(zod.object({
+  "provisionedLogin": zod.object({
+  "username": zod.string(),
+  "loginToken": zod.string()
+}).optional().describe('Present only when approval created a merchant login — the token is shown exactly once')
+}))
 
 
 /**

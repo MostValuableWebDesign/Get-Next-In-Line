@@ -69,6 +69,8 @@ export * from './coopActivePerksResponse';
 export * from './coopApplicationList';
 export * from './coopApplicationRecord';
 export * from './coopApplicationReview';
+export * from './coopApplicationReviewOutcome';
+export * from './coopApplicationReviewOutcomeProvisionedLogin';
 export * from './coopApplicationReviewStatus';
 export * from './coopApplicationStatus';
 export * from './coopApplicationSubmission';

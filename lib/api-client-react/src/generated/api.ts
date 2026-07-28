@@ -51,8 +51,8 @@ import type {
   ConnectorRegistryEntryUpdate,
   CoopActivePerksResponse,
   CoopApplicationList,
-  CoopApplicationRecord,
   CoopApplicationReview,
+  CoopApplicationReviewOutcome,
   CoopApplicationSubmission,
   CoopApplicationSubmitted,
   CoopBoostCreate,
@@ -823,9 +823,9 @@ export const getReviewCoopApplicationUrl = (id: number,) => {
  * @summary Move an application through its lifecycle and record vetting notes; approving provisions the tenant
  */
 export const reviewCoopApplication = async (id: number,
-    coopApplicationReview: CoopApplicationReview, options?: RequestInit): Promise<CoopApplicationRecord> => {
+    coopApplicationReview: CoopApplicationReview, options?: RequestInit): Promise<CoopApplicationReviewOutcome> => {
 
-  return customFetch<CoopApplicationRecord>(getReviewCoopApplicationUrl(id),
+  return customFetch<CoopApplicationReviewOutcome>(getReviewCoopApplicationUrl(id),
   {
     ...options,
     method: 'PATCH',

@@ -514,6 +514,9 @@ function ReviewApplicationForm({ app, onClose }: { app: CoopApplicationRecord; o
   const { toast } = useToast();
   const [notes, setNotes] = useState(app.reviewNotes ?? '');
   const [rejectionReason, setRejectionReason] = useState(app.rejectionReason ?? '');
+  const [createLogin, setCreateLogin] = useState(true);
+  const [merchantUsername, setMerchantUsername] = useState('');
+  const [issuedLogin, setIssuedLogin] = useState<{ username: string; loginToken: string } | null>(null);
   const decided = app.status === 'approved' || app.status === 'rejected';
 
   const submit = (status?: 'under_review' | 'approved' | 'rejected') => {
@@ -524,14 +527,26 @@ function ReviewApplicationForm({ app, onClose }: { app: CoopApplicationRecord; o
           ...(status ? { status } : {}),
           reviewNotes: notes,
           ...(status === 'rejected' ? { rejectionReason } : {}),
+          ...(status === 'approved' && createLogin
+            ? {
+                createMerchantLogin: true,
+                ...(merchantUsername.trim() ? { merchantUsername: merchantUsername.trim() } : {}),
+              }
+            : {}),
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: (res) => {
           queryClient.invalidateQueries({ queryKey: getListCoopApplicationsQueryKey() });
           if (status === 'approved') {
             queryClient.invalidateQueries({ queryKey: getListTenantsQueryKey() });
+            queryClient.invalidateQueries({ queryKey: getListGovernanceUsersQueryKey() });
             toast({ title: 'Application approved', description: `${app.businessName} has been provisioned as a tenant.` });
+            if (res.provisionedLogin) {
+              // Keep the dialog open to show the one-time login token.
+              setIssuedLogin(res.provisionedLogin);
+              return;
+            }
           } else if (status === 'rejected') {
             toast({ title: 'Application rejected' });
           } else {
@@ -546,6 +561,36 @@ function ReviewApplicationForm({ app, onClose }: { app: CoopApplicationRecord; o
       },
     );
   };
+
+  if (issuedLogin) {
+    return (
+      <div className="space-y-4 mt-2" data-testid="provisioned-login-token">
+        <p className="text-sm">
+          Merchant account <strong>{issuedLogin.username}</strong> created for {app.businessName}. This
+          login token is shown <strong>only once</strong> — pass it along to the applicant securely:
+        </p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 bg-muted rounded px-3 py-2 text-xs break-all" data-testid="text-provisioned-login-token">
+            {issuedLogin.loginToken}
+          </code>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              navigator.clipboard?.writeText(issuedLogin.loginToken).catch(() => {});
+              toast({ title: 'Copied' });
+            }}
+            data-testid="button-copy-provisioned-token"
+          >
+            <Copy className="w-4 h-4" />
+          </Button>
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={onClose} data-testid="button-close-provisioned-login">Done</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 mt-2">
@@ -577,6 +622,33 @@ function ReviewApplicationForm({ app, onClose }: { app: CoopApplicationRecord; o
             rows={2}
             data-testid="input-rejection-reason"
           />
+        </div>
+      )}
+      {!decided && (
+        <div className="space-y-2 rounded border p-3">
+          <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+            <input
+              type="checkbox"
+              checked={createLogin}
+              onChange={(e) => setCreateLogin(e.target.checked)}
+              data-testid="checkbox-create-merchant-login"
+            />
+            Create a merchant login for the applicant on approval
+          </label>
+          {createLogin && (
+            <div className="space-y-1">
+              <Label htmlFor="merchant-username" className="text-xs text-muted-foreground">
+                Username (optional — defaults to a name from the application)
+              </Label>
+              <Input
+                id="merchant-username"
+                value={merchantUsername}
+                onChange={(e) => setMerchantUsername(e.target.value)}
+                placeholder={app.contactEmail?.split('@')[0] || app.subdomain}
+                data-testid="input-merchant-username"
+              />
+            </div>
+          )}
         </div>
       )}
       {decided ? (

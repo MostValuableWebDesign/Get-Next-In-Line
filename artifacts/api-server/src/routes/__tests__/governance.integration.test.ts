@@ -84,6 +84,8 @@ afterAll(async () => {
   if (createdUserIds.length) {
     await db.delete(usersTable).where(inArray(usersTable.id, createdUserIds));
   }
+  // Merchant logins provisioned via application approval (RUN-prefixed usernames).
+  await db.delete(usersTable).where(like(usersTable.username, `${RUN}%`));
   const runTenants = await db
     .select({ id: tenantsTable.id })
     .from(tenantsTable)
@@ -342,6 +344,55 @@ describe("co-op join application lifecycle", () => {
       .patch(`/api/governance/applications/${second.body.id}`)
       .send({ status: "approved" });
     expect(clash.status).toBe(409);
+  });
+
+  it("approval can create a merchant login scoped to the new tenant, with duplicate usernames suffixed", async () => {
+    const app = (await import("../../app")).default;
+    const pub = request.agent(app);
+
+    const first = await pub
+      .post("/api/public/coop/applications")
+      .send({ businessName: `Login1 ${RUN}`, subdomain: `${RUN}-log1` })
+      .expect(201);
+    const approved = await adminAgent
+      .patch(`/api/governance/applications/${first.body.id}`)
+      .send({ status: "approved", createMerchantLogin: true, merchantUsername: `${RUN}-owner` })
+      .expect(200);
+    const login = approved.body.provisionedLogin;
+    expect(login.username).toBe(`${RUN}-owner`);
+    expect(login.loginToken).toMatch(/^gnil-/);
+    const tenantId = approved.body.resultingTenantId as number;
+
+    // The token works and the session is a merchant scoped to the new tenant.
+    const agent = await loginWithToken(app, login.loginToken);
+    const me = await agent.get("/api/auth/me").expect(200);
+    expect(me.body.role).toBe("merchant");
+    const users = await adminAgent.get("/api/governance/users").expect(200);
+    const created = users.body.find((u: { username: string }) => u.username === `${RUN}-owner`);
+    expect(created.tenants.map((t: { id: number }) => t.id)).toEqual([tenantId]);
+
+    // Duplicate preferred username on a second approval is suffixed gracefully.
+    const second = await pub
+      .post("/api/public/coop/applications")
+      .send({ businessName: `Login2 ${RUN}`, subdomain: `${RUN}-log2` })
+      .expect(201);
+    const approved2 = await adminAgent
+      .patch(`/api/governance/applications/${second.body.id}`)
+      .send({ status: "approved", createMerchantLogin: true, merchantUsername: `${RUN}-owner` })
+      .expect(200);
+    expect(approved2.body.provisionedLogin.username).toBe(`${RUN}-owner-2`);
+    await loginWithToken(app, approved2.body.provisionedLogin.loginToken);
+
+    // Approving without the flag creates no login (existing behavior).
+    const third = await pub
+      .post("/api/public/coop/applications")
+      .send({ businessName: `Login3 ${RUN}`, subdomain: `${RUN}-log3` })
+      .expect(201);
+    const approved3 = await adminAgent
+      .patch(`/api/governance/applications/${third.body.id}`)
+      .send({ status: "approved" })
+      .expect(200);
+    expect(approved3.body.provisionedLogin).toBeUndefined();
   });
 
   it("bogus status tokens 404", async () => {

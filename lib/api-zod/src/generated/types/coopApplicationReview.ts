@@ -19,4 +19,12 @@ export interface CoopApplicationReview {
      * @maxLength 1000
      */
   rejectionReason?: string;
+  /** On approval, also create a merchant user scoped to the provisioned tenant */
+  createMerchantLogin?: boolean;
+  /**
+     * Preferred username for the created merchant login (defaults to a name derived from the application)
+     * @minLength 2
+     * @maxLength 80
+     */
+  merchantUsername?: string;
 }

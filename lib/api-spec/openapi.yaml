@@ -163,7 +163,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CoopApplicationRecord"
+                $ref: "#/components/schemas/CoopApplicationReviewOutcome"
         "404":
           description: Not found
         "409":
@@ -7114,6 +7114,29 @@ components:
           type: string
           maxLength: 1000
           description: Shown to the applicant when rejected
+        createMerchantLogin:
+          type: boolean
+          description: On approval, also create a merchant user scoped to the provisioned tenant
+        merchantUsername:
+          type: string
+          minLength: 2
+          maxLength: 80
+          description: Preferred username for the created merchant login (defaults to a name derived from the application)
+
+    CoopApplicationReviewOutcome:
+      allOf:
+        - $ref: "#/components/schemas/CoopApplicationRecord"
+        - type: object
+          properties:
+            provisionedLogin:
+              type: object
+              required: [username, loginToken]
+              description: Present only when approval created a merchant login — the token is shown exactly once
+              properties:
+                username:
+                  type: string
+                loginToken:
+                  type: string
 
     CoopApplicationSubmission:
       type: object

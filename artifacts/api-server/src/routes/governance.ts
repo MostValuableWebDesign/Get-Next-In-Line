@@ -264,6 +264,48 @@ router.get(
   },
 );
 
+/** Sanitize a preferred/derived name into a username-safe slug. */
+function usernameSlug(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^[-.]+|[-.]+$/g, "")
+    .slice(0, 60);
+}
+
+/**
+ * Create a merchant user bound to the given tenant, retrying with numeric
+ * suffixes when the username is taken. Returns the one-time login token.
+ */
+async function createMerchantLoginForTenant(
+  tenantId: number,
+  preferredUsername: string | undefined,
+  app: typeof coopApplicationsTable.$inferSelect,
+): Promise<{ username: string; loginToken: string }> {
+  const base =
+    usernameSlug(preferredUsername?.trim() || app.contactEmail?.split("@")[0] || app.subdomain) ||
+    `merchant-${tenantId}`;
+  const candidates = [base, ...[2, 3, 4, 5].map((n) => `${base}-${n}`), `${base}-${tenantId}`];
+  for (const username of candidates) {
+    const loginToken = newLoginToken();
+    try {
+      const [user] = await db
+        .insert(usersTable)
+        .values({ username, role: "merchant", isPlatformAdmin: false, loginToken })
+        .returning();
+      await db.insert(userTenantMembershipsTable).values({ userId: user.id, tenantId });
+      return { username, loginToken };
+    } catch (e) {
+      const code =
+        (e as { code?: string }).code ?? (e as { cause?: { code?: string } }).cause?.code;
+      if (code === "23505") continue; // username taken — try the next candidate
+      throw e;
+    }
+  }
+  // Practically unreachable: the tenant-suffixed candidate is unique per approval.
+  throw new Error("Could not find an available username for the merchant login");
+}
+
 // Legal transitions: submitted → under_review → approved | rejected
 // (submitted may also go straight to approved/rejected).
 const NEXT_STATUSES: Record<string, string[]> = {
@@ -300,6 +342,8 @@ router.patch(
       res.status(400).json({ error: "A rejection reason is required" });
       return;
     }
+
+    let provisionedLogin: { username: string; loginToken: string } | undefined;
 
     if (nextStatus === "approved" && app.status !== "approved") {
       // Provision the tenant via the standard tenant-creation path, guarded
@@ -368,6 +412,16 @@ router.patch(
       await getSettingsForTenant(outcome);
       await runCoopConflictCheck(outcome);
       await refreshCoopSuggestionsSafe(outcome);
+
+      // Optionally create a merchant login scoped to the new tenant so the
+      // applicant can sign in without a separate Governance console step.
+      if (parsed.data.createMerchantLogin) {
+        provisionedLogin = await createMerchantLoginForTenant(
+          outcome,
+          parsed.data.merchantUsername,
+          app,
+        );
+      }
     } else {
       await db
         .update(coopApplicationsTable)
@@ -386,7 +440,12 @@ router.patch(
       .select()
       .from(coopApplicationsTable)
       .where(eq(coopApplicationsTable.id, id));
-    res.json(ReviewCoopApplicationResponse.parse(serializeApplication(updated)));
+    res.json(
+      ReviewCoopApplicationResponse.parse({
+        ...serializeApplication(updated),
+        ...(provisionedLogin ? { provisionedLogin } : {}),
+      }),
+    );
   },
 );
 

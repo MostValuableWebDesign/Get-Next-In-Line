@@ -166,7 +166,7 @@ const STATUS_UI: Record<string, { icon: React.ReactNode; label: string; blurb: s
   approved: {
     icon: <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />,
     label: 'Approved',
-    blurb: "Welcome to the co-op! Your storefront has been provisioned — the network team will be in touch with your access details.",
+    blurb: "Welcome to the co-op! Your storefront has been provisioned — expect your login credentials from the network team shortly.",
     badge: 'bg-emerald-100 text-emerald-800',
   },
   rejected: {
