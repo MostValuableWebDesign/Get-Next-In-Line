@@ -40,6 +40,19 @@ export const insertTenantSchema = createInsertSchema(tenantsTable).omit({ id: tr
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type Tenant = typeof tenantsTable.$inferSelect;
 
+// Daily total-MRR snapshots — the historical baseline behind the dashboard's
+// MRR growth percentage. One row per calendar day (upserted on dashboard
+// reads), so growth compares today's MRR against the snapshot nearest to
+// ~30 days ago instead of a fabricated number.
+export const mrrSnapshotsTable = pgTable("mrr_snapshots", {
+  id: serial("id").primaryKey(),
+  snapshotDate: text("snapshot_date").notNull().unique(), // YYYY-MM-DD (UTC)
+  totalMrr: numeric("total_mrr", { precision: 12, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type MrrSnapshot = typeof mrrSnapshotsTable.$inferSelect;
+
 export const tenantActivitiesTable = pgTable(
   "tenant_activities",
   {

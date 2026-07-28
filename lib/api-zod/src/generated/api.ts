@@ -240,7 +240,7 @@ export const GetAgencyDashboardResponse = zod.object({
   "activeTenants": zod.number(),
   "suspendedTenants": zod.number(),
   "totalTenants": zod.number(),
-  "mrrGrowthPercent": zod.number(),
+  "mrrGrowthPercent": zod.number().nullable().describe('Month-over-month MRR growth percent computed against the total-MRR snapshot from ~30 days ago. Null when no baseline snapshot exists yet (fresh install \/ not enough history).'),
   "totalModulesProvisioned": zod.number(),
   "revenueByCategory": zod.array(zod.object({
   "category": zod.string(),

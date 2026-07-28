@@ -5367,7 +5367,11 @@ export interface AgencyDashboard {
   activeTenants: number;
   suspendedTenants: number;
   totalTenants: number;
-  mrrGrowthPercent: number;
+  /**
+     * Month-over-month MRR growth percent computed against the total-MRR snapshot from ~30 days ago. Null when no baseline snapshot exists yet (fresh install / not enough history).
+     * @nullable
+     */
+  mrrGrowthPercent: number | null;
   totalModulesProvisioned: number;
   revenueByCategory: CategoryRevenue[];
 }

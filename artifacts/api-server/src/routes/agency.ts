@@ -6,8 +6,9 @@ import {
   tenantActivitiesTable,
   modulesTable,
   tenantModulesTable,
+  mrrSnapshotsTable,
 } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, lte, desc } from "drizzle-orm";
 import {
   GetAgencyDashboardResponse,
   GetAgencySettingsResponse,
@@ -17,6 +18,22 @@ import {
 import { effectiveMarkupPercent } from "../lib/pricing";
 
 const router: IRouter = Router();
+
+/**
+ * Month-over-month MRR growth percent: (current − baseline) / baseline × 100,
+ * rounded to one decimal. Null when there is no baseline (fresh install with
+ * no snapshot history) or the baseline is 0 (growth from nothing is
+ * undefined, not infinite) — the dashboard renders that as "not enough data".
+ */
+export function computeMrrGrowthPercent(
+  currentMrr: number,
+  baselineMrr: number | null,
+): number | null {
+  if (baselineMrr == null || baselineMrr <= 0) return null;
+  return Math.round(((currentMrr - baselineMrr) / baselineMrr) * 1000) / 10;
+}
+
+const BASELINE_DAYS = 30;
 
 router.get("/agency/dashboard", async (req, res): Promise<void> => {
   const [settings] = await db.select().from(agencySettingsTable).limit(1);
@@ -70,14 +87,44 @@ router.get("/agency/dashboard", async (req, res): Promise<void> => {
   }
   markupEarnings = Math.round(markupEarnings * 100) / 100;
 
+  const roundedTotalMrr = Math.round(totalMrr * 100) / 100;
+
+  // Record today's total-MRR snapshot (one row per UTC day, last write wins)
+  // so future dashboard reads have a real historical baseline.
+  const today = new Date().toISOString().slice(0, 10);
+  await db
+    .insert(mrrSnapshotsTable)
+    .values({ snapshotDate: today, totalMrr: roundedTotalMrr.toFixed(2) })
+    .onConflictDoUpdate({
+      target: mrrSnapshotsTable.snapshotDate,
+      set: { totalMrr: roundedTotalMrr.toFixed(2) },
+    });
+
+  // Baseline = the most recent snapshot at least ~30 days old. A fresh
+  // install has no such snapshot → growth is null ("not enough data"),
+  // never a fabricated number.
+  const baselineDate = new Date(Date.now() - BASELINE_DAYS * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const [baseline] = await db
+    .select()
+    .from(mrrSnapshotsTable)
+    .where(lte(mrrSnapshotsTable.snapshotDate, baselineDate))
+    .orderBy(desc(mrrSnapshotsTable.snapshotDate))
+    .limit(1);
+  const mrrGrowthPercent = computeMrrGrowthPercent(
+    roundedTotalMrr,
+    baseline ? parseFloat(baseline.totalMrr) : null,
+  );
+
   const dashboard = GetAgencyDashboardResponse.parse({
-    totalMrr: Math.round(totalMrr * 100) / 100,
+    totalMrr: roundedTotalMrr,
     monthlyProfit: markupEarnings,
     markupEarnings,
     activeTenants,
     suspendedTenants,
     totalTenants: tenants.length,
-    mrrGrowthPercent: 12.4,
+    mrrGrowthPercent,
     totalModulesProvisioned,
     revenueByCategory,
   });

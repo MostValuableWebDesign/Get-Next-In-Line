@@ -561,6 +561,13 @@
       "when": 1785258414765,
       "tag": "0079_bright_ben_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1785258859559,
+      "tag": "0080_chunky_vargas",
+      "breakpoints": true
     }
   ]
 }

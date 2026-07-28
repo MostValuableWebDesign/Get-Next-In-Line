@@ -307,7 +307,19 @@ function DashboardTab() {
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard title="Total MRR" value={formatCurrency(dashboard.totalMrr)} icon={DollarSign} trend={dashboard.mrrGrowthPercent > 0 ? `+${dashboard.mrrGrowthPercent}%` : `${dashboard.mrrGrowthPercent}%`} />
+            <StatCard
+              title="Total MRR"
+              value={formatCurrency(dashboard.totalMrr)}
+              icon={DollarSign}
+              trend={
+                dashboard.mrrGrowthPercent != null
+                  ? dashboard.mrrGrowthPercent > 0
+                    ? `+${dashboard.mrrGrowthPercent}%`
+                    : `${dashboard.mrrGrowthPercent}%`
+                  : undefined
+              }
+              subtitle={dashboard.mrrGrowthPercent == null ? 'Growth: not enough data yet' : undefined}
+            />
             <StatCard title="Active Tenants" value={dashboard.activeTenants.toString()} icon={Users} subtitle={`Out of ${dashboard.totalTenants} total`} />
             <StatCard title="Suspended" value={dashboard.suspendedTenants.toString()} icon={Activity} subtitle="Requires attention" />
             <StatCard title="Modules Provisioned" value={dashboard.totalModulesProvisioned.toString()} icon={Target} subtitle="Across all tenants" />

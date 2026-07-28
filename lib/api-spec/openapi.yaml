@@ -13385,7 +13385,8 @@ components:
         totalTenants:
           type: integer
         mrrGrowthPercent:
-          type: number
+          type: [number, "null"]
+          description: Month-over-month MRR growth percent computed against the total-MRR snapshot from ~30 days ago. Null when no baseline snapshot exists yet (fresh install / not enough history).
         totalModulesProvisioned:
           type: integer
         revenueByCategory:
