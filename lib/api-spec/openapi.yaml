@@ -12002,7 +12002,7 @@ components:
 
     SosCustomer:
       type: object
-      required: [id, name, smsOptIn, visitCount, createdAt, clientProfileId, marketing]
+      required: [id, name, smsOptIn, emailOptIn, visitCount, createdAt, clientProfileId, marketing]
       properties:
         id:
           type: integer
@@ -12013,6 +12013,8 @@ components:
         email:
           type: ["string", "null"]
         smsOptIn:
+          type: boolean
+        emailOptIn:
           type: boolean
         visitCount:
           type: integer
@@ -12061,6 +12063,8 @@ components:
           type: string
         smsOptIn:
           type: boolean
+        emailOptIn:
+          type: boolean
 
     SosCustomerUpdate:
       type: object
@@ -12072,6 +12076,8 @@ components:
         email:
           type: string
         smsOptIn:
+          type: boolean
+        emailOptIn:
           type: boolean
 
     SosVisit:
@@ -13261,6 +13267,11 @@ components:
           type: ["string", "null"]
         toNumber:
           type: ["string", "null"]
+        toEmail:
+          type: ["string", "null"]
+        channel:
+          type: string
+          enum: [sms, email, voice]
         direction:
           type: string
           enum: [outbound, inbound]
@@ -13268,7 +13279,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_marketing_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock, coop_reputation, coop_feedback_request, coop_financial_dispute]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_marketing_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock, coop_reputation, coop_feedback_request, coop_financial_dispute, booking_confirmation, receipt]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]
@@ -13329,7 +13340,7 @@ components:
           description: Stable synthetic id, e.g. "call-3", "sms-7", "concierge-4"
         channel:
           type: string
-          enum: [ai_call, sms, concierge]
+          enum: [ai_call, sms, concierge, email]
         kind:
           type: string
           description: Source-specific kind (call outcome, message kind, or concierge job type)

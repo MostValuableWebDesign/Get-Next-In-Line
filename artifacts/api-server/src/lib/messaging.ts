@@ -7,6 +7,7 @@ import {
 } from "@workspace/db";
 import { and, eq, notInArray } from "drizzle-orm";
 import { deliverSms, normalizeToE164 } from "./sms";
+import { deliverEmail } from "./email";
 import { logger } from "./logger";
 
 // ── Unified messaging service ────────────────────────────────────────────────
@@ -41,7 +42,9 @@ export type OutboundMessageKind =
   | "coop_event_broadcast"
   | "retail_low_stock"
   | "coop_reputation"
-  | "coop_feedback_request";
+  | "coop_feedback_request"
+  | "booking_confirmation"
+  | "receipt";
 
 export type MessageOrigin = "operational" | "concierge" | "marketing";
 
@@ -59,10 +62,14 @@ export interface SendMessageOptions {
   clientProfileId?: number | null;
   /** Engagement rule that triggered an automated send. */
   ruleId?: number | null;
-  toNumber: string | null | undefined;
+  toNumber?: string | null | undefined;
+  /** Recipient email address — required for channel "email". */
+  toEmail?: string | null | undefined;
+  /** Email subject line — used for channel "email" only. */
+  subject?: string | null;
   body: string;
   kind: OutboundMessageKind;
-  /** Defaults to "sms" — the only channel dispatched today. */
+  /** Defaults to "sms". "email" dispatches a transactional email. */
   channel?: string;
   /** Extra structured context stored in the message payload. */
   context?: Record<string, unknown>;
@@ -71,6 +78,28 @@ export interface SendMessageOptions {
 interface Guard {
   errorCode: "unsupported_channel" | "opted_out" | "no_phone";
   errorMessage: string;
+}
+
+/**
+ * Email opt-out guard: transactional emails are gated on the SOS customer's
+ * emailOptIn flag (email preferences live on the operational record only).
+ */
+async function findEmailOptOutGuard(
+  customerId: number | null,
+): Promise<Guard | null> {
+  if (customerId == null) return null;
+  const [customer] = await db
+    .select({ emailOptIn: sosCustomersTable.emailOptIn })
+    .from(sosCustomersTable)
+    .where(eq(sosCustomersTable.id, customerId))
+    .limit(1);
+  if (customer && !customer.emailOptIn) {
+    return {
+      errorCode: "opted_out",
+      errorMessage: "Customer has opted out of email",
+    };
+  }
+  return null;
 }
 
 /**
@@ -144,12 +173,7 @@ export async function sendMessage(opts: SendMessageOptions): Promise<Message> {
   const channel = opts.channel || "sms";
 
   let guard: Guard | null = null;
-  if (channel !== "sms") {
-    guard = {
-      errorCode: "unsupported_channel",
-      errorMessage: `Channel "${channel}" is not dispatchable yet (SMS only)`,
-    };
-  } else {
+  if (channel === "sms") {
     guard = await findOptOutGuard(
       opts.customerId ?? null,
       opts.clientProfileId ?? null,
@@ -157,6 +181,25 @@ export async function sendMessage(opts: SendMessageOptions): Promise<Message> {
     if (!guard && !opts.toNumber) {
       guard = { errorCode: "no_phone", errorMessage: "Recipient has no phone number" };
     }
+  } else if (channel === "email") {
+    if (!opts.toEmail) {
+      // Email dispatch requires the caller to resolve the recipient address
+      // (the transactional helpers do). Channel-preference-driven sends —
+      // concierge automation — deliberately stay SMS-only, so an email
+      // channel without an address keeps the historical unsupported outcome.
+      guard = {
+        errorCode: "unsupported_channel",
+        errorMessage:
+          'Channel "email" requires an explicit recipient address (automation sends are SMS-only)',
+      };
+    } else {
+      guard = await findEmailOptOutGuard(opts.customerId ?? null);
+    }
+  } else {
+    guard = {
+      errorCode: "unsupported_channel",
+      errorMessage: `Channel "${channel}" is not dispatchable yet (SMS and email only)`,
+    };
   }
 
   const [pending] = await db
@@ -171,8 +214,11 @@ export async function sendMessage(opts: SendMessageOptions): Promise<Message> {
       kind: opts.kind,
       channel,
       toNumber: normalizeToE164(opts.toNumber) ?? opts.toNumber ?? null,
+      toEmail: opts.toEmail?.trim() || null,
       body: opts.body,
-      payload: opts.context ?? {},
+      payload: opts.subject
+        ? { ...(opts.context ?? {}), subject: opts.subject }
+        : (opts.context ?? {}),
       status: "pending",
     })
     .returning();
@@ -188,7 +234,14 @@ export async function sendMessage(opts: SendMessageOptions): Promise<Message> {
     errorMessage = guard.errorMessage;
   } else {
     try {
-      const result = await deliverSms(opts.toNumber, opts.body, opts.tenantId ?? null);
+      const result =
+        channel === "email"
+          ? await deliverEmail(
+              opts.toEmail,
+              opts.subject || "Notification",
+              opts.body,
+            )
+          : await deliverSms(opts.toNumber, opts.body, opts.tenantId ?? null);
       status = result.status;
       providerSid = result.providerSid;
       errorCode = result.errorCode;
@@ -196,7 +249,7 @@ export async function sendMessage(opts: SendMessageOptions): Promise<Message> {
     } catch (err) {
       status = "failed";
       errorMessage = err instanceof Error ? err.message : "Unknown send error";
-      logger.error({ err, messageId: pending.id }, "SMS dispatch threw");
+      logger.error({ err, messageId: pending.id, channel }, "Message dispatch threw");
     }
   }
 

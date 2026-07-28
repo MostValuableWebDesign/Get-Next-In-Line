@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  useListSosCustomers, useCreateSosCustomer, useGetSosCustomer, useGetSosCustomerTimeline,
+  useListSosCustomers, useCreateSosCustomer, useUpdateSosCustomer, useGetSosCustomer, useGetSosCustomerTimeline,
   getListSosCustomersQueryKey, getGetSosCustomerQueryKey, getGetSosCustomerTimelineQueryKey,
   useGetSosCustomerPlans, getGetSosCustomerPlansQueryKey,
 } from '@workspace/api-client-react';
@@ -154,11 +154,15 @@ function CustomerDetailDialog({ customerId, onClose }: { customerId: number | nu
         {c && (
           <div className="space-y-4">
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Operations</h3>
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Operations</h3>
+                <EditCustomerDialog customer={c} />
+              </div>
               <div className="divide-y rounded-md border px-3 py-1">
                 <DetailRow label="Phone" value={c.phone} />
                 <DetailRow label="Email" value={c.email} />
                 <DetailRow label="SMS opt-in" value={c.smsOptIn ? 'Subscribed' : 'Opted out'} />
+                <DetailRow label="Email opt-in" value={c.emailOptIn ? 'Subscribed' : 'Opted out'} />
                 <DetailRow label="Visits" value={c.visitCount} />
                 <DetailRow
                   label="Last visit"
@@ -295,10 +299,16 @@ const CHANNEL_META: Record<
   ai_call: { label: 'AI call', icon: PhoneIncoming, badgeClass: 'text-sky-700 border-sky-200 bg-sky-50' },
   sms: { label: 'Text', icon: MessageSquare, badgeClass: 'text-emerald-700 border-emerald-200 bg-emerald-50' },
   concierge: { label: 'Concierge', icon: Bot, badgeClass: 'text-violet-700 border-violet-200 bg-violet-50' },
+  email: { label: 'Email', icon: Mail, badgeClass: 'text-blue-700 border-blue-200 bg-blue-50' },
 };
 
 function timelineLabel(e: SosTimelineEntry): string {
   if (e.channel === 'ai_call') return 'AI call';
+  if (e.channel === 'email') {
+    if (e.kind === 'booking_confirmation') return 'Booking confirmation email';
+    if (e.kind === 'receipt') return 'Receipt email';
+    return 'Email';
+  }
   if (e.channel === 'concierge') {
     if (e.kind === 'send_reminder') return 'Reminder';
     if (e.kind === 'rebooking_nudge') return 'Rebooking nudge';
@@ -366,19 +376,109 @@ function CustomerTimeline({ customerId }: { customerId: number }) {
   );
 }
 
+function EditCustomerDialog({ customer }: {
+  customer: { id: number; name: string; phone?: string | null; email?: string | null; smsOptIn: boolean; emailOptIn: boolean };
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(customer.name);
+  const [phone, setPhone] = useState(customer.phone ?? '');
+  const [email, setEmail] = useState(customer.email ?? '');
+  const [smsOptIn, setSmsOptIn] = useState(customer.smsOptIn);
+  const [emailOptIn, setEmailOptIn] = useState(customer.emailOptIn);
+
+  const update = useUpdateSosCustomer();
+  const queryClient = useQueryClient();
+
+  const openDialog = (o: boolean) => {
+    if (o) {
+      setName(customer.name);
+      setPhone(customer.phone ?? '');
+      setEmail(customer.email ?? '');
+      setSmsOptIn(customer.smsOptIn);
+      setEmailOptIn(customer.emailOptIn);
+    }
+    setOpen(o);
+  };
+
+  const handleSave = () => {
+    update.mutate(
+      { id: customer.id, data: { name, phone, email, smsOptIn, emailOptIn } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSosCustomersQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetSosCustomerQueryKey(customer.id) });
+          setOpen(false);
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={openDialog}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" data-testid="button-edit-customer">Edit</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Customer</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Full Name *</Label>
+            <Input value={name} onChange={e => setName(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>Phone Number</Label>
+            <Input value={phone} onChange={e => setPhone(e.target.value)} type="tel" />
+          </div>
+          <div className="space-y-2">
+            <Label>Email</Label>
+            <Input value={email} onChange={e => setEmail(e.target.value)} type="email" />
+          </div>
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox
+              id="edit-sms"
+              checked={smsOptIn}
+              onCheckedChange={(c) => setSmsOptIn(c as boolean)}
+            />
+            <Label htmlFor="edit-sms" className="text-sm font-normal">
+              Opt-in to SMS waitlist and appointment notifications
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="edit-email-opt-in"
+              checked={emailOptIn}
+              onCheckedChange={(c) => setEmailOptIn(c as boolean)}
+            />
+            <Label htmlFor="edit-email-opt-in" className="text-sm font-normal">
+              Opt-in to email confirmations and receipts
+            </Label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={handleSave} disabled={!name || update.isPending}>Save Changes</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AddCustomerDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [smsOptIn, setSmsOptIn] = useState(true);
+  const [emailOptIn, setEmailOptIn] = useState(true);
 
   const create = useCreateSosCustomer();
   const queryClient = useQueryClient();
 
   const handleSave = () => {
     create.mutate(
-      { data: { name, phone, email, smsOptIn } },
+      { data: { name, phone, email, smsOptIn, emailOptIn } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListSosCustomersQueryKey() });
@@ -418,6 +518,16 @@ function AddCustomerDialog() {
             />
             <Label htmlFor="sms" className="text-sm font-normal">
               Opt-in to SMS waitlist and appointment notifications
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="email-opt-in"
+              checked={emailOptIn}
+              onCheckedChange={(c) => setEmailOptIn(c as boolean)}
+            />
+            <Label htmlFor="email-opt-in" className="text-sm font-normal">
+              Opt-in to email confirmations and receipts
             </Label>
           </div>
         </div>

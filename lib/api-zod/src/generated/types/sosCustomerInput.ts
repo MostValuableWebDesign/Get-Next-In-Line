@@ -12,4 +12,5 @@ export interface SosCustomerInput {
   phone?: string;
   email?: string;
   smsOptIn?: boolean;
+  emailOptIn?: boolean;
 }

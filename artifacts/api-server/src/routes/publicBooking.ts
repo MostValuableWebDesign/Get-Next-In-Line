@@ -26,6 +26,7 @@ import { resolveSettings } from "../lib/settings";
 import { cachedCapacityStatus } from "../lib/capacityStatus";
 import { normalizeToE164 } from "../lib/sms";
 import { autoLinkCustomer } from "../lib/customerLink";
+import { sendBookingConfirmationEmailSafe } from "../lib/transactionalEmail";
 import { logger } from "../lib/logger";
 
 // ── Public booking API ───────────────────────────────────────────────────────
@@ -460,6 +461,20 @@ router.post(
       resourceId != null
         ? (ctx.resources.find((r) => r.id === resourceId)?.name ?? null)
         : null;
+
+    // Booking confirmation email (complement to SMS). Opt-in and address
+    // checks live in the email pipeline; a failure never blocks the booking.
+    await sendBookingConfirmationEmailSafe({
+      tenantId: ctx.tenant.id,
+      customer,
+      businessName: ctx.settings.businessName,
+      slug: ctx.tenant.subdomain,
+      serviceType: appointment.serviceType,
+      startsAt: appointment.startsAt,
+      staffName,
+      appointmentId: appointment.id,
+    });
+
     res.status(201).json(
       CreatePublicBookingResponse.parse({
         appointmentId: appointment.id,

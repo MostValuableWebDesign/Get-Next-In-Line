@@ -13,4 +13,5 @@ export const SosTimelineEntryChannel = {
   ai_call: 'ai_call',
   sms: 'sms',
   concierge: 'concierge',
+  email: 'email',
 } as const;

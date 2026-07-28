@@ -160,6 +160,9 @@ export const sosCustomersTable = pgTable(
   phone: text("phone"),
   email: text("email"),
   smsOptIn: boolean("sms_opt_in").notNull().default(true),
+  // Transactional email opt-in (confirmations, receipts). Independent of the
+  // SMS flag — a customer can be reachable on either channel.
+  emailOptIn: boolean("email_opt_in").notNull().default(true),
   // Explicit link to a concierge client_profiles row (marketing record for the
   // same person). Established by phone matching but survives phone edits.
   clientProfileId: integer("client_profile_id").references(

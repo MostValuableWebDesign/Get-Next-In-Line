@@ -58,6 +58,8 @@ export const messagesTable = pgTable(
     channel: text("channel").notNull().default("sms"),
     // Counterparty number: recipient for outbound, sender for inbound.
     toNumber: text("to_number"),
+    // Recipient email address for email-channel messages.
+    toEmail: text("to_email"),
     body: text("body").notNull().default(""),
     // Structured context the dispatch was based on (templates, rule inputs…).
     payload: jsonb("payload").notNull().default({}),

@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { SosMessageChannel } from './sosMessageChannel';
 import type { SosMessageDeliveryStatus } from './sosMessageDeliveryStatus';
 import type { SosMessageDirection } from './sosMessageDirection';
 import type { SosMessageKind } from './sosMessageKind';
@@ -17,6 +18,9 @@ export interface SosMessage {
   customerName?: string | null;
   /** @nullable */
   toNumber?: string | null;
+  /** @nullable */
+  toEmail?: string | null;
+  channel?: SosMessageChannel;
   direction: SosMessageDirection;
   body: string;
   kind: SosMessageKind;

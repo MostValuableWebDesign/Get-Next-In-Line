@@ -546,6 +546,7 @@ export * from './sosGratuityLedgerSummary';
 export * from './sosGratuityLedgerSummaryTotalsByStaffItem';
 export * from './sosGratuityStaffShare';
 export * from './sosMessage';
+export * from './sosMessageChannel';
 export * from './sosMessageDeliveryStatus';
 export * from './sosMessageDirection';
 export * from './sosMessageInput';

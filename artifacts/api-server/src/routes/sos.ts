@@ -125,6 +125,11 @@ import {
 } from "../lib/tipPooling";
 import { recordAmbassadorActivitySafe } from "../lib/ambassador";
 import {
+  sendBookingConfirmationEmailSafe,
+  sendReceiptEmailSafe,
+} from "../lib/transactionalEmail";
+import { isValidEmail } from "../lib/email";
+import {
   addressFieldsTouched,
   resolveSettings,
   serializeSettings,
@@ -167,6 +172,7 @@ function serializeCustomer(c: CustomerRow, profile: ClientProfile | null = null)
     phone: c.phone,
     email: c.email,
     smsOptIn: c.smsOptIn,
+    emailOptIn: c.emailOptIn,
     visitCount: c.visitCount,
     lastVisitAt: iso(c.lastVisitAt),
     createdAt: c.createdAt.toISOString(),
@@ -641,9 +647,14 @@ router.get("/sos/customers/:id", async (req, res): Promise<void> => {
 
 router.post("/sos/customers", async (req, res): Promise<void> => {
   const body = CreateSosCustomerBody.parse(req.body);
+  const email = body.email?.trim() || null;
+  if (email && !isValidEmail(email)) {
+    res.status(400).json({ message: "That email address doesn't look right." });
+    return;
+  }
   const [row] = await db
     .insert(sosCustomersTable)
-    .values({ ...body, tenantId: tenantIdFrom(req) })
+    .values({ ...body, email, tenantId: tenantIdFrom(req) })
     .returning();
   // Establish the concierge link by phone match when unambiguous.
   const profile = await autoLinkCustomer(row);
@@ -656,9 +667,18 @@ router.post("/sos/customers", async (req, res): Promise<void> => {
 router.patch("/sos/customers/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const body = UpdateSosCustomerBody.parse(req.body);
+  const updates: Record<string, unknown> = { ...body };
+  if (body.email !== undefined) {
+    const trimmed = body.email?.trim() || null;
+    if (trimmed && !isValidEmail(trimmed)) {
+      res.status(400).json({ message: "That email address doesn't look right." });
+      return;
+    }
+    updates.email = trimmed;
+  }
   const [row] = await db
     .update(sosCustomersTable)
-    .set(body)
+    .set(updates)
     .where(and(eq(sosCustomersTable.id, id), tenantMatch(sosCustomersTable.tenantId, tenantIdFrom(req))))
     .returning();
   if (!row) {
@@ -687,7 +707,7 @@ router.patch("/sos/customers/:id", async (req, res): Promise<void> => {
 
 type TimelineEntry = {
   id: string;
-  channel: "ai_call" | "sms" | "concierge";
+  channel: "ai_call" | "sms" | "concierge" | "email";
   kind: string;
   direction: "inbound" | "outbound";
   status: string;
@@ -764,9 +784,10 @@ router.get("/sos/customers/:id/timeline", async (req, res): Promise<void> => {
       (phone != null && normalizeToE164(m.toNumber) === phone);
     if (!matches) continue;
     const isConcierge = m.origin === "concierge";
+    const isEmail = m.channel === "email";
     entries.push({
-      id: isConcierge ? `concierge-${m.id}` : `sms-${m.id}`,
-      channel: isConcierge ? "concierge" : "sms",
+      id: isEmail ? `email-${m.id}` : isConcierge ? `concierge-${m.id}` : `sms-${m.id}`,
+      channel: isEmail ? "email" : isConcierge ? "concierge" : "sms",
       kind: m.kind,
       direction: m.direction === "inbound" ? "inbound" : "outbound",
       status: m.status,
@@ -2141,6 +2162,18 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
         person: { phone: customer.phone, email: customer.email, name: customer.name },
       });
     }
+    // Checkout receipt email (complement to SMS). Opt-in and address checks
+    // live in the email pipeline; a failure never blocks the checkout.
+    const receiptSettings = await resolveSettings(updated.tenantId);
+    await sendReceiptEmailSafe({
+      tenantId: updated.tenantId,
+      customer,
+      businessName: receiptSettings.businessName,
+      serviceType: updated.serviceType,
+      paymentAmount: updated.paymentAmount,
+      checkedOutAt: updated.checkedOutAt ?? new Date(),
+      visitId: updated.id,
+    });
   }
 
   const resourceName = updated.resourceId
@@ -2226,6 +2259,35 @@ router.post("/sos/appointments", async (req, res): Promise<void> => {
     .returning();
   // No-Show Shield: records the policy agreement + deposit hold when active.
   const hold = await placeDepositHoldIfActive(row.id);
+
+  // Booking confirmation email (complement to SMS). Opt-in and address
+  // checks live in the email pipeline; a failure never blocks the booking.
+  const apptSettings = await resolveSettings(row.tenantId);
+  let staffName: string | null = null;
+  if (row.resourceId != null) {
+    const [resource] = await db
+      .select({ name: sosResourcesTable.name })
+      .from(sosResourcesTable)
+      .where(eq(sosResourcesTable.id, row.resourceId));
+    staffName = resource?.name ?? null;
+  }
+  const [apptTenant] = row.tenantId
+    ? await db
+        .select({ subdomain: tenantsTable.subdomain })
+        .from(tenantsTable)
+        .where(eq(tenantsTable.id, row.tenantId))
+    : [];
+  await sendBookingConfirmationEmailSafe({
+    tenantId: row.tenantId,
+    customer,
+    businessName: apptSettings.businessName,
+    slug: apptTenant?.subdomain ?? null,
+    serviceType: row.serviceType,
+    startsAt: row.startsAt,
+    staffName,
+    appointmentId: row.id,
+  });
+
   res
     .status(201)
     .json(CreateSosAppointmentResponse.parse(serializeAppointment(row, customer.name, hold)));
@@ -2398,6 +2460,8 @@ function serializeSosMessage(msg: MessageRow, customerName: string | null) {
     customerId: msg.customerId,
     customerName,
     toNumber: msg.toNumber,
+    toEmail: msg.toEmail,
+    channel: msg.channel,
     direction: msg.direction,
     body: msg.body,
     kind: msg.kind,

@@ -35,4 +35,6 @@ export const SosMessageKind = {
   coop_reputation: 'coop_reputation',
   coop_feedback_request: 'coop_feedback_request',
   coop_financial_dispute: 'coop_financial_dispute',
+  booking_confirmation: 'booking_confirmation',
+  receipt: 'receipt',
 } as const;

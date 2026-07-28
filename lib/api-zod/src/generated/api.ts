@@ -5377,6 +5377,7 @@ export const ListSosCustomersResponseItem = zod.object({
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "smsOptIn": zod.boolean(),
+  "emailOptIn": zod.boolean(),
   "visitCount": zod.number(),
   "lastVisitAt": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -5404,7 +5405,8 @@ export const CreateSosCustomerBody = zod.object({
   "name": zod.string().min(1),
   "phone": zod.string().optional(),
   "email": zod.string().optional(),
-  "smsOptIn": zod.boolean().optional()
+  "smsOptIn": zod.boolean().optional(),
+  "emailOptIn": zod.boolean().optional()
 })
 
 export const CreateSosCustomerResponse = zod.object({
@@ -5413,6 +5415,7 @@ export const CreateSosCustomerResponse = zod.object({
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "smsOptIn": zod.boolean(),
+  "emailOptIn": zod.boolean(),
   "visitCount": zod.number(),
   "lastVisitAt": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -5442,6 +5445,7 @@ export const GetSosCustomerResponse = zod.object({
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "smsOptIn": zod.boolean(),
+  "emailOptIn": zod.boolean(),
   "visitCount": zod.number(),
   "lastVisitAt": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -5469,7 +5473,8 @@ export const UpdateSosCustomerBody = zod.object({
   "name": zod.string().optional(),
   "phone": zod.string().optional(),
   "email": zod.string().optional(),
-  "smsOptIn": zod.boolean().optional()
+  "smsOptIn": zod.boolean().optional(),
+  "emailOptIn": zod.boolean().optional()
 })
 
 export const UpdateSosCustomerResponse = zod.object({
@@ -5478,6 +5483,7 @@ export const UpdateSosCustomerResponse = zod.object({
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "smsOptIn": zod.boolean(),
+  "emailOptIn": zod.boolean(),
   "visitCount": zod.number(),
   "lastVisitAt": zod.string().nullish(),
   "createdAt": zod.string(),
@@ -5503,7 +5509,7 @@ export const GetSosCustomerTimelineParams = zod.object({
 
 export const GetSosCustomerTimelineResponseItem = zod.object({
   "id": zod.string().describe('Stable synthetic id, e.g. \"call-3\", \"sms-7\", \"concierge-4\"'),
-  "channel": zod.enum(['ai_call', 'sms', 'concierge']),
+  "channel": zod.enum(['ai_call', 'sms', 'concierge', 'email']),
   "kind": zod.string().describe('Source-specific kind (call outcome, message kind, or concierge job type)'),
   "direction": zod.enum(['inbound', 'outbound']),
   "status": zod.string(),
@@ -5854,9 +5860,11 @@ export const ListSosMessagesResponseItem = zod.object({
   "customerId": zod.number().nullish(),
   "customerName": zod.string().nullish(),
   "toNumber": zod.string().nullish(),
+  "toEmail": zod.string().nullish(),
+  "channel": zod.enum(['sms', 'email', 'voice']).optional(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute', 'booking_confirmation', 'receipt']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -5883,9 +5891,11 @@ export const SendSosMessageResponse = zod.object({
   "customerId": zod.number().nullish(),
   "customerName": zod.string().nullish(),
   "toNumber": zod.string().nullish(),
+  "toEmail": zod.string().nullish(),
+  "channel": zod.enum(['sms', 'email', 'voice']).optional(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute', 'booking_confirmation', 'receipt']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

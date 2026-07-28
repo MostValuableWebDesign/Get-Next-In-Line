@@ -11,4 +11,5 @@ export interface SosCustomerUpdate {
   phone?: string;
   email?: string;
   smsOptIn?: boolean;
+  emailOptIn?: boolean;
 }

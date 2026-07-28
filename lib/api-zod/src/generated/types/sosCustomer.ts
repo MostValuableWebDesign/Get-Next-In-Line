@@ -15,6 +15,7 @@ export interface SosCustomer {
   /** @nullable */
   email?: string | null;
   smsOptIn: boolean;
+  emailOptIn: boolean;
   visitCount: number;
   /** @nullable */
   lastVisitAt?: string | null;

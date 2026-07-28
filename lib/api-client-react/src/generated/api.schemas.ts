@@ -4081,6 +4081,7 @@ export interface SosCustomer {
   /** @nullable */
   email?: string | null;
   smsOptIn: boolean;
+  emailOptIn: boolean;
   visitCount: number;
   /** @nullable */
   lastVisitAt?: string | null;
@@ -4096,6 +4097,7 @@ export interface SosCustomerInput {
   phone?: string;
   email?: string;
   smsOptIn?: boolean;
+  emailOptIn?: boolean;
 }
 
 export interface SosCustomerUpdate {
@@ -4103,6 +4105,7 @@ export interface SosCustomerUpdate {
   phone?: string;
   email?: string;
   smsOptIn?: boolean;
+  emailOptIn?: boolean;
 }
 
 export type SosVisitStatus = typeof SosVisitStatus[keyof typeof SosVisitStatus];
@@ -5142,6 +5145,15 @@ export interface SosWaitlistEntryInput {
   desiredService: string;
 }
 
+export type SosMessageChannel = typeof SosMessageChannel[keyof typeof SosMessageChannel];
+
+
+export const SosMessageChannel = {
+  sms: 'sms',
+  email: 'email',
+  voice: 'voice',
+} as const;
+
 export type SosMessageDirection = typeof SosMessageDirection[keyof typeof SosMessageDirection];
 
 
@@ -5179,6 +5191,8 @@ export const SosMessageKind = {
   coop_reputation: 'coop_reputation',
   coop_feedback_request: 'coop_feedback_request',
   coop_financial_dispute: 'coop_financial_dispute',
+  booking_confirmation: 'booking_confirmation',
+  receipt: 'receipt',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];
@@ -5202,6 +5216,9 @@ export interface SosMessage {
   customerName?: string | null;
   /** @nullable */
   toNumber?: string | null;
+  /** @nullable */
+  toEmail?: string | null;
+  channel?: SosMessageChannel;
   direction: SosMessageDirection;
   body: string;
   kind: SosMessageKind;
@@ -5268,6 +5285,7 @@ export const SosTimelineEntryChannel = {
   ai_call: 'ai_call',
   sms: 'sms',
   concierge: 'concierge',
+  email: 'email',
 } as const;
 
 export type SosTimelineEntryDirection = typeof SosTimelineEntryDirection[keyof typeof SosTimelineEntryDirection];
