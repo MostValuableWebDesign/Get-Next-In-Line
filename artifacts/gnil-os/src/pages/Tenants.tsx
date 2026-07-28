@@ -209,8 +209,8 @@ function EditTenantForm({ tenantId, onSuccess }: { tenantId: number, onSuccess: 
         id: tenantId,
         data: {
           brandName: fd.get('brandName') as string,
-          contactName: fd.get('contactName') as string,
-          contactEmail: fd.get('contactEmail') as string,
+          ...((fd.get('contactName') as string)?.trim() ? { contactName: (fd.get('contactName') as string).trim() } : {}),
+          ...((fd.get('contactEmail') as string)?.trim() ? { contactEmail: (fd.get('contactEmail') as string).trim() } : {}),
         }
       },
       {
@@ -262,8 +262,8 @@ function CreateTenantForm({ onSuccess }: { onSuccess: () => void }) {
         data: {
           brandName: fd.get('brandName') as string,
           subdomain: fd.get('subdomain') as string,
-          contactName: fd.get('contactName') as string,
-          contactEmail: fd.get('contactEmail') as string,
+          ...((fd.get('contactName') as string)?.trim() ? { contactName: (fd.get('contactName') as string).trim() } : {}),
+          ...((fd.get('contactEmail') as string)?.trim() ? { contactEmail: (fd.get('contactEmail') as string).trim() } : {}),
         }
       },
       {

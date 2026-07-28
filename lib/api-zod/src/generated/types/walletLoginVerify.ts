@@ -7,11 +7,15 @@
  */
 
 export interface WalletLoginVerify {
-  /** @minLength 7 */
+  /**
+     * @minLength 7
+     * @maxLength 32
+     */
   phone: string;
   /**
      * The 6-digit code received by SMS.
      * @minLength 4
+     * @maxLength 12
      */
   code: string;
 }

@@ -185,6 +185,8 @@ export const submitCoopApplicationBodyContactNameMax = 120;
 
 export const submitCoopApplicationBodyContactEmailMax = 254;
 
+
+export const submitCoopApplicationBodyContactEmailRegExp = new RegExp('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$');
 export const submitCoopApplicationBodyCategoryMax = 120;
 
 export const submitCoopApplicationBodyPitchMax = 2000;
@@ -195,7 +197,7 @@ export const SubmitCoopApplicationBody = zod.object({
   "businessName": zod.string().min(submitCoopApplicationBodyBusinessNameMin).max(submitCoopApplicationBodyBusinessNameMax),
   "subdomain": zod.string().min(submitCoopApplicationBodySubdomainMin).max(submitCoopApplicationBodySubdomainMax),
   "contactName": zod.string().max(submitCoopApplicationBodyContactNameMax).optional(),
-  "contactEmail": zod.string().max(submitCoopApplicationBodyContactEmailMax).optional(),
+  "contactEmail": zod.string().max(submitCoopApplicationBodyContactEmailMax).regex(submitCoopApplicationBodyContactEmailRegExp).optional(),
   "category": zod.string().max(submitCoopApplicationBodyCategoryMax).optional(),
   "pitch": zod.string().max(submitCoopApplicationBodyPitchMax).optional()
 })
@@ -610,15 +612,23 @@ export const ListTenantsResponse = zod.array(ListTenantsResponseItem)
 /**
  * @summary Provision a new tenant
  */
+export const createTenantBodyBrandNameMax = 120;
 
+export const createTenantBodySubdomainMax = 63;
+
+export const createTenantBodyContactEmailMax = 254;
+
+
+export const createTenantBodyContactEmailRegExp = new RegExp('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$');
+export const createTenantBodyContactNameMax = 120;
 
 
 
 export const CreateTenantBody = zod.object({
-  "brandName": zod.string().min(1),
-  "subdomain": zod.string().min(1),
-  "contactEmail": zod.string().optional(),
-  "contactName": zod.string().optional(),
+  "brandName": zod.string().min(1).max(createTenantBodyBrandNameMax),
+  "subdomain": zod.string().min(1).max(createTenantBodySubdomainMax),
+  "contactEmail": zod.string().max(createTenantBodyContactEmailMax).regex(createTenantBodyContactEmailRegExp).optional(),
+  "contactName": zod.string().max(createTenantBodyContactNameMax).optional(),
   "status": zod.enum(['active', 'suspended', 'pending']).optional()
 })
 
@@ -692,12 +702,24 @@ export const UpdateTenantParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const updateTenantBodyBrandNameMax = 120;
+
+export const updateTenantBodySubdomainMax = 63;
+
+export const updateTenantBodyContactEmailMax = 254;
+
+
+export const updateTenantBodyContactEmailRegExp = new RegExp('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$');
+export const updateTenantBodyContactNameMax = 120;
+
+
+
 export const UpdateTenantBody = zod.object({
-  "brandName": zod.string().optional(),
-  "subdomain": zod.string().optional(),
+  "brandName": zod.string().min(1).max(updateTenantBodyBrandNameMax).optional(),
+  "subdomain": zod.string().min(1).max(updateTenantBodySubdomainMax).optional(),
   "status": zod.enum(['active', 'suspended', 'pending']).optional(),
-  "contactEmail": zod.string().optional(),
-  "contactName": zod.string().optional(),
+  "contactEmail": zod.string().max(updateTenantBodyContactEmailMax).regex(updateTenantBodyContactEmailRegExp).optional(),
+  "contactName": zod.string().max(updateTenantBodyContactNameMax).optional(),
   "payoutStripeAccountId": zod.string().nullish()
 })
 
@@ -8281,11 +8303,12 @@ export const CreatePublicBookingResponse = zod.object({
  * @summary Request an SMS sign-in code for the customer Local Perks wallet (public, rate limited)
  */
 export const requestWalletLoginCodeBodyPhoneMin = 7;
+export const requestWalletLoginCodeBodyPhoneMax = 32;
 
 
 
 export const RequestWalletLoginCodeBody = zod.object({
-  "phone": zod.string().min(requestWalletLoginCodeBodyPhoneMin).describe('The customer\'s mobile phone number (any common format; normalized server-side).')
+  "phone": zod.string().min(requestWalletLoginCodeBodyPhoneMin).max(requestWalletLoginCodeBodyPhoneMax).describe('The customer\'s mobile phone number (any common format; normalized server-side).')
 })
 
 export const RequestWalletLoginCodeResponse = zod.object({
@@ -8298,14 +8321,16 @@ export const RequestWalletLoginCodeResponse = zod.object({
  * @summary Exchange a received SMS code for a wallet session — issued as an HttpOnly cookie (public)
  */
 export const verifyWalletLoginCodeBodyPhoneMin = 7;
+export const verifyWalletLoginCodeBodyPhoneMax = 32;
 
 export const verifyWalletLoginCodeBodyCodeMin = 4;
+export const verifyWalletLoginCodeBodyCodeMax = 12;
 
 
 
 export const VerifyWalletLoginCodeBody = zod.object({
-  "phone": zod.string().min(verifyWalletLoginCodeBodyPhoneMin),
-  "code": zod.string().min(verifyWalletLoginCodeBodyCodeMin).describe('The 6-digit code received by SMS.')
+  "phone": zod.string().min(verifyWalletLoginCodeBodyPhoneMin).max(verifyWalletLoginCodeBodyPhoneMax),
+  "code": zod.string().min(verifyWalletLoginCodeBodyCodeMin).max(verifyWalletLoginCodeBodyCodeMax).describe('The 6-digit code received by SMS.')
 })
 
 export const VerifyWalletLoginCodeResponse = zod.object({

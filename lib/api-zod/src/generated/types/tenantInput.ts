@@ -8,11 +8,22 @@
 import type { TenantInputStatus } from './tenantInputStatus';
 
 export interface TenantInput {
-  /** @minLength 1 */
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
   brandName: string;
-  /** @minLength 1 */
+  /**
+     * @minLength 1
+     * @maxLength 63
+     */
   subdomain: string;
+  /**
+     * @maxLength 254
+     * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
+     */
   contactEmail?: string;
+  /** @maxLength 120 */
   contactName?: string;
   status?: TenantInputStatus;
 }

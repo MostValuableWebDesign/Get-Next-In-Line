@@ -146,7 +146,10 @@ export interface CoopApplicationSubmission {
   subdomain: string;
   /** @maxLength 120 */
   contactName?: string;
-  /** @maxLength 254 */
+  /**
+     * @maxLength 254
+     * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
+     */
   contactEmail?: string;
   /** @maxLength 120 */
   category?: string;
@@ -2010,6 +2013,7 @@ export interface WalletLoginRequest {
   /**
      * The customer's mobile phone number (any common format; normalized server-side).
      * @minLength 7
+     * @maxLength 32
      */
   phone: string;
 }
@@ -2021,11 +2025,15 @@ export interface WalletLoginRequestResult {
 }
 
 export interface WalletLoginVerify {
-  /** @minLength 7 */
+  /**
+     * @minLength 7
+     * @maxLength 32
+     */
   phone: string;
   /**
      * The 6-digit code received by SMS.
      * @minLength 4
+     * @maxLength 12
      */
   code: string;
 }
@@ -5667,11 +5675,22 @@ export const TenantInputStatus = {
 } as const;
 
 export interface TenantInput {
-  /** @minLength 1 */
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
   brandName: string;
-  /** @minLength 1 */
+  /**
+     * @minLength 1
+     * @maxLength 63
+     */
   subdomain: string;
+  /**
+     * @maxLength 254
+     * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
+     */
   contactEmail?: string;
+  /** @maxLength 120 */
   contactName?: string;
   status?: TenantInputStatus;
 }
@@ -5686,10 +5705,23 @@ export const TenantUpdateStatus = {
 } as const;
 
 export interface TenantUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
   brandName?: string;
+  /**
+     * @minLength 1
+     * @maxLength 63
+     */
   subdomain?: string;
   status?: TenantUpdateStatus;
+  /**
+     * @maxLength 254
+     * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
+     */
   contactEmail?: string;
+  /** @maxLength 120 */
   contactName?: string;
   /** @nullable */
   payoutStripeAccountId?: string | null;

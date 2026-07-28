@@ -8,10 +8,23 @@
 import type { TenantUpdateStatus } from './tenantUpdateStatus';
 
 export interface TenantUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
   brandName?: string;
+  /**
+     * @minLength 1
+     * @maxLength 63
+     */
   subdomain?: string;
   status?: TenantUpdateStatus;
+  /**
+     * @maxLength 254
+     * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
+     */
   contactEmail?: string;
+  /** @maxLength 120 */
   contactName?: string;
   /** @nullable */
   payoutStripeAccountId?: string | null;

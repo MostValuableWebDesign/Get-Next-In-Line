@@ -19,7 +19,10 @@ export interface CoopApplicationSubmission {
   subdomain: string;
   /** @maxLength 120 */
   contactName?: string;
-  /** @maxLength 254 */
+  /**
+     * @maxLength 254
+     * @pattern ^[^\s@]+@[^\s@]+\.[^\s@]+$
+     */
   contactEmail?: string;
   /** @maxLength 120 */
   category?: string;

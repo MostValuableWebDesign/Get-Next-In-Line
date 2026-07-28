@@ -7240,6 +7240,7 @@ components:
           maxLength: 120
         contactEmail:
           type: string
+          pattern: '^[^\s@]+@[^\s@]+\.[^\s@]+$'
           maxLength: 254
         category:
           type: string
@@ -9494,6 +9495,7 @@ components:
         phone:
           type: string
           minLength: 7
+          maxLength: 32
           description: The customer's mobile phone number (any common format; normalized server-side).
 
     WalletLoginRequestResult:
@@ -9513,9 +9515,11 @@ components:
         phone:
           type: string
           minLength: 7
+          maxLength: 32
         code:
           type: string
           minLength: 4
+          maxLength: 12
           description: The 6-digit code received by SMS.
 
     WalletSessionResult:
@@ -13850,13 +13854,20 @@ components:
         brandName:
           type: string
           minLength: 1
+          maxLength: 120
         subdomain:
           type: string
           minLength: 1
+          maxLength: 63
         contactEmail:
           type: string
+          # Email shape check kept as a pattern: the repo's zod v3 doesn't
+          # support orval's generated z.email() for `format: email`.
+          pattern: '^[^\s@]+@[^\s@]+\.[^\s@]+$'
+          maxLength: 254
         contactName:
           type: string
+          maxLength: 120
         status:
           type: string
           enum: [active, suspended, pending]
@@ -13866,15 +13877,22 @@ components:
       properties:
         brandName:
           type: string
+          minLength: 1
+          maxLength: 120
         subdomain:
           type: string
+          minLength: 1
+          maxLength: 63
         status:
           type: string
           enum: [active, suspended, pending]
         contactEmail:
           type: string
+          pattern: '^[^\s@]+@[^\s@]+\.[^\s@]+$'
+          maxLength: 254
         contactName:
           type: string
+          maxLength: 120
         payoutStripeAccountId:
           type: ["string", "null"]
 

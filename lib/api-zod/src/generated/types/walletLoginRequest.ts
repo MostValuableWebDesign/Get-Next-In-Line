@@ -10,6 +10,7 @@ export interface WalletLoginRequest {
   /**
      * The customer's mobile phone number (any common format; normalized server-side).
      * @minLength 7
+     * @maxLength 32
      */
   phone: string;
 }

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
@@ -11,6 +12,19 @@ import {
 
 const router: IRouter = Router();
 
+// Login is deliberately not part of the public OpenAPI surface, so its body
+// schema lives here rather than in api-zod. Bounds are generous but finite so
+// oversized payloads are rejected at the edge instead of hitting comparisons
+// or DB lookups downstream.
+const LoginBody = z
+  .object({
+    password: z.string().min(1).max(512).optional(),
+    loginToken: z.string().min(1).max(512).optional(),
+  })
+  .refine((body) => body.password !== undefined || body.loginToken !== undefined, {
+    message: "Either password or loginToken is required",
+  });
+
 /**
  * POST /api/auth/login
  * Body: { password: string } — platform-operator login (ADMIN_PASSWORD);
@@ -20,10 +34,12 @@ const router: IRouter = Router();
  *   identity and tenant memberships govern what it may access.
  */
 router.post("/auth/login", loginBruteForceGuard, async (req, res): Promise<void> => {
-  const { password, loginToken } = req.body as {
-    password?: string;
-    loginToken?: string;
-  };
+  const parsedBody = LoginBody.safeParse(req.body);
+  if (!parsedBody.success) {
+    res.status(400).json({ error: "Invalid request body" });
+    return;
+  }
+  const { password, loginToken } = parsedBody.data;
 
   const finishLogin = (
     userId: number | null,
@@ -44,7 +60,7 @@ router.post("/auth/login", loginBruteForceGuard, async (req, res): Promise<void>
     });
   };
 
-  if (typeof loginToken === "string" && loginToken.length > 0) {
+  if (loginToken !== undefined) {
     const [user] = await db
       .select()
       .from(usersTable)
