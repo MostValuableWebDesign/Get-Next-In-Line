@@ -525,7 +525,10 @@ describe("reports summary is scoped to the requesting tenant", () => {
       .values([
         { tenantId: tenantA, origin: "concierge", kind: "send_reminder", status: "sent", body: `auto A1 ${RUN}` },
         { tenantId: tenantA, origin: "concierge", kind: "send_reminder", status: "delivered", body: `auto A2 ${RUN}` },
-        { tenantId: tenantB, origin: "concierge", kind: "rebooking_nudge", status: "failed", body: `auto B1 ${RUN}` },
+        { tenantId: tenantB, origin: "concierge", kind: "rebooking_nudge", status: "failed", errorCode: "30003", body: `auto B1 ${RUN}` },
+        { tenantId: tenantB, origin: "concierge", kind: "send_reminder", status: "skipped", errorCode: "opted_out", body: `auto B2 ${RUN}` },
+        { tenantId: tenantB, origin: "concierge", kind: "send_reminder", status: "skipped", errorCode: "no_phone", body: `auto B3 ${RUN}` },
+        { tenantId: tenantB, origin: "concierge", kind: "send_reminder", status: "skipped", errorCode: "no_phone", body: `auto B4 ${RUN}` },
       ])
       .returning({ id: messagesTable.id });
 
@@ -543,12 +546,25 @@ describe("reports summary is scoped to the requesting tenant", () => {
       expect(forA.body.automation.byJobType).toEqual([
         expect.objectContaining({ jobType: "send_reminder", delivered: 2, failed: 0, total: 2 }),
       ]);
+      // No failures/skips for A — B's reasons never bleed across tenants.
+      expect(forA.body.automation.failureReasons).toEqual([]);
 
       expect(forB.body.automation.remindersSent).toBe(0);
       expect(forB.body.automation.deliveredCount).toBe(0);
       expect(forB.body.automation.failedCount).toBe(1);
-      expect(forB.body.automation.byJobType).toEqual([
-        expect.objectContaining({ jobType: "rebooking_nudge", delivered: 0, failed: 1, total: 1 }),
+      expect(forB.body.automation.skippedCount).toBe(3);
+      expect(forB.body.automation.byJobType).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ jobType: "rebooking_nudge", delivered: 0, failed: 1, total: 1 }),
+          expect.objectContaining({ jobType: "send_reminder", delivered: 0, skipped: 3, total: 3 }),
+        ]),
+      );
+      // Reason breakdown groups by error code with human-readable labels,
+      // sorted by count descending.
+      expect(forB.body.automation.failureReasons).toEqual([
+        { errorCode: "no_phone", label: "No phone number on file", status: "skipped", count: 2 },
+        expect.objectContaining({ errorCode: "opted_out", label: "Customer opted out of texts", status: "skipped", count: 1 }),
+        expect.objectContaining({ errorCode: "30003", label: "Provider error 30003", status: "failed", count: 1 }),
       ]);
     } finally {
       // messages.tenant_id is ON DELETE SET NULL (not cascade), so clean up

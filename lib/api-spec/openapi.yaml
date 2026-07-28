@@ -13402,7 +13402,7 @@ components:
     SosAutomationSummary:
       type: object
       description: Concierge automation metrics aggregated from message_logs over the report window
-      required: [remindersSent, nudgesSent, deliveredCount, failedCount, skippedCount, byJobType, messagesByDay]
+      required: [remindersSent, nudgesSent, deliveredCount, failedCount, skippedCount, byJobType, messagesByDay, failureReasons]
       properties:
         remindersSent:
           type: integer
@@ -13422,6 +13422,30 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SosDayCount"
+        failureReasons:
+          description: >
+            Failed/skipped counts grouped by the recorded error code
+            (message_logs.error_code) over the same report window, with a
+            human-readable label per code. Sorted by count descending.
+          type: array
+          items:
+            $ref: "#/components/schemas/SosAutomationFailureReason"
+
+    SosAutomationFailureReason:
+      type: object
+      required: [errorCode, label, status, count]
+      properties:
+        errorCode:
+          type: [string, "null"]
+          description: Raw error code as stored (null when none was recorded)
+        label:
+          type: string
+          description: Human-readable explanation of the code
+        status:
+          type: string
+          enum: [failed, skipped]
+        count:
+          type: integer
 
     SosAutomationJobTypeStats:
       type: object

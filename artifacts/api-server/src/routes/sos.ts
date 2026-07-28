@@ -2973,6 +2973,7 @@ router.get("/sos/reports/summary", async (req, res): Promise<void> => {
     tipsByStaffRows,
     automationByJobStatus,
     automationByDay,
+    automationFailureReasons,
   ] = await Promise.all([
       db
         .select({
@@ -3061,6 +3062,25 @@ router.get("/sos/reports/summary", async (req, res): Promise<void> => {
         .where(and(gte(messagesTable.createdAt, since), eq(messagesTable.origin, "concierge"), automationScope))
         .groupBy(sql`1`)
         .orderBy(sql`1`),
+      // Failed/skipped reason breakdown over the same 14-day window: group by
+      // the stored error code so the business can see *why* automation sends
+      // didn't go out (opt-outs, missing phone numbers, provider errors).
+      db
+        .select({
+          status: messagesTable.status,
+          errorCode: messagesTable.errorCode,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(messagesTable)
+        .where(
+          and(
+            gte(messagesTable.createdAt, since),
+            eq(messagesTable.origin, "concierge"),
+            inArray(messagesTable.status, ["failed", "skipped"]),
+            automationScope,
+          ),
+        )
+        .groupBy(messagesTable.status, messagesTable.errorCode),
     ]);
 
   // Fold job-type/status counts into per-job-type stats. "sent" (accepted by
@@ -3084,6 +3104,29 @@ router.get("/sos/reports/summary", async (req, res): Promise<void> => {
     else s.pending += row.count;
   }
   const byJobType = [...jobStats.values()].sort((a, b) => b.total - a.total);
+
+  // Human-readable labels for the internal guard codes written by the
+  // messaging layer; anything else is a provider (Twilio) error code.
+  const REASON_LABELS: Record<string, string> = {
+    opted_out: "Customer opted out of texts",
+    no_phone: "No phone number on file",
+    unsupported_channel: "Unsupported contact channel",
+    invalid_number: "Invalid phone number",
+  };
+  const reasonLabel = (code: string | null): string => {
+    if (code == null) return "No reason recorded";
+    if (REASON_LABELS[code]) return REASON_LABELS[code];
+    return /^\d+$/.test(code) ? `Provider error ${code}` : code.replace(/_/g, " ");
+  };
+  const failureReasons = automationFailureReasons
+    .map((r) => ({
+      errorCode: r.errorCode,
+      label: reasonLabel(r.errorCode),
+      status: r.status as "failed" | "skipped",
+      count: r.count,
+    }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+
   const automation = {
     remindersSent: jobStats.get("send_reminder")?.delivered ?? 0,
     nudgesSent: jobStats.get("rebooking_nudge")?.delivered ?? 0,
@@ -3092,6 +3135,7 @@ router.get("/sos/reports/summary", async (req, res): Promise<void> => {
     skippedCount: byJobType.reduce((n, s) => n + s.skipped, 0),
     byJobType,
     messagesByDay: automationByDay,
+    failureReasons,
   };
 
   const tipsByStaff = tipsByStaffRows.map((r) => ({

@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { SosAutomationFailureReason } from './sosAutomationFailureReason';
 import type { SosAutomationJobTypeStats } from './sosAutomationJobTypeStats';
 import type { SosDayCount } from './sosDayCount';
 
@@ -19,4 +20,6 @@ export interface SosAutomationSummary {
   skippedCount: number;
   byJobType: SosAutomationJobTypeStats[];
   messagesByDay: SosDayCount[];
+  /** Failed/skipped counts grouped by the recorded error code (message_logs.error_code) over the same report window, with a human-readable label per code. Sorted by count descending. */
+  failureReasons: SosAutomationFailureReason[];
 }

@@ -515,6 +515,8 @@ export * from './sosAppointmentInput';
 export * from './sosAppointmentInputSource';
 export * from './sosAppointmentSource';
 export * from './sosAppointmentStatus';
+export * from './sosAutomationFailureReason';
+export * from './sosAutomationFailureReasonStatus';
 export * from './sosAutomationJobTypeStats';
 export * from './sosAutomationSummary';
 export * from './sosCall';

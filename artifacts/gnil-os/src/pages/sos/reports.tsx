@@ -133,6 +133,34 @@ export function ReportsContent() {
         <StatCard title="Skipped Messages" value={automation?.skippedCount} loading={isLoading} />
       </div>
 
+      <Card data-testid="card-failure-reasons">
+        <CardHeader>
+          <CardTitle>Why Messages Failed or Were Skipped</CardTitle>
+          <CardDescription>Breakdown of failed and skipped automated messages over the past two weeks — fix the underlying cause, not just the count.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="w-full h-24" />
+          ) : !automation || automation.failureReasons.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-6">No failed or skipped messages in the past two weeks.</div>
+          ) : (
+            <div className="space-y-2">
+              {automation.failureReasons.map((r, i) => (
+                <div key={`${r.status}-${r.errorCode ?? 'none'}-${i}`} className="flex items-center justify-between border-b last:border-0 pb-2 text-sm" data-testid={`failure-reason-${r.status}-${r.errorCode ?? 'none'}`}>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${r.status === 'failed' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
+                      {r.status === 'failed' ? 'Failed' : 'Skipped'}
+                    </span>
+                    <span className="font-medium">{r.label}</span>
+                  </div>
+                  <span className="font-semibold">{r.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="col-span-1">
           <CardHeader>

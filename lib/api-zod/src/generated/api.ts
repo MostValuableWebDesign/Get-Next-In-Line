@@ -5967,7 +5967,13 @@ export const GetSosReportsSummaryResponse = zod.object({
   "messagesByDay": zod.array(zod.object({
   "day": zod.string(),
   "count": zod.number()
-}))
+})),
+  "failureReasons": zod.array(zod.object({
+  "errorCode": zod.string().nullable().describe('Raw error code as stored (null when none was recorded)'),
+  "label": zod.string().describe('Human-readable explanation of the code'),
+  "status": zod.enum(['failed', 'skipped']),
+  "count": zod.number()
+})).describe('Failed\/skipped counts grouped by the recorded error code (message_logs.error_code) over the same report window, with a human-readable label per code. Sorted by count descending.\n')
 }).describe('Concierge automation metrics aggregated from message_logs over the report window')
 })
 

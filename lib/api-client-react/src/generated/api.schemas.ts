@@ -5314,6 +5314,26 @@ export interface SosAutomationJobTypeStats {
   total: number;
 }
 
+export type SosAutomationFailureReasonStatus = typeof SosAutomationFailureReasonStatus[keyof typeof SosAutomationFailureReasonStatus];
+
+
+export const SosAutomationFailureReasonStatus = {
+  failed: 'failed',
+  skipped: 'skipped',
+} as const;
+
+export interface SosAutomationFailureReason {
+  /**
+     * Raw error code as stored (null when none was recorded)
+     * @nullable
+     */
+  errorCode: string | null;
+  /** Human-readable explanation of the code */
+  label: string;
+  status: SosAutomationFailureReasonStatus;
+  count: number;
+}
+
 /**
  * Concierge automation metrics aggregated from message_logs over the report window
  */
@@ -5325,6 +5345,8 @@ export interface SosAutomationSummary {
   skippedCount: number;
   byJobType: SosAutomationJobTypeStats[];
   messagesByDay: SosDayCount[];
+  /** Failed/skipped counts grouped by the recorded error code (message_logs.error_code) over the same report window, with a human-readable label per code. Sorted by count descending. */
+  failureReasons: SosAutomationFailureReason[];
 }
 
 export interface SosReportsSummary {
