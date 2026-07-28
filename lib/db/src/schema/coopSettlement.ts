@@ -140,3 +140,45 @@ export const coopSettlementStatementsTable = pgTable(
 );
 
 export type CoopSettlementStatement = typeof coopSettlementStatementsTable.$inferSelect;
+
+// One payout attempt-record per net-positive settlement statement — the real
+// money leg of the clearinghouse. The unique statementId is the idempotency
+// lock: re-running a cycle's payout step can never create a second payout for
+// the same statement. Cycles/statements themselves stay immutable; payout
+// state lives here.
+export const coopSettlementPayoutsTable = pgTable(
+  "coop_settlement_payouts",
+  {
+    id: serial("id").primaryKey(),
+    cycleId: integer("cycle_id")
+      .notNull()
+      .references(() => coopSettlementCyclesTable.id, { onDelete: "cascade" }),
+    statementId: integer("statement_id")
+      .notNull()
+      .references(() => coopSettlementStatementsTable.id, { onDelete: "cascade" }),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // Dollars paid out — snapshot of the statement's positive netAmount.
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    // pending → paid | simulated | failed. Failed payouts are retryable:
+    // a retry claims the row back to pending before attempting again.
+    status: text("status").notNull().default("pending"),
+    // "stripe" (real transfer) or "simulated" (Stripe/destination unconfigured).
+    mode: text("mode").notNull().default("simulated"),
+    // Stripe transfer id for real payouts; null for simulated.
+    providerRef: text("provider_ref"),
+    // Destination Stripe account snapshot at payout time (real payouts only).
+    destination: text("destination"),
+    failureReason: text("failure_reason"),
+    paidAt: timestamp("paid_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("coop_settlement_payouts_statement_uq").on(t.statementId),
+    index("coop_settlement_payouts_cycle_idx").on(t.cycleId),
+    index("coop_settlement_payouts_tenant_idx").on(t.tenantId),
+  ],
+);
+
+export type CoopSettlementPayout = typeof coopSettlementPayoutsTable.$inferSelect;

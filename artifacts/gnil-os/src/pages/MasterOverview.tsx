@@ -11,9 +11,11 @@ import {
   getGetSettlementCycleQueryKey,
   useGetSettlementStatement,
   getGetSettlementStatementQueryKey,
+  useRunSettlementPayouts,
   type GetMasterOverviewParams,
   type SettlementCycle,
   type SettlementStatement,
+  type SettlementPayout,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,7 +34,7 @@ import { StatCard } from '@/components/shared/StatCard';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/format';
 import {
-  Activity, ArrowLeftRight, CalendarCheck, DollarSign, Globe2, Handshake, History,
+  Activity, ArrowLeftRight, Banknote, CalendarCheck, DollarSign, Globe2, Handshake, History,
   Landmark, Scale, Ticket, Users,
 } from 'lucide-react';
 
@@ -333,11 +335,70 @@ function CycleHistory() {
   );
 }
 
+function PayoutBadge({ payout, netAmount }: { payout: SettlementPayout | null | undefined; netAmount: number }) {
+  if (netAmount <= 0) return null;
+  if (!payout) {
+    return <Badge variant="outline" data-testid={`badge-payout-none`}>Payout pending</Badge>;
+  }
+  const styles: Record<string, string> = {
+    paid: 'bg-emerald-600 text-white hover:bg-emerald-600',
+    simulated: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/15',
+    failed: 'bg-red-600 text-white hover:bg-red-600',
+    pending: '',
+  };
+  const labels: Record<string, string> = {
+    paid: 'Paid via Stripe',
+    simulated: 'Simulated payout',
+    failed: 'Payout failed',
+    pending: 'Payout pending',
+  };
+  return (
+    <Badge
+      variant={payout.status === 'pending' ? 'outline' : 'secondary'}
+      className={styles[payout.status] ?? ''}
+      title={payout.failureReason ?? undefined}
+      data-testid={`badge-payout-${payout.status}`}
+    >
+      {labels[payout.status] ?? payout.status}
+    </Badge>
+  );
+}
+
 function CycleDetailDialog({ cycle, onClose }: { cycle: SettlementCycle; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { data: detail, isLoading } = useGetSettlementCycle(cycle.id, {
     query: { queryKey: getGetSettlementCycleQueryKey(cycle.id) },
   });
   const [statementTenantId, setStatementTenantId] = useState<number | null>(null);
+
+  const runPayouts = useRunSettlementPayouts({
+    mutation: {
+      onSuccess: (res) => {
+        const parts = [
+          res.paidCount > 0 ? `${res.paidCount} paid via Stripe` : null,
+          res.simulatedCount > 0 ? `${res.simulatedCount} simulated (no funds moved)` : null,
+          res.failedCount > 0 ? `${res.failedCount} failed` : null,
+          res.skippedCount > 0 ? `${res.skippedCount} already settled` : null,
+        ].filter(Boolean);
+        toast({
+          title: `Payout run — cycle #${res.cycleId}`,
+          description: parts.length > 0 ? parts.join(' · ') : 'No net-positive statements to pay out.',
+          variant: res.failedCount > 0 ? 'destructive' : undefined,
+        });
+        queryClient.invalidateQueries({ queryKey: getGetSettlementCycleQueryKey(cycle.id) });
+      },
+      onError: (err: unknown) => {
+        const message = (err as { data?: { message?: string } })?.data?.message ?? 'Payout run failed.';
+        toast({ title: 'Payouts not executed', description: message, variant: 'destructive' });
+      },
+    },
+  });
+
+  const creditorStatements = detail?.statements.filter((s) => s.netAmount > 0) ?? [];
+  const unsettled = creditorStatements.filter(
+    (s) => !s.payout || s.payout.status === 'failed' || s.payout.status === 'pending',
+  );
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -358,7 +419,29 @@ function CycleDetailDialog({ cycle, onClose }: { cycle: SettlementCycle; onClose
             onBack={() => setStatementTenantId(null)}
           />
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
+            {creditorStatements.length > 0 && (
+              <div className="flex items-center justify-between gap-3 rounded-md border p-3" data-testid="payout-controls">
+                <div className="text-sm text-muted-foreground">
+                  {unsettled.length > 0 ? (
+                    <>
+                      <strong>{unsettled.length}</strong> of {creditorStatements.length} net-positive statement{creditorStatements.length === 1 ? '' : 's'} awaiting payout.
+                    </>
+                  ) : (
+                    <>All {creditorStatements.length} net-positive statement{creditorStatements.length === 1 ? '' : 's'} paid out.</>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  disabled={runPayouts.isPending || unsettled.length === 0}
+                  onClick={() => runPayouts.mutate({ cycleId: cycle.id })}
+                  data-testid="button-run-payouts"
+                >
+                  <Banknote className="w-4 h-4 mr-1" />
+                  {creditorStatements.some((s) => s.payout?.status === 'failed') ? 'Retry Payouts' : 'Pay Out Businesses'}
+                </Button>
+              </div>
+            )}
             {detail.statements.map((s) => (
               <div key={s.tenantId} className="border rounded-lg p-3 flex items-center justify-between gap-3" data-testid={`cycle-statement-${s.tenantId}`}>
                 <div>
@@ -366,8 +449,14 @@ function CycleDetailDialog({ cycle, onClose }: { cycle: SettlementCycle; onClose
                   <div className="text-xs text-muted-foreground">
                     Owes {formatCurrency(s.totalOwedToOthers)} · owed {formatCurrency(s.totalOwedByOthers)}
                   </div>
+                  {s.payout?.status === 'failed' && s.payout.failureReason && (
+                    <div className="text-xs text-red-500 mt-0.5" data-testid={`text-payout-failure-${s.tenantId}`}>
+                      {s.payout.failureReason}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
+                  <PayoutBadge payout={s.payout} netAmount={s.netAmount} />
                   <span className={`font-mono font-semibold ${s.netAmount > 0 ? 'text-emerald-600' : s.netAmount < 0 ? 'text-red-500' : ''}`}>
                     {formatCurrency(s.netAmount)}
                   </span>
@@ -403,6 +492,17 @@ function StatementDetail({ cycleId, tenantId, onBack }: { cycleId: number; tenan
           </span>{' '}
           ({s.netAmount >= 0 ? 'receives from' : 'pays into'} the network)
         </div>
+        {s.netAmount > 0 && (
+          <div className="mt-1 flex items-center gap-2" data-testid={`statement-payout-${tenantId}`}>
+            <PayoutBadge payout={s.payout} netAmount={s.netAmount} />
+            {s.payout?.status === 'paid' && s.payout.providerRef && (
+              <span className="text-xs text-muted-foreground font-mono">{s.payout.providerRef}</span>
+            )}
+            {s.payout?.status === 'failed' && s.payout.failureReason && (
+              <span className="text-xs text-red-500">{s.payout.failureReason}</span>
+            )}
+          </div>
+        )}
       </div>
       {s.lines.length > 0 && (
         <div>

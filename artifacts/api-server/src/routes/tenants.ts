@@ -337,6 +337,10 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
   if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
   if (parsed.data.contactEmail !== undefined) updateData.contactEmail = parsed.data.contactEmail;
   if (parsed.data.contactName !== undefined) updateData.contactName = parsed.data.contactName;
+  // Minimal payout-destination attachment: a Stripe Connect account id (or
+  // null to detach — the tenant falls back to simulated payouts).
+  if (parsed.data.payoutStripeAccountId !== undefined)
+    updateData.payoutStripeAccountId = parsed.data.payoutStripeAccountId ?? null;
 
   const [updated] = await db
     .update(tenantsTable)

@@ -5435,6 +5435,42 @@ export interface SettlementStatementLine {
   net: number;
 }
 
+export type SettlementPayoutStatus = typeof SettlementPayoutStatus[keyof typeof SettlementPayoutStatus];
+
+
+export const SettlementPayoutStatus = {
+  pending: 'pending',
+  paid: 'paid',
+  simulated: 'simulated',
+  failed: 'failed',
+} as const;
+
+export type SettlementPayoutMode = typeof SettlementPayoutMode[keyof typeof SettlementPayoutMode];
+
+
+export const SettlementPayoutMode = {
+  stripe: 'stripe',
+  simulated: 'simulated',
+} as const;
+
+export interface SettlementPayout {
+  id: number;
+  cycleId: number;
+  statementId: number;
+  tenantId: number;
+  amount: number;
+  status: SettlementPayoutStatus;
+  mode: SettlementPayoutMode;
+  /** @nullable */
+  providerRef?: string | null;
+  /** @nullable */
+  destination?: string | null;
+  /** @nullable */
+  failureReason?: string | null;
+  /** @nullable */
+  paidAt?: string | null;
+}
+
 export interface SettlementStatement {
   tenantId: number;
   tenantName: string;
@@ -5443,6 +5479,20 @@ export interface SettlementStatement {
   /** Positive = the tenant receives from the network this cycle. */
   netAmount: number;
   lines: SettlementStatementLine[];
+  /** Payout state for this statement (closed cycles only; absent in previews, null when no payout exists yet). */
+  payout?: SettlementPayout | null;
+}
+
+export interface SettlementPayoutRunResult {
+  cycleId: number;
+  /** Net-positive statements in the cycle. */
+  eligibleCount: number;
+  paidCount: number;
+  simulatedCount: number;
+  failedCount: number;
+  /** Statements already paid/simulated before this run. */
+  skippedCount: number;
+  payouts: SettlementPayout[];
 }
 
 export interface SettlementPreview {
@@ -5514,6 +5564,11 @@ export interface Tenant {
   contactEmail?: string | null;
   /** @nullable */
   contactName?: string | null;
+  /**
+     * Stripe Connect account id used as the settlement payout destination. Null = simulated payouts.
+     * @nullable
+     */
+  payoutStripeAccountId?: string | null;
   createdAt: string;
 }
 
@@ -5551,6 +5606,8 @@ export interface TenantUpdate {
   status?: TenantUpdateStatus;
   contactEmail?: string;
   contactName?: string;
+  /** @nullable */
+  payoutStripeAccountId?: string | null;
 }
 
 export interface TenantActivity {

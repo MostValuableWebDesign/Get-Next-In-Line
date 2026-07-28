@@ -349,6 +349,29 @@ paths:
                 items:
                   $ref: "#/components/schemas/SettlementCycle"
 
+  /agency/settlement/cycles/{cycleId}/payouts:
+    post:
+      operationId: runSettlementPayouts
+      tags: [agency]
+      summary: Execute (or retry) payouts for a closed cycle's net-positive statements — idempotent, never double-pays
+      parameters:
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payout run outcome per statement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettlementPayoutRunResult"
+        "404":
+          description: Cycle not found
+        "409":
+          description: Another payout run for this cycle is already in progress
+
   /agency/settlement/cycles/{cycleId}:
     get:
       operationId: getSettlementCycle
@@ -13492,6 +13515,63 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SettlementStatementLine"
+        payout:
+          description: Payout state for this statement (closed cycles only; absent in previews, null when no payout exists yet).
+          oneOf:
+            - $ref: "#/components/schemas/SettlementPayout"
+            - type: "null"
+
+    SettlementPayout:
+      type: object
+      required: [id, cycleId, statementId, tenantId, amount, status, mode]
+      properties:
+        id:
+          type: integer
+        cycleId:
+          type: integer
+        statementId:
+          type: integer
+        tenantId:
+          type: integer
+        amount:
+          type: number
+        status:
+          type: string
+          enum: [pending, paid, simulated, failed]
+        mode:
+          type: string
+          enum: [stripe, simulated]
+        providerRef:
+          type: ["string", "null"]
+        destination:
+          type: ["string", "null"]
+        failureReason:
+          type: ["string", "null"]
+        paidAt:
+          type: ["string", "null"]
+
+    SettlementPayoutRunResult:
+      type: object
+      required: [cycleId, eligibleCount, paidCount, simulatedCount, failedCount, skippedCount, payouts]
+      properties:
+        cycleId:
+          type: integer
+        eligibleCount:
+          type: integer
+          description: Net-positive statements in the cycle.
+        paidCount:
+          type: integer
+        simulatedCount:
+          type: integer
+        failedCount:
+          type: integer
+        skippedCount:
+          type: integer
+          description: Statements already paid/simulated before this run.
+        payouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/SettlementPayout"
 
     SettlementPreview:
       type: object
@@ -13621,6 +13701,9 @@ components:
           type: ["string", "null"]
         contactName:
           type: ["string", "null"]
+        payoutStripeAccountId:
+          type: ["string", "null"]
+          description: Stripe Connect account id used as the settlement payout destination. Null = simulated payouts.
         createdAt:
           type: string
 
@@ -13656,6 +13739,8 @@ components:
           type: string
         contactName:
           type: string
+        payoutStripeAccountId:
+          type: ["string", "null"]
 
     TenantActivity:
       type: object

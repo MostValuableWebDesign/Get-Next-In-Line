@@ -18,5 +18,10 @@ export interface Tenant {
   contactEmail?: string | null;
   /** @nullable */
   contactName?: string | null;
+  /**
+     * Stripe Connect account id used as the settlement payout destination. Null = simulated payouts.
+     * @nullable
+     */
+  payoutStripeAccountId?: string | null;
   createdAt: string;
 }

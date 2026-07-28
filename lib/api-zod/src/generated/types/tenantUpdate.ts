@@ -13,4 +13,6 @@ export interface TenantUpdate {
   status?: TenantUpdateStatus;
   contactEmail?: string;
   contactName?: string;
+  /** @nullable */
+  payoutStripeAccountId?: string | null;
 }

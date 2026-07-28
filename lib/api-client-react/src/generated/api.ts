@@ -273,6 +273,7 @@ import type {
   SafetyTimelineEntry,
   SettlementCycle,
   SettlementCycleDetail,
+  SettlementPayoutRunResult,
   SettlementPreview,
   SettlementRunRequest,
   SettlementStatementDetail,
@@ -1648,6 +1649,77 @@ export function useListSettlementCycles<TData = Awaited<ReturnType<typeof listSe
 
 
 
+
+export const getRunSettlementPayoutsUrl = (cycleId: number,) => {
+
+
+
+
+  return `/api/agency/settlement/cycles/${cycleId}/payouts`
+}
+
+/**
+ * @summary Execute (or retry) payouts for a closed cycle's net-positive statements — idempotent, never double-pays
+ */
+export const runSettlementPayouts = async (cycleId: number, options?: RequestInit): Promise<SettlementPayoutRunResult> => {
+
+  return customFetch<SettlementPayoutRunResult>(getRunSettlementPayoutsUrl(cycleId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRunSettlementPayoutsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runSettlementPayouts>>, TError,{cycleId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runSettlementPayouts>>, TError,{cycleId: number}, TContext> => {
+
+const mutationKey = ['runSettlementPayouts'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runSettlementPayouts>>, {cycleId: number}> = (props) => {
+          const {cycleId} = props ?? {};
+
+          return  runSettlementPayouts(cycleId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunSettlementPayoutsMutationResult = NonNullable<Awaited<ReturnType<typeof runSettlementPayouts>>>
+
+    export type RunSettlementPayoutsMutationError = ErrorType<void>
+
+    /**
+ * @summary Execute (or retry) payouts for a closed cycle's net-positive statements — idempotent, never double-pays
+ */
+export const useRunSettlementPayouts = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runSettlementPayouts>>, TError,{cycleId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runSettlementPayouts>>,
+        TError,
+        {cycleId: number},
+        TContext
+      > => {
+      return useMutation(getRunSettlementPayoutsMutationOptions(options));
+    }
 
 export const getGetSettlementCycleUrl = (cycleId: number,) => {
 

@@ -12,6 +12,7 @@ import {
   type CoopObligationLedgerEntry,
   type CoopSettlementCycle,
   type CoopSettlementStatement,
+  type CoopSettlementPayout,
 } from "@workspace/db";
 import { and, desc, eq, gte, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import {
@@ -22,6 +23,7 @@ import {
   ListSettlementCyclesResponse,
   GetSettlementCycleResponse,
   GetSettlementStatementResponse,
+  RunSettlementPayoutsResponse,
 } from "@workspace/api-zod";
 import {
   previewSettlement,
@@ -29,6 +31,7 @@ import {
   entriesForCycleTenant,
   type NettedStatement,
 } from "../lib/coopSettlement";
+import { runCyclePayouts, payoutsForCycle } from "../lib/coopSettlementPayouts";
 
 // ---------------------------------------------------------------------------
 // Master Overview & Settlement Clearinghouse — /api/agency/*
@@ -162,7 +165,27 @@ function serializeCycle(c: CoopSettlementCycle) {
   };
 }
 
-function serializeStatementRow(s: CoopSettlementStatement, names: Map<number, string>) {
+function serializePayout(p: CoopSettlementPayout) {
+  return {
+    id: p.id,
+    cycleId: p.cycleId,
+    statementId: p.statementId,
+    tenantId: p.tenantId,
+    amount: num(p.amount),
+    status: p.status,
+    mode: p.mode,
+    providerRef: p.providerRef,
+    destination: p.destination,
+    failureReason: p.failureReason,
+    paidAt: p.paidAt ? p.paidAt.toISOString() : null,
+  };
+}
+
+function serializeStatementRow(
+  s: CoopSettlementStatement,
+  names: Map<number, string>,
+  payouts?: Map<number, CoopSettlementPayout>,
+) {
   return {
     tenantId: s.tenantId,
     tenantName: nameOf(names, s.tenantId),
@@ -170,6 +193,7 @@ function serializeStatementRow(s: CoopSettlementStatement, names: Map<number, st
     totalOwedByOthers: num(s.totalOwedByOthers),
     netAmount: num(s.netAmount),
     lines: s.lines,
+    ...(payouts ? { payout: payouts.get(s.id) ? serializePayout(payouts.get(s.id)!) : null } : {}),
   };
 }
 
@@ -265,11 +289,40 @@ router.get("/agency/settlement/cycles/:cycleId", async (req, res): Promise<void>
     .from(coopSettlementStatementsTable)
     .where(eq(coopSettlementStatementsTable.cycleId, cycle.id))
     .orderBy(coopSettlementStatementsTable.tenantId);
-  const names = await tenantNameMap(statements.map((s) => s.tenantId));
+  const [names, payouts] = await Promise.all([
+    tenantNameMap(statements.map((s) => s.tenantId)),
+    payoutsForCycle(cycle.id),
+  ]);
   res.json(
     GetSettlementCycleResponse.parse({
       cycle: serializeCycle(cycle),
-      statements: statements.map((s) => serializeStatementRow(s, names)),
+      statements: statements.map((s) => serializeStatementRow(s, names, payouts)),
+    }),
+  );
+});
+
+// ── Payout execution (idempotent, retry-safe) ────────────────────────────────
+
+router.post("/agency/settlement/cycles/:cycleId/payouts", async (req, res): Promise<void> => {
+  const cycleId = Number(req.params.cycleId);
+  if (!Number.isInteger(cycleId) || cycleId <= 0) {
+    res.status(404).json({ message: "Settlement cycle not found" });
+    return;
+  }
+  const result = await runCyclePayouts(cycleId);
+  if (!result.ok) {
+    res.status(404).json({ message: "Settlement cycle not found" });
+    return;
+  }
+  res.json(
+    RunSettlementPayoutsResponse.parse({
+      cycleId: result.cycleId,
+      eligibleCount: result.eligibleCount,
+      paidCount: result.paidCount,
+      simulatedCount: result.simulatedCount,
+      failedCount: result.failedCount,
+      skippedCount: result.skippedCount,
+      payouts: result.payouts.map(serializePayout),
     }),
   );
 });
@@ -299,14 +352,17 @@ router.get(
       return;
     }
     const entries = await entriesForCycleTenant(cycleId, tenantId);
-    const names = await tenantNameMap([
-      tenantId,
-      ...entries.flatMap((e) => [e.debtorTenantId, e.creditorTenantId]),
+    const [names, payouts] = await Promise.all([
+      tenantNameMap([
+        tenantId,
+        ...entries.flatMap((e) => [e.debtorTenantId, e.creditorTenantId]),
+      ]),
+      payoutsForCycle(cycleId),
     ]);
     res.json(
       GetSettlementStatementResponse.parse({
         cycle: serializeCycle(cycle),
-        statement: serializeStatementRow(statement, names),
+        statement: serializeStatementRow(statement, names, payouts),
         entries: entries.map((e) => serializeEntry(e, names)),
       }),
     );

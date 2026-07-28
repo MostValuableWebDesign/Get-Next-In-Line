@@ -29,6 +29,10 @@ export const tenantsTable = pgTable("tenants", {
   modulesEnabled: integer("modules_enabled").notNull().default(0),
   contactEmail: text("contact_email"),
   contactName: text("contact_name"),
+  // Stripe Connect account id ("acct_...") used as the destination for
+  // settlement payouts. Null = no payout destination attached; payouts to
+  // this tenant fall back to simulated mode.
+  payoutStripeAccountId: text("payout_stripe_account_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

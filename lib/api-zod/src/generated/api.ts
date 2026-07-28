@@ -349,7 +349,20 @@ export const PreviewSettlementCycleResponse = zod.object({
   "owedToCounterparty": zod.number(),
   "owedByCounterparty": zod.number(),
   "net": zod.number()
-}))
+})),
+  "payout": zod.union([zod.object({
+  "id": zod.number(),
+  "cycleId": zod.number(),
+  "statementId": zod.number(),
+  "tenantId": zod.number(),
+  "amount": zod.number(),
+  "status": zod.enum(['pending', 'paid', 'simulated', 'failed']),
+  "mode": zod.enum(['stripe', 'simulated']),
+  "providerRef": zod.string().nullish(),
+  "destination": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "paidAt": zod.string().nullish()
+}),zod.null()]).optional().describe('Payout state for this statement (closed cycles only; absent in previews, null when no payout exists yet).')
 }))
 })
 
@@ -384,7 +397,20 @@ export const RunSettlementResponse = zod.object({
   "owedToCounterparty": zod.number(),
   "owedByCounterparty": zod.number(),
   "net": zod.number()
-}))
+})),
+  "payout": zod.union([zod.object({
+  "id": zod.number(),
+  "cycleId": zod.number(),
+  "statementId": zod.number(),
+  "tenantId": zod.number(),
+  "amount": zod.number(),
+  "status": zod.enum(['pending', 'paid', 'simulated', 'failed']),
+  "mode": zod.enum(['stripe', 'simulated']),
+  "providerRef": zod.string().nullish(),
+  "destination": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "paidAt": zod.string().nullish()
+}),zod.null()]).optional().describe('Payout state for this statement (closed cycles only; absent in previews, null when no payout exists yet).')
 }))
 })
 
@@ -402,6 +428,36 @@ export const ListSettlementCyclesResponseItem = zod.object({
   "executedAt": zod.string()
 })
 export const ListSettlementCyclesResponse = zod.array(ListSettlementCyclesResponseItem)
+
+
+/**
+ * @summary Execute (or retry) payouts for a closed cycle's net-positive statements — idempotent, never double-pays
+ */
+export const RunSettlementPayoutsParams = zod.object({
+  "cycleId": zod.coerce.number()
+})
+
+export const RunSettlementPayoutsResponse = zod.object({
+  "cycleId": zod.number(),
+  "eligibleCount": zod.number().describe('Net-positive statements in the cycle.'),
+  "paidCount": zod.number(),
+  "simulatedCount": zod.number(),
+  "failedCount": zod.number(),
+  "skippedCount": zod.number().describe('Statements already paid\/simulated before this run.'),
+  "payouts": zod.array(zod.object({
+  "id": zod.number(),
+  "cycleId": zod.number(),
+  "statementId": zod.number(),
+  "tenantId": zod.number(),
+  "amount": zod.number(),
+  "status": zod.enum(['pending', 'paid', 'simulated', 'failed']),
+  "mode": zod.enum(['stripe', 'simulated']),
+  "providerRef": zod.string().nullish(),
+  "destination": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "paidAt": zod.string().nullish()
+}))
+})
 
 
 /**
@@ -433,7 +489,20 @@ export const GetSettlementCycleResponse = zod.object({
   "owedToCounterparty": zod.number(),
   "owedByCounterparty": zod.number(),
   "net": zod.number()
-}))
+})),
+  "payout": zod.union([zod.object({
+  "id": zod.number(),
+  "cycleId": zod.number(),
+  "statementId": zod.number(),
+  "tenantId": zod.number(),
+  "amount": zod.number(),
+  "status": zod.enum(['pending', 'paid', 'simulated', 'failed']),
+  "mode": zod.enum(['stripe', 'simulated']),
+  "providerRef": zod.string().nullish(),
+  "destination": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "paidAt": zod.string().nullish()
+}),zod.null()]).optional().describe('Payout state for this statement (closed cycles only; absent in previews, null when no payout exists yet).')
 }))
 })
 
@@ -468,7 +537,20 @@ export const GetSettlementStatementResponse = zod.object({
   "owedToCounterparty": zod.number(),
   "owedByCounterparty": zod.number(),
   "net": zod.number()
-}))
+})),
+  "payout": zod.union([zod.object({
+  "id": zod.number(),
+  "cycleId": zod.number(),
+  "statementId": zod.number(),
+  "tenantId": zod.number(),
+  "amount": zod.number(),
+  "status": zod.enum(['pending', 'paid', 'simulated', 'failed']),
+  "mode": zod.enum(['stripe', 'simulated']),
+  "providerRef": zod.string().nullish(),
+  "destination": zod.string().nullish(),
+  "failureReason": zod.string().nullish(),
+  "paidAt": zod.string().nullish()
+}),zod.null()]).optional().describe('Payout state for this statement (closed cycles only; absent in previews, null when no payout exists yet).')
 }),
   "entries": zod.array(zod.object({
   "id": zod.number(),
@@ -499,6 +581,7 @@ export const ListTenantsResponseItem = zod.object({
   "modulesEnabled": zod.number(),
   "contactEmail": zod.string().nullish(),
   "contactName": zod.string().nullish(),
+  "payoutStripeAccountId": zod.string().nullish().describe('Stripe Connect account id used as the settlement payout destination. Null = simulated payouts.'),
   "createdAt": zod.string()
 })
 export const ListTenantsResponse = zod.array(ListTenantsResponseItem)
@@ -528,6 +611,7 @@ export const CreateTenantResponse = zod.object({
   "modulesEnabled": zod.number(),
   "contactEmail": zod.string().nullish(),
   "contactName": zod.string().nullish(),
+  "payoutStripeAccountId": zod.string().nullish().describe('Stripe Connect account id used as the settlement payout destination. Null = simulated payouts.'),
   "createdAt": zod.string()
 })
 
@@ -576,6 +660,7 @@ export const GetTenantResponse = zod.object({
   "modulesEnabled": zod.number(),
   "contactEmail": zod.string().nullish(),
   "contactName": zod.string().nullish(),
+  "payoutStripeAccountId": zod.string().nullish().describe('Stripe Connect account id used as the settlement payout destination. Null = simulated payouts.'),
   "createdAt": zod.string()
 })
 
@@ -592,7 +677,8 @@ export const UpdateTenantBody = zod.object({
   "subdomain": zod.string().optional(),
   "status": zod.enum(['active', 'suspended', 'pending']).optional(),
   "contactEmail": zod.string().optional(),
-  "contactName": zod.string().optional()
+  "contactName": zod.string().optional(),
+  "payoutStripeAccountId": zod.string().nullish()
 })
 
 export const UpdateTenantResponse = zod.object({
@@ -604,6 +690,7 @@ export const UpdateTenantResponse = zod.object({
   "modulesEnabled": zod.number(),
   "contactEmail": zod.string().nullish(),
   "contactName": zod.string().nullish(),
+  "payoutStripeAccountId": zod.string().nullish().describe('Stripe Connect account id used as the settlement payout destination. Null = simulated payouts.'),
   "createdAt": zod.string()
 })
 

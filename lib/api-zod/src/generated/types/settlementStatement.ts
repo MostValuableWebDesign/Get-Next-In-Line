@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { SettlementPayout } from './settlementPayout';
 import type { SettlementStatementLine } from './settlementStatementLine';
 
 export interface SettlementStatement {
@@ -15,4 +16,6 @@ export interface SettlementStatement {
   /** Positive = the tenant receives from the network this cycle. */
   netAmount: number;
   lines: SettlementStatementLine[];
+  /** Payout state for this statement (closed cycles only; absent in previews, null when no payout exists yet). */
+  payout?: SettlementPayout | null;
 }
