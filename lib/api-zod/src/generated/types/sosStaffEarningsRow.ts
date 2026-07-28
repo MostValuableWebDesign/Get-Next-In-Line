@@ -28,4 +28,5 @@ export interface SosStaffEarningsRow {
   /** @nullable */
   amountDue: number | null;
   tipsEarned: number;
+  sharedTipsEarned: number;
 }

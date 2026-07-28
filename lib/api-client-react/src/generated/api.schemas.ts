@@ -3087,6 +3087,8 @@ export interface SosVisit {
   paymentAmount?: number | null;
   /** @nullable */
   tipAmount?: number | null;
+  /** @nullable */
+  bundleId?: number | null;
   checkedInAt: string;
   /** @nullable */
   serviceStartedAt?: string | null;
@@ -3465,6 +3467,7 @@ export interface SosStaffEarningsRow {
   /** @nullable */
   amountDue: number | null;
   tipsEarned: number;
+  sharedTipsEarned: number;
 }
 
 export type SosGratuityConfigTipSplitRule = typeof SosGratuityConfigTipSplitRule[keyof typeof SosGratuityConfigTipSplitRule];
@@ -3546,6 +3549,184 @@ export interface SosGratuityLedgerSummary {
   entries: SosGratuityLedgerEntry[];
   totalsByStaff: SosGratuityLedgerSummaryTotalsByStaffItem[];
   totalDistributed: number;
+}
+
+export interface TipPoolParticipant {
+  id: number;
+  /** @nullable */
+  tenantId: number | null;
+  /** @nullable */
+  tenantName: string | null;
+  staffId: number;
+  staffName: string;
+  /** @nullable */
+  role: string | null;
+  /** @nullable */
+  percent: number | null;
+  /** @nullable */
+  weight: number | null;
+}
+
+export interface TipPoolParticipantInput {
+  tenantId?: number;
+  staffId: number;
+  role?: string;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  percent?: number;
+  /** @minimum 1 */
+  weight?: number;
+}
+
+export type TipPoolRuleScope = typeof TipPoolRuleScope[keyof typeof TipPoolRuleScope];
+
+
+export const TipPoolRuleScope = {
+  partnership: 'partnership',
+  group_event: 'group_event',
+} as const;
+
+export type TipPoolRuleSplitMethod = typeof TipPoolRuleSplitMethod[keyof typeof TipPoolRuleSplitMethod];
+
+
+export const TipPoolRuleSplitMethod = {
+  percentage: 'percentage',
+  equal: 'equal',
+  role_weighted: 'role_weighted',
+} as const;
+
+export interface TipPoolRule {
+  id: number;
+  /** @nullable */
+  tenantId: number | null;
+  scope: TipPoolRuleScope;
+  /** @nullable */
+  partnershipId: number | null;
+  /** @nullable */
+  partnerTenantName: string | null;
+  splitMethod: TipPoolRuleSplitMethod;
+  isActive: boolean;
+  participants: TipPoolParticipant[];
+  createdAt: string;
+}
+
+export type TipPoolRuleInputScope = typeof TipPoolRuleInputScope[keyof typeof TipPoolRuleInputScope];
+
+
+export const TipPoolRuleInputScope = {
+  partnership: 'partnership',
+  group_event: 'group_event',
+} as const;
+
+export type TipPoolRuleInputSplitMethod = typeof TipPoolRuleInputSplitMethod[keyof typeof TipPoolRuleInputSplitMethod];
+
+
+export const TipPoolRuleInputSplitMethod = {
+  percentage: 'percentage',
+  equal: 'equal',
+  role_weighted: 'role_weighted',
+} as const;
+
+export interface TipPoolRuleInput {
+  scope: TipPoolRuleInputScope;
+  partnershipId?: number;
+  splitMethod: TipPoolRuleInputSplitMethod;
+  /** @minItems 1 */
+  participants: TipPoolParticipantInput[];
+}
+
+export type TipPoolRuleUpdateSplitMethod = typeof TipPoolRuleUpdateSplitMethod[keyof typeof TipPoolRuleUpdateSplitMethod];
+
+
+export const TipPoolRuleUpdateSplitMethod = {
+  percentage: 'percentage',
+  equal: 'equal',
+  role_weighted: 'role_weighted',
+} as const;
+
+export interface TipPoolRuleUpdate {
+  splitMethod?: TipPoolRuleUpdateSplitMethod;
+  /** @minItems 1 */
+  participants?: TipPoolParticipantInput[];
+  isActive?: boolean;
+}
+
+export interface TipPoolPartnerStaff {
+  id: number;
+  name: string;
+}
+
+export interface TipPoolBundle {
+  id: number;
+  partnershipId: number;
+  visitIds: number[];
+  createdAt: string;
+}
+
+export interface TipPoolBundleInput {
+  partnershipId: number;
+  visitId: number;
+}
+
+export interface TipPoolBundleAttachInput {
+  visitId: number;
+}
+
+export interface TipSplitAllocation {
+  /** @nullable */
+  tenantId: number | null;
+  /** @nullable */
+  tenantName: string | null;
+  staffId: number;
+  staffName: string;
+  amount: number;
+}
+
+export interface TipSplitPreview {
+  /** @nullable */
+  ruleId: number | null;
+  /** @nullable */
+  splitMethod: string | null;
+  allocations: TipSplitAllocation[];
+}
+
+export type GratuityLedgerEntryOrigin = typeof GratuityLedgerEntryOrigin[keyof typeof GratuityLedgerEntryOrigin];
+
+
+export const GratuityLedgerEntryOrigin = {
+  own: 'own',
+  partner: 'partner',
+} as const;
+
+export interface GratuityLedgerEntry {
+  id: number;
+  visitId: number;
+  serviceType: string;
+  /** @nullable */
+  sourceTenantId: number | null;
+  /** @nullable */
+  sourceTenantName: string | null;
+  /** @nullable */
+  recipientTenantId: number | null;
+  recipientStaffId: number;
+  recipientStaffName: string;
+  grossTip: number;
+  allocatedShare: number;
+  /** @nullable */
+  ruleId: number | null;
+  origin: GratuityLedgerEntryOrigin;
+  createdAt: string;
+}
+
+export interface GratuityShiftReportRow {
+  staffId: number;
+  staffName: string;
+  ownTips: number;
+  partnerTips: number;
+  totalTips: number;
+  entries: number;
 }
 
 export type SosPlanPlanType = typeof SosPlanPlanType[keyof typeof SosPlanPlanType];
@@ -5563,6 +5744,27 @@ from: string;
  * Period end (ISO date/datetime, exclusive)
  */
 to: string;
+};
+
+export type ListTipPoolPartnerStaffParams = {
+partnershipId: number;
+};
+
+export type GetTipSplitPreviewParams = {
+visitId: number;
+tipAmount: number;
+};
+
+export type ListGratuityLedgerParams = {
+from?: string;
+to?: string;
+};
+
+export type GetGratuityShiftReportParams = {
+/**
+ * Calendar day (YYYY-MM-DD, server-local)
+ */
+date: string;
 };
 
 export type ListPosEventsParams = {

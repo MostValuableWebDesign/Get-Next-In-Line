@@ -9,6 +9,7 @@ import modulesRouter from "./modules";
 import billingRouter from "./billing";
 import adminRouter from "./admin";
 import sosRouter from "./sos";
+import tipPoolingRouter from "./tipPooling";
 import conciergeRouter from "./concierge";
 import partnersRouter from "./partners";
 import coopRouter from "./coop";
@@ -99,6 +100,7 @@ router.use((req, res, next) => {
   authorizeTenantAccess(req, res, next).catch(next);
 });
 router.use(sosRouter);    // SOS operations section of GNIL OS (behind the same session auth)
+router.use(tipPoolingRouter); // Co-op tip pooling & gratuity splitter (/sos/tip-pooling)
 router.use(agencyRouter);
 router.use(tenantsRouter);
 router.use(reviewsRouter); // Tenant review management (public landing page reviews)

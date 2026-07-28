@@ -29,6 +29,7 @@ import { CoopNetworkContent } from '@/components/sos/coop-network-content';
 import { PosIntegrationsContent } from '@/components/sos/pos-integrations-content';
 import { SafetyAlertsContent } from '@/components/sos/safety-alerts-content';
 import { CoopSentimentContent } from '@/components/sos/coop-sentiment-content';
+import { TipPoolingContent } from '@/components/sos/tip-pooling-content';
 import { EmergencyBroadcastContent } from '@/components/sos/emergency-broadcast-content';
 import {
   useListCoopPartnerships, getListCoopPartnershipsQueryKey,
@@ -37,7 +38,7 @@ import {
   Calendar as CalIcon, ArrowRight, Receipt, Clock, History, List as ListIcon,
   Users, BarChart3, ShieldCheck, UserX, Crown, X, Bot, User, UserPlus,
   Activity, ListOrdered, CheckCircle2, Phone, DollarSign, Search,
-  ChevronLeft, ChevronRight, UtensilsCrossed, Handshake, ShieldAlert, Cable, Heart,
+  ChevronLeft, ChevronRight, UtensilsCrossed, Handshake, ShieldAlert, Cable, Heart, HandCoins,
 } from 'lucide-react';
 
 /**
@@ -45,7 +46,7 @@ import {
  * List and Calendar views of appointments (the old standalone Calendar page
  * redirects here), plus the one place open tickets are checked out.
  */
-const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'services', 'plans', 'staff', 'ai-receptionist', 'coop', 'coop-sentiment', 'safety', 'pos-sync'] as const;
+const BOOKINGS_TABS = ['list', 'calendar', 'reports', 'customers', 'services', 'plans', 'staff', 'ai-receptionist', 'coop', 'coop-sentiment', 'tips', 'safety', 'pos-sync'] as const;
 
 export function BookingsPage() {
   // Tab state lives in the URL (?tab=) so /sos/bookings?tab=reports deep
@@ -248,6 +249,9 @@ export function BookingsPage() {
           <TabsTrigger value="coop-sentiment" data-testid="tab-coop-sentiment">
             <Heart className="h-4 w-4 mr-1.5" /> Co-Op Sentiment
           </TabsTrigger>
+          <TabsTrigger value="tips" data-testid="tab-tip-pooling">
+            <HandCoins className="h-4 w-4 mr-1.5" /> Tip Pooling
+          </TabsTrigger>
           <TabsTrigger value="safety" data-testid="tab-safety-alerts">
             <ShieldAlert className="h-4 w-4 mr-1.5" /> Safety Alerts
           </TabsTrigger>
@@ -331,6 +335,12 @@ export function BookingsPage() {
               automated weekly/monthly insight reports for the selected
               business */}
           <CoopSentimentContent tenantId={selectedTenant} />
+        </TabsContent>
+        <TabsContent value="tips" className="mt-0">
+          {/* Co-Op Automated Tip-Pooling — split rules per partnership /
+              group events, end-of-shift gratuity report, and the itemized
+              distribution history for the selected business */}
+          <TipPoolingContent />
         </TabsContent>
 
         <TabsContent value="safety" className="mt-0">

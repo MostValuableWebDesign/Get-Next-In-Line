@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   useListSosVisits, useAdvanceSosVisit, getListSosVisitsQueryKey,
   useGetSosCustomerPlans, getGetSosCustomerPlansQueryKey,
-  useListSosStaff,
+  useListSosStaff, useGetTipSplitPreview, getGetTipSplitPreviewQueryKey,
 } from '@workspace/api-client-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { SosCustomerPlan } from '@workspace/api-client-react';
@@ -123,6 +123,38 @@ export function OpenTicketsPanel() {
 }
 
 type ReceiptData = { customerName: string; serviceType: string; amount: number; tipAmount?: number | null };
+
+/**
+ * Live preview of how the entered tip will be split by the applicable
+ * tip-pool rule (co-op bundle partnership rule → group-event rule → the
+ * servicing staff member keeps it all). Read-only; the actual ledger is
+ * written atomically at checkout.
+ */
+function TipSplitPreview({ visitId, tip }: { visitId: number; tip: string }) {
+  const tipAmount = parseFloat(tip || '0');
+  const enabled = Number.isFinite(tipAmount) && tipAmount > 0;
+  const params = { visitId, tipAmount };
+  const { data: preview } = useGetTipSplitPreview(params, {
+    query: { queryKey: getGetTipSplitPreviewQueryKey(params), enabled },
+  });
+  if (!enabled || !preview || preview.allocations.length === 0) return null;
+  return (
+    <div className="border rounded-md p-3 bg-muted/20 space-y-1.5" data-testid={`tip-split-preview-${visitId}`}>
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Tip Split {preview.splitMethod ? `— ${preview.splitMethod.replace('_', ' ')}` : '— goes to servicing staff'}
+      </div>
+      {preview.allocations.map((a, i) => (
+        <div key={i} className="flex justify-between text-xs">
+          <span>
+            {a.staffName}
+            {a.tenantName ? <span className="text-muted-foreground"> · {a.tenantName}</span> : null}
+          </span>
+          <span className="font-medium">${a.amount.toFixed(2)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /**
  * Post-checkout receipt (printable). Partner perks from active co-op
@@ -337,6 +369,8 @@ function TicketCard({
             {benefit?.type === 'redeem_credit' ? 'Redeem Credit & Complete' : 'Charge & Complete'}
           </Button>
         </div>
+
+        <TipSplitPreview visitId={ticket.id} tip={tip} />
       </CardContent>
 
       <SellPlanDialog

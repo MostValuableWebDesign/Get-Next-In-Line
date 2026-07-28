@@ -155,9 +155,13 @@ import type {
   GetCoopComplianceSummaryParams,
   GetCoopLedgerParams,
   GetCoopStatsParams,
+  GetGratuityShiftReportParams,
   GetSosGratuityLedgerParams,
   GetSosStaffEarningsParams,
   GetTenantActivityParams,
+  GetTipSplitPreviewParams,
+  GratuityLedgerEntry,
+  GratuityShiftReportRow,
   HealthStatus,
   ListAdminCoopDisputesParams,
   ListCoopComplianceLedgerParams,
@@ -165,11 +169,13 @@ import type {
   ListCoopPartnerPayoutsParams,
   ListCoopPartnerPerformanceParams,
   ListCoopPartnershipsParams,
+  ListGratuityLedgerParams,
   ListPosEventsParams,
   ListSosAppointmentsParams,
   ListSosCustomersParams,
   ListSosMessagesParams,
   ListSosVisitsParams,
+  ListTipPoolPartnerStaffParams,
   Module,
   ModulePricing,
   ModuleTenantCount,
@@ -272,6 +278,14 @@ import type {
   TenantInput,
   TenantSubscribedModule,
   TenantUpdate,
+  TipPoolBundle,
+  TipPoolBundleAttachInput,
+  TipPoolBundleInput,
+  TipPoolPartnerStaff,
+  TipPoolRule,
+  TipPoolRuleInput,
+  TipPoolRuleUpdate,
+  TipSplitPreview,
   WalletLoginRequest,
   WalletLoginRequestResult,
   WalletLoginVerify,
@@ -13966,6 +13980,776 @@ export function useGetSosGratuityLedger<TData = Awaited<ReturnType<typeof getSos
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetSosGratuityLedgerQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListTipPoolRulesUrl = () => {
+
+
+
+
+  return `/api/sos/tip-pooling/rules`
+}
+
+/**
+ * @summary List tip-pool rules visible to the acting business (own rules plus shared partnership rules)
+ */
+export const listTipPoolRules = async ( options?: RequestInit): Promise<TipPoolRule[]> => {
+
+  return customFetch<TipPoolRule[]>(getListTipPoolRulesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTipPoolRulesQueryKey = () => {
+    return [
+    `/api/sos/tip-pooling/rules`
+    ] as const;
+    }
+
+
+export const getListTipPoolRulesQueryOptions = <TData = Awaited<ReturnType<typeof listTipPoolRules>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTipPoolRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTipPoolRulesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTipPoolRules>>> = ({ signal }) => listTipPoolRules({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTipPoolRules>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListTipPoolRulesQueryResult = NonNullable<Awaited<ReturnType<typeof listTipPoolRules>>>
+export type ListTipPoolRulesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List tip-pool rules visible to the acting business (own rules plus shared partnership rules)
+ */
+
+export function useListTipPoolRules<TData = Awaited<ReturnType<typeof listTipPoolRules>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTipPoolRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListTipPoolRulesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateTipPoolRuleUrl = () => {
+
+
+
+
+  return `/api/sos/tip-pooling/rules`
+}
+
+/**
+ * @summary Create a tip-splitting rule (partnership scope requires an accepted + active co-op partnership)
+ */
+export const createTipPoolRule = async (tipPoolRuleInput: TipPoolRuleInput, options?: RequestInit): Promise<TipPoolRule> => {
+
+  return customFetch<TipPoolRule>(getCreateTipPoolRuleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tipPoolRuleInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTipPoolRuleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTipPoolRule>>, TError,{data: BodyType<TipPoolRuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTipPoolRule>>, TError,{data: BodyType<TipPoolRuleInput>}, TContext> => {
+
+const mutationKey = ['createTipPoolRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTipPoolRule>>, {data: BodyType<TipPoolRuleInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTipPoolRule(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTipPoolRuleMutationResult = NonNullable<Awaited<ReturnType<typeof createTipPoolRule>>>
+    export type CreateTipPoolRuleMutationBody = BodyType<TipPoolRuleInput>
+    export type CreateTipPoolRuleMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a tip-splitting rule (partnership scope requires an accepted + active co-op partnership)
+ */
+export const useCreateTipPoolRule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTipPoolRule>>, TError,{data: BodyType<TipPoolRuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTipPoolRule>>,
+        TError,
+        {data: BodyType<TipPoolRuleInput>},
+        TContext
+      > => {
+      return useMutation(getCreateTipPoolRuleMutationOptions(options));
+    }
+
+export const getUpdateTipPoolRuleUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/tip-pooling/rules/${id}`
+}
+
+/**
+ * @summary Update a tip-pool rule's method, participants, or active flag (owner business only)
+ */
+export const updateTipPoolRule = async (id: number,
+    tipPoolRuleUpdate: TipPoolRuleUpdate, options?: RequestInit): Promise<TipPoolRule> => {
+
+  return customFetch<TipPoolRule>(getUpdateTipPoolRuleUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tipPoolRuleUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateTipPoolRuleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTipPoolRule>>, TError,{id: number;data: BodyType<TipPoolRuleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateTipPoolRule>>, TError,{id: number;data: BodyType<TipPoolRuleUpdate>}, TContext> => {
+
+const mutationKey = ['updateTipPoolRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateTipPoolRule>>, {id: number;data: BodyType<TipPoolRuleUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateTipPoolRule(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateTipPoolRuleMutationResult = NonNullable<Awaited<ReturnType<typeof updateTipPoolRule>>>
+    export type UpdateTipPoolRuleMutationBody = BodyType<TipPoolRuleUpdate>
+    export type UpdateTipPoolRuleMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a tip-pool rule's method, participants, or active flag (owner business only)
+ */
+export const useUpdateTipPoolRule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateTipPoolRule>>, TError,{id: number;data: BodyType<TipPoolRuleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateTipPoolRule>>,
+        TError,
+        {id: number;data: BodyType<TipPoolRuleUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateTipPoolRuleMutationOptions(options));
+    }
+
+export const getDeleteTipPoolRuleUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/tip-pooling/rules/${id}`
+}
+
+/**
+ * @summary Delete a tip-pool rule (owner business only; past ledger entries keep their snapshot)
+ */
+export const deleteTipPoolRule = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteTipPoolRuleUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteTipPoolRuleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTipPoolRule>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteTipPoolRule>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteTipPoolRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteTipPoolRule>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteTipPoolRule(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteTipPoolRuleMutationResult = NonNullable<Awaited<ReturnType<typeof deleteTipPoolRule>>>
+
+    export type DeleteTipPoolRuleMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a tip-pool rule (owner business only; past ledger entries keep their snapshot)
+ */
+export const useDeleteTipPoolRule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteTipPoolRule>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteTipPoolRule>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteTipPoolRuleMutationOptions(options));
+    }
+
+export const getListTipPoolPartnerStaffUrl = (params: ListTipPoolPartnerStaffParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/sos/tip-pooling/partner-staff?${stringifiedParams}` : `/api/sos/tip-pooling/partner-staff`
+}
+
+/**
+ * @summary Active staff of the other business in an accepted co-op partnership (for building shared tip rules)
+ */
+export const listTipPoolPartnerStaff = async (params: ListTipPoolPartnerStaffParams, options?: RequestInit): Promise<TipPoolPartnerStaff[]> => {
+
+  return customFetch<TipPoolPartnerStaff[]>(getListTipPoolPartnerStaffUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTipPoolPartnerStaffQueryKey = (params?: ListTipPoolPartnerStaffParams,) => {
+    return [
+    `/api/sos/tip-pooling/partner-staff`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListTipPoolPartnerStaffQueryOptions = <TData = Awaited<ReturnType<typeof listTipPoolPartnerStaff>>, TError = ErrorType<void>>(params: ListTipPoolPartnerStaffParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTipPoolPartnerStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTipPoolPartnerStaffQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTipPoolPartnerStaff>>> = ({ signal }) => listTipPoolPartnerStaff(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTipPoolPartnerStaff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListTipPoolPartnerStaffQueryResult = NonNullable<Awaited<ReturnType<typeof listTipPoolPartnerStaff>>>
+export type ListTipPoolPartnerStaffQueryError = ErrorType<void>
+
+
+/**
+ * @summary Active staff of the other business in an accepted co-op partnership (for building shared tip rules)
+ */
+
+export function useListTipPoolPartnerStaff<TData = Awaited<ReturnType<typeof listTipPoolPartnerStaff>>, TError = ErrorType<void>>(
+ params: ListTipPoolPartnerStaffParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTipPoolPartnerStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListTipPoolPartnerStaffQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateTipPoolBundleUrl = () => {
+
+
+
+
+  return `/api/sos/tip-pooling/bundles`
+}
+
+/**
+ * @summary Open a co-op shared-appointment bundle and link the caller's visit to it
+ */
+export const createTipPoolBundle = async (tipPoolBundleInput: TipPoolBundleInput, options?: RequestInit): Promise<TipPoolBundle> => {
+
+  return customFetch<TipPoolBundle>(getCreateTipPoolBundleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tipPoolBundleInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTipPoolBundleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTipPoolBundle>>, TError,{data: BodyType<TipPoolBundleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTipPoolBundle>>, TError,{data: BodyType<TipPoolBundleInput>}, TContext> => {
+
+const mutationKey = ['createTipPoolBundle'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTipPoolBundle>>, {data: BodyType<TipPoolBundleInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTipPoolBundle(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTipPoolBundleMutationResult = NonNullable<Awaited<ReturnType<typeof createTipPoolBundle>>>
+    export type CreateTipPoolBundleMutationBody = BodyType<TipPoolBundleInput>
+    export type CreateTipPoolBundleMutationError = ErrorType<void>
+
+    /**
+ * @summary Open a co-op shared-appointment bundle and link the caller's visit to it
+ */
+export const useCreateTipPoolBundle = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTipPoolBundle>>, TError,{data: BodyType<TipPoolBundleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTipPoolBundle>>,
+        TError,
+        {data: BodyType<TipPoolBundleInput>},
+        TContext
+      > => {
+      return useMutation(getCreateTipPoolBundleMutationOptions(options));
+    }
+
+export const getAttachTipPoolBundleVisitUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/tip-pooling/bundles/${id}/visits`
+}
+
+/**
+ * @summary Attach another visit (the caller's own) to an existing shared-appointment bundle
+ */
+export const attachTipPoolBundleVisit = async (id: number,
+    tipPoolBundleAttachInput: TipPoolBundleAttachInput, options?: RequestInit): Promise<TipPoolBundle> => {
+
+  return customFetch<TipPoolBundle>(getAttachTipPoolBundleVisitUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tipPoolBundleAttachInput)
+  }
+);}
+
+
+
+
+
+export const getAttachTipPoolBundleVisitMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachTipPoolBundleVisit>>, TError,{id: number;data: BodyType<TipPoolBundleAttachInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof attachTipPoolBundleVisit>>, TError,{id: number;data: BodyType<TipPoolBundleAttachInput>}, TContext> => {
+
+const mutationKey = ['attachTipPoolBundleVisit'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof attachTipPoolBundleVisit>>, {id: number;data: BodyType<TipPoolBundleAttachInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  attachTipPoolBundleVisit(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AttachTipPoolBundleVisitMutationResult = NonNullable<Awaited<ReturnType<typeof attachTipPoolBundleVisit>>>
+    export type AttachTipPoolBundleVisitMutationBody = BodyType<TipPoolBundleAttachInput>
+    export type AttachTipPoolBundleVisitMutationError = ErrorType<void>
+
+    /**
+ * @summary Attach another visit (the caller's own) to an existing shared-appointment bundle
+ */
+export const useAttachTipPoolBundleVisit = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attachTipPoolBundleVisit>>, TError,{id: number;data: BodyType<TipPoolBundleAttachInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof attachTipPoolBundleVisit>>,
+        TError,
+        {id: number;data: BodyType<TipPoolBundleAttachInput>},
+        TContext
+      > => {
+      return useMutation(getAttachTipPoolBundleVisitMutationOptions(options));
+    }
+
+export const getGetTipSplitPreviewUrl = (params: GetTipSplitPreviewParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/sos/tip-pooling/preview?${stringifiedParams}` : `/api/sos/tip-pooling/preview`
+}
+
+/**
+ * @summary Preview how a tip on a visit would be split by the applicable rule (no writes)
+ */
+export const getTipSplitPreview = async (params: GetTipSplitPreviewParams, options?: RequestInit): Promise<TipSplitPreview> => {
+
+  return customFetch<TipSplitPreview>(getGetTipSplitPreviewUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTipSplitPreviewQueryKey = (params?: GetTipSplitPreviewParams,) => {
+    return [
+    `/api/sos/tip-pooling/preview`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetTipSplitPreviewQueryOptions = <TData = Awaited<ReturnType<typeof getTipSplitPreview>>, TError = ErrorType<void>>(params: GetTipSplitPreviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTipSplitPreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTipSplitPreviewQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTipSplitPreview>>> = ({ signal }) => getTipSplitPreview(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTipSplitPreview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTipSplitPreviewQueryResult = NonNullable<Awaited<ReturnType<typeof getTipSplitPreview>>>
+export type GetTipSplitPreviewQueryError = ErrorType<void>
+
+
+/**
+ * @summary Preview how a tip on a visit would be split by the applicable rule (no writes)
+ */
+
+export function useGetTipSplitPreview<TData = Awaited<ReturnType<typeof getTipSplitPreview>>, TError = ErrorType<void>>(
+ params: GetTipSplitPreviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTipSplitPreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTipSplitPreviewQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListGratuityLedgerUrl = (params?: ListGratuityLedgerParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/sos/tip-pooling/ledger?${stringifiedParams}` : `/api/sos/tip-pooling/ledger`
+}
+
+/**
+ * @summary Itemized gratuity distribution history for the acting business (received and sent shares)
+ */
+export const listGratuityLedger = async (params?: ListGratuityLedgerParams, options?: RequestInit): Promise<GratuityLedgerEntry[]> => {
+
+  return customFetch<GratuityLedgerEntry[]>(getListGratuityLedgerUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGratuityLedgerQueryKey = (params?: ListGratuityLedgerParams,) => {
+    return [
+    `/api/sos/tip-pooling/ledger`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListGratuityLedgerQueryOptions = <TData = Awaited<ReturnType<typeof listGratuityLedger>>, TError = ErrorType<unknown>>(params?: ListGratuityLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGratuityLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGratuityLedgerQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGratuityLedger>>> = ({ signal }) => listGratuityLedger(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGratuityLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListGratuityLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof listGratuityLedger>>>
+export type ListGratuityLedgerQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Itemized gratuity distribution history for the acting business (received and sent shares)
+ */
+
+export function useListGratuityLedger<TData = Awaited<ReturnType<typeof listGratuityLedger>>, TError = ErrorType<unknown>>(
+ params?: ListGratuityLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGratuityLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListGratuityLedgerQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetGratuityShiftReportUrl = (params: GetGratuityShiftReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/sos/tip-pooling/shift-report?${stringifiedParams}` : `/api/sos/tip-pooling/shift-report`
+}
+
+/**
+ * @summary End-of-shift/day gratuity totals per staff member, split by origin (own business vs partner business)
+ */
+export const getGratuityShiftReport = async (params: GetGratuityShiftReportParams, options?: RequestInit): Promise<GratuityShiftReportRow[]> => {
+
+  return customFetch<GratuityShiftReportRow[]>(getGetGratuityShiftReportUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGratuityShiftReportQueryKey = (params?: GetGratuityShiftReportParams,) => {
+    return [
+    `/api/sos/tip-pooling/shift-report`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetGratuityShiftReportQueryOptions = <TData = Awaited<ReturnType<typeof getGratuityShiftReport>>, TError = ErrorType<void>>(params: GetGratuityShiftReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGratuityShiftReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGratuityShiftReportQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGratuityShiftReport>>> = ({ signal }) => getGratuityShiftReport(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGratuityShiftReport>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGratuityShiftReportQueryResult = NonNullable<Awaited<ReturnType<typeof getGratuityShiftReport>>>
+export type GetGratuityShiftReportQueryError = ErrorType<void>
+
+
+/**
+ * @summary End-of-shift/day gratuity totals per staff member, split by origin (own business vs partner business)
+ */
+
+export function useGetGratuityShiftReport<TData = Awaited<ReturnType<typeof getGratuityShiftReport>>, TError = ErrorType<void>>(
+ params: GetGratuityShiftReportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGratuityShiftReport>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGratuityShiftReportQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

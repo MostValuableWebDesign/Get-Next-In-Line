@@ -3976,6 +3976,247 @@ paths:
         "400":
           description: Invalid period
 
+  /sos/tip-pooling/rules:
+    get:
+      operationId: listTipPoolRules
+      tags: [sos]
+      summary: List tip-pool rules visible to the acting business (own rules plus shared partnership rules)
+      responses:
+        "200":
+          description: Rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TipPoolRule"
+    post:
+      operationId: createTipPoolRule
+      tags: [sos]
+      summary: Create a tip-splitting rule (partnership scope requires an accepted + active co-op partnership)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipPoolRuleInput"
+      responses:
+        "201":
+          description: Created rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipPoolRule"
+        "400":
+          description: Invalid rule terms (e.g. percentages don't sum to 100)
+        "403":
+          description: Caller is not a participant of the partnership
+        "409":
+          description: Partnership is not accepted and active
+
+  /sos/tip-pooling/rules/{id}:
+    patch:
+      operationId: updateTipPoolRule
+      tags: [sos]
+      summary: Update a tip-pool rule's method, participants, or active flag (owner business only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipPoolRuleUpdate"
+      responses:
+        "200":
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipPoolRule"
+        "400":
+          description: Invalid rule terms
+        "404":
+          description: Rule not found (or not owned by the acting business)
+    delete:
+      operationId: deleteTipPoolRule
+      tags: [sos]
+      summary: Delete a tip-pool rule (owner business only; past ledger entries keep their snapshot)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Rule not found (or not owned by the acting business)
+
+  /sos/tip-pooling/partner-staff:
+    get:
+      operationId: listTipPoolPartnerStaff
+      tags: [sos]
+      summary: Active staff of the other business in an accepted co-op partnership (for building shared tip rules)
+      parameters:
+        - name: partnershipId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Partner business staff (names only)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TipPoolPartnerStaff"
+        "403":
+          description: Caller is not a participant of the partnership
+        "404":
+          description: Partnership not found
+
+  /sos/tip-pooling/bundles:
+    post:
+      operationId: createTipPoolBundle
+      tags: [sos]
+      summary: Open a co-op shared-appointment bundle and link the caller's visit to it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipPoolBundleInput"
+      responses:
+        "201":
+          description: Created bundle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipPoolBundle"
+        "403":
+          description: Caller is not a participant of the partnership
+        "404":
+          description: Partnership or visit not found
+        "409":
+          description: Partnership is not accepted and active, or visit already checked out
+
+  /sos/tip-pooling/bundles/{id}/visits:
+    post:
+      operationId: attachTipPoolBundleVisit
+      tags: [sos]
+      summary: Attach another visit (the caller's own) to an existing shared-appointment bundle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipPoolBundleAttachInput"
+      responses:
+        "200":
+          description: Updated bundle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipPoolBundle"
+        "403":
+          description: Caller is not a participant of the bundle's partnership
+        "404":
+          description: Bundle or visit not found
+        "409":
+          description: Visit already checked out or already bundled
+
+  /sos/tip-pooling/preview:
+    get:
+      operationId: getTipSplitPreview
+      tags: [sos]
+      summary: Preview how a tip on a visit would be split by the applicable rule (no writes)
+      parameters:
+        - name: visitId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: tipAmount
+          in: query
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Computed allocation preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TipSplitPreview"
+        "400":
+          description: Invalid tip amount
+        "404":
+          description: Visit not found
+
+  /sos/tip-pooling/ledger:
+    get:
+      operationId: listGratuityLedger
+      tags: [sos]
+      summary: Itemized gratuity distribution history for the acting business (received and sent shares)
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ledger entries, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GratuityLedgerEntry"
+
+  /sos/tip-pooling/shift-report:
+    get:
+      operationId: getGratuityShiftReport
+      tags: [sos]
+      summary: End-of-shift/day gratuity totals per staff member, split by origin (own business vs partner business)
+      parameters:
+        - name: date
+          in: query
+          required: true
+          description: Calendar day (YYYY-MM-DD, server-local)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Per-staff gratuity totals for the day
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GratuityShiftReportRow"
+        "400":
+          description: Invalid date
+
   /tenants/{id}/settings:
     get:
       operationId: getTenantSettings
@@ -9614,6 +9855,9 @@ components:
         # Gratuity captured at checkout — separate from service revenue.
         tipAmount:
           type: ["number", "null"]
+        # Co-op shared-appointment bundle membership (null = standalone).
+        bundleId:
+          type: ["integer", "null"]
         checkedInAt:
           type: string
         serviceStartedAt:
@@ -10030,7 +10274,7 @@ components:
         Flat-fee staff: amountDue is what the shop owes them for the period
         cadence. Booth-rent staff: amountDue is what they owe the shop.
       required:
-        [staffId, name, isActive, compensationType, commissionPercent, amount, cadence, attributedVisits, attributedRevenue, commissionEarned, amountDue, tipsEarned]
+        [staffId, name, isActive, compensationType, commissionPercent, amount, cadence, attributedVisits, attributedRevenue, commissionEarned, amountDue, tipsEarned, sharedTipsEarned]
       properties:
         staffId:
           type: integer
@@ -10062,6 +10306,11 @@ components:
         # Pooled tips allocated to this staff member in the period (gratuity
         # ledger). Itemized separately — NEVER included in commission math.
         tipsEarned:
+          type: number
+        # Shared gratuities from the rule-based tip-pool ledger (partnership /
+        # group-event splits) — a distinct line item, never mixed into
+        # commission.
+        sharedTipsEarned:
           type: number
 
     SosGratuityConfig:
@@ -10162,6 +10411,236 @@ components:
         createdAt:
           type: string
 
+    TipPoolParticipant:
+      type: object
+      required: [id, tenantId, tenantName, staffId, staffName, role, percent, weight]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: ["integer", "null"]
+        tenantName:
+          type: ["string", "null"]
+        staffId:
+          type: integer
+        staffName:
+          type: string
+        role:
+          type: ["string", "null"]
+        percent:
+          type: ["integer", "null"]
+        weight:
+          type: ["integer", "null"]
+
+    TipPoolParticipantInput:
+      type: object
+      required: [staffId]
+      properties:
+        # Business the staff member works for. Defaults to the acting
+        # business; for partnership rules it may be either partner.
+        tenantId:
+          type: integer
+        staffId:
+          type: integer
+        role:
+          type: string
+        # percentage method only — must sum to 100 across participants.
+        percent:
+          type: integer
+          minimum: 1
+          maximum: 100
+        # role_weighted method only — positive weight.
+        weight:
+          type: integer
+          minimum: 1
+
+    TipPoolRule:
+      type: object
+      required: [id, tenantId, scope, partnershipId, partnerTenantName, splitMethod, isActive, participants, createdAt]
+      properties:
+        id:
+          type: integer
+        # Business that owns (created) the rule.
+        tenantId:
+          type: ["integer", "null"]
+        scope:
+          type: string
+          enum: [partnership, group_event]
+        partnershipId:
+          type: ["integer", "null"]
+        # For partnership rules: the OTHER business's name from the acting
+        # business's point of view (null for group_event rules).
+        partnerTenantName:
+          type: ["string", "null"]
+        splitMethod:
+          type: string
+          enum: [percentage, equal, role_weighted]
+        isActive:
+          type: boolean
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/TipPoolParticipant"
+        createdAt:
+          type: string
+
+    TipPoolRuleInput:
+      type: object
+      required: [scope, splitMethod, participants]
+      properties:
+        scope:
+          type: string
+          enum: [partnership, group_event]
+        # Required for partnership scope.
+        partnershipId:
+          type: integer
+        splitMethod:
+          type: string
+          enum: [percentage, equal, role_weighted]
+        participants:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/TipPoolParticipantInput"
+
+    TipPoolRuleUpdate:
+      type: object
+      properties:
+        splitMethod:
+          type: string
+          enum: [percentage, equal, role_weighted]
+        participants:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/TipPoolParticipantInput"
+        isActive:
+          type: boolean
+
+    TipPoolPartnerStaff:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    TipPoolBundle:
+      type: object
+      required: [id, partnershipId, visitIds, createdAt]
+      properties:
+        id:
+          type: integer
+        partnershipId:
+          type: integer
+        # Visits currently linked to the bundle (all businesses).
+        visitIds:
+          type: array
+          items:
+            type: integer
+        createdAt:
+          type: string
+
+    TipPoolBundleInput:
+      type: object
+      required: [partnershipId, visitId]
+      properties:
+        partnershipId:
+          type: integer
+        # The caller's own visit to link into the bundle.
+        visitId:
+          type: integer
+
+    TipPoolBundleAttachInput:
+      type: object
+      required: [visitId]
+      properties:
+        visitId:
+          type: integer
+
+    TipSplitAllocation:
+      type: object
+      required: [tenantId, tenantName, staffId, staffName, amount]
+      properties:
+        tenantId:
+          type: ["integer", "null"]
+        tenantName:
+          type: ["string", "null"]
+        staffId:
+          type: integer
+        staffName:
+          type: string
+        amount:
+          type: number
+
+    TipSplitPreview:
+      type: object
+      required: [ruleId, splitMethod, allocations]
+      properties:
+        # null = no applicable rule; the whole tip defaults to the servicing
+        # staff member.
+        ruleId:
+          type: ["integer", "null"]
+        splitMethod:
+          type: ["string", "null"]
+        allocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/TipSplitAllocation"
+
+    GratuityLedgerEntry:
+      type: object
+      required: [id, visitId, serviceType, sourceTenantId, sourceTenantName, recipientTenantId, recipientStaffId, recipientStaffName, grossTip, allocatedShare, ruleId, origin, createdAt]
+      properties:
+        id:
+          type: integer
+        visitId:
+          type: integer
+        serviceType:
+          type: string
+        sourceTenantId:
+          type: ["integer", "null"]
+        sourceTenantName:
+          type: ["string", "null"]
+        recipientTenantId:
+          type: ["integer", "null"]
+        recipientStaffId:
+          type: integer
+        recipientStaffName:
+          type: string
+        grossTip:
+          type: number
+        allocatedShare:
+          type: number
+        ruleId:
+          type: ["integer", "null"]
+        # own = tip collected at the recipient's own business;
+        # partner = pooled in from a partner business.
+        origin:
+          type: string
+          enum: [own, partner]
+        createdAt:
+          type: string
+
+    GratuityShiftReportRow:
+      type: object
+      required: [staffId, staffName, ownTips, partnerTips, totalTips, entries]
+      properties:
+        staffId:
+          type: integer
+        staffName:
+          type: string
+        # Gratuities from the staff member's own business's checkouts.
+        ownTips:
+          type: number
+        # Pooled gratuities originating at partner businesses.
+        partnerTips:
+          type: number
+        totalTips:
+          type: number
+        entries:
+          type: integer
     SosPlan:
       type: object
       required: [id, name, planType, description, price, billingInterval, discountPercent, creditCount, isActive, createdAt]

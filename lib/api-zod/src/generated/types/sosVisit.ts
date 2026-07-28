@@ -28,6 +28,8 @@ export interface SosVisit {
   paymentAmount?: number | null;
   /** @nullable */
   tipAmount?: number | null;
+  /** @nullable */
+  bundleId?: number | null;
   checkedInAt: string;
   /** @nullable */
   serviceStartedAt?: string | null;

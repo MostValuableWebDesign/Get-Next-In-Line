@@ -9,9 +9,10 @@ import {
   jsonb,
   index,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { clientProfilesTable } from "./concierge";
-import { tenantsTable } from "./agency";
+import { tenantsTable, merchantCoopPartnershipsTable } from "./agency";
 
 // SOS operations platform tables (separate product from GNIL OS agency tables)
 
@@ -229,6 +230,27 @@ export const sosStaffMembersTable = pgTable(
   (t) => [index("sos_staff_members_tenant_id_idx").on(t.tenantId)],
 );
 
+// ── co-op visit bundles ──────────────────────────────────────────────────────
+// Links visits at two partnered businesses into one "shared appointment"
+// bundle (e.g. a barbershop cut + partner-studio color booked as one outing).
+// The bundle carries the partnership so tip pooling can resolve the
+// partnership's split rule at checkout. Visits opt in via sos_visits.bundle_id.
+export const sosVisitBundlesTable = pgTable(
+  "sos_visit_bundles",
+  {
+    id: serial("id").primaryKey(),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    // Tenant that opened the bundle (NULL identifies legacy scope).
+    createdByTenantId: integer("created_by_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "cascade",
+    }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("sos_visit_bundles_partnership_idx").on(t.partnershipId)],
+);
+
 export const sosVisitsTable = pgTable(
   "sos_visits",
   {
@@ -252,8 +274,12 @@ export const sosVisitsTable = pgTable(
   paymentAmount: numeric("payment_amount", { precision: 10, scale: 2 }),
   // Gratuity captured at checkout, recorded SEPARATELY from service revenue.
   // Tips must never be folded into paymentAmount, revenue, commission bases,
-  // or margin figures — they are pooled and split via the gratuity ledger.
+  // or margin figures — they are pooled and split via the gratuity ledgers.
   tipAmount: numeric("tip_amount", { precision: 10, scale: 2 }),
+  // Co-op shared-appointment bundle membership (NULL = standalone visit).
+  bundleId: integer("bundle_id").references(() => sosVisitBundlesTable.id, {
+    onDelete: "set null",
+  }),
   checkedInAt: timestamp("checked_in_at").notNull().defaultNow(),
   serviceStartedAt: timestamp("service_started_at"),
   checkedOutAt: timestamp("checked_out_at"),
@@ -496,6 +522,125 @@ export const sosReviewsTable = pgTable(
   },
   (t) => [index("sos_reviews_tenant_id_idx").on(t.tenantId)],
 );
+
+// ── co-op tip pooling ────────────────────────────────────────────────────────
+
+// Merchant-defined tip-splitting rules. Two scopes:
+//  - partnership: shared/co-op appointments — the rule belongs to an accepted
+//    + active co-op partnership; both partners can view it.
+//  - group_event: the tenant's own multi-staff group events (single business).
+// Split methods: percentage (per-participant percent summing to 100), equal,
+// role_weighted (per-participant positive weights).
+export const sosTipPoolRulesTable = pgTable(
+  "sos_tip_pool_rules",
+  {
+    id: serial("id").primaryKey(),
+    // Tenant that created (and may edit) the rule. NULL identifies legacy
+    // single-tenant rows.
+    tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+      onDelete: "cascade",
+    }),
+    // partnership | group_event
+    scope: text("scope").notNull(),
+    // partnership scope only.
+    partnershipId: integer("partnership_id").references(
+      () => merchantCoopPartnershipsTable.id,
+      { onDelete: "cascade" },
+    ),
+    // percentage | equal | role_weighted
+    splitMethod: text("split_method").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("sos_tip_pool_rules_tenant_idx").on(t.tenantId),
+    index("sos_tip_pool_rules_partnership_idx").on(t.partnershipId),
+  ],
+);
+
+// Recipients of a tip-pool rule: (business, staff member) pairs with the
+// method-specific terms (percent for percentage rules, weight for
+// role-weighted rules; equal rules carry neither).
+export const sosTipPoolRuleParticipantsTable = pgTable(
+  "sos_tip_pool_rule_participants",
+  {
+    id: serial("id").primaryKey(),
+    ruleId: integer("rule_id")
+      .notNull()
+      .references(() => sosTipPoolRulesTable.id, { onDelete: "cascade" }),
+    // Business the recipient staff member works for (NULL = legacy scope).
+    tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+      onDelete: "cascade",
+    }),
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => sosStaffMembersTable.id, { onDelete: "cascade" }),
+    // Optional human-readable role label (e.g. "Lead Stylist").
+    role: text("role"),
+    // percentage method: whole-number percent of the pooled tip.
+    percent: integer("percent"),
+    // role_weighted method: positive integer weight.
+    weight: integer("weight"),
+  },
+  (t) => [index("sos_tip_pool_rule_participants_rule_idx").on(t.ruleId)],
+);
+
+// Immutable, itemized tip-pool ledger — one row per recipient staff member
+// per pooled tip, written atomically with the checkout that captured the tip.
+// Never re-split retroactively; the rule terms in force are snapshotted.
+// (Distinct from sosGratuityLedgerTable, the per-tenant gratuity pool ledger:
+// this one records rule-based / cross-business partnership splits.)
+export const sosTipPoolLedgerTable = pgTable(
+  "sos_gratuity_ledger_entries",
+  {
+    id: serial("id").primaryKey(),
+    visitId: integer("visit_id")
+      .notNull()
+      .references(() => sosVisitsTable.id, { onDelete: "cascade" }),
+    // Business where the tip was collected (NULL = legacy scope).
+    sourceTenantId: integer("source_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "cascade",
+    }),
+    // Business the recipient staff member works for (NULL = legacy scope).
+    recipientTenantId: integer("recipient_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "cascade",
+    }),
+    recipientStaffId: integer("recipient_staff_id")
+      .notNull()
+      .references(() => sosStaffMembersTable.id, { onDelete: "cascade" }),
+    // Full tip captured at checkout (same on every row of the split).
+    grossTip: numeric("gross_tip", { precision: 10, scale: 2 }).notNull(),
+    // This recipient's share (deterministic rounding; remainder cents go to
+    // the servicing staff member).
+    allocatedShare: numeric("allocated_share", { precision: 10, scale: 2 }).notNull(),
+    // Rule that produced the split; NULL = default (whole tip to the
+    // servicing staff member, no rule configured).
+    ruleId: integer("rule_id").references(() => sosTipPoolRulesTable.id, {
+      onDelete: "set null",
+    }),
+    // Snapshot of the rule terms in force at checkout (method + participants)
+    // so history stays interpretable after rule edits.
+    ruleSnapshot: jsonb("rule_snapshot"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("sos_gratuity_ledger_visit_idx").on(t.visitId),
+    // One ledger row per recipient per visit — a DB-level idempotency guard
+    // so a replayed/concurrent checkout can never double-record a split.
+    uniqueIndex("sos_gratuity_ledger_visit_recipient_uniq").on(t.visitId, t.recipientStaffId),
+    index("sos_gratuity_ledger_recipient_tenant_created_idx").on(
+      t.recipientTenantId,
+      t.createdAt.desc(),
+    ),
+    index("sos_gratuity_ledger_recipient_staff_idx").on(t.recipientStaffId),
+  ],
+);
+
+export type SosTipPoolRule = typeof sosTipPoolRulesTable.$inferSelect;
+export type SosTipPoolRuleParticipant = typeof sosTipPoolRuleParticipantsTable.$inferSelect;
+export type SosVisitBundle = typeof sosVisitBundlesTable.$inferSelect;
+export type SosTipPoolLedgerEntry = typeof sosTipPoolLedgerTable.$inferSelect;
 
 export const sosCallsTable = pgTable(
   "sos_calls",

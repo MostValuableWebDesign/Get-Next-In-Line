@@ -442,6 +442,13 @@
       "when": 1785242651825,
       "tag": "0062_furry_quasimodo",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1785243249629,
+      "tag": "0063_rich_adam_warlock",
+      "breakpoints": true
     }
   ]
 }

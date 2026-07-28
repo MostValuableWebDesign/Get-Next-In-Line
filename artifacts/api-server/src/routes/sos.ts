@@ -16,6 +16,7 @@ import {
   sosCustomerPlansTable,
   sosPlanTransactionsTable,
   sosGratuityLedgerTable,
+  sosTipPoolLedgerTable,
   clientProfilesTable,
   tenantsTable,
   type ClientProfile,
@@ -115,6 +116,7 @@ import {
 } from "../lib/customerLink";
 import { logger } from "../lib/logger";
 import { attachRevenueToRecentCrossoverSafe } from "../lib/coopEvents";
+import { resolveTipRuleForVisit, writeGratuityLedger } from "../lib/tipPooling";
 import {
   addressFieldsTouched,
   getLegacySettings,
@@ -198,6 +200,7 @@ function serializeVisit(
     estimatedWaitMinutes: v.estimatedWaitMinutes,
     paymentAmount: v.paymentAmount == null ? null : parseFloat(v.paymentAmount),
     tipAmount: v.tipAmount == null ? null : parseFloat(v.tipAmount),
+    bundleId: v.bundleId,
     checkedInAt: v.checkedInAt.toISOString(),
     serviceStartedAt: iso(v.serviceStartedAt),
     checkedOutAt: iso(v.checkedOutAt),
@@ -1478,7 +1481,9 @@ router.get("/sos/staff-earnings", async (req, res): Promise<void> => {
   const byStaff = new Map(revenue.map((r) => [r.staffId, r]));
 
   // Pooled tips allocated in the period, itemized separately — tips are
-  // NEVER part of attributedRevenue or the commission base.
+  // NEVER part of attributedRevenue or the commission base. Two ledgers feed
+  // this: the per-tenant gratuity pool ledger and the rule-based tip-pool
+  // (partnership/group-event) ledger; a given tip is written to exactly one.
   const tips = await db
     .select({
       staffId: sosGratuityLedgerTable.staffId,
@@ -1494,6 +1499,24 @@ router.get("/sos/staff-earnings", async (req, res): Promise<void> => {
     )
     .groupBy(sosGratuityLedgerTable.staffId);
   const tipsByStaff = new Map(tips.map((t) => [t.staffId, parseFloat(t.total)]));
+
+  // Shared gratuities from the rule-based tip-pool ledger — a distinct line
+  // item, never folded into commission or service revenue.
+  const sharedTips = await db
+    .select({
+      staffId: sosTipPoolLedgerTable.recipientStaffId,
+      total: sql<string>`coalesce(sum(${sosTipPoolLedgerTable.allocatedShare}), 0)`,
+    })
+    .from(sosTipPoolLedgerTable)
+    .where(
+      and(
+        tenantMatch(sosTipPoolLedgerTable.recipientTenantId, tenantId),
+        gte(sosTipPoolLedgerTable.createdAt, from),
+        sql`${sosTipPoolLedgerTable.createdAt} < ${to}`,
+      ),
+    )
+    .groupBy(sosTipPoolLedgerTable.recipientStaffId);
+  const sharedTipsByStaff = new Map(sharedTips.map((r) => [r.staffId, parseFloat(r.total)]));
 
   // Cadence periods due inside [from, to): whole weeks/months, minimum 1 —
   // a shorter selection still owes one cadence period.
@@ -1527,6 +1550,7 @@ router.get("/sos/staff-earnings", async (req, res): Promise<void> => {
             ? Math.round(amount * periodsDue(s.cadence) * 100) / 100
             : null,
           tipsEarned: tipsByStaff.get(s.id) ?? 0,
+          sharedTipsEarned: sharedTipsByStaff.get(s.id) ?? 0,
         };
       }),
     ),
@@ -1795,6 +1819,9 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     if (body.paymentAmount != null) {
       updates.paymentAmount = body.paymentAmount.toFixed(2);
     }
+    if (body.tipAmount != null) {
+      updates.tipAmount = body.tipAmount.toFixed(2);
+    }
     // Optional staff attribution captured at payment/checkout. Must be an
     // active staff member in the same tenant scope as the visit.
     if (body.staffId != null) {
@@ -1820,7 +1847,10 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
   }
 
   // Optional plan benefit at checkout: redeem a prepaid credit or apply a
-  // membership discount. Validated before the visit transition is written.
+  // membership discount. Read-only validation happens here; the mutating
+  // writes are deferred into the checkout transaction below so a losing
+  // concurrent checkout can never spend a credit or record a discount.
+  let benefitPlan: Awaited<ReturnType<typeof getCustomerPlanWithPlan>> | undefined;
   if (body.action === "check_out" && body.benefitCustomerPlanId != null) {
     if (!body.benefitType) {
       res.status(400).json({ message: "benefitType is required with benefitCustomerPlanId" });
@@ -1835,98 +1865,169 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
       res.status(409).json({ message: "Plan enrollment is cancelled" });
       return;
     }
-    if (body.benefitType === "redeem_credit") {
-      if (found.plan.planType === "membership") {
-        res.status(409).json({ message: "Memberships have no credits to redeem" });
-        return;
-      }
-      // Conditional decrement guards against two concurrent redemptions
-      // spending the same last credit.
-      const [spent] = await db
-        .update(sosCustomerPlansTable)
-        .set({ remainingCredits: sql`${sosCustomerPlansTable.remainingCredits} - 1` })
-        .where(
-          and(
-            eq(sosCustomerPlansTable.id, found.cp.id),
-            gte(sosCustomerPlansTable.remainingCredits, 1),
-          ),
-        )
-        .returning({ remaining: sosCustomerPlansTable.remainingCredits });
-      if (!spent) {
-        res.status(409).json({ message: "No credits remaining on this plan" });
-        return;
-      }
-      await db.insert(sosPlanTransactionsTable).values({
-        customerPlanId: found.cp.id,
-        customerId: visit.customerId,
-        visitId: visit.id,
-        transactionType: "redemption",
-        creditsDelta: -1,
-        note: `Redeemed 1 credit from ${found.plan.name} for ${visit.serviceType} (${spent.remaining} left)`,
-      });
-    } else {
-      if (found.plan.planType !== "membership") {
-        res.status(409).json({ message: "Only memberships grant a discount" });
-        return;
-      }
-      await db.insert(sosPlanTransactionsTable).values({
-        customerPlanId: found.cp.id,
-        customerId: visit.customerId,
-        visitId: visit.id,
-        transactionType: "discount",
-        amount: body.paymentAmount != null ? body.paymentAmount.toFixed(2) : null,
-        note: `${found.plan.discountPercent}% ${found.plan.name} discount applied to ${visit.serviceType}`,
-      });
+    if (body.benefitType === "redeem_credit" && found.plan.planType === "membership") {
+      res.status(409).json({ message: "Memberships have no credits to redeem" });
+      return;
     }
+    if (body.benefitType !== "redeem_credit" && found.plan.planType !== "membership") {
+      res.status(409).json({ message: "Only memberships grant a discount" });
+      return;
+    }
+    benefitPlan = found;
   }
 
-  // Gratuity capture at checkout: validate the tip and pre-compute the
-  // per-staff allocations from the applicable split rule (per-visit override
-  // wins over the tenant default). Ledger rows are written atomically with
-  // the checkout below.
+  // Gratuity capture at checkout. Exactly ONE engine handles a given tip:
+  // a rule-based tip-pool rule (co-op bundle partnership or group event)
+  // takes precedence and writes the tip-pool ledger; otherwise the tenant's
+  // gratuity pool config splits it across the tenant's staff. Ledger rows
+  // are written atomically with the checkout below.
+  const checkoutTip =
+    body.action === "check_out"
+      ? body.tipAmount != null
+        ? body.tipAmount
+        : visit.tipAmount != null
+          ? parseFloat(visit.tipAmount)
+          : null
+      : null;
+  let usesTipPoolRule = false;
   let tipLedgerRows:
     | { tenantId: number | null; staffId: number; ruleApplied: string; amount: string }[]
     | null = null;
-  if (body.action === "check_out" && body.tipAmount != null && body.tipAmount > 0) {
-    const settings = await resolveSettings(tenantIdFrom(req));
-    const rule: TipSplitRule =
-      body.tipSplitRule != null && isTipSplitRule(body.tipSplitRule)
-        ? body.tipSplitRule
-        : isTipSplitRule(settings.tipSplitRule)
-          ? settings.tipSplitRule
-          : "equal";
-    const participants = await resolveTipParticipants(tenantIdFrom(req));
-    if (participants.length === 0) {
-      res.status(409).json({
-        message: "Cannot record a tip: no active staff members to allocate it to",
-      });
-      return;
+  if (checkoutTip != null && checkoutTip > 0) {
+    if (body.tipAmount != null) updates.tipAmount = body.tipAmount.toFixed(2);
+    usesTipPoolRule =
+      (await resolveTipRuleForVisit({
+        bundleId: visit.bundleId,
+        tenantId: visit.tenantId,
+      })) != null;
+    if (!usesTipPoolRule) {
+      const settings = await resolveSettings(tenantIdFrom(req));
+      const rule: TipSplitRule =
+        body.tipSplitRule != null && isTipSplitRule(body.tipSplitRule)
+          ? body.tipSplitRule
+          : isTipSplitRule(settings.tipSplitRule)
+            ? settings.tipSplitRule
+            : "equal";
+      const participants = await resolveTipParticipants(tenantIdFrom(req));
+      if (participants.length === 0) {
+        res.status(409).json({
+          message: "Cannot record a tip: no active staff members to allocate it to",
+        });
+        return;
+      }
+      const { rule: appliedRule, allocations } = computeTipAllocations(
+        rule,
+        checkoutTip,
+        participants,
+      );
+      tipLedgerRows = allocations.map((a) => ({
+        tenantId: a.tenantId,
+        staffId: a.staffId,
+        ruleApplied: appliedRule,
+        amount: a.amount,
+      }));
     }
-    const { rule: appliedRule, allocations } = computeTipAllocations(
-      rule,
-      body.tipAmount,
-      participants,
-    );
-    updates.tipAmount = body.tipAmount.toFixed(2);
-    tipLedgerRows = allocations.map((a) => ({
-      tenantId: a.tenantId,
-      staffId: a.staffId,
-      ruleApplied: appliedRule,
-      amount: a.amount,
-    }));
   }
 
   if (body.action === "check_out") {
     updates.checkedOutAt = new Date();
-    // Co-op analytics: if a partner's customer recently scanned a perk pass
-    // here (a cross-over event), attribute this checkout's revenue to it for
-    // the revenue-influenced estimate. Best-effort; never blocks checkout.
+  }
+
+  // Checkout is atomic: the conditional status transition (so two concurrent
+  // advances of the same visit can't both succeed — the loser sees no row and
+  // gets a 409), the plan-benefit writes, and the itemized gratuity ledger
+  // rows all commit together or not at all. This also guarantees each
+  // single-winner side effect happens at most once per checkout.
+  const NO_CREDITS = Symbol("no-credits");
+  let txOutcome: typeof sosVisitsTable.$inferSelect | undefined | typeof NO_CREDITS;
+  try {
+    txOutcome = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(sosVisitsTable)
+        .set(updates)
+        .where(and(eq(sosVisitsTable.id, id), inArray(sosVisitsTable.status, transition.from)))
+        .returning();
+      if (!row) return undefined;
+      if (body.action === "check_out" && benefitPlan) {
+        const { cp, plan } = benefitPlan;
+        if (body.benefitType === "redeem_credit") {
+          // Conditional decrement guards against two concurrent redemptions
+          // spending the same last credit.
+          const [spent] = await tx
+            .update(sosCustomerPlansTable)
+            .set({ remainingCredits: sql`${sosCustomerPlansTable.remainingCredits} - 1` })
+            .where(
+              and(
+                eq(sosCustomerPlansTable.id, cp.id),
+                gte(sosCustomerPlansTable.remainingCredits, 1),
+              ),
+            )
+            .returning({ remaining: sosCustomerPlansTable.remainingCredits });
+          if (!spent) {
+            // Abort the whole checkout — the visit must not check out while
+            // claiming a credit that could not be redeemed.
+            throw NO_CREDITS;
+          }
+          await tx.insert(sosPlanTransactionsTable).values({
+            customerPlanId: cp.id,
+            customerId: visit.customerId,
+            visitId: visit.id,
+            transactionType: "redemption",
+            creditsDelta: -1,
+            note: `Redeemed 1 credit from ${plan.name} for ${visit.serviceType} (${spent.remaining} left)`,
+          });
+        } else {
+          await tx.insert(sosPlanTransactionsTable).values({
+            customerPlanId: cp.id,
+            customerId: visit.customerId,
+            visitId: visit.id,
+            transactionType: "discount",
+            amount: body.paymentAmount != null ? body.paymentAmount.toFixed(2) : null,
+            note: `${plan.discountPercent}% ${plan.name} discount applied to ${visit.serviceType}`,
+          });
+        }
+      }
+      if (checkoutTip != null && checkoutTip > 0) {
+        if (usesTipPoolRule) {
+          await writeGratuityLedger(
+            tx,
+            { id: row.id, tenantId: row.tenantId, bundleId: row.bundleId },
+            checkoutTip,
+            row.staffId,
+          );
+        } else if (tipLedgerRows && tipLedgerRows.length > 0) {
+          await tx
+            .insert(sosGratuityLedgerTable)
+            .values(tipLedgerRows.map((r) => ({ ...r, visitId: row.id })));
+        }
+      }
+      return row;
+    });
+  } catch (err) {
+    if (err !== NO_CREDITS) throw err;
+    txOutcome = NO_CREDITS;
+  }
+
+  if (txOutcome === NO_CREDITS) {
+    res.status(409).json({ message: "No credits remaining on this plan" });
+    return;
+  }
+  if (!txOutcome) {
+    // Lost the race: another request advanced this visit first.
+    res.status(409).json({
+      message: `Cannot ${body.action} a visit in status "${visit.status}"`,
+    });
+    return;
+  }
+  const updated = txOutcome;
+
+  if (body.action === "check_out") {
+    // Post-commit, winner-only side effects. Co-op analytics: if a partner's
+    // customer recently scanned a perk pass here (a cross-over event),
+    // attribute this checkout's revenue to it for the revenue-influenced
+    // estimate. Best-effort; never blocks checkout.
     const effectivePayment =
-      body.paymentAmount != null
-        ? body.paymentAmount
-        : visit.paymentAmount != null
-          ? parseFloat(visit.paymentAmount)
-          : null;
+      updated.paymentAmount != null ? parseFloat(updated.paymentAmount) : null;
     await attachRevenueToRecentCrossoverSafe(tenantIdFrom(req), effectivePayment);
     if (visit.resourceId) {
       await db
@@ -1935,22 +2036,6 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
         .where(eq(sosResourcesTable.id, visit.resourceId));
     }
   }
-
-  // The visit transition and its gratuity ledger rows commit atomically: a
-  // checkout can never record a tip without its allocations (or vice versa).
-  const updated = await db.transaction(async (tx) => {
-    const [row] = await tx
-      .update(sosVisitsTable)
-      .set(updates)
-      .where(eq(sosVisitsTable.id, id))
-      .returning();
-    if (row && tipLedgerRows && tipLedgerRows.length > 0) {
-      await tx
-        .insert(sosGratuityLedgerTable)
-        .values(tipLedgerRows.map((r) => ({ ...r, visitId: row.id })));
-    }
-    return row;
-  });
 
   if (body.action === "check_out") {
     // Compliance ledger: record the checkout payment (idempotent on the

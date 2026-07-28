@@ -4006,6 +4006,7 @@ export const ListSosVisitsResponseItem = zod.object({
   "estimatedWaitMinutes": zod.number().nullish(),
   "paymentAmount": zod.number().nullish(),
   "tipAmount": zod.number().nullish(),
+  "bundleId": zod.number().nullish(),
   "checkedInAt": zod.string(),
   "serviceStartedAt": zod.string().nullish(),
   "checkedOutAt": zod.string().nullish()
@@ -4040,6 +4041,7 @@ export const CheckInSosVisitResponse = zod.object({
   "estimatedWaitMinutes": zod.number().nullish(),
   "paymentAmount": zod.number().nullish(),
   "tipAmount": zod.number().nullish(),
+  "bundleId": zod.number().nullish(),
   "checkedInAt": zod.string(),
   "serviceStartedAt": zod.string().nullish(),
   "checkedOutAt": zod.string().nullish()
@@ -4082,6 +4084,7 @@ export const AdvanceSosVisitResponse = zod.object({
   "estimatedWaitMinutes": zod.number().nullish(),
   "paymentAmount": zod.number().nullish(),
   "tipAmount": zod.number().nullish(),
+  "bundleId": zod.number().nullish(),
   "checkedInAt": zod.string(),
   "serviceStartedAt": zod.string().nullish(),
   "checkedOutAt": zod.string().nullish()
@@ -5419,7 +5422,8 @@ export const GetSosStaffEarningsResponseItem = zod.object({
   "attributedRevenue": zod.number(),
   "commissionEarned": zod.number().nullable(),
   "amountDue": zod.number().nullable(),
-  "tipsEarned": zod.number()
+  "tipsEarned": zod.number(),
+  "sharedTipsEarned": zod.number()
 }).describe('One staff member\'s summary for the requested period. Commission staff: attributedRevenue sums the payment amounts persisted at checkout on attributed visits, and commissionEarned is their split of that. Flat-fee staff: amountDue is what the shop owes them for the period cadence. Booth-rent staff: amountDue is what they owe the shop.\n')
 export const GetSosStaffEarningsResponse = zod.array(GetSosStaffEarningsResponseItem)
 
@@ -5495,6 +5499,247 @@ export const GetSosGratuityLedgerResponse = zod.object({
 })),
   "totalDistributed": zod.number()
 }).describe('Auditable gratuity ledger for a period: every allocation row (visit, staff, rule, amount, timestamp) plus per-staff totals suitable for tax\/end-of-shift reporting.\n')
+
+
+/**
+ * @summary List tip-pool rules visible to the acting business (own rules plus shared partnership rules)
+ */
+export const ListTipPoolRulesResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullable(),
+  "scope": zod.enum(['partnership', 'group_event']),
+  "partnershipId": zod.number().nullable(),
+  "partnerTenantName": zod.string().nullable(),
+  "splitMethod": zod.enum(['percentage', 'equal', 'role_weighted']),
+  "isActive": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullable(),
+  "tenantName": zod.string().nullable(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "role": zod.string().nullable(),
+  "percent": zod.number().nullable(),
+  "weight": zod.number().nullable()
+})),
+  "createdAt": zod.string()
+})
+export const ListTipPoolRulesResponse = zod.array(ListTipPoolRulesResponseItem)
+
+
+/**
+ * @summary Create a tip-splitting rule (partnership scope requires an accepted + active co-op partnership)
+ */
+export const createTipPoolRuleBodyParticipantsItemPercentMax = 100;
+
+
+
+
+
+export const CreateTipPoolRuleBody = zod.object({
+  "scope": zod.enum(['partnership', 'group_event']),
+  "partnershipId": zod.number().optional(),
+  "splitMethod": zod.enum(['percentage', 'equal', 'role_weighted']),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number().optional(),
+  "staffId": zod.number(),
+  "role": zod.string().optional(),
+  "percent": zod.number().min(1).max(createTipPoolRuleBodyParticipantsItemPercentMax).optional(),
+  "weight": zod.number().min(1).optional()
+})).min(1)
+})
+
+export const CreateTipPoolRuleResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullable(),
+  "scope": zod.enum(['partnership', 'group_event']),
+  "partnershipId": zod.number().nullable(),
+  "partnerTenantName": zod.string().nullable(),
+  "splitMethod": zod.enum(['percentage', 'equal', 'role_weighted']),
+  "isActive": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullable(),
+  "tenantName": zod.string().nullable(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "role": zod.string().nullable(),
+  "percent": zod.number().nullable(),
+  "weight": zod.number().nullable()
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update a tip-pool rule's method, participants, or active flag (owner business only)
+ */
+export const UpdateTipPoolRuleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updateTipPoolRuleBodyParticipantsItemPercentMax = 100;
+
+
+
+
+
+export const UpdateTipPoolRuleBody = zod.object({
+  "splitMethod": zod.enum(['percentage', 'equal', 'role_weighted']).optional(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number().optional(),
+  "staffId": zod.number(),
+  "role": zod.string().optional(),
+  "percent": zod.number().min(1).max(updateTipPoolRuleBodyParticipantsItemPercentMax).optional(),
+  "weight": zod.number().min(1).optional()
+})).min(1).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateTipPoolRuleResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullable(),
+  "scope": zod.enum(['partnership', 'group_event']),
+  "partnershipId": zod.number().nullable(),
+  "partnerTenantName": zod.string().nullable(),
+  "splitMethod": zod.enum(['percentage', 'equal', 'role_weighted']),
+  "isActive": zod.boolean(),
+  "participants": zod.array(zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullable(),
+  "tenantName": zod.string().nullable(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "role": zod.string().nullable(),
+  "percent": zod.number().nullable(),
+  "weight": zod.number().nullable()
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a tip-pool rule (owner business only; past ledger entries keep their snapshot)
+ */
+export const DeleteTipPoolRuleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteTipPoolRuleResponse = zod.void()
+
+
+/**
+ * @summary Active staff of the other business in an accepted co-op partnership (for building shared tip rules)
+ */
+export const ListTipPoolPartnerStaffQueryParams = zod.object({
+  "partnershipId": zod.coerce.number()
+})
+
+export const ListTipPoolPartnerStaffResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+})
+export const ListTipPoolPartnerStaffResponse = zod.array(ListTipPoolPartnerStaffResponseItem)
+
+
+/**
+ * @summary Open a co-op shared-appointment bundle and link the caller's visit to it
+ */
+export const CreateTipPoolBundleBody = zod.object({
+  "partnershipId": zod.number(),
+  "visitId": zod.number()
+})
+
+export const CreateTipPoolBundleResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "visitIds": zod.array(zod.number()),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Attach another visit (the caller's own) to an existing shared-appointment bundle
+ */
+export const AttachTipPoolBundleVisitParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AttachTipPoolBundleVisitBody = zod.object({
+  "visitId": zod.number()
+})
+
+export const AttachTipPoolBundleVisitResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "visitIds": zod.array(zod.number()),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Preview how a tip on a visit would be split by the applicable rule (no writes)
+ */
+export const GetTipSplitPreviewQueryParams = zod.object({
+  "visitId": zod.coerce.number(),
+  "tipAmount": zod.coerce.number()
+})
+
+export const GetTipSplitPreviewResponse = zod.object({
+  "ruleId": zod.number().nullable(),
+  "splitMethod": zod.string().nullable(),
+  "allocations": zod.array(zod.object({
+  "tenantId": zod.number().nullable(),
+  "tenantName": zod.string().nullable(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "amount": zod.number()
+}))
+})
+
+
+/**
+ * @summary Itemized gratuity distribution history for the acting business (received and sent shares)
+ */
+export const ListGratuityLedgerQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional()
+})
+
+export const ListGratuityLedgerResponseItem = zod.object({
+  "id": zod.number(),
+  "visitId": zod.number(),
+  "serviceType": zod.string(),
+  "sourceTenantId": zod.number().nullable(),
+  "sourceTenantName": zod.string().nullable(),
+  "recipientTenantId": zod.number().nullable(),
+  "recipientStaffId": zod.number(),
+  "recipientStaffName": zod.string(),
+  "grossTip": zod.number(),
+  "allocatedShare": zod.number(),
+  "ruleId": zod.number().nullable(),
+  "origin": zod.enum(['own', 'partner']),
+  "createdAt": zod.string()
+})
+export const ListGratuityLedgerResponse = zod.array(ListGratuityLedgerResponseItem)
+
+
+/**
+ * @summary End-of-shift/day gratuity totals per staff member, split by origin (own business vs partner business)
+ */
+export const GetGratuityShiftReportQueryParams = zod.object({
+  "date": zod.coerce.string().describe('Calendar day (YYYY-MM-DD, server-local)')
+})
+
+export const GetGratuityShiftReportResponseItem = zod.object({
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "ownTips": zod.number(),
+  "partnerTips": zod.number(),
+  "totalTips": zod.number(),
+  "entries": zod.number()
+})
+export const GetGratuityShiftReportResponse = zod.array(GetGratuityShiftReportResponseItem)
 
 
 /**
