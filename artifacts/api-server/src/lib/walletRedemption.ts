@@ -8,6 +8,7 @@ import {
 import { findWalletPass, isWalletPassToken } from "./perkPasses";
 import { recordPassportStampSafe } from "./passport";
 import { recordPerkRedemptionComplianceSafe } from "./coopCompliance";
+import { applyRedemptionSplitSafe } from "./coopSponsorship";
 import type { CoopDirection } from "./coopTracking";
 
 /**
@@ -112,6 +113,11 @@ export async function redeemWalletPassAsTenant(
       perkTitle: p.perkTitle,
       redeemedAt: redemption.redeemedAt ?? new Date(),
     });
+    // Sponsorship Hub: revenue-share split accounting runs on every counted
+    // redemption regardless of channel (native, POS webhook, gateway API) so
+    // wallet ledgers stay in parity across redemption paths. Safe/no-op when
+    // the partnership carries no revenue-share terms.
+    await applyRedemptionSplitSafe(row.partnership, redemption.id, tenantId);
   }
   return { status: "processed", detail: `Perk pass ${token} redeemed` };
 }

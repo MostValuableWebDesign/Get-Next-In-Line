@@ -167,6 +167,18 @@ export const CoopPartnershipTier = {
   standard: 'standard',
 } as const;
 
+/**
+ * Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.
+ * @nullable
+ */
+export type CoopPartnershipRevenueShareKind = typeof CoopPartnershipRevenueShareKind[keyof typeof CoopPartnershipRevenueShareKind] | null;
+
+
+export const CoopPartnershipRevenueShareKind = {
+  bounty: 'bounty',
+  percent: 'percent',
+} as const;
+
 export interface CoopPartnership {
   id: number;
   hostTenantId: number;
@@ -256,6 +268,21 @@ export interface CoopPartnership {
      */
   renegotiationRequestedByTenantId: number | null;
   isActive: boolean;
+  /**
+     * Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.
+     * @nullable
+     */
+  revenueShareKind: CoopPartnershipRevenueShareKind;
+  /**
+     * Bounty dollars (kind=bounty) or split percent (kind=percent).
+     * @nullable
+     */
+  revenueShareValue: number | null;
+  /**
+     * Agreed nominal transaction value a percentage split applies to; null unless kind=percent.
+     * @nullable
+     */
+  revenueShareBaseAmount: number | null;
   createdAt: string;
 }
 
@@ -724,6 +751,8 @@ export interface CoopDirectoryEntry {
   samePlaza: boolean;
   /** True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester's active same-plaza partnerships. */
   plazaConflict: boolean;
+  /** True while this business holds an active paid featured boost for the discovery surface; featured entries sort above organic matches. */
+  featured: boolean;
   /**
      * The business's live capacity status; null when unavailable.
      * @nullable
@@ -1034,6 +1063,187 @@ export interface CoopActivePerk {
   perkEndsAt: string | null;
   /** Live surge boost — when present, the perk shows the elevated discount and limited-time indicator until expiresAt. */
   surge?: CoopSurgeBoost | null;
+  /** True while this perk's partnership holds an active paid featured boost for the surface being rendered; featured perks sort above organic ones. */
+  featured: boolean;
+}
+
+export type CoopFeaturedBoostSurface = typeof CoopFeaturedBoostSurface[keyof typeof CoopFeaturedBoostSurface];
+
+
+export const CoopFeaturedBoostSurface = {
+  discovery: 'discovery',
+  booking_confirmation: 'booking_confirmation',
+} as const;
+
+export type CoopFeaturedBoostPricingType = typeof CoopFeaturedBoostPricingType[keyof typeof CoopFeaturedBoostPricingType];
+
+
+export const CoopFeaturedBoostPricingType = {
+  flat: 'flat',
+  bid: 'bid',
+} as const;
+
+/**
+ * Flat purchases are active from purchase; bids stay pending until the window's auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt.
+ */
+export type CoopFeaturedBoostStatus = typeof CoopFeaturedBoostStatus[keyof typeof CoopFeaturedBoostStatus];
+
+
+export const CoopFeaturedBoostStatus = {
+  pending: 'pending',
+  active: 'active',
+  lost: 'lost',
+  expired: 'expired',
+} as const;
+
+export interface CoopFeaturedBoost {
+  id: number;
+  /** Sponsoring business. */
+  tenantId: number;
+  partnershipId: number;
+  perkTitle: string;
+  /** The other side of the sponsored partnership. */
+  partnerName: string;
+  surface: CoopFeaturedBoostSurface;
+  pricingType: CoopFeaturedBoostPricingType;
+  amount: number;
+  startsAt: string;
+  endsAt: string;
+  /** Flat purchases are active from purchase; bids stay pending until the window's auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt. */
+  status: CoopFeaturedBoostStatus;
+  createdAt: string;
+}
+
+export type CoopBoostCreateSurface = typeof CoopBoostCreateSurface[keyof typeof CoopBoostCreateSurface];
+
+
+export const CoopBoostCreateSurface = {
+  discovery: 'discovery',
+  booking_confirmation: 'booking_confirmation',
+} as const;
+
+export type CoopBoostCreatePricingType = typeof CoopBoostCreatePricingType[keyof typeof CoopBoostCreatePricingType];
+
+
+export const CoopBoostCreatePricingType = {
+  flat: 'flat',
+  bid: 'bid',
+} as const;
+
+export interface CoopBoostCreate {
+  partnershipId: number;
+  surface: CoopBoostCreateSurface;
+  pricingType: CoopBoostCreatePricingType;
+  /** @exclusiveMinimum 0 */
+  amount: number;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface CoopSlotWindowBids {
+  startsAt: string;
+  endsAt: string;
+  bidCount: number;
+  /** Current highest pending bid for this (surface, window) auction. */
+  highBid: number;
+}
+
+export type CoopSponsorshipSlotSurface = typeof CoopSponsorshipSlotSurface[keyof typeof CoopSponsorshipSlotSurface];
+
+
+export const CoopSponsorshipSlotSurface = {
+  discovery: 'discovery',
+  booking_confirmation: 'booking_confirmation',
+} as const;
+
+export interface CoopSponsorshipSlot {
+  surface: CoopSponsorshipSlotSurface;
+  activeBoost: CoopFeaturedBoost | null;
+  pendingWindows: CoopSlotWindowBids[];
+}
+
+export interface CoopSponsorshipSlotsResponse {
+  slots: CoopSponsorshipSlot[];
+}
+
+export type CoopWalletEntryEntryType = typeof CoopWalletEntryEntryType[keyof typeof CoopWalletEntryEntryType];
+
+
+export const CoopWalletEntryEntryType = {
+  redemption_earning: 'redemption_earning',
+  redemption_charge: 'redemption_charge',
+  boost_purchase: 'boost_purchase',
+  payout: 'payout',
+} as const;
+
+export type CoopWalletEntryStatus = typeof CoopWalletEntryStatus[keyof typeof CoopWalletEntryStatus];
+
+
+export const CoopWalletEntryStatus = {
+  pending: 'pending',
+  paid_out: 'paid_out',
+} as const;
+
+export interface CoopWalletEntry {
+  id: number;
+  entryType: CoopWalletEntryEntryType;
+  /** Signed dollars — positive credits the balance, negative debits it. Earnings are net of the platform fee. */
+  amount: number;
+  /** Platform fee already deducted from this entry's gross amount; 0 for non-earning entries. */
+  fee: number;
+  /** @nullable */
+  partnershipId: number | null;
+  /** @nullable */
+  partnershipPerkTitle: string | null;
+  /** @nullable */
+  redemptionId: number | null;
+  /** @nullable */
+  boostId: number | null;
+  status: CoopWalletEntryStatus;
+  /** @nullable */
+  description: string | null;
+  createdAt: string;
+}
+
+export interface CoopWalletResponse {
+  /** Sum of pending (not yet paid out) entries. */
+  balance: number;
+  /** Sum of all positive entries ever credited (net of fees). */
+  lifetimeEarnings: number;
+  /** Sum of platform fees deducted from this wallet's earnings. */
+  totalFees: number;
+  entries: CoopWalletEntry[];
+}
+
+export interface AdminCoopWalletSummary {
+  tenantId: number;
+  tenantName: string;
+  pendingBalance: number;
+  lifetimeEarnings: number;
+  totalFees: number;
+  entryCount: number;
+  /** @nullable */
+  lastActivityAt: string | null;
+}
+
+export interface AdminCoopWalletsResponse {
+  feePercent: number;
+  wallets: AdminCoopWalletSummary[];
+}
+
+export interface AdminCoopFeeUpdate {
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  feePercent: number;
+}
+
+export interface AdminCoopPayoutResult {
+  tenantId: number;
+  amountPaid: number;
+  entriesMarked: number;
+  payoutEntryId: number;
 }
 
 export interface CoopFlashPerk {
@@ -1053,6 +1263,29 @@ export interface CoopActivePerksResponse {
   perks: CoopActivePerk[];
   /** Boosted flash offers from live campaigns this business joined — present only while each campaign window is open. */
   flashPerks: CoopFlashPerk[];
+}
+
+export interface PublicBookingPerk {
+  id: number;
+  perkTitle: string;
+  /** @nullable */
+  perkDescription: string | null;
+  /** @nullable */
+  mutualRewardTerms: string | null;
+  partnerName: string;
+  redemptionCode: string;
+  /** @nullable */
+  perkEndsAt: string | null;
+  /** True while this perk's partnership holds an active paid boost for the booking-confirmation surface; featured perks sort first. */
+  featured: boolean;
+}
+
+/**
+ * Public booking-confirmation perk feed — like CoopActivePerksResponse but without merchant-only fields (tracking codes never leak publicly).
+ */
+export interface PublicBookingPerksResponse {
+  disclaimer: string;
+  perks: PublicBookingPerk[];
 }
 
 export interface CoopCampaignTemplate {
@@ -1850,6 +2083,17 @@ export interface CoopPartnershipCreate {
   perkEndsAt?: string;
 }
 
+/**
+ * @nullable
+ */
+export type CoopPartnershipUpdateRevenueShareKind = typeof CoopPartnershipUpdateRevenueShareKind[keyof typeof CoopPartnershipUpdateRevenueShareKind] | null;
+
+
+export const CoopPartnershipUpdateRevenueShareKind = {
+  bounty: 'bounty',
+  percent: 'percent',
+} as const;
+
 export interface CoopPartnershipUpdate {
   /** @minLength 1 */
   perkTitle?: string;
@@ -1882,6 +2126,12 @@ export interface CoopPartnershipUpdate {
      * @nullable
      */
   partnerReciprocityThreshold?: number | null;
+  /** @nullable */
+  revenueShareKind?: CoopPartnershipUpdateRevenueShareKind;
+  /** @nullable */
+  revenueShareValue?: number | null;
+  /** @nullable */
+  revenueShareBaseAmount?: number | null;
 }
 
 export type PlatformInviteStatus = typeof PlatformInviteStatus[keyof typeof PlatformInviteStatus];

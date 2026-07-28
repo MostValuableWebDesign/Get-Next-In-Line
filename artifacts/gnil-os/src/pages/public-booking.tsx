@@ -4,6 +4,7 @@ import {
   useGetPublicBookingConfig,
   useGetPublicBookingAvailability,
   useCreatePublicBooking,
+  useListPublicBookingPerks, getListPublicBookingPerksQueryKey,
   type PublicBookingConfig,
   type PublicTimeSlot,
   type PublicBookingConfirmation,
@@ -212,6 +213,7 @@ function BookingFlow({ config, slug }: { config: PublicBookingConfig; slug: stri
             </Button>
           </CardContent>
         </Card>
+        <ConfirmationPerks slug={slug} />
       </div>
     );
   }
@@ -387,5 +389,59 @@ function StepBreadcrumb({ step, onBack }: { step: Step; onBack: (s: Step) => voi
       </Button>
       <p className="text-sm font-medium">{STEP_LABELS[step]}</p>
     </div>
+  );
+}
+
+/**
+ * Partner perks shown on the post-booking confirmation screen. Featured
+ * (sponsored) perks render highlighted above organic matches; when a boost
+ * expires the perk falls back to organic placement automatically.
+ */
+function ConfirmationPerks({ slug }: { slug: string }) {
+  const { data } = useListPublicBookingPerks(slug, {
+    query: { queryKey: getListPublicBookingPerksQueryKey(slug) },
+  });
+  const perks = data?.perks ?? [];
+  if (perks.length === 0) return null;
+  return (
+    <Card className="mt-4" data-testid="card-confirmation-perks">
+      <CardContent className="pt-6 space-y-3">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+          Neighborhood perks for you
+        </h3>
+        <div className="space-y-2">
+          {perks.map(perk => (
+            <div
+              key={perk.id}
+              className={`rounded-lg border p-3 text-sm ${
+                perk.featured
+                  ? 'border-amber-400/80 bg-amber-100/50 dark:bg-amber-900/20'
+                  : ''
+              }`}
+              data-testid={`row-confirmation-perk-${perk.id}`}
+            >
+              {perk.featured && (
+                <span
+                  className="mb-1 inline-block text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400"
+                  data-testid={`badge-confirmation-featured-${perk.id}`}
+                >
+                  ★ Featured partner
+                </span>
+              )}
+              <div className="font-medium">{perk.perkTitle}</div>
+              <div className="text-muted-foreground text-xs mt-0.5">
+                Courtesy of {perk.partnerName}
+                {perk.perkEndsAt && ` · through ${new Date(perk.perkEndsAt).toLocaleDateString()}`}
+              </div>
+            </div>
+          ))}
+        </div>
+        {data?.disclaimer && (
+          <p className="text-[10px] leading-snug text-muted-foreground border-t pt-2">
+            {data.disclaimer}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

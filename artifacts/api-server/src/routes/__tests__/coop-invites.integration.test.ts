@@ -132,6 +132,7 @@ describe("co-op directory", () => {
         "category",
         "city",
         "distanceMiles",
+        "featured",
         "id",
         "industry",
         "name",

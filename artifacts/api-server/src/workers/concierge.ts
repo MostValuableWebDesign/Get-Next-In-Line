@@ -20,6 +20,7 @@ import {
   renderTemplate,
 } from "../lib/concierge";
 import { logger } from "../lib/logger";
+import { resolveCoopBoosts } from "../lib/coopSponsorship";
 import { resolveSettings } from "../lib/settings";
 import { generateCoopMonthlyReports } from "../lib/coopEvents";
 import { sweepCampaignAutoBlasts } from "../lib/coopCampaigns";
@@ -401,6 +402,9 @@ export interface ConciergeTickResult {
   supplyReminders: number;
   /** Group-buy replenishment requests auto-created/joined this tick. */
   supplyAutoRequests: number;
+  /** Sponsorship Hub: featured-slot auctions settled + boosts expired this tick. */
+  boostAuctionsSettled: number;
+  boostsExpired: number;
 }
 
 /**
@@ -418,11 +422,14 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0, supplyReminders: 0, supplyAutoRequests: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0, supplyReminders: 0, supplyAutoRequests: 0, boostAuctionsSettled: 0, boostsExpired: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
     const expiredPerks = await sweepExpiredCoopPerks(now);
     const perkReminders = await sweepPerkExpiryReminders(now);
+    // Sponsorship Hub: settle due featured-slot auctions (highest bid wins),
+    // activate winners, expire ended boosts. Idempotent state transitions.
+    const boostResolution = await resolveCoopBoosts(now);
     // Monthly co-op impact reports: idempotent per tenant-month (unique
     // constraint), so running on every tick only ever creates each report —
     // and sends each owner notification — once, right after a month closes.
@@ -458,7 +465,12 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
       await sweepSupplyReorders(now);
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
-    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, tierTransitions, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests };
+    return {
+      ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, supplyReminders, supplyAutoRequests,
+      campaignBlasts, tierTransitions, emergencyFanouts, surgeActivated, surgeEnded, reputationActions,
+      boostAuctionsSettled: boostResolution.auctionsSettled,
+      boostsExpired: boostResolution.boostsExpired,
+    };
   });
 }
 
@@ -504,6 +516,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       await runSurgeSweep();
       await runReputationEnforcement();
       await sweepSupplyReorders();
+      await resolveCoopBoosts();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;
@@ -530,10 +543,10 @@ function startIntervalWorker(): ConciergeWorkerHandle {
     if (running) return; // don't overlap slow ticks
     running = true;
     try {
-      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests } = await runConciergeTick();
-      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts + emergencyFanouts + surgeActivated + surgeEnded + reputationActions + supplyReminders + supplyAutoRequests > 0) {
+      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests, boostAuctionsSettled, boostsExpired } = await runConciergeTick();
+      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts + emergencyFanouts + surgeActivated + surgeEnded + reputationActions + supplyReminders + supplyAutoRequests + boostAuctionsSettled + boostsExpired > 0) {
         logger.info(
-          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests },
+          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests, boostAuctionsSettled, boostsExpired },
           "Concierge interval tick dispatched messages",
         );
       }

@@ -401,6 +401,9 @@ export const ListCoopPartnershipsResponseItem = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 })
 export const ListCoopPartnershipsResponse = zod.array(ListCoopPartnershipsResponseItem)
@@ -457,6 +460,9 @@ export const CreateCoopPartnershipResponse = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 })
 
@@ -487,7 +493,10 @@ export const UpdateCoopPartnershipBody = zod.object({
   "perkStartsAt": zod.coerce.date().nullish(),
   "perkEndsAt": zod.coerce.date().nullish(),
   "hostReciprocityThreshold": zod.number().min(1).max(updateCoopPartnershipBodyHostReciprocityThresholdMax).nullish().describe('Only the host may set this; null restores the platform default.'),
-  "partnerReciprocityThreshold": zod.number().min(1).max(updateCoopPartnershipBodyPartnerReciprocityThresholdMax).nullish().describe('Only the partner may set this; null restores the platform default.')
+  "partnerReciprocityThreshold": zod.number().min(1).max(updateCoopPartnershipBodyPartnerReciprocityThresholdMax).nullish().describe('Only the partner may set this; null restores the platform default.'),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullish(),
+  "revenueShareValue": zod.number().nullish(),
+  "revenueShareBaseAmount": zod.number().nullish()
 })
 
 export const UpdateCoopPartnershipResponse = zod.object({
@@ -520,6 +529,9 @@ export const UpdateCoopPartnershipResponse = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 })
 
@@ -561,6 +573,9 @@ export const ReactivateCoopPartnershipResponse = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 })
 
@@ -662,6 +677,9 @@ export const ProposeCoopRenegotiationResponse = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 })
 
@@ -707,6 +725,9 @@ export const RespondToCoopRenegotiationResponse = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 })
 
@@ -748,6 +769,9 @@ export const PauseCoopPartnershipResponse = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 })
 
@@ -789,6 +813,9 @@ export const ResumeCoopPartnershipResponse = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 })
 
@@ -813,6 +840,7 @@ export const ListCoopDirectoryResponseItem = zod.object({
   "sameIndustry": zod.boolean().describe('True when this business shares the requester\'s Level 1 industry (different sub-niche — pairing still allowed). Direct same-sub-category competitors never appear at all.'),
   "samePlaza": zod.boolean().describe('True when this business shares the requester\'s commercial complex (same address block + postal code, or lat\/long proximity).'),
   "plazaConflict": zod.boolean().describe('True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester\'s active same-plaza partnerships.'),
+  "featured": zod.boolean().describe('True while this business holds an active paid featured boost for the discovery surface; featured entries sort above organic matches.'),
   "capacityStatus": zod.union([zod.literal('available'),zod.literal('moderate'),zod.literal('busy'),zod.literal(null)]).nullish().describe('The business\'s live capacity status; null when unavailable.')
 })
 export const ListCoopDirectoryResponse = zod.array(ListCoopDirectoryResponseItem)
@@ -895,6 +923,9 @@ export const CreateCoopInviteResponse = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 })
 
@@ -996,6 +1027,9 @@ export const RespondToCoopInviteResponse = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 })
 
@@ -1018,7 +1052,8 @@ export const ListCoopActivePerksResponse = zod.object({
   "baseDiscountPercent": zod.number(),
   "boostedDiscountPercent": zod.number(),
   "expiresAt": zod.string()
-}),zod.null()]).optional().describe('Live surge boost — when present, the perk shows the elevated discount and limited-time indicator until expiresAt.')
+}),zod.null()]).optional().describe('Live surge boost — when present, the perk shows the elevated discount and limited-time indicator until expiresAt.'),
+  "featured": zod.boolean().describe('True while this perk\'s partnership holds an active paid featured boost for the surface being rendered; featured perks sort above organic ones.')
 })),
   "flashPerks": zod.array(zod.object({
   "campaignId": zod.number(),
@@ -1200,6 +1235,187 @@ export const ListCoopSurgeActivationsResponse = zod.array(ListCoopSurgeActivatio
 
 
 /**
+ * @summary Merchant-facing — featured-slot availability per surface (current active boost + pending auction bids); tenant scope via x-tenant-id
+ */
+export const ListCoopSponsorshipSlotsResponse = zod.object({
+  "slots": zod.array(zod.object({
+  "surface": zod.enum(['discovery', 'booking_confirmation']),
+  "activeBoost": zod.union([zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().describe('Sponsoring business.'),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "partnerName": zod.string().describe('The other side of the sponsored partnership.'),
+  "surface": zod.enum(['discovery', 'booking_confirmation']),
+  "pricingType": zod.enum(['flat', 'bid']),
+  "amount": zod.number(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "status": zod.enum(['pending', 'active', 'lost', 'expired']).describe('Flat purchases are active from purchase; bids stay pending until the window\'s auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt.'),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "pendingWindows": zod.array(zod.object({
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "bidCount": zod.number(),
+  "highBid": zod.number().describe('Current highest pending bid for this (surface, window) auction.')
+}))
+}))
+})
+
+
+/**
+ * @summary Merchant-facing — the scoped tenant's featured-slot boosts (all statuses); tenant scope via x-tenant-id
+ */
+export const ListCoopBoostsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().describe('Sponsoring business.'),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "partnerName": zod.string().describe('The other side of the sponsored partnership.'),
+  "surface": zod.enum(['discovery', 'booking_confirmation']),
+  "pricingType": zod.enum(['flat', 'bid']),
+  "amount": zod.number(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "status": zod.enum(['pending', 'active', 'lost', 'expired']).describe('Flat purchases are active from purchase; bids stay pending until the window\'s auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt.'),
+  "createdAt": zod.string()
+})
+export const ListCoopBoostsResponse = zod.array(ListCoopBoostsResponseItem)
+
+
+/**
+ * @summary Merchant-facing — place an auction bid or buy a flat-fee featured boost for a partnership perk; tenant scope via x-tenant-id
+ */
+export const createCoopBoostBodyAmountExclusiveMin = 0;
+
+
+
+export const CreateCoopBoostBody = zod.object({
+  "partnershipId": zod.number(),
+  "surface": zod.enum(['discovery', 'booking_confirmation']),
+  "pricingType": zod.enum(['flat', 'bid']),
+  "amount": zod.number().gt(createCoopBoostBodyAmountExclusiveMin),
+  "startsAt": zod.coerce.date(),
+  "endsAt": zod.coerce.date()
+})
+
+export const CreateCoopBoostResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().describe('Sponsoring business.'),
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "partnerName": zod.string().describe('The other side of the sponsored partnership.'),
+  "surface": zod.enum(['discovery', 'booking_confirmation']),
+  "pricingType": zod.enum(['flat', 'bid']),
+  "amount": zod.number(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "status": zod.enum(['pending', 'active', 'lost', 'expired']).describe('Flat purchases are active from purchase; bids stay pending until the window\'s auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt.'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — internal co-op wallet balance and transaction ledger; tenant scope via x-tenant-id
+ */
+export const GetCoopWalletResponse = zod.object({
+  "balance": zod.number().describe('Sum of pending (not yet paid out) entries.'),
+  "lifetimeEarnings": zod.number().describe('Sum of all positive entries ever credited (net of fees).'),
+  "totalFees": zod.number().describe('Sum of platform fees deducted from this wallet\'s earnings.'),
+  "entries": zod.array(zod.object({
+  "id": zod.number(),
+  "entryType": zod.enum(['redemption_earning', 'redemption_charge', 'boost_purchase', 'payout']),
+  "amount": zod.number().describe('Signed dollars — positive credits the balance, negative debits it. Earnings are net of the platform fee.'),
+  "fee": zod.number().describe('Platform fee already deducted from this entry\'s gross amount; 0 for non-earning entries.'),
+  "partnershipId": zod.number().nullable(),
+  "partnershipPerkTitle": zod.string().nullable(),
+  "redemptionId": zod.number().nullable(),
+  "boostId": zod.number().nullable(),
+  "status": zod.enum(['pending', 'paid_out']),
+  "description": zod.string().nullable(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Platform admin — per-tenant co-op wallet balances and the platform transaction fee
+ */
+export const ListAdminCoopWalletsResponse = zod.object({
+  "feePercent": zod.number(),
+  "wallets": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "pendingBalance": zod.number(),
+  "lifetimeEarnings": zod.number(),
+  "totalFees": zod.number(),
+  "entryCount": zod.number(),
+  "lastActivityAt": zod.string().nullable()
+}))
+})
+
+
+/**
+ * @summary Platform admin — set the platform transaction fee applied to co-op revenue-share earnings
+ */
+export const updateAdminCoopFeeBodyFeePercentMin = 0;
+export const updateAdminCoopFeeBodyFeePercentMax = 100;
+
+
+
+export const UpdateAdminCoopFeeBody = zod.object({
+  "feePercent": zod.number().min(updateAdminCoopFeeBodyFeePercentMin).max(updateAdminCoopFeeBodyFeePercentMax)
+})
+
+export const updateAdminCoopFeeResponseFeePercentMin = 0;
+export const updateAdminCoopFeeResponseFeePercentMax = 100;
+
+
+
+export const UpdateAdminCoopFeeResponse = zod.object({
+  "feePercent": zod.number().min(updateAdminCoopFeeResponseFeePercentMin).max(updateAdminCoopFeeResponseFeePercentMax)
+})
+
+
+/**
+ * @summary Platform admin — mark a tenant's pending wallet balance as paid out (internal accounting only, no real money movement)
+ */
+export const ProcessAdminCoopPayoutParams = zod.object({
+  "tenantId": zod.coerce.number()
+})
+
+export const ProcessAdminCoopPayoutResponse = zod.object({
+  "tenantId": zod.number(),
+  "amountPaid": zod.number(),
+  "entriesMarked": zod.number(),
+  "payoutEntryId": zod.number()
+})
+
+
+/**
+ * @summary Public — live partner perks for a business's booking confirmation screen (featured boosts first); slug-scoped, no auth
+ */
+export const ListPublicBookingPerksParams = zod.object({
+  "slug": zod.coerce.string()
+})
+
+export const ListPublicBookingPerksResponse = zod.object({
+  "disclaimer": zod.string(),
+  "perks": zod.array(zod.object({
+  "id": zod.number(),
+  "perkTitle": zod.string(),
+  "perkDescription": zod.string().nullable(),
+  "mutualRewardTerms": zod.string().nullable(),
+  "partnerName": zod.string(),
+  "redemptionCode": zod.string(),
+  "perkEndsAt": zod.coerce.date().nullable(),
+  "featured": zod.boolean().describe('True while this perk\'s partnership holds an active paid boost for the booking-confirmation surface; featured perks sort first.')
+}))
+}).describe('Public booking-confirmation perk feed — like CoopActivePerksResponse but without merchant-only fields (tracking codes never leak publicly).')
+
+
+/**
  * @summary Merchant-facing — redeem a scanned perk pass, locking that pass instance against double redemption; tenant scope via x-tenant-id
  */
 
@@ -1244,6 +1460,9 @@ export const RedeemCoopPerkResponse = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 }),zod.null()]),
   "redeemedAt": zod.string().nullable().describe('When this pass instance was redeemed; set on success and on already-redeemed rejections.')
@@ -2171,6 +2390,9 @@ export const ValidateCoopRedemptionCodeResponse = zod.object({
   "proposedMutualRewardTerms": zod.string().nullable(),
   "renegotiationRequestedByTenantId": zod.number().nullable().describe('Tenant that proposed the pending re-negotiation; null when none is pending.'),
   "isActive": zod.boolean(),
+  "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
+  "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
+  "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
   "createdAt": zod.string()
 }),zod.null()])
 })

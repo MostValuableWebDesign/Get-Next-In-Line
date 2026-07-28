@@ -9,6 +9,11 @@ export const agencySettingsTable = pgTable("agency_settings", {
   platformName: text("platform_name").notNull().default("Get Next In Line"),
   deploymentMode: text("deployment_mode").notNull().default("Full-Stack Agency Mode"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  // Platform transaction fee (percent) deducted from every co-op revenue-share
+  // earning before it lands in the merchant's wallet. Operator-configurable.
+  coopPlatformFeePercent: numeric("coop_platform_fee_percent", { precision: 5, scale: 2 })
+    .notNull()
+    .default("10"),
 });
 
 export const insertAgencySettingsSchema = createInsertSchema(agencySettingsTable).omit({ id: true, updatedAt: true });
@@ -252,6 +257,16 @@ export const merchantCoopPartnershipsTable = pgTable(
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    // ── Optional revenue-share terms ─────────────────────────────────────────
+    // When set, every perk redemption under this partnership automatically
+    // writes wallet-ledger entries: the redeeming business pays the referring
+    // partner either a flat referral bounty ("bounty": revenueShareValue
+    // dollars) or a percentage split ("percent": revenueShareValue percent of
+    // revenueShareBaseAmount, the agreed nominal transaction value per
+    // redemption). NULL kind = no revenue share (classic mutual-perk pact).
+    revenueShareKind: text("revenue_share_kind"), // bounty | percent | NULL
+    revenueShareValue: numeric("revenue_share_value", { precision: 10, scale: 2 }),
+    revenueShareBaseAmount: numeric("revenue_share_base_amount", { precision: 10, scale: 2 }),
   },
   (t) => [
     index("merchant_coop_partnerships_host_idx").on(t.hostTenantId),
@@ -1125,6 +1140,96 @@ export const coopSurgeActivationsTable = pgTable(
 );
 
 export type CoopSurgeActivation = typeof coopSurgeActivationsTable.$inferSelect;
+
+// ── Co-op featured-slot boosts (Sponsorship Hub) ─────────────────────────────
+// Paid premium placement of a partner perk in a featured slot on a consumer
+// surface. Two pricing types:
+//  - flat: a fixed-fee purchase; activates immediately (first come, first
+//    served — overlapping flat purchases for the same surface are rejected)
+//    and renders whenever `now` is inside its window.
+//  - bid:  an auction entry for a (surface, window) slot; stays pending until
+//    the window starts, when the scheduled resolution job settles the auction
+//    (highest bid wins, ties broken by earliest bid) and activates the winner.
+// Expired boosts fall back to organic placement automatically — rendering
+// only ever honors status='active' AND now within [startsAt, endsAt).
+export const coopFeaturedBoostsTable = pgTable(
+  "coop_featured_boosts",
+  {
+    id: serial("id").primaryKey(),
+    // Sponsoring business (must be a participant of the partnership).
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    // Consumer surface the featured slot lives on:
+    // discovery | booking_confirmation
+    surface: text("surface").notNull(),
+    // flat | bid
+    pricingType: text("pricing_type").notNull(),
+    amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+    startsAt: timestamp("starts_at").notNull(),
+    endsAt: timestamp("ends_at").notNull(),
+    // pending | active | lost | expired
+    status: text("status").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_featured_boosts_surface_status_idx").on(t.surface, t.status),
+    index("coop_featured_boosts_tenant_idx").on(t.tenantId),
+    index("coop_featured_boosts_partnership_idx").on(t.partnershipId),
+  ],
+);
+
+export type CoopFeaturedBoost = typeof coopFeaturedBoostsTable.$inferSelect;
+
+// ── Co-op merchant wallet ledger ─────────────────────────────────────────────
+// Internal accounting record of each merchant's co-op earnings and charges:
+// revenue-share splits from perk redemptions (earning on the referring side,
+// charge on the redeeming side), platform fee deductions, boost purchases,
+// and operator-processed payouts. Signed amounts: positive = credited to the
+// merchant's balance, negative = debited. `status` tracks payout state:
+// pending entries make up the current balance; a processed payout flips them
+// to paid_out and appends a negative payout entry. NOT real money movement —
+// payouts are marked processed manually by platform operators.
+export const coopWalletEntriesTable = pgTable(
+  "coop_wallet_entries",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // redemption_earning | redemption_charge | boost_purchase | payout
+    entryType: text("entry_type").notNull(),
+    // Signed dollars. Earnings are recorded NET of the platform fee.
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    // Platform fee deducted from this entry's gross amount (informational,
+    // already subtracted from `amount`). 0 for non-earning entries.
+    fee: numeric("fee", { precision: 12, scale: 2 }).notNull().default("0"),
+    partnershipId: integer("partnership_id").references(
+      () => merchantCoopPartnershipsTable.id,
+      { onDelete: "set null" },
+    ),
+    redemptionId: integer("redemption_id").references(() => coopPerkRedemptionsTable.id, {
+      onDelete: "set null",
+    }),
+    boostId: integer("boost_id").references(() => coopFeaturedBoostsTable.id, {
+      onDelete: "set null",
+    }),
+    // pending | paid_out
+    status: text("status").notNull().default("pending"),
+    description: text("description"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_wallet_entries_tenant_idx").on(t.tenantId, t.createdAt.desc()),
+    index("coop_wallet_entries_status_idx").on(t.tenantId, t.status),
+  ],
+);
+
+export type CoopWalletEntry = typeof coopWalletEntriesTable.$inferSelect;
 
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,

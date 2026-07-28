@@ -18,7 +18,11 @@ export type PlatformLedgerSource =
   | "plan_renewal"
   | "deposit_captured"
   | "deposit_released"
-  | "deposit_failed";
+  | "deposit_failed"
+  // Co-op Sponsorship Hub: featured-boost purchases (flat fee or winning
+  // auction bid) and the platform fee slice of revenue-share splits.
+  | "coop_boost"
+  | "coop_split_fee";
 
 export interface PlatformLedgerEvent {
   source: PlatformLedgerSource;

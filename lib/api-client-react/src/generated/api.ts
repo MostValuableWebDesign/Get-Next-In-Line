@@ -24,7 +24,10 @@ import type {
   AdminCampaignCreate,
   AdminCampaignUpdate,
   AdminComplianceSummary,
+  AdminCoopFeeUpdate,
+  AdminCoopPayoutResult,
   AdminCoopReputationEntry,
+  AdminCoopWalletsResponse,
   AdminModuleDetail,
   AgencyDashboard,
   AgencySettings,
@@ -42,6 +45,7 @@ import type {
   ConnectorRegistryEntry,
   ConnectorRegistryEntryUpdate,
   CoopActivePerksResponse,
+  CoopBoostCreate,
   CoopCampaign,
   CoopCampaignBlastResult,
   CoopCampaignCreate,
@@ -65,6 +69,7 @@ import type {
   CoopEventExpenseCreate,
   CoopEventParticipantUpdate,
   CoopEventRespond,
+  CoopFeaturedBoost,
   CoopIndustryBarrierError,
   CoopInviteCreate,
   CoopInviteRespond,
@@ -92,6 +97,7 @@ import type {
   CoopRetailSaleRequest,
   CoopRetailSaleResult,
   CoopRetailStockAdjustment,
+  CoopSponsorshipSlotsResponse,
   CoopStatsResponse,
   CoopSuggestion,
   CoopSuggestionDismissResult,
@@ -102,6 +108,7 @@ import type {
   CoopTaxSettings,
   CoopTaxSettingsUpdate,
   CoopTaxonomyIndustry,
+  CoopWalletResponse,
   CreateGatewayTokenRequest,
   DeleteCoopSurgeRule200,
   EmergencyBroadcast,
@@ -192,6 +199,7 @@ import type {
   PublicBookingConfig,
   PublicBookingConfirmation,
   PublicBookingInput,
+  PublicBookingPerksResponse,
   PublicPlatformInvite,
   SafetyBroadcastTemplate,
   SafetyBroadcastTemplateCreate,
@@ -3577,6 +3585,604 @@ export function useListCoopSurgeActivations<TData = Awaited<ReturnType<typeof li
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListCoopSurgeActivationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCoopSponsorshipSlotsUrl = () => {
+
+
+
+
+  return `/api/coop/sponsorship/slots`
+}
+
+/**
+ * @summary Merchant-facing — featured-slot availability per surface (current active boost + pending auction bids); tenant scope via x-tenant-id
+ */
+export const listCoopSponsorshipSlots = async ( options?: RequestInit): Promise<CoopSponsorshipSlotsResponse> => {
+
+  return customFetch<CoopSponsorshipSlotsResponse>(getListCoopSponsorshipSlotsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopSponsorshipSlotsQueryKey = () => {
+    return [
+    `/api/coop/sponsorship/slots`
+    ] as const;
+    }
+
+
+export const getListCoopSponsorshipSlotsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopSponsorshipSlots>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSponsorshipSlots>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopSponsorshipSlotsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopSponsorshipSlots>>> = ({ signal }) => listCoopSponsorshipSlots({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopSponsorshipSlots>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopSponsorshipSlotsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopSponsorshipSlots>>>
+export type ListCoopSponsorshipSlotsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — featured-slot availability per surface (current active boost + pending auction bids); tenant scope via x-tenant-id
+ */
+
+export function useListCoopSponsorshipSlots<TData = Awaited<ReturnType<typeof listCoopSponsorshipSlots>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSponsorshipSlots>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopSponsorshipSlotsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCoopBoostsUrl = () => {
+
+
+
+
+  return `/api/coop/sponsorship/boosts`
+}
+
+/**
+ * @summary Merchant-facing — the scoped tenant's featured-slot boosts (all statuses); tenant scope via x-tenant-id
+ */
+export const listCoopBoosts = async ( options?: RequestInit): Promise<CoopFeaturedBoost[]> => {
+
+  return customFetch<CoopFeaturedBoost[]>(getListCoopBoostsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopBoostsQueryKey = () => {
+    return [
+    `/api/coop/sponsorship/boosts`
+    ] as const;
+    }
+
+
+export const getListCoopBoostsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopBoosts>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopBoosts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopBoostsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopBoosts>>> = ({ signal }) => listCoopBoosts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopBoosts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopBoostsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopBoosts>>>
+export type ListCoopBoostsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — the scoped tenant's featured-slot boosts (all statuses); tenant scope via x-tenant-id
+ */
+
+export function useListCoopBoosts<TData = Awaited<ReturnType<typeof listCoopBoosts>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopBoosts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopBoostsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopBoostUrl = () => {
+
+
+
+
+  return `/api/coop/sponsorship/boosts`
+}
+
+/**
+ * @summary Merchant-facing — place an auction bid or buy a flat-fee featured boost for a partnership perk; tenant scope via x-tenant-id
+ */
+export const createCoopBoost = async (coopBoostCreate: CoopBoostCreate, options?: RequestInit): Promise<CoopFeaturedBoost> => {
+
+  return customFetch<CoopFeaturedBoost>(getCreateCoopBoostUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopBoostCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopBoostMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopBoost>>, TError,{data: BodyType<CoopBoostCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopBoost>>, TError,{data: BodyType<CoopBoostCreate>}, TContext> => {
+
+const mutationKey = ['createCoopBoost'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopBoost>>, {data: BodyType<CoopBoostCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopBoost(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopBoostMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopBoost>>>
+    export type CreateCoopBoostMutationBody = BodyType<CoopBoostCreate>
+    export type CreateCoopBoostMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — place an auction bid or buy a flat-fee featured boost for a partnership perk; tenant scope via x-tenant-id
+ */
+export const useCreateCoopBoost = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopBoost>>, TError,{data: BodyType<CoopBoostCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopBoost>>,
+        TError,
+        {data: BodyType<CoopBoostCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopBoostMutationOptions(options));
+    }
+
+export const getGetCoopWalletUrl = () => {
+
+
+
+
+  return `/api/coop/wallet`
+}
+
+/**
+ * @summary Merchant-facing — internal co-op wallet balance and transaction ledger; tenant scope via x-tenant-id
+ */
+export const getCoopWallet = async ( options?: RequestInit): Promise<CoopWalletResponse> => {
+
+  return customFetch<CoopWalletResponse>(getGetCoopWalletUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopWalletQueryKey = () => {
+    return [
+    `/api/coop/wallet`
+    ] as const;
+    }
+
+
+export const getGetCoopWalletQueryOptions = <TData = Awaited<ReturnType<typeof getCoopWallet>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopWallet>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopWalletQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopWallet>>> = ({ signal }) => getCoopWallet({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopWallet>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopWalletQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopWallet>>>
+export type GetCoopWalletQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — internal co-op wallet balance and transaction ledger; tenant scope via x-tenant-id
+ */
+
+export function useGetCoopWallet<TData = Awaited<ReturnType<typeof getCoopWallet>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopWallet>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopWalletQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAdminCoopWalletsUrl = () => {
+
+
+
+
+  return `/api/admin/coop/wallets`
+}
+
+/**
+ * @summary Platform admin — per-tenant co-op wallet balances and the platform transaction fee
+ */
+export const listAdminCoopWallets = async ( options?: RequestInit): Promise<AdminCoopWalletsResponse> => {
+
+  return customFetch<AdminCoopWalletsResponse>(getListAdminCoopWalletsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminCoopWalletsQueryKey = () => {
+    return [
+    `/api/admin/coop/wallets`
+    ] as const;
+    }
+
+
+export const getListAdminCoopWalletsQueryOptions = <TData = Awaited<ReturnType<typeof listAdminCoopWallets>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopWallets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminCoopWalletsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminCoopWallets>>> = ({ signal }) => listAdminCoopWallets({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopWallets>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminCoopWalletsQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminCoopWallets>>>
+export type ListAdminCoopWalletsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Platform admin — per-tenant co-op wallet balances and the platform transaction fee
+ */
+
+export function useListAdminCoopWallets<TData = Awaited<ReturnType<typeof listAdminCoopWallets>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminCoopWallets>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminCoopWalletsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAdminCoopFeeUrl = () => {
+
+
+
+
+  return `/api/admin/coop/fee`
+}
+
+/**
+ * @summary Platform admin — set the platform transaction fee applied to co-op revenue-share earnings
+ */
+export const updateAdminCoopFee = async (adminCoopFeeUpdate: AdminCoopFeeUpdate, options?: RequestInit): Promise<AdminCoopFeeUpdate> => {
+
+  return customFetch<AdminCoopFeeUpdate>(getUpdateAdminCoopFeeUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(adminCoopFeeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminCoopFeeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminCoopFee>>, TError,{data: BodyType<AdminCoopFeeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminCoopFee>>, TError,{data: BodyType<AdminCoopFeeUpdate>}, TContext> => {
+
+const mutationKey = ['updateAdminCoopFee'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminCoopFee>>, {data: BodyType<AdminCoopFeeUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAdminCoopFee(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminCoopFeeMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminCoopFee>>>
+    export type UpdateAdminCoopFeeMutationBody = BodyType<AdminCoopFeeUpdate>
+    export type UpdateAdminCoopFeeMutationError = ErrorType<void>
+
+    /**
+ * @summary Platform admin — set the platform transaction fee applied to co-op revenue-share earnings
+ */
+export const useUpdateAdminCoopFee = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminCoopFee>>, TError,{data: BodyType<AdminCoopFeeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminCoopFee>>,
+        TError,
+        {data: BodyType<AdminCoopFeeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateAdminCoopFeeMutationOptions(options));
+    }
+
+export const getProcessAdminCoopPayoutUrl = (tenantId: number,) => {
+
+
+
+
+  return `/api/admin/coop/wallets/${tenantId}/payouts`
+}
+
+/**
+ * @summary Platform admin — mark a tenant's pending wallet balance as paid out (internal accounting only, no real money movement)
+ */
+export const processAdminCoopPayout = async (tenantId: number, options?: RequestInit): Promise<AdminCoopPayoutResult> => {
+
+  return customFetch<AdminCoopPayoutResult>(getProcessAdminCoopPayoutUrl(tenantId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getProcessAdminCoopPayoutMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof processAdminCoopPayout>>, TError,{tenantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof processAdminCoopPayout>>, TError,{tenantId: number}, TContext> => {
+
+const mutationKey = ['processAdminCoopPayout'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof processAdminCoopPayout>>, {tenantId: number}> = (props) => {
+          const {tenantId} = props ?? {};
+
+          return  processAdminCoopPayout(tenantId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProcessAdminCoopPayoutMutationResult = NonNullable<Awaited<ReturnType<typeof processAdminCoopPayout>>>
+
+    export type ProcessAdminCoopPayoutMutationError = ErrorType<void>
+
+    /**
+ * @summary Platform admin — mark a tenant's pending wallet balance as paid out (internal accounting only, no real money movement)
+ */
+export const useProcessAdminCoopPayout = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof processAdminCoopPayout>>, TError,{tenantId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof processAdminCoopPayout>>,
+        TError,
+        {tenantId: number},
+        TContext
+      > => {
+      return useMutation(getProcessAdminCoopPayoutMutationOptions(options));
+    }
+
+export const getListPublicBookingPerksUrl = (slug: string,) => {
+
+
+
+
+  return `/api/public/booking/${slug}/perks`
+}
+
+/**
+ * @summary Public — live partner perks for a business's booking confirmation screen (featured boosts first); slug-scoped, no auth
+ */
+export const listPublicBookingPerks = async (slug: string, options?: RequestInit): Promise<PublicBookingPerksResponse> => {
+
+  return customFetch<PublicBookingPerksResponse>(getListPublicBookingPerksUrl(slug),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPublicBookingPerksQueryKey = (slug: string,) => {
+    return [
+    `/api/public/booking/${slug}/perks`
+    ] as const;
+    }
+
+
+export const getListPublicBookingPerksQueryOptions = <TData = Awaited<ReturnType<typeof listPublicBookingPerks>>, TError = ErrorType<void>>(slug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPublicBookingPerks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPublicBookingPerksQueryKey(slug);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPublicBookingPerks>>> = ({ signal }) => listPublicBookingPerks(slug, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: slug !== null && slug !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPublicBookingPerks>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPublicBookingPerksQueryResult = NonNullable<Awaited<ReturnType<typeof listPublicBookingPerks>>>
+export type ListPublicBookingPerksQueryError = ErrorType<void>
+
+
+/**
+ * @summary Public — live partner perks for a business's booking confirmation screen (featured boosts first); slug-scoped, no auth
+ */
+
+export function useListPublicBookingPerks<TData = Awaited<ReturnType<typeof listPublicBookingPerks>>, TError = ErrorType<void>>(
+ slug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPublicBookingPerks>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPublicBookingPerksQueryOptions(slug,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

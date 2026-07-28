@@ -13,7 +13,14 @@ import {
   GetPublicBookingAvailabilityResponse,
   CreatePublicBookingBody,
   CreatePublicBookingResponse,
+  ListPublicBookingPerksResponse,
 } from "@workspace/api-zod";
+import { merchantCoopPartnershipsTable } from "@workspace/db";
+import { isNull, desc } from "drizzle-orm";
+import { COOP_PERK_DISCLAIMER, perkWindowOpen } from "../lib/coopPerks";
+import { filterPartnershipsForConsumerSurface } from "../lib/coopFirewall";
+import { recordPerkImpressionsSafe } from "../lib/coopEvents";
+import { activeBoostsForSurface } from "../lib/coopSponsorship";
 import { listServicesForScope, type SosServiceRow } from "../lib/serviceCatalog";
 import { resolveSettings } from "../lib/settings";
 import { cachedCapacityStatus } from "../lib/capacityStatus";
@@ -465,5 +472,76 @@ router.post(
     );
   },
 );
+
+// ── GET /public/booking/:slug/perks — confirmation-screen partner perks ─────
+// Read-only and slug-scoped like the rest of the public booking surface:
+// only live perks (accepted + active partnerships, open window, firewall-
+// filtered) for the booked business, with partner names — exactly what the
+// tenant-scoped /coop/perks would serve. Perks whose partnership holds an
+// active paid "Featured Spot" boost for the booking-confirmation surface
+// come first, flagged featured.
+router.get("/public/booking/:slug/perks", async (req, res): Promise<void> => {
+  const tenant = await findTenantBySlug(String(req.params.slug));
+  if (!tenant) {
+    res.status(404).json({ message: "Unknown business" });
+    return;
+  }
+  const hostTenant = { id: tenant.id };
+  const partnerAlias = tenantsTable;
+  const rows = await db
+    .select()
+    .from(merchantCoopPartnershipsTable)
+    .where(
+      and(
+        eq(merchantCoopPartnershipsTable.status, "accepted"),
+        eq(merchantCoopPartnershipsTable.isActive, true),
+        eq(merchantCoopPartnershipsTable.disputeSuspended, false),
+        isNull(merchantCoopPartnershipsTable.bannedAt),
+        perkWindowOpen(),
+        or(
+          eq(merchantCoopPartnershipsTable.hostTenantId, tenant.id),
+          eq(merchantCoopPartnershipsTable.partnerTenantId, tenant.id),
+        ),
+      ),
+    )
+    .orderBy(desc(merchantCoopPartnershipsTable.createdAt), desc(merchantCoopPartnershipsTable.id));
+  // Same consumer-surface firewall as /coop/perks: a competitor's or
+  // isolation-paired business's perk never renders publicly either.
+  const visible = await filterPartnershipsForConsumerSurface(tenant.id, rows);
+  // Partner display names for the surviving rows.
+  const otherIds = [
+    ...new Set(visible.map((p) => (p.hostTenantId === tenant.id ? p.partnerTenantId : p.hostTenantId))),
+  ];
+  const partnerNames = new Map<number, string>();
+  if (otherIds.length > 0) {
+    const namedRows = await db
+      .select({ id: partnerAlias.id, name: partnerAlias.brandName })
+      .from(partnerAlias)
+      .where(or(...otherIds.map((id) => eq(partnerAlias.id, id))));
+    for (const r of namedRows) partnerNames.set(r.id, r.name);
+  }
+  await recordPerkImpressionsSafe(tenant.id, visible);
+  const confirmationBoosts = await activeBoostsForSurface("booking_confirmation");
+  const boostedPartnershipIds = new Set(confirmationBoosts.map((b) => b.partnershipId));
+  res.json(
+    ListPublicBookingPerksResponse.parse({
+      disclaimer: COOP_PERK_DISCLAIMER,
+      perks: visible
+        .map((p) => ({
+          id: p.id,
+          perkTitle: p.perkTitle,
+          perkDescription: p.perkDescription,
+          mutualRewardTerms: p.mutualRewardTerms,
+          partnerName:
+            partnerNames.get(p.hostTenantId === hostTenant.id ? p.partnerTenantId : p.hostTenantId) ??
+            "Partner",
+          redemptionCode: p.redemptionCode,
+          perkEndsAt: p.perkEndsAt ? p.perkEndsAt.toISOString() : null,
+          featured: boostedPartnershipIds.has(p.id),
+        }))
+        .sort((a, b) => Number(b.featured) - Number(a.featured)),
+    }),
+  );
+});
 
 export default router;

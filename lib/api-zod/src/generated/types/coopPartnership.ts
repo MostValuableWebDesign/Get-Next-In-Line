@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { CoopPartnershipRevenueShareKind } from './coopPartnershipRevenueShareKind';
 import type { CoopPartnershipStatus } from './coopPartnershipStatus';
 import type { CoopPartnershipTier } from './coopPartnershipTier';
 
@@ -97,5 +98,20 @@ export interface CoopPartnership {
      */
   renegotiationRequestedByTenantId: number | null;
   isActive: boolean;
+  /**
+     * Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.
+     * @nullable
+     */
+  revenueShareKind: CoopPartnershipRevenueShareKind;
+  /**
+     * Bounty dollars (kind=bounty) or split percent (kind=percent).
+     * @nullable
+     */
+  revenueShareValue: number | null;
+  /**
+     * Agreed nominal transaction value a percentage split applies to; null unless kind=percent.
+     * @nullable
+     */
+  revenueShareBaseAmount: number | null;
   createdAt: string;
 }

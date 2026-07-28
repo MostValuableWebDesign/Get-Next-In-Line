@@ -52,6 +52,7 @@ import {
   partnerPerformanceForTenant,
 } from "../lib/coopEvents";
 import { coopMonthlyReportsTable } from "@workspace/db";
+import { activeBoostsForSurface, applyRedemptionSplitSafe } from "../lib/coopSponsorship";
 import {
   ListCoopPartnershipsResponse,
   CreateCoopPartnershipBody,
@@ -253,6 +254,10 @@ function serialize(
     proposedMutualRewardTerms: p.proposedMutualRewardTerms,
     renegotiationRequestedByTenantId: p.renegotiationRequestedByTenantId,
     isActive: p.isActive,
+    revenueShareKind: p.revenueShareKind ?? null,
+    revenueShareValue: p.revenueShareValue != null ? parseFloat(p.revenueShareValue) : null,
+    revenueShareBaseAmount:
+      p.revenueShareBaseAmount != null ? parseFloat(p.revenueShareBaseAmount) : null,
     createdAt: p.createdAt.toISOString(),
   };
 }
@@ -741,6 +746,44 @@ router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
     updates.hostReciprocityThreshold = parsed.data.hostReciprocityThreshold;
   if (parsed.data.partnerReciprocityThreshold !== undefined)
     updates.partnerReciprocityThreshold = parsed.data.partnerReciprocityThreshold;
+  // Optional revenue-share terms (Sponsorship Hub): bounty = flat dollars per
+  // redemption; percent = % of the agreed base amount. Setting kind to null
+  // clears the terms.
+  if (parsed.data.revenueShareKind !== undefined) {
+    if (parsed.data.revenueShareKind === null) {
+      updates.revenueShareKind = null;
+      updates.revenueShareValue = null;
+      updates.revenueShareBaseAmount = null;
+    } else {
+      const value =
+        parsed.data.revenueShareValue !== undefined ? parsed.data.revenueShareValue : null;
+      if (value == null || !(value > 0)) {
+        res.status(400).json({ message: "revenueShareValue must be a positive number" });
+        return;
+      }
+      if (parsed.data.revenueShareKind === "percent") {
+        const base =
+          parsed.data.revenueShareBaseAmount !== undefined
+            ? parsed.data.revenueShareBaseAmount
+            : null;
+        if (value > 100) {
+          res.status(400).json({ message: "A percentage split cannot exceed 100%" });
+          return;
+        }
+        if (base == null || !(base > 0)) {
+          res.status(400).json({
+            message: "revenueShareBaseAmount is required for a percentage split",
+          });
+          return;
+        }
+        updates.revenueShareBaseAmount = base.toFixed(2);
+      } else {
+        updates.revenueShareBaseAmount = null;
+      }
+      updates.revenueShareKind = parsed.data.revenueShareKind;
+      updates.revenueShareValue = value.toFixed(2);
+    }
+  }
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ message: "No fields to update" });
     return;
@@ -987,6 +1030,12 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
   const [myPlazaRow] = await plazaSettingsFor([tenantId]);
   const myPlaza = myPlazaRow ?? null;
   const myIndustry = industryOf(myPlaza);
+  // Sponsorship Hub: businesses holding an active paid "Featured Spot" boost
+  // for the discovery surface render highlighted above organic matches. The
+  // firewall and proximity filters below still apply unchanged — a boost
+  // never bypasses them.
+  const discoveryBoosts = await activeBoostsForSurface("discovery");
+  const featuredTenantIds = new Set(discoveryBoosts.map((b) => b.tenantId));
 
   const rows = await db
     .select({
@@ -1127,6 +1176,7 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
           sameIndustry: sameIndustryL1(me, theirs),
           samePlaza: inMyPlaza,
           plazaConflict,
+          featured: featuredTenantIds.has(r.id),
         },
       };
     })
@@ -1153,7 +1203,10 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
       if (a.distanceMiles != null) return -1;
       if (b.distanceMiles != null) return 1;
       return a.name.localeCompare(b.name);
-    });
+    })
+    // Featured slots sort above organic matches (stable sort keeps the
+    // distance ordering intact within each group).
+    .sort((a, b) => Number(b.featured) - Number(a.featured));
 
   // Live capacity status per listed business (busy / moderate / available),
   // served from a short in-process cache so directory reads stay cheap.
@@ -2535,34 +2588,42 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
   // its elevated discount + limited-time window on every surface, and reverts
   // automatically once the activation ends.
   const surgeBoosts = await liveSurgeBoostsByPartnership(rows.map((r) => r.partnership.id));
+  // Sponsorship Hub: perks whose partnership holds an active paid boost for
+  // the booking-confirmation surface render highlighted above organic perks.
+  const confirmationBoosts = await activeBoostsForSurface("booking_confirmation");
+  const boostedPartnershipIds = new Set(confirmationBoosts.map((b) => b.partnershipId));
   res.json(
     ListCoopActivePerksResponse.parse({
       disclaimer: COOP_PERK_DISCLAIMER,
       flashPerks,
-      perks: rows.map((r) => ({
-        surge: surgeBoosts.has(r.partnership.id)
-          ? {
-              baseDiscountPercent: surgeBoosts.get(r.partnership.id)!.baseDiscountPercent,
-              boostedDiscountPercent: surgeBoosts.get(r.partnership.id)!.boostedDiscountPercent,
-              expiresAt: surgeBoosts.get(r.partnership.id)!.expiresAt.toISOString(),
-            }
-          : null,
-        id: r.partnership.id,
-        perkTitle: r.partnership.perkTitle,
-        perkDescription: r.partnership.perkDescription,
-        mutualRewardTerms: r.partnership.mutualRewardTerms,
-        partnerName:
-          r.partnership.hostTenantId === tenantId ? r.partnerTenantName : r.hostTenantName,
-        redemptionCode: r.partnership.redemptionCode,
-        // Direction-aware tracking code for the scoped tenant *as sender*:
-        // this tenant's customers carry it and redeem it at the partner, so
-        // the redemption is attributed to this business as the referrer.
-        trackingCode:
-          r.partnership.hostTenantId === tenantId
-            ? r.partnership.hostTrackingCode
-            : r.partnership.partnerTrackingCode,
-        perkEndsAt: r.partnership.perkEndsAt ? r.partnership.perkEndsAt.toISOString() : null,
-      })),
+      perks: rows
+        .map((r) => ({
+          surge: surgeBoosts.has(r.partnership.id)
+            ? {
+                baseDiscountPercent: surgeBoosts.get(r.partnership.id)!.baseDiscountPercent,
+                boostedDiscountPercent: surgeBoosts.get(r.partnership.id)!.boostedDiscountPercent,
+                expiresAt: surgeBoosts.get(r.partnership.id)!.expiresAt.toISOString(),
+              }
+            : null,
+          id: r.partnership.id,
+          perkTitle: r.partnership.perkTitle,
+          perkDescription: r.partnership.perkDescription,
+          mutualRewardTerms: r.partnership.mutualRewardTerms,
+          partnerName:
+            r.partnership.hostTenantId === tenantId ? r.partnerTenantName : r.hostTenantName,
+          redemptionCode: r.partnership.redemptionCode,
+          // Direction-aware tracking code for the scoped tenant *as sender*:
+          // this tenant's customers carry it and redeem it at the partner, so
+          // the redemption is attributed to this business as the referrer.
+          trackingCode:
+            r.partnership.hostTenantId === tenantId
+              ? r.partnership.hostTrackingCode
+              : r.partnership.partnerTrackingCode,
+          perkEndsAt: r.partnership.perkEndsAt ? r.partnership.perkEndsAt.toISOString() : null,
+          featured: boostedPartnershipIds.has(r.partnership.id),
+        }))
+        // Featured perks sort above organic ones (stable sort).
+        .sort((a, b) => Number(b.featured) - Number(a.featured)),
     })
   );
 });
@@ -2805,6 +2866,9 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
         perkTitle: wp.perkTitle,
         redeemedAt: redeemedPass.redeemedAt!,
       });
+      // Revenue-share accounting: if the partnership carries split terms, log
+      // the earning/charge wallet entries (net of the platform fee).
+      await applyRedemptionSplitSafe(walletRow!.partnership, walletRedemption.id, tenantId);
     }
     res.json(
       RedeemCoopPerkResponse.parse({
@@ -2906,6 +2970,9 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
     fail("This pass was already redeemed", row, existing?.redeemedAt ?? null);
     return;
   }
+  // Revenue-share accounting: if the partnership carries split terms, log
+  // the earning/charge wallet entries (net of the platform fee).
+  await applyRedemptionSplitSafe(row.partnership, redemption.id, tenantId);
   // Analytics: a redeemed pass is both a claim and a cross-over visit — the
   // partner's customer physically showed up at the redeeming business. The
   // crossover's revenue is attributed later, when the visit checks out.

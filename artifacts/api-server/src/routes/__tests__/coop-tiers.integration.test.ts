@@ -244,7 +244,7 @@ describe("scheduled evaluator transitions", () => {
     // Window rolls: the same events evaluated 40 days later fall out of the
     // window; simulate by evaluating "now + 40 days".
     const future = new Date(Date.now() + 40 * DAY_MS);
-    await evaluateCoopPartnershipTiers(future);
+    await evaluateCoopPartnershipTiers(future, { partnershipIds: [id] });
     row = await rowFor(id);
     expect(row.performancePausedAt).not.toBeNull(); // zero traffic in the shifted window
 

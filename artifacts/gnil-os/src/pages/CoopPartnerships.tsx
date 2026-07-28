@@ -14,6 +14,8 @@ import {
   useListCoopPlazaConflicts,
   getListCoopPlazaConflictsQueryKey,
   useReleaseCoopPlazaConflict,
+  useListAdminCoopWallets, getListAdminCoopWalletsQueryKey,
+  useUpdateAdminCoopFee, useProcessAdminCoopPayout,
   type CoopPartnership,
   type CoopDispute,
   useListAdminCoopReputation,
@@ -40,7 +42,7 @@ import { EmergencyBroadcastContent } from '@/components/sos/emergency-broadcast-
 import { ProcurementAdminSection } from '@/components/sos/procurement-admin-content';
 import {
   AlertTriangle, ArrowLeftRight, Ban, Gavel, Handshake, MapPin, NotebookPen, Plus, Power,
-  RotateCcw, ShieldAlert, ShieldOff, Ticket, Unlock,
+  RotateCcw, ShieldAlert, ShieldOff, Ticket, Unlock, Wallet,
 } from 'lucide-react';
 
 /**
@@ -219,7 +221,143 @@ export default function CoopPartnerships() {
       <EmergencyBroadcastContent tenantId={null} />
 
       <ReputationShieldQueue />
+      <PayoutConsole />
     </div>
+  );
+}
+
+// ── Sponsorship revenue: fee + wallet payout console ─────────────────────────
+
+const payoutMoney = (n: number) =>
+  n.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+
+/**
+ * Operator console for the Co-Op Sponsorship Hub: configure the platform
+ * transaction fee applied to revenue-share earnings, review each merchant's
+ * accrued wallet balance, and mark payouts as processed. Payouts are internal
+ * accounting only — no real money moves here.
+ */
+function PayoutConsole() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data, isLoading } = useListAdminCoopWallets({
+    query: { queryKey: getListAdminCoopWalletsQueryKey() },
+  });
+  const [feeInput, setFeeInput] = useState<string>('');
+  const feeShown = feeInput !== '' ? feeInput : data != null ? String(data.feePercent) : '';
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: getListAdminCoopWalletsQueryKey() });
+
+  const updateFee = useUpdateAdminCoopFee({
+    mutation: {
+      onSuccess: (res) => {
+        toast({ title: 'Platform fee updated', description: `Now ${res.feePercent}% on revenue-share earnings.` });
+        setFeeInput('');
+        invalidate();
+      },
+      onError: () => toast({ title: 'Fee update failed', description: 'Fee must be between 0 and 100.', variant: 'destructive' }),
+    },
+  });
+  const processPayout = useProcessAdminCoopPayout({
+    mutation: {
+      onSuccess: (res) => {
+        toast({ title: 'Payout marked processed', description: `${payoutMoney(res.amountPaid)} across ${res.entriesMarked} ledger entr${res.entriesMarked === 1 ? 'y' : 'ies'}.` });
+        invalidate();
+      },
+      onError: (err: unknown) => {
+        const message = (err as { data?: { message?: string } })?.data?.message ?? 'No positive pending balance to pay out.';
+        toast({ title: 'Payout failed', description: message, variant: 'destructive' });
+      },
+    },
+  });
+
+  return (
+    <Card data-testid="card-payout-console">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-primary" /> Sponsorship Revenue &amp; Payouts
+            </CardTitle>
+            <CardDescription>
+              Merchant co-op wallet balances from revenue-share partnerships and featured-spot
+              purchases. Mark accrued balances as paid out once settled off-platform.
+            </CardDescription>
+          </div>
+          <div className="flex items-end gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Platform fee (%)</Label>
+              <Input
+                type="number" min="0" max="100" step="0.5" className="w-24"
+                value={feeShown}
+                onChange={e => setFeeInput(e.target.value)}
+                data-testid="input-platform-fee"
+              />
+            </div>
+            <Button
+              size="sm"
+              disabled={updateFee.isPending || feeInput === ''}
+              onClick={() => updateFee.mutate({ data: { feePercent: parseFloat(feeInput) } })}
+              data-testid="button-save-platform-fee"
+            >
+              Save Fee
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-24 w-full rounded-lg" />
+        ) : (data?.wallets ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6" data-testid="text-no-wallets">
+            No wallet activity yet — balances appear when revenue-share perks are redeemed or
+            featured spots are purchased.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground border-b">
+                  <th className="py-2 pr-3 font-medium">Business</th>
+                  <th className="py-2 px-3 font-medium text-right">Pending balance</th>
+                  <th className="py-2 px-3 font-medium text-right">Lifetime earned</th>
+                  <th className="py-2 px-3 font-medium text-right">Fees collected</th>
+                  <th className="py-2 px-3 font-medium text-right">Last activity</th>
+                  <th className="py-2 pl-3 font-medium text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data?.wallets ?? []).map(w => (
+                  <tr key={w.tenantId} className="border-b last:border-0" data-testid={`row-wallet-${w.tenantId}`}>
+                    <td className="py-2 pr-3 font-medium">{w.tenantName}</td>
+                    <td className={`py-2 px-3 text-right font-medium ${w.pendingBalance > 0 ? 'text-emerald-600' : w.pendingBalance < 0 ? 'text-red-500' : ''}`} data-testid={`text-wallet-pending-${w.tenantId}`}>
+                      {payoutMoney(w.pendingBalance)}
+                    </td>
+                    <td className="py-2 px-3 text-right">{payoutMoney(w.lifetimeEarnings)}</td>
+                    <td className="py-2 px-3 text-right text-muted-foreground">{payoutMoney(w.totalFees)}</td>
+                    <td className="py-2 px-3 text-right text-muted-foreground">
+                      {w.lastActivityAt ? new Date(w.lastActivityAt).toLocaleDateString() : '—'}
+                    </td>
+                    <td className="py-2 pl-3 text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={w.pendingBalance <= 0 || processPayout.isPending}
+                        onClick={() => processPayout.mutate({ tenantId: w.tenantId })}
+                        data-testid={`button-payout-${w.tenantId}`}
+                      >
+                        Mark Paid Out
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

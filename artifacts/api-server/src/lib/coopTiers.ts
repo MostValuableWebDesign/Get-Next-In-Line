@@ -175,7 +175,17 @@ export interface TierEvaluationResult {
  * run it inside the concierge tick, which already holds the advisory lock.
  */
 export async function evaluateCoopPartnershipTiers(
-  now: Date = new Date()
+  now: Date = new Date(),
+  opts: {
+    /**
+     * Restrict evaluation to these partnership ids. Used by tests that
+     * evaluate with a shifted clock: an unscoped shifted-clock run would
+     * performance-pause every zero-traffic partnership DB-wide (any fresh
+     * partnership is "past grace" at now + 40 days), breaking unrelated
+     * parallel suites that expect their perks to render.
+     */
+    partnershipIds?: number[];
+  } = {}
 ): Promise<TierEvaluationResult> {
   const since = new Date(now.getTime() - TIER_WINDOW_MS);
   const graceCutoff = new Date(now.getTime() - TIER_GRACE_MS);
@@ -198,7 +208,10 @@ export async function evaluateCoopPartnershipTiers(
         eq(merchantCoopPartnershipsTable.isActive, true),
         eq(merchantCoopPartnershipsTable.disputeSuspended, false),
         isNull(merchantCoopPartnershipsTable.bannedAt),
-        lte(merchantCoopPartnershipsTable.createdAt, graceCutoff)
+        lte(merchantCoopPartnershipsTable.createdAt, graceCutoff),
+        ...(opts.partnershipIds
+          ? [inArray(merchantCoopPartnershipsTable.id, opts.partnershipIds)]
+          : [])
       )
     );
 

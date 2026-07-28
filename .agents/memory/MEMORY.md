@@ -38,9 +38,10 @@
 - [Co-op redemption integrity](coop-network.md) — every redemption write path (native route AND POS webhooks) must enforce scanner-is-participant + direction-correct tracking codes before writing redemption/attribution rows; code review rejects any new path that skips this.
 - [Franchise co-op controller](franchise-controller.md) — org-scoped roles resolve in lib/franchise; HQ template perks are self-paired partnership rows (host===partner) deliberately exempt from the co-op firewall filter.
 - [Neighborhood Passport](passport.md) — global (non-tenant) identities: tests must clean by phone block; every new redemption path must call recordPassportStampSafe.
-- Coop route convention: when x-tenant-id is present, treat the caller strictly as that tenant — no platform-admin bypass on visibility/resolve checks; admin superpowers apply only to unscoped requests. Tests rely on this.
+- [Coop route tenant scoping](coop-network.md) — with x-tenant-id present, callers are strictly that tenant; no platform-admin bypass on visibility/resolve checks; admin powers only on unscoped requests.
 - [Co-op developer API gateway](gateway-api.md) — bearer tokens stored as SHA-256 hashes shown once; tenant scope from token only; sandbox = in-code fixtures; all machine redemptions via redeemWalletPassAsTenant.
 - [Co-op Reputation Shield](coop-reputation-shield.md) — B2B ratings internal-only; new co-op read surfaces must filter decoupledTenantIdSet(); reinstate restores only the decouple-recorded partnership ids.
 - Co-op tax compliance ledger: entries snapshot the tenant's rates at write time (never recompute); 1099 payout accumulation must only run for rows the idempotent insert actually created; export CSVs are raw routes (not zod-parsed).
+- [Co-op sponsorship hub](coop-sponsorship.md) — boost auction lifecycle, real-time rendering vs injected resolve clock, shared global fee row, wallet/payout invariants.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.
 - [Co-op surge boosts](coop-surge.md) — capacity status has a 30s in-process cache (tests must clear it); surge activation lock = partial unique index on live activations; firewall backstop re-checked at sweep time.

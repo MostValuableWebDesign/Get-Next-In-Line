@@ -980,6 +980,155 @@ paths:
         "400":
           description: Missing x-tenant-id header
 
+  /coop/sponsorship/slots:
+    get:
+      operationId: listCoopSponsorshipSlots
+      tags: [coop]
+      summary: Merchant-facing — featured-slot availability per surface (current active boost + pending auction bids); tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Slot status per surface
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopSponsorshipSlotsResponse"
+        "400":
+          description: Missing x-tenant-id header
+
+  /coop/sponsorship/boosts:
+    get:
+      operationId: listCoopBoosts
+      tags: [coop]
+      summary: Merchant-facing — the scoped tenant's featured-slot boosts (all statuses); tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: The tenant's boosts, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopFeaturedBoost"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createCoopBoost
+      tags: [coop]
+      summary: Merchant-facing — place an auction bid or buy a flat-fee featured boost for a partnership perk; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopBoostCreate"
+      responses:
+        "201":
+          description: Created boost (flat purchases activate immediately; bids stay pending until the window's auction resolves)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopFeaturedBoost"
+        "400":
+          description: Invalid body, window, or amount
+        "404":
+          description: Partnership not found or not accepted+active for this tenant
+        "409":
+          description: Flat purchase overlaps an already-active boost for the surface
+
+  /coop/wallet:
+    get:
+      operationId: getCoopWallet
+      tags: [coop]
+      summary: Merchant-facing — internal co-op wallet balance and transaction ledger; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Wallet balance plus ledger entries, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopWalletResponse"
+        "400":
+          description: Missing x-tenant-id header
+
+  /admin/coop/wallets:
+    get:
+      operationId: listAdminCoopWallets
+      tags: [admin]
+      summary: Platform admin — per-tenant co-op wallet balances and the platform transaction fee
+      responses:
+        "200":
+          description: Fee config and wallet summaries across tenants
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCoopWalletsResponse"
+
+  /admin/coop/fee:
+    patch:
+      operationId: updateAdminCoopFee
+      tags: [admin]
+      summary: Platform admin — set the platform transaction fee applied to co-op revenue-share earnings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCoopFeeUpdate"
+      responses:
+        "200":
+          description: Updated fee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCoopFeeUpdate"
+        "400":
+          description: Invalid fee percent
+
+  /admin/coop/wallets/{tenantId}/payouts:
+    post:
+      operationId: processAdminCoopPayout
+      tags: [admin]
+      summary: Platform admin — mark a tenant's pending wallet balance as paid out (internal accounting only, no real money movement)
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Payout recorded; pending entries flipped to paid_out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminCoopPayoutResult"
+        "404":
+          description: Tenant not found
+        "409":
+          description: Nothing to pay out (non-positive pending balance)
+
+  /public/booking/{slug}/perks:
+    get:
+      operationId: listPublicBookingPerks
+      tags: [coop]
+      summary: Public — live partner perks for a business's booking confirmation screen (featured boosts first); slug-scoped, no auth
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Live perks, featured first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicBookingPerksResponse"
+        "404":
+          description: Unknown business
+
+
   /coop/redemptions:
     post:
       operationId: redeemCoopPerk
@@ -5526,6 +5675,9 @@ components:
           proposedMutualRewardTerms,
           renegotiationRequestedByTenantId,
           isActive,
+          revenueShareKind,
+          revenueShareValue,
+          revenueShareBaseAmount,
           createdAt,
         ]
       properties:
@@ -5605,6 +5757,16 @@ components:
           description: Tenant that proposed the pending re-negotiation; null when none is pending.
         isActive:
           type: boolean
+        revenueShareKind:
+          type: ["string", "null"]
+          enum: [bounty, percent, null]
+          description: Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.
+        revenueShareValue:
+          type: ["number", "null"]
+          description: Bounty dollars (kind=bounty) or split percent (kind=percent).
+        revenueShareBaseAmount:
+          type: ["number", "null"]
+          description: Agreed nominal transaction value a percentage split applies to; null unless kind=percent.
         createdAt:
           type: string
 
@@ -6174,7 +6336,7 @@ components:
 
     CoopDirectoryEntry:
       type: object
-      required: [id, name, category, subCategory, industry, distanceMiles, city, sameIndustry, samePlaza, plazaConflict]
+      required: [id, name, category, subCategory, industry, distanceMiles, city, sameIndustry, samePlaza, plazaConflict, featured]
       properties:
         id:
           type: integer
@@ -6202,6 +6364,9 @@ components:
         plazaConflict:
           type: boolean
           description: True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester's active same-plaza partnerships.
+        featured:
+          type: boolean
+          description: True while this business holds an active paid featured boost for the discovery surface; featured entries sort above organic matches.
         capacityStatus:
           type: ["string", "null"]
           enum: [available, moderate, busy, null]
@@ -6532,7 +6697,7 @@ components:
 
     CoopActivePerk:
       type: object
-      required: [id, perkTitle, perkDescription, mutualRewardTerms, partnerName, redemptionCode, trackingCode, perkEndsAt]
+      required: [id, perkTitle, perkDescription, mutualRewardTerms, partnerName, redemptionCode, trackingCode, perkEndsAt, featured]
       properties:
         id:
           type: integer
@@ -6557,6 +6722,208 @@ components:
             - $ref: "#/components/schemas/CoopSurgeBoost"
             - type: "null"
           description: Live surge boost — when present, the perk shows the elevated discount and limited-time indicator until expiresAt.
+        featured:
+          type: boolean
+          description: True while this perk's partnership holds an active paid featured boost for the surface being rendered; featured perks sort above organic ones.
+
+    CoopFeaturedBoost:
+      type: object
+      required:
+        [id, tenantId, partnershipId, perkTitle, partnerName, surface, pricingType, amount, startsAt, endsAt, status, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+          description: Sponsoring business.
+        partnershipId:
+          type: integer
+        perkTitle:
+          type: string
+        partnerName:
+          type: string
+          description: The other side of the sponsored partnership.
+        surface:
+          type: string
+          enum: [discovery, booking_confirmation]
+        pricingType:
+          type: string
+          enum: [flat, bid]
+        amount:
+          type: number
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+        status:
+          type: string
+          enum: [pending, active, lost, expired]
+          description: Flat purchases are active from purchase; bids stay pending until the window's auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt.
+        createdAt:
+          type: string
+
+    CoopBoostCreate:
+      type: object
+      required: [partnershipId, surface, pricingType, amount, startsAt, endsAt]
+      properties:
+        partnershipId:
+          type: integer
+        surface:
+          type: string
+          enum: [discovery, booking_confirmation]
+        pricingType:
+          type: string
+          enum: [flat, bid]
+        amount:
+          type: number
+          exclusiveMinimum: 0
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+
+    CoopSlotWindowBids:
+      type: object
+      required: [startsAt, endsAt, bidCount, highBid]
+      properties:
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+        bidCount:
+          type: integer
+        highBid:
+          type: number
+          description: Current highest pending bid for this (surface, window) auction.
+
+    CoopSponsorshipSlot:
+      type: object
+      required: [surface, activeBoost, pendingWindows]
+      properties:
+        surface:
+          type: string
+          enum: [discovery, booking_confirmation]
+        activeBoost:
+          oneOf:
+            - $ref: "#/components/schemas/CoopFeaturedBoost"
+            - type: "null"
+        pendingWindows:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopSlotWindowBids"
+
+    CoopSponsorshipSlotsResponse:
+      type: object
+      required: [slots]
+      properties:
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopSponsorshipSlot"
+
+    CoopWalletEntry:
+      type: object
+      required:
+        [id, entryType, amount, fee, partnershipId, partnershipPerkTitle, redemptionId, boostId, status, description, createdAt]
+      properties:
+        id:
+          type: integer
+        entryType:
+          type: string
+          enum: [redemption_earning, redemption_charge, boost_purchase, payout]
+        amount:
+          type: number
+          description: Signed dollars — positive credits the balance, negative debits it. Earnings are net of the platform fee.
+        fee:
+          type: number
+          description: Platform fee already deducted from this entry's gross amount; 0 for non-earning entries.
+        partnershipId:
+          type: ["integer", "null"]
+        partnershipPerkTitle:
+          type: ["string", "null"]
+        redemptionId:
+          type: ["integer", "null"]
+        boostId:
+          type: ["integer", "null"]
+        status:
+          type: string
+          enum: [pending, paid_out]
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    CoopWalletResponse:
+      type: object
+      required: [balance, lifetimeEarnings, totalFees, entries]
+      properties:
+        balance:
+          type: number
+          description: Sum of pending (not yet paid out) entries.
+        lifetimeEarnings:
+          type: number
+          description: Sum of all positive entries ever credited (net of fees).
+        totalFees:
+          type: number
+          description: Sum of platform fees deducted from this wallet's earnings.
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopWalletEntry"
+
+    AdminCoopWalletSummary:
+      type: object
+      required: [tenantId, tenantName, pendingBalance, lifetimeEarnings, totalFees, entryCount, lastActivityAt]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        pendingBalance:
+          type: number
+        lifetimeEarnings:
+          type: number
+        totalFees:
+          type: number
+        entryCount:
+          type: integer
+        lastActivityAt:
+          type: ["string", "null"]
+
+    AdminCoopWalletsResponse:
+      type: object
+      required: [feePercent, wallets]
+      properties:
+        feePercent:
+          type: number
+        wallets:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminCoopWalletSummary"
+
+    AdminCoopFeeUpdate:
+      type: object
+      required: [feePercent]
+      properties:
+        feePercent:
+          type: number
+          minimum: 0
+          maximum: 100
+
+    AdminCoopPayoutResult:
+      type: object
+      required: [tenantId, amountPaid, entriesMarked, payoutEntryId]
+      properties:
+        tenantId:
+          type: integer
+        amountPaid:
+          type: number
+        entriesMarked:
+          type: integer
+        payoutEntryId:
+          type: integer
 
     CoopActivePerksResponse:
       type: object
@@ -6574,6 +6941,41 @@ components:
           description: Boosted flash offers from live campaigns this business joined — present only while each campaign window is open.
           items:
             $ref: "#/components/schemas/CoopFlashPerk"
+
+    PublicBookingPerksResponse:
+      type: object
+      required: [disclaimer, perks]
+      description: Public booking-confirmation perk feed — like CoopActivePerksResponse but without merchant-only fields (tracking codes never leak publicly).
+      properties:
+        disclaimer:
+          type: string
+        perks:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicBookingPerk"
+
+    PublicBookingPerk:
+      type: object
+      required: [id, perkTitle, perkDescription, mutualRewardTerms, partnerName, redemptionCode, perkEndsAt, featured]
+      properties:
+        id:
+          type: integer
+        perkTitle:
+          type: string
+        perkDescription:
+          type: ["string", "null"]
+        mutualRewardTerms:
+          type: ["string", "null"]
+        partnerName:
+          type: string
+        redemptionCode:
+          type: string
+        perkEndsAt:
+          type: ["string", "null"]
+          format: date-time
+        featured:
+          type: boolean
+          description: True while this perk's partnership holds an active paid boost for the booking-confirmation surface; featured perks sort first.
 
     CoopFlashPerk:
       type: object
@@ -7695,6 +8097,13 @@ components:
           minimum: 1
           maximum: 1000
           description: Only the partner may set this; null restores the platform default.
+        revenueShareKind:
+          type: ["string", "null"]
+          enum: [bounty, percent, null]
+        revenueShareValue:
+          type: ["number", "null"]
+        revenueShareBaseAmount:
+          type: ["number", "null"]
 
     PlatformInvite:
       type: object

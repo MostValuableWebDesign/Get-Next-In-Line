@@ -28,4 +28,6 @@ export interface CoopActivePerk {
   perkEndsAt: string | null;
   /** Live surge boost — when present, the perk shows the elevated discount and limited-time indicator until expiresAt. */
   surge?: CoopSurgeBoost | null;
+  /** True while this perk's partnership holds an active paid featured boost for the surface being rendered; featured perks sort above organic ones. */
+  featured: boolean;
 }

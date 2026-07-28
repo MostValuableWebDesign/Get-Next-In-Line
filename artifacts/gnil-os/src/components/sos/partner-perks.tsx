@@ -5,7 +5,7 @@ import {
 } from '@workspace/api-client-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { parseTenantParam } from '@/lib/sos-tenant';
-import { Handshake, Ticket } from 'lucide-react';
+import { Handshake, Star, Ticket } from 'lucide-react';
 
 /**
  * Live co-op partner perks for the business currently in scope (?tenant=).
@@ -107,7 +107,19 @@ export function PartnerPerksBlock({
       )}
       <div className="space-y-1.5">
         {perks.map(perk => (
-          <div key={perk.id} className="text-sm" data-testid={`row-partner-perk-${perk.id}`}>
+          <div
+            key={perk.id}
+            className={`text-sm ${perk.featured ? 'rounded-md border border-amber-400/70 bg-amber-100/40 dark:bg-amber-900/20 px-2 py-1.5' : ''}`}
+            data-testid={`row-partner-perk-${perk.id}`}
+          >
+            {perk.featured && (
+              <span
+                className="mr-1.5 inline-flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400"
+                data-testid={`badge-featured-perk-${perk.id}`}
+              >
+                <Star className="w-3 h-3 fill-current" /> Featured
+              </span>
+            )}
             <span className="font-medium">{perk.perkTitle}</span>
             <span className="text-muted-foreground"> — with {perk.partnerName}</span>
             {perk.surge && (

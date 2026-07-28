@@ -35,6 +35,8 @@ export interface CoopDirectoryEntry {
   samePlaza: boolean;
   /** True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester's active same-plaza partnerships. */
   plazaConflict: boolean;
+  /** True while this business holds an active paid featured boost for the discovery surface; featured entries sort above organic matches. */
+  featured: boolean;
   /**
      * The business's live capacity status; null when unavailable.
      * @nullable

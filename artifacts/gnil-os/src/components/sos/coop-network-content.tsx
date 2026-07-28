@@ -51,6 +51,7 @@ import { PassportChallengesSection } from '@/components/sos/passport-challenges-
 import { CoopEventsSection } from '@/components/sos/coop-events-content';
 import { CoopProcurementSection } from '@/components/sos/coop-procurement-content';
 import { CoopSurgeSection, CapacityStatusBadge } from '@/components/sos/coop-surge-content';
+import { SponsorshipHub } from '@/components/sos/sponsorship-hub';
 import {
   AlertTriangle, ArrowDownLeft, ArrowDownToLine, ArrowLeftRight, ArrowUpDown, ArrowUpFromLine,
   ArrowUpRight, BarChart3, Bell, CalendarClock, Check, Copy, DollarSign, Eye, FileSignature, Flag,
@@ -240,6 +241,16 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
 
       {/* Shelf-space tracker — consigned retail inventory & cross-sale ledger */}
       <ShelfSpaceTrackerSection tenantId={tenantId} />
+      <div>
+        <h3 className="text-lg font-bold tracking-tight flex items-center gap-2 mb-1">
+          Sponsorship Hub
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Pay for premium placement of your perks and track cross-promotion earnings in your
+          co-op wallet.
+        </p>
+        <SponsorshipHub tenantId={tenantId} partnerships={partnerships ?? []} />
+      </div>
 
       <PartnerPerformanceTable />
       <MonthlyImpactReport />
@@ -2075,11 +2086,22 @@ function Directory({
           filtered.map(biz => (
             <div
               key={biz.id}
-              className="border rounded-lg p-3 flex items-center justify-between gap-3"
+              className={`border rounded-lg p-3 flex items-center justify-between gap-3 ${biz.featured ? 'border-amber-400 bg-amber-50/60 dark:bg-amber-950/20' : ''}`}
               data-testid={`row-directory-business-${biz.id}`}
             >
               <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{biz.name}</div>
+                <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                  {biz.name}
+                  {biz.featured && (
+                    <Badge
+                      variant="outline"
+                      className="text-amber-600 border-amber-400 bg-amber-100/60 dark:bg-amber-900/30"
+                      data-testid={`badge-featured-${biz.id}`}
+                    >
+                      ★ Featured
+                    </Badge>
+                  )}
+                </div>
                 <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap mt-0.5">
                   {biz.category && <span className="capitalize">{biz.category}</span>}
                   {biz.city && (

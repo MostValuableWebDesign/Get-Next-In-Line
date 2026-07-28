@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { CoopPartnershipUpdateRevenueShareKind } from './coopPartnershipUpdateRevenueShareKind';
 
 export interface CoopPartnershipUpdate {
   /** @minLength 1 */
@@ -38,4 +39,10 @@ export interface CoopPartnershipUpdate {
      * @nullable
      */
   partnerReciprocityThreshold?: number | null;
+  /** @nullable */
+  revenueShareKind?: CoopPartnershipUpdateRevenueShareKind;
+  /** @nullable */
+  revenueShareValue?: number | null;
+  /** @nullable */
+  revenueShareBaseAmount?: number | null;
 }

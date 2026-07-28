@@ -33,3 +33,7 @@ Rule: same-plaza category exclusivity is enforced in BOTH directions at invite t
 Partnership tiers (premier/standard + performancePausedAt pause) are evaluated by the concierge tick against rolling 30-day coop_attribution_events counts; transitions are state-diffs with conditional-claim updates (idempotent) and audited in coop_tier_events.
 **Rule:** performance-paused partnerships are hidden from every perk *render* surface (coop/perks, landing, pass granting) but their codes/passes still VALIDATE and REDEEM — that is intentional: redemptions are the attribution source, so blocking them would make "auto-reactivate when traffic resumes" impossible. Do not add performancePausedAt checks to redemption paths.
 Reciprocity thresholds are each side's demand of the OTHER side's traffic: hostReciprocityThreshold gates partner→host counts (and vice versa); PATCH enforces each side edits only its own.
+
+## Route tenant scoping
+When `x-tenant-id` is present, treat the caller strictly as that tenant — no platform-admin bypass on visibility/resolve checks; admin superpowers apply only to unscoped requests. Tests rely on this.
+**Why:** admin sessions plus a tenant header must behave like the tenant, or visibility tests and firewall guarantees break.
