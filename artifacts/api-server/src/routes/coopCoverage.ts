@@ -29,6 +29,7 @@ import {
   GetCoopCoverageLedgerResponse,
 } from "@workspace/api-zod";
 import { staffLicenseStatus } from "./sos";
+import { recordCoverageLaborObligationSafe } from "../lib/coopSettlement";
 
 const router: IRouter = Router();
 
@@ -542,6 +543,24 @@ router.post("/coop/coverage/shifts/:id/complete", async (req, res): Promise<void
   if (!updated) {
     res.status(409).json({ message: "Only a confirmed shift can be completed" });
     return;
+  }
+  // Settle the labor charge: the posting business owes the covering business
+  // hours × the agreed hourly rate. Idempotent per shift via the ledger's
+  // (kind, sourceRef) unique, so a retried completion can never double-bill.
+  if (updated.acceptedOfferId != null) {
+    const [winning] = await db
+      .select({ offeringTenantId: coopCoverageOffersTable.offeringTenantId })
+      .from(coopCoverageOffersTable)
+      .where(eq(coopCoverageOffersTable.id, updated.acceptedOfferId));
+    if (winning) {
+      await recordCoverageLaborObligationSafe({
+        id: updated.id,
+        tenantId: updated.tenantId,
+        coveringTenantId: winning.offeringTenantId,
+        hoursWorked: body.hoursWorked,
+        hourlyRate: parseFloat(updated.offeredHourlyRate),
+      });
+    }
   }
   res.json(
     CompleteCoopCoverageShiftResponse.parse(await loadOneShiftSerialized(shiftId, tenantId))

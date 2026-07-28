@@ -13441,7 +13441,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [referral_fee, ad_pool_contribution, perk_obligation]
+          enum: [referral_fee, ad_pool_contribution, perk_obligation, coverage_labor]
         amount:
           type: number
         sourceRef:

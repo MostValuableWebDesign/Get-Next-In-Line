@@ -24,7 +24,12 @@ import { logger } from "./logger";
 // can never double-settle.
 // ---------------------------------------------------------------------------
 
-export const OBLIGATION_KINDS = ["referral_fee", "ad_pool_contribution", "perk_obligation"] as const;
+export const OBLIGATION_KINDS = [
+  "referral_fee",
+  "ad_pool_contribution",
+  "perk_obligation",
+  "coverage_labor",
+] as const;
 export type ObligationKind = (typeof OBLIGATION_KINDS)[number];
 
 // Distinct from CONCIERGE_LOCK_KEY (0x676e696c) — settlement runs must not
@@ -139,6 +144,32 @@ export async function recordRedemptionObligationsSafe(
       sourceRef,
       partnershipId: partnership.id,
       description: `Perk honored — "${partnership.perkTitle}"`,
+    },
+  ]);
+}
+
+/**
+ * Obligation hook for a completed coverage shift: the posting (requesting)
+ * business owes the covering business hours × the agreed hourly rate.
+ * Idempotent per shift via the (kind, sourceRef) ledger unique — safe to call
+ * from retried completion handlers.
+ */
+export async function recordCoverageLaborObligationSafe(shift: {
+  id: number;
+  tenantId: number;
+  coveringTenantId: number;
+  hoursWorked: number;
+  hourlyRate: number;
+}): Promise<void> {
+  const amount = Math.round(shift.hoursWorked * shift.hourlyRate * 100) / 100;
+  await recordObligationsSafe([
+    {
+      debtorTenantId: shift.tenantId,
+      creditorTenantId: shift.coveringTenantId,
+      kind: "coverage_labor",
+      amount,
+      sourceRef: `coop_coverage_shifts:${shift.id}`,
+      description: `Coverage labor — ${shift.hoursWorked.toFixed(2)} hrs @ $${shift.hourlyRate.toFixed(2)}/hr`,
     },
   ]);
 }

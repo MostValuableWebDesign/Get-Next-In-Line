@@ -62,7 +62,7 @@ export const coopObligationLedgerTable = pgTable(
     creditorTenantId: integer("creditor_tenant_id")
       .notNull()
       .references(() => tenantsTable.id, { onDelete: "cascade" }),
-    // referral_fee | ad_pool_contribution | perk_obligation
+    // referral_fee | ad_pool_contribution | perk_obligation | coverage_labor
     kind: text("kind").notNull(),
     // Positive dollars the debtor owes the creditor, captured from the
     // per-transaction amount persisted at event time.

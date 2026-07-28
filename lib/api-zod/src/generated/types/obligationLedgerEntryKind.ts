@@ -13,4 +13,5 @@ export const ObligationLedgerEntryKind = {
   referral_fee: 'referral_fee',
   ad_pool_contribution: 'ad_pool_contribution',
   perk_obligation: 'perk_obligation',
+  coverage_labor: 'coverage_labor',
 } as const;

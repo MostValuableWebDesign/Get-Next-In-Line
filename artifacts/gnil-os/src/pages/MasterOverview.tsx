@@ -56,6 +56,7 @@ export default function MasterOverview() {
     referral_fee: 'Referral fees',
     ad_pool_contribution: 'Ad-pool contributions',
     perk_obligation: 'Perk-driven balances',
+    coverage_labor: 'Coverage labor charges',
   };
 
   return (
