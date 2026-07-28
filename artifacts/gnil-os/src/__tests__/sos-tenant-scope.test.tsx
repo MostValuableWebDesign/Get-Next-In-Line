@@ -72,13 +72,13 @@ describe('SosTenantSync scope tracking', () => {
     expect(tenantsCall.headers.get('x-tenant-id')).toBeNull();
   });
 
-  it('sends no header on /sos pages without a selection (legacy view)', async () => {
+  it('sends the explicit "legacy" scope on /sos pages without a selection', async () => {
     renderSync('/sos/bookings');
     expect(getCurrentSosTenantId()).toBeNull();
 
     const calls = mockFetch();
     await listSosCalls();
-    expect(calls[0].headers.get('x-tenant-id')).toBeNull();
+    expect(calls[0].headers.get('x-tenant-id')).toBe('legacy');
   });
 
   it('resets scope outside /sos pages even when ?tenant= is present', () => {

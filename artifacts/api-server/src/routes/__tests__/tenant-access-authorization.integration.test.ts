@@ -194,8 +194,11 @@ describe("platform-admin-only surfaces", () => {
 });
 
 describe("legacy scope and session behavior", () => {
-  it("member requests without any tenant reference still work (legacy NULL-tenant scope)", async () => {
-    await memberAgent.get("/api/sos/dashboard").expect(200);
+  it("member requests need explicit tenant context; the legacy scope is opt-in", async () => {
+    // SOS routes now reject requests without tenant context outright…
+    await memberAgent.get("/api/sos/dashboard").expect(400);
+    // …and the legacy NULL-tenant scope stays reachable via explicit opt-in.
+    await memberAgent.get("/api/sos/dashboard").set("x-tenant-id", "legacy").expect(200);
   });
 
   it("unauthenticated requests remain 401, not 403", async () => {

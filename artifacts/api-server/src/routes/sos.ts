@@ -120,7 +120,6 @@ import { resolveTipRuleForVisit, writeGratuityLedger } from "../lib/tipPooling";
 import { merchantCoopPartnershipsTable } from "@workspace/db";
 import {
   addressFieldsTouched,
-  getLegacySettings,
   resolveSettings,
   serializeSettings,
   toSettingsColumnUpdates,
@@ -128,6 +127,7 @@ import {
 import { scheduleDensityDetection } from "../lib/geoDensity";
 import type { Request } from "express";
 import type { PgColumn } from "drizzle-orm/pg-core";
+import { requireTenantScope } from "../lib/tenantScope";
 import { grantPerkPassesSafe } from "../lib/perkPasses";
 import {
   computeTipAllocations,
@@ -255,20 +255,38 @@ async function getAppointmentWithName(id: number, tenantId: number | null) {
 }
 
 // Legacy/global settings record — used by the legacy /sos/settings endpoints.
-const getSettings = getLegacySettings;
 
 // ── tenant context ───────────────────────────────────────────────────────────
 
 /**
- * Optional tenant context for SOS operational routes, passed as the
- * `x-tenant-id` header. When absent (or invalid), routes fall back to the
- * legacy scope: only NULL-tenant rows, never other tenants' data.
+ * Required tenant context for SOS operational routes, passed as the
+ * `x-tenant-id` header. A positive integer selects that tenant's rows; the
+ * literal value "legacy" deliberately selects the legacy (NULL-tenant)
+ * scope. A missing or malformed header is rejected with a 400 — it must
+ * never silently fall back to the legacy rows.
  */
 function tenantIdFrom(req: Request): number | null {
-  const raw = req.header("x-tenant-id");
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isInteger(n) && n > 0 ? n : null;
+  return requireTenantScope(req);
+}
+
+/**
+ * Whether a tenant is party to any co-op partnership (any status). Used to
+ * decide which gratuity engine handles a rule-less checkout tip: co-op
+ * member tenants follow the tip-pool contract, standalone tenants keep the
+ * classic per-tenant gratuity pool.
+ */
+async function tenantHasCoopPartnership(tenantId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: merchantCoopPartnershipsTable.id })
+    .from(merchantCoopPartnershipsTable)
+    .where(
+      or(
+        eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
+        eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId),
+      ),
+    )
+    .limit(1);
+  return row != null;
 }
 
 /**
@@ -422,15 +440,18 @@ router.get("/sos/dashboard", async (req, res): Promise<void> => {
 
 // ── settings ─────────────────────────────────────────────────────────────────
 
-// Legacy global settings (single-tenant SOS operations, tenant_id IS NULL).
-router.get("/sos/settings", async (_req, res): Promise<void> => {
-  const s = await getSettings();
+// Settings for the caller's explicit tenant scope (`x-tenant-id: <id>` for a
+// tenant's row, `legacy` for the tenant_id IS NULL record). Like every other
+// SOS route, a missing/malformed header is rejected with 400 — settings must
+// never silently fall back to the legacy row.
+router.get("/sos/settings", async (req, res): Promise<void> => {
+  const s = await resolveSettings(tenantIdFrom(req));
   res.json(GetSosSettingsResponse.parse(await serializeSettings(s)));
 });
 
 router.patch("/sos/settings", async (req, res): Promise<void> => {
   const body = UpdateSosSettingsBody.parse(req.body);
-  const s = await getSettings();
+  const s = await resolveSettings(tenantIdFrom(req));
   const [updated] = await db
     .update(sosSettingsTable)
     .set({ ...toSettingsColumnUpdates(body), updatedAt: new Date() })
@@ -1929,6 +1950,28 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
         )
         .limit(1);
       if (live) usesTipPoolRule = true;
+    }
+    if (!usesTipPoolRule) {
+      // No explicit rule. Two engines could claim this tip:
+      //  - the rule-based tip-pool engine's default (whole tip to the
+      //    servicing staff member, written to the tip-pool ledger) — the
+      //    contract for tenants participating in the co-op network;
+      //  - the classic per-tenant gratuity pool (split across active staff).
+      // A crossover-driven shared pool (participants from a partner tenant)
+      // always uses the gratuity splitter so cross-business rows land on
+      // each tenant's own ledger. Otherwise, co-op member tenants get the
+      // tip-pool default; standalone tenants keep the classic splitter.
+      const poolParticipants = await resolveTipParticipants(tenantIdFrom(req));
+      const crossTenantPool = poolParticipants.some((p) => p.tenantId !== visit.tenantId);
+      if (
+        !crossTenantPool &&
+        visit.tenantId != null &&
+        (await tenantHasCoopPartnership(visit.tenantId))
+      ) {
+        // writeGratuityLedger's no-rule fallback allocates the whole tip to
+        // the servicing staff member on the tip-pool ledger.
+        usesTipPoolRule = true;
+      }
     }
     if (!usesTipPoolRule) {
       const settings = await resolveSettings(tenantIdFrom(req));

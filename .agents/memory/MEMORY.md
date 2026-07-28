@@ -7,7 +7,7 @@
 - Stale `lib/*/dist` .d.ts (db, api-zod) causes phantom "no exported member" typecheck errors in api-server; fixed durably — api-server's typecheck script now runs `tsc -b` on the lib refs first.
 - [SOS platform decisions](sos-platform.md) — SOS routes intentionally public (no auth yet), simulated-SMS fallback, AI parse fallback, conditional-update concurrency guards.
 - [Dev DB drift behind Drizzle schema](dev-db-drift.md) — on missing-column query errors, diff information_schema vs schema and push additive DDL.
-- [SOS tenant scoping](sos-tenant-scoping.md) — `x-tenant-id` header carries tenant context; NULL tenant_id = legacy rows; strict NULL-vs-tenant matching in broadcasts.
+- [SOS tenant scoping](sos-tenant-scoping.md) — `x-tenant-id` is now mandatory on /api/sos: numeric id or the explicit `"legacy"` sentinel (NULL scope); missing/malformed → 400. coop/safety still treat non-numeric as null. Campaign codes unique per (tenant, code); coop redemption codes per (host, code) — lookups must stay caller-scoped.
 - [messages.origin classification](messages-origin.md) — filter message surfaces on `origin`, never on tenant_id nullability; tenant scoping is a separate filter.
 - [Drizzle silent migrate failures](drizzle-migrations.md) — fixed: db:push uses a custom loud migrator; recover out-of-band/mixed-state DDL via `pnpm run db:reconcile`, never hand-stamp hashes.
 - api-zod schemas come from a different zod instance than api-server's; `instanceof ZodError` fails across them — duck-type on `err.name === "ZodError"` in error middleware.
@@ -45,6 +45,7 @@
 - [Co-op sponsorship hub](coop-sponsorship.md) — boost auction lifecycle, real-time rendering vs injected resolve clock, shared global fee row, wallet/payout invariants.
 - api-server: never call drizzle `alias()` (or touch schema tables) at module top level in route/lib files — tests that partially mock @workspace/db fail at import; build aliases inside functions.
 - [Co-op Marketing Hub](coop-marketing-hub.md) — dispatch send-once lock, approval gating, simulated social flagging, /api/mr tracked links, data-URL branding; all sends via dispatchMarketingCampaign.
+- Checkout tips: two engines share one gate in the visit-advance handler — rule-based tip-pool (rule, else co-op-member default to servicing staff) vs classic gratuity pool (standalone tenants, crossover pools); a tip must write exactly one ledger, never both.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.
 - [Tip pooling & gratuity ledger](gratuity-tips.md) — ledger rows scoped to the STAFF's tenant; tips never touch revenue/commission/margin; new checkout paths must reuse the split engine.
 - Checkout tip fallback: bundled visits or tenants with a live co-op partnership + servicing staff → tip-pool ledger (whole tip to staff); otherwise legacy gratuity-pool split — both test suites rely on this split.

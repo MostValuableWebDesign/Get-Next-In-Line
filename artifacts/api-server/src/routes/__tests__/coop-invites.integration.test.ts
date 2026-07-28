@@ -32,6 +32,9 @@ let gymId: number;
 beforeAll(async () => {
   const app = (await import("../../app")).default;
   agent = request.agent(app);
+  // Tenant-scoped routes now require explicit tenant context; these tests
+  // exercise the legacy (NULL-tenant) scope unless a request overrides it.
+  agent.set("x-tenant-id", "legacy");
   await agent
     .post("/api/auth/login")
     .send({ password: process.env.ADMIN_PASSWORD })
@@ -271,7 +274,10 @@ describe("co-op invite lifecycle", () => {
     expect(cafePerks.body.perks.length).toBe(1);
     expect(cafePerks.body.perks[0].partnerName).toBe(`Net Salon A ${RUN}`);
 
-    const redemption = await agent.get(`/api/coop/redemptions/${inviteCode}`).expect(200);
+    const redemption = await agent
+      .get(`/api/coop/redemptions/${inviteCode}`)
+      .set("x-tenant-id", String(cafeId))
+      .expect(200);
     expect(redemption.body.valid).toBe(true);
   });
 

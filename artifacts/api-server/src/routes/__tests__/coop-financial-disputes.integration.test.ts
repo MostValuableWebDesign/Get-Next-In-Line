@@ -382,7 +382,10 @@ describe("suspension enforcement + repeat-violator automation", () => {
     expect(perks.body.perks.some((k: { id: number }) => k.id === pId)).toBe(false);
 
     // Validation and redemption both fail.
-    const validate = await agent.get(`/api/coop/redemptions/${code}`).expect(200);
+    const validate = await agent
+      .get(`/api/coop/redemptions/${code}`)
+      .set("x-tenant-id", String(salonId))
+      .expect(200);
     expect(validate.body.valid).toBe(false);
     expect(validate.body.reason).toContain("suspended");
     const redeem = await agent

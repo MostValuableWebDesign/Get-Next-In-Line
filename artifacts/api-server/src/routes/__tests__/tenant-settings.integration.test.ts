@@ -69,7 +69,10 @@ describe("per-tenant settings", () => {
   });
 
   it("isolates updates between tenants and from the legacy record", async () => {
-    const legacyBefore = await agent.get("/api/sos/settings").expect(200);
+    const legacyBefore = await agent
+      .get("/api/sos/settings")
+      .set("x-tenant-id", "legacy")
+      .expect(200);
 
     await agent
       .patch(`/api/tenants/${tenantA}/settings`)
@@ -93,7 +96,10 @@ describe("per-tenant settings", () => {
     expect(b.body.serviceNames).toBe("");
 
     // Legacy record untouched
-    const legacyAfter = await agent.get("/api/sos/settings").expect(200);
+    const legacyAfter = await agent
+      .get("/api/sos/settings")
+      .set("x-tenant-id", "legacy")
+      .expect(200);
     expect(legacyAfter.body.businessName).toBe(legacyBefore.body.businessName);
     expect(legacyAfter.body.aiReceptionistEnabled).toBe(
       legacyBefore.body.aiReceptionistEnabled,
@@ -111,6 +117,7 @@ describe("per-tenant settings", () => {
 
     const res = await agent
       .patch("/api/sos/settings")
+      .set("x-tenant-id", "legacy")
       .send({ resourceLabel: "TestLabel" })
       .expect(200);
     expect(res.body.tenantId).toBeNull();

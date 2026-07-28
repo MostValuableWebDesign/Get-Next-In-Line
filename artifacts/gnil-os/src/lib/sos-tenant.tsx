@@ -22,15 +22,19 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 let currentSosTenantId: number | null = null;
 
 setTenantHeaderGetter((url) => {
-  if (currentSosTenantId == null) return null;
-  // Only SOS operational endpoints and the merchant-facing co-op endpoints
-  // understand this header; everything else must stay unscoped.
-  return url.includes('/api/sos/') ||
-    url.includes('/api/coop/') ||
-    url.includes('/api/pos/') ||
-    url.includes('/api/gateway/')
-    ? String(currentSosTenantId)
-    : null;
+  // Only SOS operational endpoints and the merchant-facing co-op, POS, and
+  // gateway endpoints understand this header; everything else must stay
+  // unscoped. The API now requires explicit tenant context on /api/sos and
+  // /api/coop — with no business selected, the legacy (combined
+  // single-tenant) scope must be requested deliberately via the "legacy"
+  // sentinel instead of omitting the header.
+  if (url.includes('/api/sos/') || url.includes('/api/coop/')) {
+    return currentSosTenantId == null ? 'legacy' : String(currentSosTenantId);
+  }
+  if (url.includes('/api/pos/') || url.includes('/api/gateway/')) {
+    return currentSosTenantId == null ? null : String(currentSosTenantId);
+  }
+  return null;
 });
 
 import { parseTenantParam } from './sos-tenant-url';

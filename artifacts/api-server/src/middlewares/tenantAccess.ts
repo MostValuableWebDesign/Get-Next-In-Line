@@ -15,9 +15,12 @@ import { and, eq, inArray } from "drizzle-orm";
 //   acting scopes and are deliberately not checked — inviting another tenant
 //   is legitimate; acting *as* them is not.
 // - A request with no tenant reference at all runs in the legacy/global
-//   scope (NULL-tenant rows only), which behaves exactly as before.
-// - Invalid tenant values (non-numeric, <= 0) are ignored here, mirroring
-//   the routes' own lenient parsing — they fall back to the legacy scope.
+//   scope (NULL-tenant rows only). SOS routes additionally require that
+//   scope to be requested explicitly (`x-tenant-id: legacy`) and reject
+//   missing/malformed headers with 400 — that stricter contract lives in
+//   lib/tenantScope.ts; this middleware only authorizes numeric refs.
+// - Invalid tenant values (non-numeric, <= 0) carry no membership claim and
+//   are ignored here; the routes themselves decide whether to reject them.
 // ---------------------------------------------------------------------------
 
 function toTenantId(v: unknown): number | null {

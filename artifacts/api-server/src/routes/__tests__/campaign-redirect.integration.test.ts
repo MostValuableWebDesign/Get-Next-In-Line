@@ -143,3 +143,77 @@ describe("public redirect /r/:code", () => {
     expect(mine.tenantName).toBe(`Campaign Redirect ${RUN}`);
   });
 });
+
+describe("per-tenant campaign codes", () => {
+  const SLUG_B = `${RUN}-b`;
+  let tenantBId: number;
+  let campaignBId: number;
+
+  beforeAll(async () => {
+    const [tenantB] = await db
+      .insert(tenantsTable)
+      .values({ brandName: `Campaign Redirect B ${RUN}`, subdomain: SLUG_B, status: "active" })
+      .returning({ id: tenantsTable.id });
+    tenantBId = tenantB.id;
+  });
+
+  afterAll(async () => {
+    await db.delete(attributionEventsTable).where(eq(attributionEventsTable.tenantId, tenantBId));
+    await db.delete(tenantsTable).where(eq(tenantsTable.id, tenantBId));
+  });
+
+  it("lets another business use the same code, while same-tenant duplicates stay rejected", async () => {
+    const res = await agent
+      .post("/api/admin/campaigns")
+      .send({ tenantId: tenantBId, name: `Spring Promo B ${RUN}`, code: CODE })
+      .expect(201);
+    campaignBId = res.body.id;
+    expect(res.body).toMatchObject({ code: CODE, tenantId: tenantBId });
+
+    const dup = await agent
+      .post("/api/admin/campaigns")
+      .send({ tenantId: tenantBId, name: "Dup B", code: CODE })
+      .expect(400);
+    expect(dup.body.message).toMatch(/already in use for this business/i);
+  });
+
+  it("keeps click counts attributed within each tenant's own campaign", async () => {
+    const res = await agent.get("/api/admin/campaigns").expect(200);
+    const a = res.body.find((c: { id: number }) => c.id === campaignId);
+    const b = res.body.find((c: { id: number }) => c.id === campaignBId);
+    expect(a.clickCount).toBe(2); // unchanged from the earlier clicks
+    expect(b.clickCount).toBe(0); // B never got a click of its own
+  });
+
+  it("404s the bare /r/:code link when the code is ambiguous, without logging", async () => {
+    const before = await db
+      .select()
+      .from(attributionEventsTable)
+      .where(eq(attributionEventsTable.campaignCode, CODE));
+    await anon.get(`/api/r/${CODE}`).expect(404);
+    const after = await db
+      .select()
+      .from(attributionEventsTable)
+      .where(eq(attributionEventsTable.campaignCode, CODE));
+    expect(after).toHaveLength(before.length);
+  });
+
+  it("resolves tenant-qualified /r/:subdomain/:code links unambiguously", async () => {
+    const resA = await anon.get(`/api/r/${SLUG}/${CODE}`).expect(302);
+    expect(resA.headers.location).toBe(
+      `/api/public/landing/${SLUG}?ref=${encodeURIComponent(CODE)}`,
+    );
+    const resB = await anon.get(`/api/r/${SLUG_B}/${CODE}`).expect(302);
+    expect(resB.headers.location).toBe(
+      `/api/public/landing/${SLUG_B}?ref=${encodeURIComponent(CODE)}`,
+    );
+    // Each click lands on its own tenant's campaign.
+    const events = await db
+      .select()
+      .from(attributionEventsTable)
+      .where(eq(attributionEventsTable.tenantId, tenantBId));
+    expect(events).toHaveLength(1);
+    // An unknown subdomain never matches another tenant's campaign.
+    await anon.get(`/api/r/${RUN}-nope/${CODE}`).expect(404);
+  });
+});

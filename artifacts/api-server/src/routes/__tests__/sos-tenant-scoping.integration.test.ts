@@ -6,8 +6,10 @@ import { inArray } from "drizzle-orm";
 // ---------------------------------------------------------------------------
 // Integration tests for tenant scoping of the SOS operational flows: incoming
 // AI receptionist calls, waitlist auto-fill on cancellation, and scoped reads.
-// Tenant context is passed via the `x-tenant-id` header; requests without it
-// see only legacy (NULL-tenant) rows — never another tenant's data.
+// Tenant context is passed via the `x-tenant-id` header and is mandatory:
+// requests without it are rejected (400), and the legacy (NULL-tenant) scope
+// must be selected explicitly with `x-tenant-id: legacy`. The shared agent
+// below defaults to the legacy scope; individual requests override it.
 //
 // Isolation: two throwaway tenants per run (rows cascade on tenant delete),
 // unique per-run service names and phone numbers, and no mutation of the
@@ -35,6 +37,7 @@ const asTenant = (id: number) => ({ "x-tenant-id": String(id) });
 beforeAll(async () => {
   const app = (await import("../../app")).default;
   agent = request.agent(app);
+  agent.set("x-tenant-id", "legacy");
   await agent
     .post("/api/auth/login")
     .send({ password: process.env.ADMIN_PASSWORD })
@@ -316,6 +319,43 @@ describe("cross-tenant collision cases", () => {
     expect(
       timeline.body.some((e: { channel: string }) => e.channel === "ai_call"),
     ).toBe(false);
+  });
+});
+
+describe("tenant context is mandatory", () => {
+  it("rejects requests without an x-tenant-id header with 400", async () => {
+    // A separate agent with no default header: authenticated, but headerless.
+    const app = (await import("../../app")).default;
+    const bare = request.agent(app);
+    await bare
+      .post("/api/auth/login")
+      .send({ password: process.env.ADMIN_PASSWORD })
+      .expect(200);
+
+    for (const path of [
+      "/api/sos/customers",
+      "/api/sos/messages",
+      "/api/sos/dashboard",
+      "/api/sos/settings",
+    ]) {
+      const res = await bare.get(path).expect(400);
+      expect(res.body.message).toMatch(/x-tenant-id/i);
+    }
+    await bare
+      .post("/api/sos/customers")
+      .send({ name: `No header ${RUN}`, phone: "+15550100030", smsOptIn: false })
+      .expect(400);
+    // Settings writes are gated the same way as reads.
+    await bare.patch("/api/sos/settings").send({}).expect(400);
+    await bare.patch("/api/sos/settings").set("x-tenant-id", "banana").send({}).expect(400);
+    await bare.patch("/api/sos/settings").set("x-tenant-id", "legacy").send({}).expect(200);
+
+    // Malformed values are rejected too — never coerced to the legacy scope.
+    await bare.get("/api/sos/customers").set("x-tenant-id", "banana").expect(400);
+    await bare.get("/api/sos/customers").set("x-tenant-id", "-3").expect(400);
+
+    // The legacy scope stays reachable, but only by explicit opt-in.
+    await bare.get("/api/sos/customers").set("x-tenant-id", "legacy").expect(200);
   });
 });
 

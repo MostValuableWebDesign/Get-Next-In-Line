@@ -124,11 +124,17 @@ describe("direction-aware tracking codes", () => {
 
   it("tracking codes validate through the existing checkout validation flow", async () => {
     for (const code of [redemptionCode, hostTrackingCode, partnerTrackingCode]) {
-      const res = await agent.get(`/api/coop/redemptions/${code}`).expect(200);
+      const res = await agent
+        .get(`/api/coop/redemptions/${code}`)
+        .set("x-tenant-id", String(hostId))
+        .expect(200);
       expect(res.body.valid).toBe(true);
       expect(res.body.partnership.id).toBe(partnershipId);
     }
-    const unknown = await agent.get("/api/coop/redemptions/CPT-NOPENOPENOPENOPENOPE").expect(200);
+    const unknown = await agent
+      .get("/api/coop/redemptions/CPT-NOPENOPENOPENOPENOPE")
+      .set("x-tenant-id", String(hostId))
+      .expect(200);
     expect(unknown.body.valid).toBe(false);
   });
 });

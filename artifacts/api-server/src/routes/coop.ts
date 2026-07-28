@@ -2771,7 +2771,21 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
     );
     return;
   }
-  const [row] = await partnershipRows().where(matchesAnyCode(code));
+  // Codes are unique per host business, not globally — resolve the code
+  // strictly within the validating tenant's own partnerships (either side).
+  const validatingScope = tenantIdFrom(req);
+  const [row] =
+    validatingScope == null
+      ? []
+      : await partnershipRows().where(
+          and(
+            matchesAnyCode(code),
+            or(
+              eq(merchantCoopPartnershipsTable.hostTenantId, validatingScope),
+              eq(merchantCoopPartnershipsTable.partnerTenantId, validatingScope)
+            )
+          )
+        );
   if (!row) {
     res.json(
       ValidateCoopRedemptionCodeResponse.parse({
@@ -2837,7 +2851,7 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
   // Analytics: a successful code check at checkout is a perk claim, recorded
   // at the business validating it (header scope when it's a participant,
   // else the perk's host business).
-  const validatingTenantId = tenantIdFrom(req);
+  const validatingTenantId = validatingScope;
   const claimTenantId =
     validatingTenantId != null &&
     (validatingTenantId === row.partnership.hostTenantId ||
@@ -3051,7 +3065,17 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
     );
   };
 
-  const [row] = await partnershipRows().where(matchesAnyCode(code));
+  // Codes are unique per host business, not globally — prefer the partnership
+  // where the redeeming tenant is a party so duplicate codes across hosts
+  // resolve within the caller's own scope. A non-participant match is kept
+  // only so the integrity check below can answer with the precise refusal.
+  const candidateRows = await partnershipRows().where(matchesAnyCode(code));
+  const row =
+    candidateRows.find(
+      (r) =>
+        r.partnership.hostTenantId === tenantId ||
+        r.partnership.partnerTenantId === tenantId
+    ) ?? candidateRows[0];
   if (!row) {
     fail("Unknown redemption code");
     return;

@@ -42,6 +42,9 @@ let cafeModuleId: number;
 beforeAll(async () => {
   const app = (await import("../../app")).default;
   agent = request.agent(app);
+  // Tenant-scoped routes now require explicit tenant context; these tests
+  // exercise the legacy (NULL-tenant) scope unless a request overrides it.
+  agent.set("x-tenant-id", "legacy");
   anon = request(app);
   await agent
     .post("/api/auth/login")
@@ -175,17 +178,35 @@ describe("merchant co-op partnerships", () => {
     expect(res.body.partnerTenantName).toBe(`Coop Cafe ${RUN}`);
   });
 
-  it("rejects an explicit duplicate redemption code", async () => {
+  it("rejects a duplicate redemption code only within the same host business", async () => {
+    // Same host reusing its own code → collision.
     const res = await agent
       .post("/api/coop/partnerships")
       .send({
-        hostTenantId: cafeId,
-        partnerTenantId: salonBId,
+        hostTenantId: salonAId,
+        partnerTenantId: cafeId,
         perkTitle: "Dup code",
         redemptionCode: autoCode,
       })
       .expect(400);
     expect(res.body.message).toMatch(/already in use/i);
+
+    // A different host may use the identical code — uniqueness is per host,
+    // so one business can't squat on another's codes.
+    const reuse = await agent
+      .post("/api/coop/partnerships")
+      .send({
+        hostTenantId: cafeId,
+        partnerTenantId: salonBId,
+        perkTitle: "Same code, different host",
+        redemptionCode: autoCode,
+      })
+      .expect(201);
+    expect(reuse.body.redemptionCode).toBe(autoCode);
+    // Clean up so validation assertions below resolve a single partnership.
+    await db
+      .delete(merchantCoopPartnershipsTable)
+      .where(eq(merchantCoopPartnershipsTable.id, reuse.body.id));
   });
 
   it("lists partnerships filtered by tenant (host or partner)", async () => {
@@ -198,7 +219,10 @@ describe("merchant co-op partnerships", () => {
   });
 
   it("validates an active redemption code", async () => {
-    const res = await agent.get(`/api/coop/redemptions/${autoCode}`).expect(200);
+    const res = await agent
+      .get(`/api/coop/redemptions/${autoCode}`)
+      .set("x-tenant-id", String(salonAId))
+      .expect(200);
     expect(res.body.valid).toBe(true);
     expect(res.body.reason).toBeNull();
     expect(res.body.partnership.id).toBe(partnershipId);
@@ -220,7 +244,10 @@ describe("merchant co-op partnerships", () => {
     expect(upd.body.perkTitle).toBe("Free latte with any cut");
     expect(upd.body.isActive).toBe(false);
 
-    const res = await agent.get(`/api/coop/redemptions/${autoCode}`).expect(200);
+    const res = await agent
+      .get(`/api/coop/redemptions/${autoCode}`)
+      .set("x-tenant-id", String(salonAId))
+      .expect(200);
     expect(res.body.valid).toBe(false);
     expect(res.body.reason).toMatch(/no longer active/i);
 
@@ -230,7 +257,10 @@ describe("merchant co-op partnerships", () => {
       .set("x-tenant-id", String(salonAId))
       .send({ isActive: true })
       .expect(200);
-    const again = await agent.get(`/api/coop/redemptions/${autoCode}`).expect(200);
+    const again = await agent
+      .get(`/api/coop/redemptions/${autoCode}`)
+      .set("x-tenant-id", String(salonAId))
+      .expect(200);
     expect(again.body.valid).toBe(true);
   });
 
@@ -320,13 +350,22 @@ describe("co-op perk date windows, disclaimer, expiry sweep, and redemption lock
     expect(titles).not.toContain(`Scheduled perk ${RUN}`); // outside window — excluded
     expect(titles).not.toContain(`Expired perk ${RUN}`);
 
-    // Validation endpoint respects the window.
-    const validRes = await agent.get(`/api/coop/redemptions/${open.redemptionCode}`).expect(200);
+    // Validation endpoint respects the window (scoped to a participant).
+    const validRes = await agent
+      .get(`/api/coop/redemptions/${open.redemptionCode}`)
+      .set("x-tenant-id", String(cafeId))
+      .expect(200);
     expect(validRes.body.valid).toBe(true);
-    const schedRes = await agent.get(`/api/coop/redemptions/${scheduled.redemptionCode}`).expect(200);
+    const schedRes = await agent
+      .get(`/api/coop/redemptions/${scheduled.redemptionCode}`)
+      .set("x-tenant-id", String(cafeId))
+      .expect(200);
     expect(schedRes.body.valid).toBe(false);
     expect(schedRes.body.reason).toMatch(/not active yet/i);
-    const expRes = await agent.get(`/api/coop/redemptions/${expired.redemptionCode}`).expect(200);
+    const expRes = await agent
+      .get(`/api/coop/redemptions/${expired.redemptionCode}`)
+      .set("x-tenant-id", String(cafeId))
+      .expect(200);
     expect(expRes.body.valid).toBe(false);
     expect(expRes.body.reason).toMatch(/expired/i);
 

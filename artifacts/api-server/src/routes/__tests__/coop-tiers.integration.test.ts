@@ -194,7 +194,10 @@ describe("scheduled evaluator transitions", () => {
     expect(landing.body.perks).toHaveLength(0);
 
     // …but the redemption code still validates so traffic CAN resume.
-    const validate = await agent.get(`/api/coop/redemptions/${row.redemptionCode}`).expect(200);
+    const validate = await agent
+      .get(`/api/coop/redemptions/${row.redemptionCode}`)
+      .set("x-tenant-id", String(hostId))
+      .expect(200);
     expect(validate.body.valid).toBe(true);
 
     await db.delete(merchantCoopPartnershipsTable).where(eq(merchantCoopPartnershipsTable.id, id));

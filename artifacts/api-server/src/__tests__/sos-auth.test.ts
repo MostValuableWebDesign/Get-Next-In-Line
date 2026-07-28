@@ -68,19 +68,28 @@ describe("SOS API auth guard", () => {
     });
 
     it("GET /api/sos/dashboard succeeds", async () => {
-      const res = await request(app).get("/api/sos/dashboard").set("Cookie", cookie);
+      const res = await request(app)
+        .get("/api/sos/dashboard")
+        .set("Cookie", cookie)
+        .set("x-tenant-id", "legacy");
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty("inQueue");
     });
 
     it("GET /api/sos/customers succeeds", async () => {
-      const res = await request(app).get("/api/sos/customers").set("Cookie", cookie);
+      const res = await request(app)
+        .get("/api/sos/customers")
+        .set("Cookie", cookie)
+        .set("x-tenant-id", "legacy");
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
     });
 
     it("GET /api/sos/visits succeeds", async () => {
-      const res = await request(app).get("/api/sos/visits").set("Cookie", cookie);
+      const res = await request(app)
+        .get("/api/sos/visits")
+        .set("Cookie", cookie)
+        .set("x-tenant-id", "legacy");
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
     });

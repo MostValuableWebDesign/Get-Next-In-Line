@@ -70,6 +70,9 @@ async function latestOutboundFor(customerId: number) {
 beforeAll(async () => {
   const app = (await import("../../app")).default;
   agent = request.agent(app);
+  // Tenant-scoped routes now require explicit tenant context; these tests
+  // exercise the legacy (NULL-tenant) scope unless a request overrides it.
+  agent.set("x-tenant-id", "legacy");
   await agent
     .post("/api/auth/login")
     .send({ password: process.env.ADMIN_PASSWORD })

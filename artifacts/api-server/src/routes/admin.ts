@@ -497,7 +497,10 @@ router.get("/admin/campaigns", async (_req, res): Promise<void> => {
     .innerJoin(tenantsTable, eq(campaignsTable.tenantId, tenantsTable.id))
     .leftJoin(
       attributionEventsTable,
-      eq(attributionEventsTable.campaignCode, campaignsTable.code),
+      and(
+        eq(attributionEventsTable.campaignCode, campaignsTable.code),
+        eq(attributionEventsTable.tenantId, campaignsTable.tenantId),
+      ),
     )
     .groupBy(campaignsTable.id, tenantsTable.brandName)
     .orderBy(desc(campaignsTable.createdAt), desc(campaignsTable.id));
@@ -539,12 +542,12 @@ router.post("/admin/campaigns", async (req, res): Promise<void> => {
   if (!code) {
     const base = slugifyCode(name) || `campaign-${tenantId}`;
     code = base;
-    // Suffix until unique (bounded — collisions are rare).
+    // Suffix until unique within this tenant (bounded — collisions are rare).
     for (let i = 2; i < 50; i++) {
       const [existing] = await db
         .select({ id: campaignsTable.id })
         .from(campaignsTable)
-        .where(eq(campaignsTable.code, code));
+        .where(and(eq(campaignsTable.tenantId, tenantId), eq(campaignsTable.code, code)));
       if (!existing) break;
       code = `${base}-${i}`;
     }
@@ -569,7 +572,7 @@ router.post("/admin/campaigns", async (req, res): Promise<void> => {
       (err as { code?: string }).code ??
       ((err as { cause?: { code?: string } }).cause?.code);
     if (pgCode === "23505") {
-      res.status(400).json({ message: "Campaign code already in use" });
+      res.status(400).json({ message: "Campaign code already in use for this business" });
       return;
     }
     throw err;
@@ -605,7 +608,12 @@ router.patch("/admin/campaigns/:id", async (req, res): Promise<void> => {
   const [clicks] = await db
     .select({ n: count() })
     .from(attributionEventsTable)
-    .where(eq(attributionEventsTable.campaignCode, updated.code));
+    .where(
+      and(
+        eq(attributionEventsTable.campaignCode, updated.code),
+        eq(attributionEventsTable.tenantId, updated.tenantId),
+      ),
+    );
 
   res.json(
     UpdateAdminCampaignResponse.parse(

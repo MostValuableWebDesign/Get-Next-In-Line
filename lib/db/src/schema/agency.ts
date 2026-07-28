@@ -115,19 +115,29 @@ export const tenantModulesTable = pgTable(
 // Trackable /r/:code links: each campaign belongs to a tenant; visiting the
 // public redirect logs an attribution event and forwards to the tenant's
 // public landing page.
-export const campaignsTable = pgTable("campaigns", {
-  id: serial("id").primaryKey(),
-  // Unique short code used in /r/:code URLs (lowercase [a-z0-9-]).
-  code: text("code").notNull().unique(),
-  tenantId: integer("tenant_id")
-    .notNull()
-    .references(() => tenantsTable.id, { onDelete: "cascade" }),
-  // Human-readable label, e.g. "Google Ads — Spring 2026".
-  name: text("name").notNull(),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+export const campaignsTable = pgTable(
+  "campaigns",
+  {
+    id: serial("id").primaryKey(),
+    // Short code used in /r/:code URLs (lowercase [a-z0-9-]). Unique per
+    // tenant (not globally) so two businesses can run the same code without
+    // colliding or squatting on each other's links.
+    code: text("code").notNull(),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // Human-readable label, e.g. "Google Ads — Spring 2026".
+    name: text("name").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("campaigns_tenant_code_uq").on(t.tenantId, t.code),
+    // Public /r/:code lookups resolve by bare code.
+    index("campaigns_code_idx").on(t.code),
+  ],
+);
 
 export const insertCampaignSchema = createInsertSchema(campaignsTable).omit({
   id: true,
@@ -182,8 +192,9 @@ export const merchantCoopPartnershipsTable = pgTable(
       .references(() => tenantsTable.id, { onDelete: "cascade" }),
     perkTitle: text("perk_title").notNull(),
     perkDescription: text("perk_description"),
-    // Unique across all partnerships; auto-generated when not supplied.
-    redemptionCode: text("redemption_code").notNull().unique(),
+    // Unique within the host tenant's partnerships (auto-generated when not
+    // supplied) — two different businesses may issue the same code.
+    redemptionCode: text("redemption_code").notNull(),
     // True when an admin explicitly bypassed the same-category block.
     industryBarrierOverridden: boolean("industry_barrier_overridden").notNull().default(false),
     // Invite lifecycle: pending | accepted | declined. Admin-created rows
@@ -271,6 +282,7 @@ export const merchantCoopPartnershipsTable = pgTable(
   (t) => [
     index("merchant_coop_partnerships_host_idx").on(t.hostTenantId),
     index("merchant_coop_partnerships_partner_idx").on(t.partnerTenantId),
+    unique("merchant_coop_partnerships_host_code_uq").on(t.hostTenantId, t.redemptionCode),
   ]
 );
 

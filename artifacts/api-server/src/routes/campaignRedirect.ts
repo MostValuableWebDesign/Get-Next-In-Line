@@ -25,29 +25,11 @@ const router: IRouter = Router();
 // Same character class as tenant slugs; 2–64 chars, no leading/trailing dash.
 export const CAMPAIGN_CODE_RE = /^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/;
 
-router.get("/r/:code", async (req, res): Promise<void> => {
-  const code = String(req.params.code || "").toLowerCase();
-  if (!CAMPAIGN_CODE_RE.test(code)) {
-    res.status(404).type("text/plain").send("Not found");
-    return;
-  }
-
-  const [row] = await db
-    .select({
-      campaignId: campaignsTable.id,
-      tenantId: tenantsTable.id,
-      subdomain: tenantsTable.subdomain,
-    })
-    .from(campaignsTable)
-    .innerJoin(tenantsTable, eq(campaignsTable.tenantId, tenantsTable.id))
-    .where(and(eq(campaignsTable.code, code), eq(campaignsTable.isActive, true)));
-
-  if (!row) {
-    // Unknown, expired, or deactivated code — friendly 404.
-    res.status(404).type("text/plain").send("This link is no longer active.");
-    return;
-  }
-
+async function redirectToCampaign(
+  res: Parameters<Parameters<IRouter["get"]>[1]>[1],
+  row: { tenantId: number; subdomain: string },
+  code: string,
+): Promise<void> {
   // Attribution logging is best-effort: never block the visitor's redirect.
   try {
     await db.insert(attributionEventsTable).values({
@@ -63,6 +45,64 @@ router.get("/r/:code", async (req, res): Promise<void> => {
     302,
     `/api/public/landing/${encodeURIComponent(row.subdomain)}?ref=${encodeURIComponent(code)}`,
   );
+}
+
+// Canonical tenant-qualified link: /r/:subdomain/:code — unambiguous even
+// when two businesses use the same campaign code.
+router.get("/r/:subdomain/:code", async (req, res): Promise<void> => {
+  const code = String(req.params.code || "").toLowerCase();
+  const subdomain = String(req.params.subdomain || "").toLowerCase();
+  if (!CAMPAIGN_CODE_RE.test(code)) {
+    res.status(404).type("text/plain").send("Not found");
+    return;
+  }
+  const [row] = await db
+    .select({ tenantId: tenantsTable.id, subdomain: tenantsTable.subdomain })
+    .from(campaignsTable)
+    .innerJoin(tenantsTable, eq(campaignsTable.tenantId, tenantsTable.id))
+    .where(
+      and(
+        eq(campaignsTable.code, code),
+        eq(campaignsTable.isActive, true),
+        eq(tenantsTable.subdomain, subdomain),
+      ),
+    );
+  if (!row) {
+    res.status(404).type("text/plain").send("This link is no longer active.");
+    return;
+  }
+  await redirectToCampaign(res, row, code);
+});
+
+// Legacy bare-code link. Campaign codes are unique per tenant, so a bare
+// code can in principle match several businesses' campaigns: it redirects
+// only while exactly one active campaign carries the code, and 404s (never
+// guesses — mis-attribution is worse) once it becomes ambiguous.
+router.get("/r/:code", async (req, res): Promise<void> => {
+  const code = String(req.params.code || "").toLowerCase();
+  if (!CAMPAIGN_CODE_RE.test(code)) {
+    res.status(404).type("text/plain").send("Not found");
+    return;
+  }
+
+  const rows = await db
+    .select({ tenantId: tenantsTable.id, subdomain: tenantsTable.subdomain })
+    .from(campaignsTable)
+    .innerJoin(tenantsTable, eq(campaignsTable.tenantId, tenantsTable.id))
+    .where(and(eq(campaignsTable.code, code), eq(campaignsTable.isActive, true)))
+    .limit(2);
+
+  if (rows.length === 0) {
+    // Unknown, expired, or deactivated code — friendly 404.
+    res.status(404).type("text/plain").send("This link is no longer active.");
+    return;
+  }
+  if (rows.length > 1) {
+    logger.warn({ code }, "Ambiguous bare campaign code — use /r/:subdomain/:code links");
+    res.status(404).type("text/plain").send("This link is no longer active.");
+    return;
+  }
+  await redirectToCampaign(res, rows[0], code);
 });
 
 // ── Co-op marketing tracked links ────────────────────────────────────────────

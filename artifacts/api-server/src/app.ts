@@ -207,6 +207,16 @@ app.use("/api", router);
 // Structured error responses: Zod validation failures become 400s with the
 // issue list instead of the default HTML 500 page.
 app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  // Missing/malformed tenant context on a tenant-scoped route → 400. Duck-type
+  // on the error name (same rationale as ZodError above).
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { name?: string }).name === "TenantContextError"
+  ) {
+    res.status(400).json({ message: (err as Error).message });
+    return;
+  }
   if (res.headersSent) {
     next(err);
     return;
