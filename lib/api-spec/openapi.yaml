@@ -1382,6 +1382,8 @@ paths:
                 $ref: "#/components/schemas/CoopFeaturedBoost"
         "400":
           description: Invalid body, window, or amount
+        "402":
+          description: Live billing declined — the flat charge or bid card hold failed, so no boost/bid was recorded
         "404":
           description: Partnership not found or not accepted+active for this tenant
         "409":
@@ -8724,7 +8726,7 @@ components:
     CoopFeaturedBoost:
       type: object
       required:
-        [id, tenantId, partnershipId, perkTitle, partnerName, surface, pricingType, amount, startsAt, endsAt, status, createdAt]
+        [id, tenantId, partnershipId, perkTitle, partnerName, surface, pricingType, amount, startsAt, endsAt, status, paymentMode, paymentRef, paymentFailureReason, createdAt]
       properties:
         id:
           type: integer
@@ -8754,6 +8756,16 @@ components:
           type: string
           enum: [pending, active, lost, expired]
           description: Flat purchases are active from purchase; bids stay pending until the window's auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt.
+        paymentMode:
+          type: string
+          enum: [simulated, stripe]
+          description: Whether this boost is backed by a real Stripe charge/hold or by simulated internal accounting (Stripe unconfigured).
+        paymentRef:
+          type: ["string", "null"]
+          description: Stripe PaymentIntent id backing this boost (null in simulated mode).
+        paymentFailureReason:
+          type: ["string", "null"]
+          description: Human-readable reason when a Stripe charge, capture, or hold release failed.
         createdAt:
           type: string
 
@@ -8870,7 +8882,7 @@ components:
 
     AdminCoopWalletSummary:
       type: object
-      required: [tenantId, tenantName, pendingBalance, lifetimeEarnings, totalFees, entryCount, lastActivityAt]
+      required: [tenantId, tenantName, pendingBalance, lifetimeEarnings, totalFees, entryCount, stripeBoostCharges, simulatedBoostCharges, lastActivityAt]
       properties:
         tenantId:
           type: integer
@@ -8884,6 +8896,12 @@ components:
           type: number
         entryCount:
           type: integer
+        stripeBoostCharges:
+          type: integer
+          description: Boost purchases billed as real Stripe charges (reconcilable against Stripe by payment reference).
+        simulatedBoostCharges:
+          type: integer
+          description: Boost purchases recorded in simulated mode (internal accounting only, no real charge).
         lastActivityAt:
           type: ["string", "null"]
 

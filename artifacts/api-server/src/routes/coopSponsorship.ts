@@ -25,6 +25,7 @@ import {
   BOOST_SURFACES,
   type BoostSurface,
   activateFlatBoost,
+  placeBidHold,
   activeBoostsForSurface,
   coopPlatformFeePercent,
   walletTotals,
@@ -40,8 +41,11 @@ import {
 // Operator-facing (/admin/coop/*) — platform-admin only (the tenant-access
 // middleware gates every /admin path on an admin session).
 //
-// All money here is internal accounting (simulated billing) — no real
-// charges or transfers.
+// Billing: when Stripe is configured, boost purchases move real money —
+// flat purchases are charged at purchase time (a declined charge blocks the
+// boost), and auction bids place a card hold that is captured for the winner
+// and released for losers at resolution. When Stripe is not configured,
+// boosts run in clearly-labeled simulated mode (internal accounting only).
 // ---------------------------------------------------------------------------
 
 const router: IRouter = Router();
@@ -72,6 +76,9 @@ function serializeBoost(b: CoopFeaturedBoost, perkTitle: string, partnerName: st
     startsAt: b.startsAt.toISOString(),
     endsAt: b.endsAt.toISOString(),
     status: b.status,
+    paymentMode: b.paymentMode,
+    paymentRef: b.stripePaymentIntentId ?? null,
+    paymentFailureReason: b.paymentFailureReason ?? null,
     createdAt: b.createdAt.toISOString(),
   };
 }
@@ -304,14 +311,35 @@ router.post("/coop/sponsorship/boosts", async (req, res): Promise<void> => {
   }
   // Flat purchases are charged at purchase time (winning bids are charged at
   // auction resolution). Future-dated flat purchases activate on schedule via
-  // the resolution sweep but pay now — the slot is reserved.
+  // the resolution sweep but pay now — the slot is reserved. A declined live
+  // charge releases the slot and surfaces the failure to the caller. Bids
+  // place a card hold now (live mode); a declined hold rejects the bid.
+  let charged = boost;
   if (pricingType === "flat") {
-    await activateFlatBoost(boost);
+    const chargeResult = await activateFlatBoost(boost);
+    if (!chargeResult.ok) {
+      await db.delete(coopFeaturedBoostsTable).where(eq(coopFeaturedBoostsTable.id, boost.id));
+      res.status(402).json({
+        message: `Your card could not be charged for this Featured Spot — the boost was not activated. ${chargeResult.failure.message}`,
+      });
+      return;
+    }
+    charged = chargeResult.boost;
+  } else {
+    const holdResult = await placeBidHold(boost);
+    if (!holdResult.ok) {
+      await db.delete(coopFeaturedBoostsTable).where(eq(coopFeaturedBoostsTable.id, boost.id));
+      res.status(402).json({
+        message: `A card hold for your bid could not be placed — the bid was not entered. ${holdResult.failure.message}`,
+      });
+      return;
+    }
+    charged = holdResult.boost;
   }
-  const ctx = await boostContext([boost]);
+  const ctx = await boostContext([charged]);
   res.status(201).json(
     CreateCoopBoostResponse.parse(
-      serializeBoost(boost, ctx.get(boost.id)?.perkTitle ?? "", ctx.get(boost.id)?.partnerName ?? "Partner"),
+      serializeBoost(charged, ctx.get(charged.id)?.perkTitle ?? "", ctx.get(charged.id)?.partnerName ?? "Partner"),
     ),
   );
 });
@@ -362,6 +390,24 @@ router.get("/coop/wallet", async (req, res): Promise<void> => {
 // ── GET /admin/coop/wallets — operator overview ─────────────────────────────
 router.get("/admin/coop/wallets", async (_req, res): Promise<void> => {
   const feePercent = await coopPlatformFeePercent();
+  // Boost billing reconciliation: how many boost purchases were real Stripe
+  // charges vs simulated internal accounting, per sponsor. Counted off the
+  // wallet ledger (one boost_purchase entry per charged boost) joined to the
+  // boost's payment mode.
+  const boostBilling = await db
+    .select({
+      tenantId: coopWalletEntriesTable.tenantId,
+      stripeCount: sql<number>`count(*) filter (where ${coopFeaturedBoostsTable.paymentMode} = 'stripe')::int`,
+      simulatedCount: sql<number>`count(*) filter (where ${coopFeaturedBoostsTable.paymentMode} <> 'stripe')::int`,
+    })
+    .from(coopWalletEntriesTable)
+    .innerJoin(
+      coopFeaturedBoostsTable,
+      eq(coopWalletEntriesTable.boostId, coopFeaturedBoostsTable.id),
+    )
+    .where(eq(coopWalletEntriesTable.entryType, "boost_purchase"))
+    .groupBy(coopWalletEntriesTable.tenantId);
+  const billingByTenant = new Map(boostBilling.map((r) => [r.tenantId, r]));
   const rows = await db
     .select({
       tenantId: coopWalletEntriesTable.tenantId,
@@ -386,6 +432,8 @@ router.get("/admin/coop/wallets", async (_req, res): Promise<void> => {
         lifetimeEarnings: money(parseFloat(r.lifetimeEarnings)),
         totalFees: money(parseFloat(r.totalFees)),
         entryCount: r.entryCount,
+        stripeBoostCharges: billingByTenant.get(r.tenantId)?.stripeCount ?? 0,
+        simulatedBoostCharges: billingByTenant.get(r.tenantId)?.simulatedCount ?? 0,
         lastActivityAt: r.lastActivityAt ? new Date(r.lastActivityAt).toISOString() : null,
       })),
     }),

@@ -575,6 +575,13 @@
       "when": 1785259721191,
       "tag": "0081_abnormal_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1785261360828,
+      "tag": "0082_fancy_miek",
+      "breakpoints": true
     }
   ]
 }

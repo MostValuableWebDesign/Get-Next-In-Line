@@ -1545,6 +1545,18 @@ export const coopFeaturedBoostsTable = pgTable(
     endsAt: timestamp("ends_at").notNull(),
     // pending | active | lost | expired
     status: text("status").notNull(),
+    // Billing mode for this boost's charge: "simulated" (Stripe unconfigured —
+    // internal accounting only) or "stripe" (a real PaymentIntent backs it).
+    paymentMode: text("payment_mode").notNull().default("simulated"),
+    // Stripe PaymentIntent backing this boost (flat charge, or the bid-time
+    // hold that is captured/released at auction resolution).
+    stripePaymentIntentId: text("stripe_payment_intent_id"),
+    // Human-readable reason when a Stripe charge/capture/release failed.
+    paymentFailureReason: text("payment_failure_reason"),
+    // Pending Stripe retry bookkeeping (concierge sweep): "capture" | "release".
+    retryOperation: text("retry_operation"),
+    retryAttempts: integer("retry_attempts").notNull().default(0),
+    nextRetryAt: timestamp("next_retry_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
@@ -1564,8 +1576,11 @@ export type CoopFeaturedBoost = typeof coopFeaturedBoostsTable.$inferSelect;
 // and operator-processed payouts. Signed amounts: positive = credited to the
 // merchant's balance, negative = debited. `status` tracks payout state:
 // pending entries make up the current balance; a processed payout flips them
-// to paid_out and appends a negative payout entry. NOT real money movement —
-// payouts are marked processed manually by platform operators.
+// to paid_out and appends a negative payout entry. Payouts here are NOT real
+// money movement — they are marked processed manually by platform operators.
+// Boost purchases MAY be backed by a real Stripe charge; the boost row's
+// payment_mode/stripe_payment_intent_id say which, and the entry description
+// carries the payment reference or a SIMULATED label.
 export const coopWalletEntriesTable = pgTable(
   "coop_wallet_entries",
   {

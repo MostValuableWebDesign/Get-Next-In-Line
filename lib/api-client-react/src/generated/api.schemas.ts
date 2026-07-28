@@ -1458,6 +1458,17 @@ export const CoopFeaturedBoostStatus = {
   expired: 'expired',
 } as const;
 
+/**
+ * Whether this boost is backed by a real Stripe charge/hold or by simulated internal accounting (Stripe unconfigured).
+ */
+export type CoopFeaturedBoostPaymentMode = typeof CoopFeaturedBoostPaymentMode[keyof typeof CoopFeaturedBoostPaymentMode];
+
+
+export const CoopFeaturedBoostPaymentMode = {
+  simulated: 'simulated',
+  stripe: 'stripe',
+} as const;
+
 export interface CoopFeaturedBoost {
   id: number;
   /** Sponsoring business. */
@@ -1473,6 +1484,18 @@ export interface CoopFeaturedBoost {
   endsAt: string;
   /** Flat purchases are active from purchase; bids stay pending until the window's auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt. */
   status: CoopFeaturedBoostStatus;
+  /** Whether this boost is backed by a real Stripe charge/hold or by simulated internal accounting (Stripe unconfigured). */
+  paymentMode: CoopFeaturedBoostPaymentMode;
+  /**
+     * Stripe PaymentIntent id backing this boost (null in simulated mode).
+     * @nullable
+     */
+  paymentRef: string | null;
+  /**
+     * Human-readable reason when a Stripe charge, capture, or hold release failed.
+     * @nullable
+     */
+  paymentFailureReason: string | null;
   createdAt: string;
 }
 
@@ -1584,6 +1607,10 @@ export interface AdminCoopWalletSummary {
   lifetimeEarnings: number;
   totalFees: number;
   entryCount: number;
+  /** Boost purchases billed as real Stripe charges (reconcilable against Stripe by payment reference). */
+  stripeBoostCharges: number;
+  /** Boost purchases recorded in simulated mode (internal accounting only, no real charge). */
+  simulatedBoostCharges: number;
   /** @nullable */
   lastActivityAt: string | null;
 }

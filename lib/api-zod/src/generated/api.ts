@@ -1814,6 +1814,9 @@ export const ListCoopSponsorshipSlotsResponse = zod.object({
   "startsAt": zod.string(),
   "endsAt": zod.string(),
   "status": zod.enum(['pending', 'active', 'lost', 'expired']).describe('Flat purchases are active from purchase; bids stay pending until the window\'s auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt.'),
+  "paymentMode": zod.enum(['simulated', 'stripe']).describe('Whether this boost is backed by a real Stripe charge\/hold or by simulated internal accounting (Stripe unconfigured).'),
+  "paymentRef": zod.string().nullable().describe('Stripe PaymentIntent id backing this boost (null in simulated mode).'),
+  "paymentFailureReason": zod.string().nullable().describe('Human-readable reason when a Stripe charge, capture, or hold release failed.'),
   "createdAt": zod.string()
 }),zod.null()]),
   "pendingWindows": zod.array(zod.object({
@@ -1841,6 +1844,9 @@ export const ListCoopBoostsResponseItem = zod.object({
   "startsAt": zod.string(),
   "endsAt": zod.string(),
   "status": zod.enum(['pending', 'active', 'lost', 'expired']).describe('Flat purchases are active from purchase; bids stay pending until the window\'s auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt.'),
+  "paymentMode": zod.enum(['simulated', 'stripe']).describe('Whether this boost is backed by a real Stripe charge\/hold or by simulated internal accounting (Stripe unconfigured).'),
+  "paymentRef": zod.string().nullable().describe('Stripe PaymentIntent id backing this boost (null in simulated mode).'),
+  "paymentFailureReason": zod.string().nullable().describe('Human-readable reason when a Stripe charge, capture, or hold release failed.'),
   "createdAt": zod.string()
 })
 export const ListCoopBoostsResponse = zod.array(ListCoopBoostsResponseItem)
@@ -1874,6 +1880,9 @@ export const CreateCoopBoostResponse = zod.object({
   "startsAt": zod.string(),
   "endsAt": zod.string(),
   "status": zod.enum(['pending', 'active', 'lost', 'expired']).describe('Flat purchases are active from purchase; bids stay pending until the window\'s auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt.'),
+  "paymentMode": zod.enum(['simulated', 'stripe']).describe('Whether this boost is backed by a real Stripe charge\/hold or by simulated internal accounting (Stripe unconfigured).'),
+  "paymentRef": zod.string().nullable().describe('Stripe PaymentIntent id backing this boost (null in simulated mode).'),
+  "paymentFailureReason": zod.string().nullable().describe('Human-readable reason when a Stripe charge, capture, or hold release failed.'),
   "createdAt": zod.string()
 })
 
@@ -1913,6 +1922,8 @@ export const ListAdminCoopWalletsResponse = zod.object({
   "lifetimeEarnings": zod.number(),
   "totalFees": zod.number(),
   "entryCount": zod.number(),
+  "stripeBoostCharges": zod.number().describe('Boost purchases billed as real Stripe charges (reconcilable against Stripe by payment reference).'),
+  "simulatedBoostCharges": zod.number().describe('Boost purchases recorded in simulated mode (internal accounting only, no real charge).'),
   "lastActivityAt": zod.string().nullable()
 }))
 })

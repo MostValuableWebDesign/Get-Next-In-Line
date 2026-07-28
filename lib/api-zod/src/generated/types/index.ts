@@ -148,6 +148,7 @@ export * from './coopEventRespondAction';
 export * from './coopEventSettlementEntry';
 export * from './coopEventStorefrontStat';
 export * from './coopFeaturedBoost';
+export * from './coopFeaturedBoostPaymentMode';
 export * from './coopFeaturedBoostPricingType';
 export * from './coopFeaturedBoostStatus';
 export * from './coopFeaturedBoostSurface';

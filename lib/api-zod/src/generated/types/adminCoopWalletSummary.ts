@@ -13,6 +13,10 @@ export interface AdminCoopWalletSummary {
   lifetimeEarnings: number;
   totalFees: number;
   entryCount: number;
+  /** Boost purchases billed as real Stripe charges (reconcilable against Stripe by payment reference). */
+  stripeBoostCharges: number;
+  /** Boost purchases recorded in simulated mode (internal accounting only, no real charge). */
+  simulatedBoostCharges: number;
   /** @nullable */
   lastActivityAt: string | null;
 }

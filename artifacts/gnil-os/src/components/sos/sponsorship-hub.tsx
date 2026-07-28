@@ -176,9 +176,19 @@ function BoostRow({ boost }: { boost: CoopFeaturedBoost }) {
           {boost.pricingType === 'bid' ? 'Auction bid' : 'Flat fee'} · {money(boost.amount)} · {fmtWindow(boost.startsAt, boost.endsAt)}
         </div>
       </div>
-      <Badge variant="outline" className={`shrink-0 capitalize ${BOOST_STATUS_STYLES[boost.status] ?? ''}`} data-testid={`badge-boost-status-${boost.id}`}>
-        {boost.status === 'lost' ? 'Outbid' : boost.status}
-      </Badge>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <Badge
+          variant="outline"
+          className="text-muted-foreground"
+          title={boost.paymentRef ? `Stripe payment ${boost.paymentRef}` : 'Internal accounting only — no real charge'}
+          data-testid={`badge-boost-billing-${boost.id}`}
+        >
+          {boost.paymentMode === 'stripe' ? 'Stripe' : 'Simulated'}
+        </Badge>
+        <Badge variant="outline" className={`capitalize ${BOOST_STATUS_STYLES[boost.status] ?? ''}`} data-testid={`badge-boost-status-${boost.id}`}>
+          {boost.status === 'lost' ? 'Outbid' : boost.status}
+        </Badge>
+      </div>
     </div>
   );
 }

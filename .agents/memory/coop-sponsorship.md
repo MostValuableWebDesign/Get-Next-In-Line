@@ -17,3 +17,9 @@ description: Boost/auction lifecycle, revenue-share split rules, and wallet/payo
 
 ## Cross-suite pause hazard
 Shifted-clock tier evaluations must be scoped: `evaluateCoopPartnershipTiers(future, { partnershipIds })` — an unscoped future-clock run performance-pauses every zero-traffic partnership DB-wide and breaks unrelated parallel suites whose perks must render. Also: compute near-now auction windows inside the test body, not at collection time — slow parallel runs age a collection-time `Date.now()+4s` start into the past and bids 400.
+
+## Boost billing (real Stripe + simulated fallback)
+- Sponsors are charged off-session against a card on file (Stripe customer found by tenant-id metadata or contact email); no card on file is a PERMANENT failure, not a retry.
+- Never trust a non-throwing PaymentIntent call: flat charges require status "succeeded" before activation, bid holds require "requires_capture" before the bid is accepted, and captures require "succeeded" — any other status blocks/retries. **Why:** Stripe can return an incomplete PI (SCA, processing) without throwing; activating on it would grant unpaid placement.
+- Losers of a boost auction are never charged — every non-winner (including fully-elapsed windows) must have its hold released; new settle paths must clear retry fields and keep that invariant.
+- Test caution: resolveCoopBoosts(farFutureNow) sweeps/expires ANY due rows in the shared dev DB — use far-future window slices and containment (not equality) assertions on release calls.

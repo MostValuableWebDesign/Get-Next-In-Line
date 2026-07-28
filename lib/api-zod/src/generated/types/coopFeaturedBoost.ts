@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { CoopFeaturedBoostPaymentMode } from './coopFeaturedBoostPaymentMode';
 import type { CoopFeaturedBoostPricingType } from './coopFeaturedBoostPricingType';
 import type { CoopFeaturedBoostStatus } from './coopFeaturedBoostStatus';
 import type { CoopFeaturedBoostSurface } from './coopFeaturedBoostSurface';
@@ -24,5 +25,17 @@ export interface CoopFeaturedBoost {
   endsAt: string;
   /** Flat purchases are active from purchase; bids stay pending until the window's auction resolves (highest bid wins, losers become lost); active boosts expire automatically after endsAt. */
   status: CoopFeaturedBoostStatus;
+  /** Whether this boost is backed by a real Stripe charge/hold or by simulated internal accounting (Stripe unconfigured). */
+  paymentMode: CoopFeaturedBoostPaymentMode;
+  /**
+     * Stripe PaymentIntent id backing this boost (null in simulated mode).
+     * @nullable
+     */
+  paymentRef: string | null;
+  /**
+     * Human-readable reason when a Stripe charge, capture, or hold release failed.
+     * @nullable
+     */
+  paymentFailureReason: string | null;
   createdAt: string;
 }

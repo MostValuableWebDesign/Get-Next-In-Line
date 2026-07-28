@@ -283,7 +283,7 @@ function isPermanentStripeError(err: unknown): boolean {
   );
 }
 
-function toStripeOpFailure(err: unknown): StripeOpFailure {
+export function toStripeOpFailure(err: unknown): StripeOpFailure {
   return {
     message: err instanceof Error ? err.message : String(err),
     permanent: isPermanentStripeError(err),

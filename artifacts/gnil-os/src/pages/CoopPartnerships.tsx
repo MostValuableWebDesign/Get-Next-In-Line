@@ -325,6 +325,7 @@ function PayoutConsole() {
                   <th className="py-2 px-3 font-medium text-right">Pending balance</th>
                   <th className="py-2 px-3 font-medium text-right">Lifetime earned</th>
                   <th className="py-2 px-3 font-medium text-right">Fees collected</th>
+                  <th className="py-2 px-3 font-medium text-right">Boost billing</th>
                   <th className="py-2 px-3 font-medium text-right">Last activity</th>
                   <th className="py-2 pl-3 font-medium text-right">Action</th>
                 </tr>
@@ -338,6 +339,11 @@ function PayoutConsole() {
                     </td>
                     <td className="py-2 px-3 text-right">{payoutMoney(w.lifetimeEarnings)}</td>
                     <td className="py-2 px-3 text-right text-muted-foreground">{payoutMoney(w.totalFees)}</td>
+                    <td className="py-2 px-3 text-right text-muted-foreground" data-testid={`text-wallet-boost-billing-${w.tenantId}`}>
+                      {w.stripeBoostCharges + w.simulatedBoostCharges === 0
+                        ? '—'
+                        : `${w.stripeBoostCharges} Stripe / ${w.simulatedBoostCharges} simulated`}
+                    </td>
                     <td className="py-2 px-3 text-right text-muted-foreground">
                       {w.lastActivityAt ? new Date(w.lastActivityAt).toLocaleDateString() : '—'}
                     </td>
