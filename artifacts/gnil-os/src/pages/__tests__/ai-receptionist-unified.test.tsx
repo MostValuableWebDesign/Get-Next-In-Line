@@ -4,6 +4,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mutate = vi.fn();
+const sendMutate = vi.fn();
+
+let customers: Array<{ id: number; name: string; phone: string | null }> = [];
 
 // Structured service catalog rows (the receptionist's vocabulary source).
 let catalog: Array<{ name: string; isActive: boolean }> = [];
@@ -33,9 +36,10 @@ vi.mock('@workspace/api-client-react', () => ({
   useListSosMessages: () => ({ data: [] }),
   getListSosMessagesQueryKey: () => ['/api/sos/messages'],
   useSimulateSosCall: () => ({ mutate: vi.fn(), isPending: false }),
-  useSendSosMessage: () => ({ mutate: vi.fn(), isPending: false }),
-  useListSosCustomers: () => ({ data: [] }),
+  useSendSosMessage: () => ({ mutate: sendMutate, isPending: false }),
+  useListSosCustomers: () => ({ data: customers, isLoading: false }),
   getListSosCustomersQueryKey: () => ['/api/sos/customers'],
+  useCreateSosCustomer: () => ({ mutate: vi.fn(), isPending: false }),
   // Tenant-scoped variants — unused when rendering the global page
   useGetTenantSettings: () => ({ data: undefined, isLoading: false }),
   getGetTenantSettingsQueryKey: (id: number) => ['/api/tenants', id, 'settings'],
@@ -125,5 +129,52 @@ describe('Unified AI Receptionist view', () => {
   it('shows the simulated-SMS banner when SMS is not live', () => {
     renderPage();
     expect(screen.getByTestId('banner-sms-simulated')).toBeInTheDocument();
+  });
+
+  describe('Send Manual SMS dialog', () => {
+    beforeEach(() => {
+      sendMutate.mockClear();
+      customers = [
+        { id: 7, name: 'Ada Lovelace', phone: '+15550001111' },
+        { id: 9, name: 'Grace Hopper', phone: null },
+      ];
+    });
+
+    function openDialog() {
+      renderPage();
+      fireEvent.click(screen.getByText('Send Manual SMS'));
+    }
+
+    it('offers a customer picker with no default selection and disables Send until one is chosen', () => {
+      openDialog();
+      // No raw ID input; a searchable picker instead, with no preselected customer.
+      expect(screen.queryByText('Customer ID')).not.toBeInTheDocument();
+      const picker = screen.getByTestId('button-customer-picker');
+      expect(picker.textContent).toContain('Select customer');
+
+      fireEvent.change(screen.getByPlaceholderText('Type message...'), {
+        target: { value: 'Hello there' },
+      });
+      const sendButton = screen.getByText('Send Message').closest('button')!;
+      expect(sendButton).toBeDisabled();
+      fireEvent.click(sendButton);
+      expect(sendMutate).not.toHaveBeenCalled();
+    });
+
+    it('sends to the selected customer with the manual kind', () => {
+      openDialog();
+      fireEvent.click(screen.getByTestId('button-customer-picker'));
+      fireEvent.click(screen.getByTestId('option-customer-7'));
+      fireEvent.change(screen.getByPlaceholderText('Type message...'), {
+        target: { value: 'Hello Ada' },
+      });
+      const sendButton = screen.getByText('Send Message').closest('button')!;
+      expect(sendButton).not.toBeDisabled();
+      fireEvent.click(sendButton);
+      expect(sendMutate).toHaveBeenCalledTimes(1);
+      expect(sendMutate.mock.calls[0][0]).toEqual({
+        data: { customerId: 7, body: 'Hello Ada', kind: 'manual' },
+      });
+    });
   });
 });

@@ -123,6 +123,7 @@ vi.mock('@workspace/api-client-react', () => ({
     return { data: [] };
   },
   getListSosCustomersQueryKey: () => ['/api/sos/customers'],
+  useCreateSosCustomer: () => ({ mutate: vi.fn(), isPending: false }),
   useSendSosMessage: (options: unknown) => {
     sendSosMessageOptions(options);
     return { mutate: vi.fn(), isPending: false };

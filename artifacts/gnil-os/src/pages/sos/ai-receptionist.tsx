@@ -7,6 +7,7 @@ import {
   useGetTenant, getGetTenantQueryKey,
   getListSosCallsQueryKey, getListSosMessagesQueryKey,
   useListSosServices, getListSosServicesQueryKey,
+  type SosCustomer,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { MessageHistoryTable, type MessageHistoryItem } from '@/components/message-history';
 import { SmsConversations } from '@/components/sms-conversations';
+import { CustomerPicker } from '@/components/sos/customer-picker';
 
 /**
  * Unified AI Receptionist view.
@@ -512,7 +514,7 @@ function MessageLogList() {
 
 function SendSmsDialog() {
   const [open, setOpen] = useState(false);
-  const [customerId, setCustomerId] = useState("1");
+  const [customer, setCustomer] = useState<SosCustomer | null>(null);
   const [body, setBody] = useState("");
 
   const send = useSendSosMessage();
@@ -520,8 +522,9 @@ function SendSmsDialog() {
   const { toast } = useToast();
 
   const handleSend = () => {
+    if (!customer) return;
     send.mutate(
-      { data: { customerId: parseInt(customerId), body, kind: 'manual' } },
+      { data: { customerId: customer.id, body, kind: 'manual' } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListSosMessagesQueryKey() });
@@ -543,8 +546,8 @@ function SendSmsDialog() {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Customer ID</Label>
-            <Input value={customerId} onChange={e => setCustomerId(e.target.value)} placeholder="e.g. 1" />
+            <Label>Customer</Label>
+            <CustomerPicker value={customer} onChange={setCustomer} />
           </div>
           <div className="space-y-2">
             <Label>Message Content</Label>
@@ -553,7 +556,7 @@ function SendSmsDialog() {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleSend} disabled={!body}>Send Message</Button>
+          <Button onClick={handleSend} disabled={!body || !customer}>Send Message</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -49,6 +49,7 @@ vi.mock('@workspace/api-client-react', () => ({
   useSendSosMessage: () => ({ mutate: vi.fn(), isPending: false }),
   useListSosCustomers: () => ({ data: [] }),
   getListSosCustomersQueryKey: () => ['/api/sos/customers'],
+  useCreateSosCustomer: () => ({ mutate: vi.fn(), isPending: false }),
   useGetTenantSettings: (id: number) => ({
     data: tenantSettings[id],
     isLoading: false,
