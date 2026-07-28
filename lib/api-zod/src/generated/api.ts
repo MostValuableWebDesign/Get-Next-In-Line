@@ -1916,6 +1916,7 @@ export const createCoopRetailItemBodyOwnerSharePercentMax = 100;
 
 export const createCoopRetailItemBodyLowStockThresholdDefault = 3;
 export const createCoopRetailItemBodyLowStockThresholdMin = 0;
+export const createCoopRetailItemBodyLowStockThresholdMax = 1000000;
 
 
 
@@ -1925,7 +1926,7 @@ export const CreateCoopRetailItemBody = zod.object({
   "quantityOnShelf": zod.number().min(createCoopRetailItemBodyQuantityOnShelfMin),
   "unitPrice": zod.number().min(createCoopRetailItemBodyUnitPriceMin),
   "ownerSharePercent": zod.number().min(createCoopRetailItemBodyOwnerSharePercentMin).max(createCoopRetailItemBodyOwnerSharePercentMax),
-  "lowStockThreshold": zod.number().min(createCoopRetailItemBodyLowStockThresholdMin).default(createCoopRetailItemBodyLowStockThresholdDefault)
+  "lowStockThreshold": zod.number().min(createCoopRetailItemBodyLowStockThresholdMin).max(createCoopRetailItemBodyLowStockThresholdMax).default(createCoopRetailItemBodyLowStockThresholdDefault)
 })
 
 export const CreateCoopRetailItemResponse = zod.object({
@@ -1960,6 +1961,7 @@ export const updateCoopRetailItemBodyOwnerSharePercentMin = 0;
 export const updateCoopRetailItemBodyOwnerSharePercentMax = 100;
 
 export const updateCoopRetailItemBodyLowStockThresholdMin = 0;
+export const updateCoopRetailItemBodyLowStockThresholdMax = 1000000;
 
 
 
@@ -1967,7 +1969,7 @@ export const UpdateCoopRetailItemBody = zod.object({
   "name": zod.string().min(1).optional(),
   "unitPrice": zod.number().min(updateCoopRetailItemBodyUnitPriceMin).optional(),
   "ownerSharePercent": zod.number().min(updateCoopRetailItemBodyOwnerSharePercentMin).max(updateCoopRetailItemBodyOwnerSharePercentMax).optional(),
-  "lowStockThreshold": zod.number().min(updateCoopRetailItemBodyLowStockThresholdMin).optional(),
+  "lowStockThreshold": zod.number().min(updateCoopRetailItemBodyLowStockThresholdMin).max(updateCoopRetailItemBodyLowStockThresholdMax).optional(),
   "isActive": zod.boolean().optional()
 })
 
@@ -5990,6 +5992,867 @@ export const GetFranchiseRollupResponse = zod.object({
 })
 }))
 }))
+})
+
+
+/**
+ * @summary Admin-only — full B2B vendor directory including unverified drafts, with supply items
+ */
+
+export const listAdminProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceMin = 0;
+export const listAdminProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceMax = 100000;
+
+
+
+export const ListAdminProcurementVendorsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "region": zod.string(),
+  "contactEmail": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "isVerified": zod.boolean(),
+  "isActive": zod.boolean(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "vendorId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "basePrice": zod.number().describe('Solo (non-pooled) per-unit price — the savings baseline.'),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(listAdminProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceMin).max(listAdminProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "isActive": zod.boolean()
+})),
+  "createdAt": zod.coerce.date()
+})
+export const ListAdminProcurementVendorsResponse = zod.array(ListAdminProcurementVendorsResponseItem)
+
+
+/**
+ * @summary Admin-only — add a regional B2B vendor to the directory
+ */
+
+
+
+
+
+export const CreateProcurementVendorBody = zod.object({
+  "name": zod.string().min(1),
+  "category": zod.string().min(1),
+  "region": zod.string().min(1),
+  "contactEmail": zod.string().optional(),
+  "notes": zod.string().optional(),
+  "isVerified": zod.boolean().optional()
+})
+
+
+export const createProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMin = 0;
+export const createProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMax = 100000;
+
+
+
+export const CreateProcurementVendorResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "region": zod.string(),
+  "contactEmail": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "isVerified": zod.boolean(),
+  "isActive": zod.boolean(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "vendorId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "basePrice": zod.number().describe('Solo (non-pooled) per-unit price — the savings baseline.'),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(createProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMin).max(createProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "isActive": zod.boolean()
+})),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Admin-only — edit a vendor (including the verified flag)
+ */
+export const UpdateProcurementVendorParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+
+
+export const UpdateProcurementVendorBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "category": zod.string().min(1).optional(),
+  "region": zod.string().min(1).optional(),
+  "contactEmail": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "isVerified": zod.boolean().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+
+export const updateProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMin = 0;
+export const updateProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMax = 100000;
+
+
+
+export const UpdateProcurementVendorResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "region": zod.string(),
+  "contactEmail": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "isVerified": zod.boolean(),
+  "isActive": zod.boolean(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "vendorId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "basePrice": zod.number().describe('Solo (non-pooled) per-unit price — the savings baseline.'),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(updateProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMin).max(updateProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "isActive": zod.boolean()
+})),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Admin-only — add a supply item (with bulk pricing tiers) to a vendor
+ */
+export const CreateProcurementVendorItemParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+export const createProcurementVendorItemBodyBasePriceMin = 0;
+export const createProcurementVendorItemBodyBasePriceMax = 100000;
+
+
+export const createProcurementVendorItemBodyBulkTiersItemUnitPriceMin = 0;
+export const createProcurementVendorItemBodyBulkTiersItemUnitPriceMax = 100000;
+
+
+
+export const CreateProcurementVendorItemBody = zod.object({
+  "name": zod.string().min(1),
+  "unit": zod.string().min(1),
+  "basePrice": zod.number().min(createProcurementVendorItemBodyBasePriceMin).max(createProcurementVendorItemBodyBasePriceMax),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(createProcurementVendorItemBodyBulkTiersItemUnitPriceMin).max(createProcurementVendorItemBodyBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})).optional()
+})
+
+
+export const createProcurementVendorItemResponseBulkTiersItemUnitPriceMin = 0;
+export const createProcurementVendorItemResponseBulkTiersItemUnitPriceMax = 100000;
+
+
+
+export const CreateProcurementVendorItemResponse = zod.object({
+  "id": zod.number(),
+  "vendorId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "basePrice": zod.number().describe('Solo (non-pooled) per-unit price — the savings baseline.'),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(createProcurementVendorItemResponseBulkTiersItemUnitPriceMin).max(createProcurementVendorItemResponseBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "isActive": zod.boolean()
+})
+
+
+/**
+ * @summary Admin-only — edit a vendor supply item / its bulk tiers
+ */
+export const UpdateProcurementVendorItemParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+export const updateProcurementVendorItemBodyBasePriceMin = 0;
+export const updateProcurementVendorItemBodyBasePriceMax = 100000;
+
+
+export const updateProcurementVendorItemBodyBulkTiersItemUnitPriceMin = 0;
+export const updateProcurementVendorItemBodyBulkTiersItemUnitPriceMax = 100000;
+
+
+
+export const UpdateProcurementVendorItemBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "unit": zod.string().min(1).optional(),
+  "basePrice": zod.number().min(updateProcurementVendorItemBodyBasePriceMin).max(updateProcurementVendorItemBodyBasePriceMax).optional(),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(updateProcurementVendorItemBodyBulkTiersItemUnitPriceMin).max(updateProcurementVendorItemBodyBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+
+export const updateProcurementVendorItemResponseBulkTiersItemUnitPriceMin = 0;
+export const updateProcurementVendorItemResponseBulkTiersItemUnitPriceMax = 100000;
+
+
+
+export const UpdateProcurementVendorItemResponse = zod.object({
+  "id": zod.number(),
+  "vendorId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "basePrice": zod.number().describe('Solo (non-pooled) per-unit price — the savings baseline.'),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(updateProcurementVendorItemResponseBulkTiersItemUnitPriceMin).max(updateProcurementVendorItemResponseBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "isActive": zod.boolean()
+})
+
+
+/**
+ * @summary Admin-only — network-wide view of active group buys and cumulative co-op savings
+ */
+
+export const getAdminProcurementOverviewResponseOpenGroupBuysItemBulkTiersItemUnitPriceMin = 0;
+export const getAdminProcurementOverviewResponseOpenGroupBuysItemBulkTiersItemUnitPriceMax = 100000;
+
+
+export const getAdminProcurementOverviewResponseOpenGroupBuysItemCurrentTierOneUnitPriceMin = 0;
+export const getAdminProcurementOverviewResponseOpenGroupBuysItemCurrentTierOneUnitPriceMax = 100000;
+
+
+export const getAdminProcurementOverviewResponseOpenGroupBuysItemNextTierOneUnitPriceMin = 0;
+export const getAdminProcurementOverviewResponseOpenGroupBuysItemNextTierOneUnitPriceMax = 100000;
+
+
+
+export const GetAdminProcurementOverviewResponse = zod.object({
+  "vendorCount": zod.number(),
+  "verifiedVendorCount": zod.number(),
+  "openGroupBuys": zod.array(zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['open', 'closed', 'cancelled']),
+  "vendorItemId": zod.number(),
+  "itemName": zod.string(),
+  "unit": zod.string(),
+  "vendorId": zod.number(),
+  "vendorName": zod.string(),
+  "basePrice": zod.number(),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(getAdminProcurementOverviewResponseOpenGroupBuysItemBulkTiersItemUnitPriceMin).max(getAdminProcurementOverviewResponseOpenGroupBuysItemBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "organizerTenantId": zod.number(),
+  "organizerTenantName": zod.string(),
+  "totalQuantity": zod.number().describe('Sum of every participant\'s quantity — the pooled volume.'),
+  "currentTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(getAdminProcurementOverviewResponseOpenGroupBuysItemCurrentTierOneUnitPriceMin).max(getAdminProcurementOverviewResponseOpenGroupBuysItemCurrentTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The volume-discount tier the pool has reached (null = base pricing).'),
+  "nextTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(getAdminProcurementOverviewResponseOpenGroupBuysItemNextTierOneUnitPriceMin).max(getAdminProcurementOverviewResponseOpenGroupBuysItemNextTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The next tier the pool could unlock (null = top tier reached).'),
+  "currentUnitPrice": zod.number().describe('Live per-unit price at the reached tier (frozen achieved price once closed).'),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "quantity": zod.number(),
+  "isOrganizer": zod.boolean()
+})),
+  "myQuantity": zod.number().nullish().describe('The scoped tenant\'s quantity in this pool (null when not participating).'),
+  "achievedTierMinQty": zod.number().nullish(),
+  "achievedUnitPrice": zod.number().nullish(),
+  "closedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})),
+  "closedGroupBuyCount": zod.number(),
+  "totalSavings": zod.number().describe('Cumulative co-op savings across every ledger entry.'),
+  "savingsByTenant": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "savings": zod.number()
+}))
+})
+
+
+/**
+ * @summary Merchant-facing — verified, active vendors and their supply items only; tenant scope via x-tenant-id
+ */
+
+export const listProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceMin = 0;
+export const listProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceMax = 100000;
+
+
+
+export const ListProcurementVendorsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string(),
+  "region": zod.string(),
+  "contactEmail": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "isVerified": zod.boolean(),
+  "isActive": zod.boolean(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "vendorId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "basePrice": zod.number().describe('Solo (non-pooled) per-unit price — the savings baseline.'),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(listProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceMin).max(listProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "isActive": zod.boolean()
+})),
+  "createdAt": zod.coerce.date()
+})
+export const ListProcurementVendorsResponse = zod.array(ListProcurementVendorsResponseItem)
+
+
+/**
+ * @summary Merchant-facing — open group buys across the network plus this tenant's closed ones; tenant scope via x-tenant-id
+ */
+
+export const listProcurementGroupBuysResponseBulkTiersItemUnitPriceMin = 0;
+export const listProcurementGroupBuysResponseBulkTiersItemUnitPriceMax = 100000;
+
+
+export const listProcurementGroupBuysResponseCurrentTierOneUnitPriceMin = 0;
+export const listProcurementGroupBuysResponseCurrentTierOneUnitPriceMax = 100000;
+
+
+export const listProcurementGroupBuysResponseNextTierOneUnitPriceMin = 0;
+export const listProcurementGroupBuysResponseNextTierOneUnitPriceMax = 100000;
+
+
+
+export const ListProcurementGroupBuysResponseItem = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['open', 'closed', 'cancelled']),
+  "vendorItemId": zod.number(),
+  "itemName": zod.string(),
+  "unit": zod.string(),
+  "vendorId": zod.number(),
+  "vendorName": zod.string(),
+  "basePrice": zod.number(),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(listProcurementGroupBuysResponseBulkTiersItemUnitPriceMin).max(listProcurementGroupBuysResponseBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "organizerTenantId": zod.number(),
+  "organizerTenantName": zod.string(),
+  "totalQuantity": zod.number().describe('Sum of every participant\'s quantity — the pooled volume.'),
+  "currentTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(listProcurementGroupBuysResponseCurrentTierOneUnitPriceMin).max(listProcurementGroupBuysResponseCurrentTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The volume-discount tier the pool has reached (null = base pricing).'),
+  "nextTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(listProcurementGroupBuysResponseNextTierOneUnitPriceMin).max(listProcurementGroupBuysResponseNextTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The next tier the pool could unlock (null = top tier reached).'),
+  "currentUnitPrice": zod.number().describe('Live per-unit price at the reached tier (frozen achieved price once closed).'),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "quantity": zod.number(),
+  "isOrganizer": zod.boolean()
+})),
+  "myQuantity": zod.number().nullish().describe('The scoped tenant\'s quantity in this pool (null when not participating).'),
+  "achievedTierMinQty": zod.number().nullish(),
+  "achievedUnitPrice": zod.number().nullish(),
+  "closedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListProcurementGroupBuysResponse = zod.array(ListProcurementGroupBuysResponseItem)
+
+
+/**
+ * @summary Merchant-facing — open a group buy on a vendor supply item (organizer joins with an initial quantity)
+ */
+export const createProcurementGroupBuyBodyQuantityMax = 10000;
+
+
+
+export const CreateProcurementGroupBuyBody = zod.object({
+  "vendorItemId": zod.number(),
+  "quantity": zod.number().min(1).max(createProcurementGroupBuyBodyQuantityMax)
+})
+
+
+export const createProcurementGroupBuyResponseBulkTiersItemUnitPriceMin = 0;
+export const createProcurementGroupBuyResponseBulkTiersItemUnitPriceMax = 100000;
+
+
+export const createProcurementGroupBuyResponseCurrentTierOneUnitPriceMin = 0;
+export const createProcurementGroupBuyResponseCurrentTierOneUnitPriceMax = 100000;
+
+
+export const createProcurementGroupBuyResponseNextTierOneUnitPriceMin = 0;
+export const createProcurementGroupBuyResponseNextTierOneUnitPriceMax = 100000;
+
+
+
+export const CreateProcurementGroupBuyResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['open', 'closed', 'cancelled']),
+  "vendorItemId": zod.number(),
+  "itemName": zod.string(),
+  "unit": zod.string(),
+  "vendorId": zod.number(),
+  "vendorName": zod.string(),
+  "basePrice": zod.number(),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(createProcurementGroupBuyResponseBulkTiersItemUnitPriceMin).max(createProcurementGroupBuyResponseBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "organizerTenantId": zod.number(),
+  "organizerTenantName": zod.string(),
+  "totalQuantity": zod.number().describe('Sum of every participant\'s quantity — the pooled volume.'),
+  "currentTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(createProcurementGroupBuyResponseCurrentTierOneUnitPriceMin).max(createProcurementGroupBuyResponseCurrentTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The volume-discount tier the pool has reached (null = base pricing).'),
+  "nextTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(createProcurementGroupBuyResponseNextTierOneUnitPriceMin).max(createProcurementGroupBuyResponseNextTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The next tier the pool could unlock (null = top tier reached).'),
+  "currentUnitPrice": zod.number().describe('Live per-unit price at the reached tier (frozen achieved price once closed).'),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "quantity": zod.number(),
+  "isOrganizer": zod.boolean()
+})),
+  "myQuantity": zod.number().nullish().describe('The scoped tenant\'s quantity in this pool (null when not participating).'),
+  "achievedTierMinQty": zod.number().nullish(),
+  "achievedUnitPrice": zod.number().nullish(),
+  "closedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Merchant-facing — join an open group buy or adjust this tenant's pooled quantity
+ */
+export const JoinProcurementGroupBuyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const joinProcurementGroupBuyBodyQuantityMin = 0;
+export const joinProcurementGroupBuyBodyQuantityMax = 10000;
+
+
+
+export const JoinProcurementGroupBuyBody = zod.object({
+  "quantity": zod.number().min(joinProcurementGroupBuyBodyQuantityMin).max(joinProcurementGroupBuyBodyQuantityMax).describe('This tenant\'s pooled quantity; 0 leaves the group buy.')
+})
+
+
+export const joinProcurementGroupBuyResponseBulkTiersItemUnitPriceMin = 0;
+export const joinProcurementGroupBuyResponseBulkTiersItemUnitPriceMax = 100000;
+
+
+export const joinProcurementGroupBuyResponseCurrentTierOneUnitPriceMin = 0;
+export const joinProcurementGroupBuyResponseCurrentTierOneUnitPriceMax = 100000;
+
+
+export const joinProcurementGroupBuyResponseNextTierOneUnitPriceMin = 0;
+export const joinProcurementGroupBuyResponseNextTierOneUnitPriceMax = 100000;
+
+
+
+export const JoinProcurementGroupBuyResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['open', 'closed', 'cancelled']),
+  "vendorItemId": zod.number(),
+  "itemName": zod.string(),
+  "unit": zod.string(),
+  "vendorId": zod.number(),
+  "vendorName": zod.string(),
+  "basePrice": zod.number(),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(joinProcurementGroupBuyResponseBulkTiersItemUnitPriceMin).max(joinProcurementGroupBuyResponseBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "organizerTenantId": zod.number(),
+  "organizerTenantName": zod.string(),
+  "totalQuantity": zod.number().describe('Sum of every participant\'s quantity — the pooled volume.'),
+  "currentTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(joinProcurementGroupBuyResponseCurrentTierOneUnitPriceMin).max(joinProcurementGroupBuyResponseCurrentTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The volume-discount tier the pool has reached (null = base pricing).'),
+  "nextTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(joinProcurementGroupBuyResponseNextTierOneUnitPriceMin).max(joinProcurementGroupBuyResponseNextTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The next tier the pool could unlock (null = top tier reached).'),
+  "currentUnitPrice": zod.number().describe('Live per-unit price at the reached tier (frozen achieved price once closed).'),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "quantity": zod.number(),
+  "isOrganizer": zod.boolean()
+})),
+  "myQuantity": zod.number().nullish().describe('The scoped tenant\'s quantity in this pool (null when not participating).'),
+  "achievedTierMinQty": zod.number().nullish(),
+  "achievedUnitPrice": zod.number().nullish(),
+  "closedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Merchant-facing — organizer closes the group buy; the achieved bulk tier is computed and the immutable cost-split ledger is generated
+ */
+export const CloseProcurementGroupBuyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const closeProcurementGroupBuyResponseBulkTiersItemUnitPriceMin = 0;
+export const closeProcurementGroupBuyResponseBulkTiersItemUnitPriceMax = 100000;
+
+
+export const closeProcurementGroupBuyResponseCurrentTierOneUnitPriceMin = 0;
+export const closeProcurementGroupBuyResponseCurrentTierOneUnitPriceMax = 100000;
+
+
+export const closeProcurementGroupBuyResponseNextTierOneUnitPriceMin = 0;
+export const closeProcurementGroupBuyResponseNextTierOneUnitPriceMax = 100000;
+
+
+
+export const CloseProcurementGroupBuyResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['open', 'closed', 'cancelled']),
+  "vendorItemId": zod.number(),
+  "itemName": zod.string(),
+  "unit": zod.string(),
+  "vendorId": zod.number(),
+  "vendorName": zod.string(),
+  "basePrice": zod.number(),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(closeProcurementGroupBuyResponseBulkTiersItemUnitPriceMin).max(closeProcurementGroupBuyResponseBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "organizerTenantId": zod.number(),
+  "organizerTenantName": zod.string(),
+  "totalQuantity": zod.number().describe('Sum of every participant\'s quantity — the pooled volume.'),
+  "currentTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(closeProcurementGroupBuyResponseCurrentTierOneUnitPriceMin).max(closeProcurementGroupBuyResponseCurrentTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The volume-discount tier the pool has reached (null = base pricing).'),
+  "nextTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(closeProcurementGroupBuyResponseNextTierOneUnitPriceMin).max(closeProcurementGroupBuyResponseNextTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The next tier the pool could unlock (null = top tier reached).'),
+  "currentUnitPrice": zod.number().describe('Live per-unit price at the reached tier (frozen achieved price once closed).'),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "quantity": zod.number(),
+  "isOrganizer": zod.boolean()
+})),
+  "myQuantity": zod.number().nullish().describe('The scoped tenant\'s quantity in this pool (null when not participating).'),
+  "achievedTierMinQty": zod.number().nullish(),
+  "achievedUnitPrice": zod.number().nullish(),
+  "closedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Merchant-facing — cost-split ledger for a closed group buy; the organizer sees every line, participants see their own
+ */
+export const GetProcurementGroupBuyLedgerParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const getProcurementGroupBuyLedgerResponseGroupBuyBulkTiersItemUnitPriceMin = 0;
+export const getProcurementGroupBuyLedgerResponseGroupBuyBulkTiersItemUnitPriceMax = 100000;
+
+
+export const getProcurementGroupBuyLedgerResponseGroupBuyCurrentTierOneUnitPriceMin = 0;
+export const getProcurementGroupBuyLedgerResponseGroupBuyCurrentTierOneUnitPriceMax = 100000;
+
+
+export const getProcurementGroupBuyLedgerResponseGroupBuyNextTierOneUnitPriceMin = 0;
+export const getProcurementGroupBuyLedgerResponseGroupBuyNextTierOneUnitPriceMax = 100000;
+
+
+
+export const GetProcurementGroupBuyLedgerResponse = zod.object({
+  "groupBuy": zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['open', 'closed', 'cancelled']),
+  "vendorItemId": zod.number(),
+  "itemName": zod.string(),
+  "unit": zod.string(),
+  "vendorId": zod.number(),
+  "vendorName": zod.string(),
+  "basePrice": zod.number(),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(getProcurementGroupBuyLedgerResponseGroupBuyBulkTiersItemUnitPriceMin).max(getProcurementGroupBuyLedgerResponseGroupBuyBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "organizerTenantId": zod.number(),
+  "organizerTenantName": zod.string(),
+  "totalQuantity": zod.number().describe('Sum of every participant\'s quantity — the pooled volume.'),
+  "currentTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(getProcurementGroupBuyLedgerResponseGroupBuyCurrentTierOneUnitPriceMin).max(getProcurementGroupBuyLedgerResponseGroupBuyCurrentTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The volume-discount tier the pool has reached (null = base pricing).'),
+  "nextTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(getProcurementGroupBuyLedgerResponseGroupBuyNextTierOneUnitPriceMin).max(getProcurementGroupBuyLedgerResponseGroupBuyNextTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The next tier the pool could unlock (null = top tier reached).'),
+  "currentUnitPrice": zod.number().describe('Live per-unit price at the reached tier (frozen achieved price once closed).'),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "quantity": zod.number(),
+  "isOrganizer": zod.boolean()
+})),
+  "myQuantity": zod.number().nullish().describe('The scoped tenant\'s quantity in this pool (null when not participating).'),
+  "achievedTierMinQty": zod.number().nullish(),
+  "achievedUnitPrice": zod.number().nullish(),
+  "closedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+}),
+  "entries": zod.array(zod.object({
+  "id": zod.number(),
+  "groupBuyId": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "itemName": zod.string(),
+  "vendorName": zod.string(),
+  "quantity": zod.number(),
+  "unitPrice": zod.number(),
+  "baseUnitPrice": zod.number(),
+  "shareAmount": zod.number().describe('quantity × achieved unit price — this participant\'s proportional share.'),
+  "savingsAmount": zod.number().describe('quantity × (base − achieved unit price) — savings versus solo pricing.'),
+  "createdAt": zod.coerce.date()
+})).describe('Organizer sees every participant line; participants see their own.'),
+  "totals": zod.object({
+  "quantity": zod.number(),
+  "amount": zod.number(),
+  "savings": zod.number()
+})
+})
+
+
+/**
+ * @summary Merchant-facing — this tenant's cost-split ledger lines across all closed group buys
+ */
+export const ListProcurementLedgerResponseItem = zod.object({
+  "id": zod.number(),
+  "groupBuyId": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "itemName": zod.string(),
+  "vendorName": zod.string(),
+  "quantity": zod.number(),
+  "unitPrice": zod.number(),
+  "baseUnitPrice": zod.number(),
+  "shareAmount": zod.number().describe('quantity × achieved unit price — this participant\'s proportional share.'),
+  "savingsAmount": zod.number().describe('quantity × (base − achieved unit price) — savings versus solo pricing.'),
+  "createdAt": zod.coerce.date()
+})
+export const ListProcurementLedgerResponse = zod.array(ListProcurementLedgerResponseItem)
+
+
+/**
+ * @summary Merchant-facing — this tenant's tracked supply items with low-stock flags
+ */
+export const ListProcurementSuppliesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "onHandQty": zod.number(),
+  "lowStockThreshold": zod.number(),
+  "vendorItemId": zod.number().nullish(),
+  "vendorItemName": zod.string().nullish(),
+  "vendorName": zod.string().nullish(),
+  "autoRequestEnabled": zod.boolean(),
+  "belowThreshold": zod.boolean().describe('True when on-hand quantity is below the low-stock threshold — a reorder reminder is due.'),
+  "openGroupBuyId": zod.number().nullish().describe('An open group buy on the linked vendor item, when one exists (join target for one-click replenishment).'),
+  "lastReorderRemindedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListProcurementSuppliesResponse = zod.array(ListProcurementSuppliesResponseItem)
+
+
+/**
+ * @summary Merchant-facing — track a new essential supply item
+ */
+
+
+export const createProcurementSupplyBodyOnHandQtyMin = 0;
+export const createProcurementSupplyBodyOnHandQtyMax = 1000000;
+
+export const createProcurementSupplyBodyLowStockThresholdMin = 0;
+export const createProcurementSupplyBodyLowStockThresholdMax = 1000000;
+
+
+
+export const CreateProcurementSupplyBody = zod.object({
+  "name": zod.string().min(1),
+  "unit": zod.string().min(1).optional(),
+  "onHandQty": zod.number().min(createProcurementSupplyBodyOnHandQtyMin).max(createProcurementSupplyBodyOnHandQtyMax).optional(),
+  "lowStockThreshold": zod.number().min(createProcurementSupplyBodyLowStockThresholdMin).max(createProcurementSupplyBodyLowStockThresholdMax).optional(),
+  "vendorItemId": zod.number().optional(),
+  "autoRequestEnabled": zod.boolean().optional()
+})
+
+export const CreateProcurementSupplyResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "onHandQty": zod.number(),
+  "lowStockThreshold": zod.number(),
+  "vendorItemId": zod.number().nullish(),
+  "vendorItemName": zod.string().nullish(),
+  "vendorName": zod.string().nullish(),
+  "autoRequestEnabled": zod.boolean(),
+  "belowThreshold": zod.boolean().describe('True when on-hand quantity is below the low-stock threshold — a reorder reminder is due.'),
+  "openGroupBuyId": zod.number().nullish().describe('An open group buy on the linked vendor item, when one exists (join target for one-click replenishment).'),
+  "lastReorderRemindedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Merchant-facing — adjust on-hand quantity, threshold, vendor-item link, or auto-request mode
+ */
+export const UpdateProcurementSupplyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+export const updateProcurementSupplyBodyOnHandQtyMin = 0;
+export const updateProcurementSupplyBodyOnHandQtyMax = 1000000;
+
+export const updateProcurementSupplyBodyLowStockThresholdMin = 0;
+export const updateProcurementSupplyBodyLowStockThresholdMax = 1000000;
+
+
+
+export const UpdateProcurementSupplyBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "unit": zod.string().min(1).optional(),
+  "onHandQty": zod.number().min(updateProcurementSupplyBodyOnHandQtyMin).max(updateProcurementSupplyBodyOnHandQtyMax).optional(),
+  "lowStockThreshold": zod.number().min(updateProcurementSupplyBodyLowStockThresholdMin).max(updateProcurementSupplyBodyLowStockThresholdMax).optional(),
+  "vendorItemId": zod.number().nullish(),
+  "autoRequestEnabled": zod.boolean().optional()
+})
+
+export const UpdateProcurementSupplyResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "onHandQty": zod.number(),
+  "lowStockThreshold": zod.number(),
+  "vendorItemId": zod.number().nullish(),
+  "vendorItemName": zod.string().nullish(),
+  "vendorName": zod.string().nullish(),
+  "autoRequestEnabled": zod.boolean(),
+  "belowThreshold": zod.boolean().describe('True when on-hand quantity is below the low-stock threshold — a reorder reminder is due.'),
+  "openGroupBuyId": zod.number().nullish().describe('An open group buy on the linked vendor item, when one exists (join target for one-click replenishment).'),
+  "lastReorderRemindedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Merchant-facing — one-click replenishment; joins an open group buy for the linked vendor item or opens a new one
+ */
+export const ReplenishProcurementSupplyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const replenishProcurementSupplyBodyQuantityMax = 10000;
+
+
+
+export const ReplenishProcurementSupplyBody = zod.object({
+  "quantity": zod.number().min(1).max(replenishProcurementSupplyBodyQuantityMax).optional().describe('Quantity to pool; defaults to the shortfall versus the threshold (minimum 1).')
+})
+
+
+export const replenishProcurementSupplyResponseGroupBuyBulkTiersItemUnitPriceMin = 0;
+export const replenishProcurementSupplyResponseGroupBuyBulkTiersItemUnitPriceMax = 100000;
+
+
+export const replenishProcurementSupplyResponseGroupBuyCurrentTierOneUnitPriceMin = 0;
+export const replenishProcurementSupplyResponseGroupBuyCurrentTierOneUnitPriceMax = 100000;
+
+
+export const replenishProcurementSupplyResponseGroupBuyNextTierOneUnitPriceMin = 0;
+export const replenishProcurementSupplyResponseGroupBuyNextTierOneUnitPriceMax = 100000;
+
+
+
+export const ReplenishProcurementSupplyResponse = zod.object({
+  "action": zod.enum(['created', 'joined']),
+  "groupBuy": zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['open', 'closed', 'cancelled']),
+  "vendorItemId": zod.number(),
+  "itemName": zod.string(),
+  "unit": zod.string(),
+  "vendorId": zod.number(),
+  "vendorName": zod.string(),
+  "basePrice": zod.number(),
+  "bulkTiers": zod.array(zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(replenishProcurementSupplyResponseGroupBuyBulkTiersItemUnitPriceMin).max(replenishProcurementSupplyResponseGroupBuyBulkTiersItemUnitPriceMax).describe('Per-unit price at this tier.')
+})),
+  "organizerTenantId": zod.number(),
+  "organizerTenantName": zod.string(),
+  "totalQuantity": zod.number().describe('Sum of every participant\'s quantity — the pooled volume.'),
+  "currentTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(replenishProcurementSupplyResponseGroupBuyCurrentTierOneUnitPriceMin).max(replenishProcurementSupplyResponseGroupBuyCurrentTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The volume-discount tier the pool has reached (null = base pricing).'),
+  "nextTier": zod.union([zod.object({
+  "minQty": zod.number().min(1).describe('Pooled quantity at (or above) which this tier\'s price applies.'),
+  "unitPrice": zod.number().min(replenishProcurementSupplyResponseGroupBuyNextTierOneUnitPriceMin).max(replenishProcurementSupplyResponseGroupBuyNextTierOneUnitPriceMax).describe('Per-unit price at this tier.')
+}),zod.null()]).optional().describe('The next tier the pool could unlock (null = top tier reached).'),
+  "currentUnitPrice": zod.number().describe('Live per-unit price at the reached tier (frozen achieved price once closed).'),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "quantity": zod.number(),
+  "isOrganizer": zod.boolean()
+})),
+  "myQuantity": zod.number().nullish().describe('The scoped tenant\'s quantity in this pool (null when not participating).'),
+  "achievedTierMinQty": zod.number().nullish(),
+  "achievedUnitPrice": zod.number().nullish(),
+  "closedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date()
+})
 })
 
 

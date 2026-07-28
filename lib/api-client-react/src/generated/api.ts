@@ -160,6 +160,23 @@ import type {
   PlatformInviteRegistrationResult,
   PosInboundEvent,
   PosIntegration,
+  ProcurementAdminOverview,
+  ProcurementGroupBuy,
+  ProcurementGroupBuyCreate,
+  ProcurementGroupBuyJoin,
+  ProcurementLedgerEntry,
+  ProcurementLedgerView,
+  ProcurementReplenishRequest,
+  ProcurementReplenishResult,
+  ProcurementSupplyCreate,
+  ProcurementSupplyItem,
+  ProcurementSupplyUpdate,
+  ProcurementVendor,
+  ProcurementVendorCreate,
+  ProcurementVendorItem,
+  ProcurementVendorItemCreate,
+  ProcurementVendorItemUpdate,
+  ProcurementVendorUpdate,
   PublicAvailabilityInput,
   PublicAvailabilityResponse,
   PublicBookingConfig,
@@ -16169,4 +16186,1259 @@ export function useGetFranchiseRollup<TData = Awaited<ReturnType<typeof getFranc
 
 
 
+
+export const getListAdminProcurementVendorsUrl = () => {
+
+
+
+
+  return `/api/admin/procurement/vendors`
+}
+
+/**
+ * @summary Admin-only — full B2B vendor directory including unverified drafts, with supply items
+ */
+export const listAdminProcurementVendors = async ( options?: RequestInit): Promise<ProcurementVendor[]> => {
+
+  return customFetch<ProcurementVendor[]>(getListAdminProcurementVendorsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminProcurementVendorsQueryKey = () => {
+    return [
+    `/api/admin/procurement/vendors`
+    ] as const;
+    }
+
+
+export const getListAdminProcurementVendorsQueryOptions = <TData = Awaited<ReturnType<typeof listAdminProcurementVendors>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminProcurementVendors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminProcurementVendorsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminProcurementVendors>>> = ({ signal }) => listAdminProcurementVendors({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminProcurementVendors>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminProcurementVendorsQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminProcurementVendors>>>
+export type ListAdminProcurementVendorsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Admin-only — full B2B vendor directory including unverified drafts, with supply items
+ */
+
+export function useListAdminProcurementVendors<TData = Awaited<ReturnType<typeof listAdminProcurementVendors>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminProcurementVendors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminProcurementVendorsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateProcurementVendorUrl = () => {
+
+
+
+
+  return `/api/admin/procurement/vendors`
+}
+
+/**
+ * @summary Admin-only — add a regional B2B vendor to the directory
+ */
+export const createProcurementVendor = async (procurementVendorCreate: ProcurementVendorCreate, options?: RequestInit): Promise<ProcurementVendor> => {
+
+  return customFetch<ProcurementVendor>(getCreateProcurementVendorUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(procurementVendorCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateProcurementVendorMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProcurementVendor>>, TError,{data: BodyType<ProcurementVendorCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProcurementVendor>>, TError,{data: BodyType<ProcurementVendorCreate>}, TContext> => {
+
+const mutationKey = ['createProcurementVendor'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProcurementVendor>>, {data: BodyType<ProcurementVendorCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProcurementVendor(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProcurementVendorMutationResult = NonNullable<Awaited<ReturnType<typeof createProcurementVendor>>>
+    export type CreateProcurementVendorMutationBody = BodyType<ProcurementVendorCreate>
+    export type CreateProcurementVendorMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — add a regional B2B vendor to the directory
+ */
+export const useCreateProcurementVendor = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProcurementVendor>>, TError,{data: BodyType<ProcurementVendorCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createProcurementVendor>>,
+        TError,
+        {data: BodyType<ProcurementVendorCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateProcurementVendorMutationOptions(options));
+    }
+
+export const getUpdateProcurementVendorUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/procurement/vendors/${id}`
+}
+
+/**
+ * @summary Admin-only — edit a vendor (including the verified flag)
+ */
+export const updateProcurementVendor = async (id: number,
+    procurementVendorUpdate: ProcurementVendorUpdate, options?: RequestInit): Promise<ProcurementVendor> => {
+
+  return customFetch<ProcurementVendor>(getUpdateProcurementVendorUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(procurementVendorUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateProcurementVendorMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProcurementVendor>>, TError,{id: number;data: BodyType<ProcurementVendorUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProcurementVendor>>, TError,{id: number;data: BodyType<ProcurementVendorUpdate>}, TContext> => {
+
+const mutationKey = ['updateProcurementVendor'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProcurementVendor>>, {id: number;data: BodyType<ProcurementVendorUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateProcurementVendor(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProcurementVendorMutationResult = NonNullable<Awaited<ReturnType<typeof updateProcurementVendor>>>
+    export type UpdateProcurementVendorMutationBody = BodyType<ProcurementVendorUpdate>
+    export type UpdateProcurementVendorMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — edit a vendor (including the verified flag)
+ */
+export const useUpdateProcurementVendor = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProcurementVendor>>, TError,{id: number;data: BodyType<ProcurementVendorUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProcurementVendor>>,
+        TError,
+        {id: number;data: BodyType<ProcurementVendorUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateProcurementVendorMutationOptions(options));
+    }
+
+export const getCreateProcurementVendorItemUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/procurement/vendors/${id}/items`
+}
+
+/**
+ * @summary Admin-only — add a supply item (with bulk pricing tiers) to a vendor
+ */
+export const createProcurementVendorItem = async (id: number,
+    procurementVendorItemCreate: ProcurementVendorItemCreate, options?: RequestInit): Promise<ProcurementVendorItem> => {
+
+  return customFetch<ProcurementVendorItem>(getCreateProcurementVendorItemUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(procurementVendorItemCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateProcurementVendorItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProcurementVendorItem>>, TError,{id: number;data: BodyType<ProcurementVendorItemCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProcurementVendorItem>>, TError,{id: number;data: BodyType<ProcurementVendorItemCreate>}, TContext> => {
+
+const mutationKey = ['createProcurementVendorItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProcurementVendorItem>>, {id: number;data: BodyType<ProcurementVendorItemCreate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createProcurementVendorItem(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProcurementVendorItemMutationResult = NonNullable<Awaited<ReturnType<typeof createProcurementVendorItem>>>
+    export type CreateProcurementVendorItemMutationBody = BodyType<ProcurementVendorItemCreate>
+    export type CreateProcurementVendorItemMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — add a supply item (with bulk pricing tiers) to a vendor
+ */
+export const useCreateProcurementVendorItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProcurementVendorItem>>, TError,{id: number;data: BodyType<ProcurementVendorItemCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createProcurementVendorItem>>,
+        TError,
+        {id: number;data: BodyType<ProcurementVendorItemCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateProcurementVendorItemMutationOptions(options));
+    }
+
+export const getUpdateProcurementVendorItemUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/procurement/vendor-items/${id}`
+}
+
+/**
+ * @summary Admin-only — edit a vendor supply item / its bulk tiers
+ */
+export const updateProcurementVendorItem = async (id: number,
+    procurementVendorItemUpdate: ProcurementVendorItemUpdate, options?: RequestInit): Promise<ProcurementVendorItem> => {
+
+  return customFetch<ProcurementVendorItem>(getUpdateProcurementVendorItemUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(procurementVendorItemUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateProcurementVendorItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProcurementVendorItem>>, TError,{id: number;data: BodyType<ProcurementVendorItemUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProcurementVendorItem>>, TError,{id: number;data: BodyType<ProcurementVendorItemUpdate>}, TContext> => {
+
+const mutationKey = ['updateProcurementVendorItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProcurementVendorItem>>, {id: number;data: BodyType<ProcurementVendorItemUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateProcurementVendorItem(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProcurementVendorItemMutationResult = NonNullable<Awaited<ReturnType<typeof updateProcurementVendorItem>>>
+    export type UpdateProcurementVendorItemMutationBody = BodyType<ProcurementVendorItemUpdate>
+    export type UpdateProcurementVendorItemMutationError = ErrorType<void>
+
+    /**
+ * @summary Admin-only — edit a vendor supply item / its bulk tiers
+ */
+export const useUpdateProcurementVendorItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProcurementVendorItem>>, TError,{id: number;data: BodyType<ProcurementVendorItemUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProcurementVendorItem>>,
+        TError,
+        {id: number;data: BodyType<ProcurementVendorItemUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateProcurementVendorItemMutationOptions(options));
+    }
+
+export const getGetAdminProcurementOverviewUrl = () => {
+
+
+
+
+  return `/api/admin/procurement/overview`
+}
+
+/**
+ * @summary Admin-only — network-wide view of active group buys and cumulative co-op savings
+ */
+export const getAdminProcurementOverview = async ( options?: RequestInit): Promise<ProcurementAdminOverview> => {
+
+  return customFetch<ProcurementAdminOverview>(getGetAdminProcurementOverviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminProcurementOverviewQueryKey = () => {
+    return [
+    `/api/admin/procurement/overview`
+    ] as const;
+    }
+
+
+export const getGetAdminProcurementOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getAdminProcurementOverview>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminProcurementOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminProcurementOverviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminProcurementOverview>>> = ({ signal }) => getAdminProcurementOverview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminProcurementOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAdminProcurementOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminProcurementOverview>>>
+export type GetAdminProcurementOverviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Admin-only — network-wide view of active group buys and cumulative co-op savings
+ */
+
+export function useGetAdminProcurementOverview<TData = Awaited<ReturnType<typeof getAdminProcurementOverview>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAdminProcurementOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAdminProcurementOverviewQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListProcurementVendorsUrl = () => {
+
+
+
+
+  return `/api/coop/procurement/vendors`
+}
+
+/**
+ * @summary Merchant-facing — verified, active vendors and their supply items only; tenant scope via x-tenant-id
+ */
+export const listProcurementVendors = async ( options?: RequestInit): Promise<ProcurementVendor[]> => {
+
+  return customFetch<ProcurementVendor[]>(getListProcurementVendorsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProcurementVendorsQueryKey = () => {
+    return [
+    `/api/coop/procurement/vendors`
+    ] as const;
+    }
+
+
+export const getListProcurementVendorsQueryOptions = <TData = Awaited<ReturnType<typeof listProcurementVendors>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProcurementVendors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProcurementVendorsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProcurementVendors>>> = ({ signal }) => listProcurementVendors({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProcurementVendors>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProcurementVendorsQueryResult = NonNullable<Awaited<ReturnType<typeof listProcurementVendors>>>
+export type ListProcurementVendorsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — verified, active vendors and their supply items only; tenant scope via x-tenant-id
+ */
+
+export function useListProcurementVendors<TData = Awaited<ReturnType<typeof listProcurementVendors>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProcurementVendors>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProcurementVendorsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListProcurementGroupBuysUrl = () => {
+
+
+
+
+  return `/api/coop/procurement/group-buys`
+}
+
+/**
+ * @summary Merchant-facing — open group buys across the network plus this tenant's closed ones; tenant scope via x-tenant-id
+ */
+export const listProcurementGroupBuys = async ( options?: RequestInit): Promise<ProcurementGroupBuy[]> => {
+
+  return customFetch<ProcurementGroupBuy[]>(getListProcurementGroupBuysUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProcurementGroupBuysQueryKey = () => {
+    return [
+    `/api/coop/procurement/group-buys`
+    ] as const;
+    }
+
+
+export const getListProcurementGroupBuysQueryOptions = <TData = Awaited<ReturnType<typeof listProcurementGroupBuys>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProcurementGroupBuys>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProcurementGroupBuysQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProcurementGroupBuys>>> = ({ signal }) => listProcurementGroupBuys({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProcurementGroupBuys>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProcurementGroupBuysQueryResult = NonNullable<Awaited<ReturnType<typeof listProcurementGroupBuys>>>
+export type ListProcurementGroupBuysQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — open group buys across the network plus this tenant's closed ones; tenant scope via x-tenant-id
+ */
+
+export function useListProcurementGroupBuys<TData = Awaited<ReturnType<typeof listProcurementGroupBuys>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProcurementGroupBuys>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProcurementGroupBuysQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateProcurementGroupBuyUrl = () => {
+
+
+
+
+  return `/api/coop/procurement/group-buys`
+}
+
+/**
+ * @summary Merchant-facing — open a group buy on a vendor supply item (organizer joins with an initial quantity)
+ */
+export const createProcurementGroupBuy = async (procurementGroupBuyCreate: ProcurementGroupBuyCreate, options?: RequestInit): Promise<ProcurementGroupBuy> => {
+
+  return customFetch<ProcurementGroupBuy>(getCreateProcurementGroupBuyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(procurementGroupBuyCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateProcurementGroupBuyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProcurementGroupBuy>>, TError,{data: BodyType<ProcurementGroupBuyCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProcurementGroupBuy>>, TError,{data: BodyType<ProcurementGroupBuyCreate>}, TContext> => {
+
+const mutationKey = ['createProcurementGroupBuy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProcurementGroupBuy>>, {data: BodyType<ProcurementGroupBuyCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProcurementGroupBuy(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProcurementGroupBuyMutationResult = NonNullable<Awaited<ReturnType<typeof createProcurementGroupBuy>>>
+    export type CreateProcurementGroupBuyMutationBody = BodyType<ProcurementGroupBuyCreate>
+    export type CreateProcurementGroupBuyMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — open a group buy on a vendor supply item (organizer joins with an initial quantity)
+ */
+export const useCreateProcurementGroupBuy = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProcurementGroupBuy>>, TError,{data: BodyType<ProcurementGroupBuyCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createProcurementGroupBuy>>,
+        TError,
+        {data: BodyType<ProcurementGroupBuyCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateProcurementGroupBuyMutationOptions(options));
+    }
+
+export const getJoinProcurementGroupBuyUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/procurement/group-buys/${id}/join`
+}
+
+/**
+ * @summary Merchant-facing — join an open group buy or adjust this tenant's pooled quantity
+ */
+export const joinProcurementGroupBuy = async (id: number,
+    procurementGroupBuyJoin: ProcurementGroupBuyJoin, options?: RequestInit): Promise<ProcurementGroupBuy> => {
+
+  return customFetch<ProcurementGroupBuy>(getJoinProcurementGroupBuyUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(procurementGroupBuyJoin)
+  }
+);}
+
+
+
+
+
+export const getJoinProcurementGroupBuyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinProcurementGroupBuy>>, TError,{id: number;data: BodyType<ProcurementGroupBuyJoin>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinProcurementGroupBuy>>, TError,{id: number;data: BodyType<ProcurementGroupBuyJoin>}, TContext> => {
+
+const mutationKey = ['joinProcurementGroupBuy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinProcurementGroupBuy>>, {id: number;data: BodyType<ProcurementGroupBuyJoin>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  joinProcurementGroupBuy(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type JoinProcurementGroupBuyMutationResult = NonNullable<Awaited<ReturnType<typeof joinProcurementGroupBuy>>>
+    export type JoinProcurementGroupBuyMutationBody = BodyType<ProcurementGroupBuyJoin>
+    export type JoinProcurementGroupBuyMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — join an open group buy or adjust this tenant's pooled quantity
+ */
+export const useJoinProcurementGroupBuy = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinProcurementGroupBuy>>, TError,{id: number;data: BodyType<ProcurementGroupBuyJoin>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof joinProcurementGroupBuy>>,
+        TError,
+        {id: number;data: BodyType<ProcurementGroupBuyJoin>},
+        TContext
+      > => {
+      return useMutation(getJoinProcurementGroupBuyMutationOptions(options));
+    }
+
+export const getCloseProcurementGroupBuyUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/procurement/group-buys/${id}/close`
+}
+
+/**
+ * @summary Merchant-facing — organizer closes the group buy; the achieved bulk tier is computed and the immutable cost-split ledger is generated
+ */
+export const closeProcurementGroupBuy = async (id: number, options?: RequestInit): Promise<ProcurementGroupBuy> => {
+
+  return customFetch<ProcurementGroupBuy>(getCloseProcurementGroupBuyUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCloseProcurementGroupBuyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeProcurementGroupBuy>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof closeProcurementGroupBuy>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['closeProcurementGroupBuy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof closeProcurementGroupBuy>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  closeProcurementGroupBuy(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CloseProcurementGroupBuyMutationResult = NonNullable<Awaited<ReturnType<typeof closeProcurementGroupBuy>>>
+
+    export type CloseProcurementGroupBuyMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — organizer closes the group buy; the achieved bulk tier is computed and the immutable cost-split ledger is generated
+ */
+export const useCloseProcurementGroupBuy = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeProcurementGroupBuy>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof closeProcurementGroupBuy>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getCloseProcurementGroupBuyMutationOptions(options));
+    }
+
+export const getGetProcurementGroupBuyLedgerUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/procurement/group-buys/${id}/ledger`
+}
+
+/**
+ * @summary Merchant-facing — cost-split ledger for a closed group buy; the organizer sees every line, participants see their own
+ */
+export const getProcurementGroupBuyLedger = async (id: number, options?: RequestInit): Promise<ProcurementLedgerView> => {
+
+  return customFetch<ProcurementLedgerView>(getGetProcurementGroupBuyLedgerUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProcurementGroupBuyLedgerQueryKey = (id: number,) => {
+    return [
+    `/api/coop/procurement/group-buys/${id}/ledger`
+    ] as const;
+    }
+
+
+export const getGetProcurementGroupBuyLedgerQueryOptions = <TData = Awaited<ReturnType<typeof getProcurementGroupBuyLedger>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProcurementGroupBuyLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProcurementGroupBuyLedgerQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProcurementGroupBuyLedger>>> = ({ signal }) => getProcurementGroupBuyLedger(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProcurementGroupBuyLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProcurementGroupBuyLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof getProcurementGroupBuyLedger>>>
+export type GetProcurementGroupBuyLedgerQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — cost-split ledger for a closed group buy; the organizer sees every line, participants see their own
+ */
+
+export function useGetProcurementGroupBuyLedger<TData = Awaited<ReturnType<typeof getProcurementGroupBuyLedger>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProcurementGroupBuyLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProcurementGroupBuyLedgerQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListProcurementLedgerUrl = () => {
+
+
+
+
+  return `/api/coop/procurement/ledger`
+}
+
+/**
+ * @summary Merchant-facing — this tenant's cost-split ledger lines across all closed group buys
+ */
+export const listProcurementLedger = async ( options?: RequestInit): Promise<ProcurementLedgerEntry[]> => {
+
+  return customFetch<ProcurementLedgerEntry[]>(getListProcurementLedgerUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProcurementLedgerQueryKey = () => {
+    return [
+    `/api/coop/procurement/ledger`
+    ] as const;
+    }
+
+
+export const getListProcurementLedgerQueryOptions = <TData = Awaited<ReturnType<typeof listProcurementLedger>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProcurementLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProcurementLedgerQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProcurementLedger>>> = ({ signal }) => listProcurementLedger({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProcurementLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProcurementLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof listProcurementLedger>>>
+export type ListProcurementLedgerQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — this tenant's cost-split ledger lines across all closed group buys
+ */
+
+export function useListProcurementLedger<TData = Awaited<ReturnType<typeof listProcurementLedger>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProcurementLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProcurementLedgerQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListProcurementSuppliesUrl = () => {
+
+
+
+
+  return `/api/coop/procurement/supplies`
+}
+
+/**
+ * @summary Merchant-facing — this tenant's tracked supply items with low-stock flags
+ */
+export const listProcurementSupplies = async ( options?: RequestInit): Promise<ProcurementSupplyItem[]> => {
+
+  return customFetch<ProcurementSupplyItem[]>(getListProcurementSuppliesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProcurementSuppliesQueryKey = () => {
+    return [
+    `/api/coop/procurement/supplies`
+    ] as const;
+    }
+
+
+export const getListProcurementSuppliesQueryOptions = <TData = Awaited<ReturnType<typeof listProcurementSupplies>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProcurementSupplies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProcurementSuppliesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProcurementSupplies>>> = ({ signal }) => listProcurementSupplies({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProcurementSupplies>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProcurementSuppliesQueryResult = NonNullable<Awaited<ReturnType<typeof listProcurementSupplies>>>
+export type ListProcurementSuppliesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — this tenant's tracked supply items with low-stock flags
+ */
+
+export function useListProcurementSupplies<TData = Awaited<ReturnType<typeof listProcurementSupplies>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProcurementSupplies>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProcurementSuppliesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateProcurementSupplyUrl = () => {
+
+
+
+
+  return `/api/coop/procurement/supplies`
+}
+
+/**
+ * @summary Merchant-facing — track a new essential supply item
+ */
+export const createProcurementSupply = async (procurementSupplyCreate: ProcurementSupplyCreate, options?: RequestInit): Promise<ProcurementSupplyItem> => {
+
+  return customFetch<ProcurementSupplyItem>(getCreateProcurementSupplyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(procurementSupplyCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateProcurementSupplyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProcurementSupply>>, TError,{data: BodyType<ProcurementSupplyCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProcurementSupply>>, TError,{data: BodyType<ProcurementSupplyCreate>}, TContext> => {
+
+const mutationKey = ['createProcurementSupply'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProcurementSupply>>, {data: BodyType<ProcurementSupplyCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProcurementSupply(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProcurementSupplyMutationResult = NonNullable<Awaited<ReturnType<typeof createProcurementSupply>>>
+    export type CreateProcurementSupplyMutationBody = BodyType<ProcurementSupplyCreate>
+    export type CreateProcurementSupplyMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — track a new essential supply item
+ */
+export const useCreateProcurementSupply = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProcurementSupply>>, TError,{data: BodyType<ProcurementSupplyCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createProcurementSupply>>,
+        TError,
+        {data: BodyType<ProcurementSupplyCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateProcurementSupplyMutationOptions(options));
+    }
+
+export const getUpdateProcurementSupplyUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/procurement/supplies/${id}`
+}
+
+/**
+ * @summary Merchant-facing — adjust on-hand quantity, threshold, vendor-item link, or auto-request mode
+ */
+export const updateProcurementSupply = async (id: number,
+    procurementSupplyUpdate: ProcurementSupplyUpdate, options?: RequestInit): Promise<ProcurementSupplyItem> => {
+
+  return customFetch<ProcurementSupplyItem>(getUpdateProcurementSupplyUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(procurementSupplyUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateProcurementSupplyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProcurementSupply>>, TError,{id: number;data: BodyType<ProcurementSupplyUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProcurementSupply>>, TError,{id: number;data: BodyType<ProcurementSupplyUpdate>}, TContext> => {
+
+const mutationKey = ['updateProcurementSupply'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProcurementSupply>>, {id: number;data: BodyType<ProcurementSupplyUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateProcurementSupply(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProcurementSupplyMutationResult = NonNullable<Awaited<ReturnType<typeof updateProcurementSupply>>>
+    export type UpdateProcurementSupplyMutationBody = BodyType<ProcurementSupplyUpdate>
+    export type UpdateProcurementSupplyMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — adjust on-hand quantity, threshold, vendor-item link, or auto-request mode
+ */
+export const useUpdateProcurementSupply = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProcurementSupply>>, TError,{id: number;data: BodyType<ProcurementSupplyUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateProcurementSupply>>,
+        TError,
+        {id: number;data: BodyType<ProcurementSupplyUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateProcurementSupplyMutationOptions(options));
+    }
+
+export const getReplenishProcurementSupplyUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/procurement/supplies/${id}/replenish`
+}
+
+/**
+ * @summary Merchant-facing — one-click replenishment; joins an open group buy for the linked vendor item or opens a new one
+ */
+export const replenishProcurementSupply = async (id: number,
+    procurementReplenishRequest?: ProcurementReplenishRequest, options?: RequestInit): Promise<ProcurementReplenishResult> => {
+
+  return customFetch<ProcurementReplenishResult>(getReplenishProcurementSupplyUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(procurementReplenishRequest)
+  }
+);}
+
+
+
+
+
+export const getReplenishProcurementSupplyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof replenishProcurementSupply>>, TError,{id: number;data?: BodyType<ProcurementReplenishRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof replenishProcurementSupply>>, TError,{id: number;data?: BodyType<ProcurementReplenishRequest>}, TContext> => {
+
+const mutationKey = ['replenishProcurementSupply'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof replenishProcurementSupply>>, {id: number;data?: BodyType<ProcurementReplenishRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  replenishProcurementSupply(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReplenishProcurementSupplyMutationResult = NonNullable<Awaited<ReturnType<typeof replenishProcurementSupply>>>
+    export type ReplenishProcurementSupplyMutationBody = BodyType<ProcurementReplenishRequest> | undefined
+    export type ReplenishProcurementSupplyMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — one-click replenishment; joins an open group buy for the linked vendor item or opens a new one
+ */
+export const useReplenishProcurementSupply = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof replenishProcurementSupply>>, TError,{id: number;data?: BodyType<ProcurementReplenishRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof replenishProcurementSupply>>,
+        TError,
+        {id: number;data?: BodyType<ProcurementReplenishRequest>},
+        TContext
+      > => {
+      return useMutation(getReplenishProcurementSupplyMutationOptions(options));
+    }
 

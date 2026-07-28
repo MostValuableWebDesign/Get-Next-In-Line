@@ -1550,7 +1550,10 @@ export interface CoopRetailItemCreate {
      * @maximum 100
      */
   ownerSharePercent: number;
-  /** @minimum 0 */
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
   lowStockThreshold?: number;
 }
 
@@ -1564,7 +1567,10 @@ export interface CoopRetailItemUpdate {
      * @maximum 100
      */
   ownerSharePercent?: number;
-  /** @minimum 0 */
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
   lowStockThreshold?: number;
   isActive?: boolean;
 }
@@ -4272,6 +4278,301 @@ export interface FranchiseRollupRegion {
 export interface FranchiseRollup {
   totals: FranchiseRollupTotals;
   regions: FranchiseRollupRegion[];
+}
+
+export interface ProcurementBulkTier {
+  /**
+     * Pooled quantity at (or above) which this tier's price applies.
+     * @minimum 1
+     */
+  minQty: number;
+  /**
+     * Per-unit price at this tier.
+     * @minimum 0
+     * @maximum 100000
+     */
+  unitPrice: number;
+}
+
+export interface ProcurementVendorItem {
+  id: number;
+  vendorId: number;
+  name: string;
+  unit: string;
+  /** Solo (non-pooled) per-unit price — the savings baseline. */
+  basePrice: number;
+  bulkTiers: ProcurementBulkTier[];
+  isActive: boolean;
+}
+
+export interface ProcurementVendor {
+  id: number;
+  name: string;
+  category: string;
+  region: string;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  isVerified: boolean;
+  isActive: boolean;
+  items: ProcurementVendorItem[];
+  createdAt: string;
+}
+
+export interface ProcurementVendorCreate {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  category: string;
+  /** @minLength 1 */
+  region: string;
+  contactEmail?: string;
+  notes?: string;
+  isVerified?: boolean;
+}
+
+export interface ProcurementVendorUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  category?: string;
+  /** @minLength 1 */
+  region?: string;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  isVerified?: boolean;
+  isActive?: boolean;
+}
+
+export interface ProcurementVendorItemCreate {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  unit: string;
+  /**
+     * @minimum 0
+     * @maximum 100000
+     */
+  basePrice: number;
+  bulkTiers?: ProcurementBulkTier[];
+}
+
+export interface ProcurementVendorItemUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  unit?: string;
+  /**
+     * @minimum 0
+     * @maximum 100000
+     */
+  basePrice?: number;
+  bulkTiers?: ProcurementBulkTier[];
+  isActive?: boolean;
+}
+
+export interface ProcurementGroupBuyParticipant {
+  tenantId: number;
+  tenantName: string;
+  quantity: number;
+  isOrganizer: boolean;
+}
+
+export type ProcurementGroupBuyStatus = typeof ProcurementGroupBuyStatus[keyof typeof ProcurementGroupBuyStatus];
+
+
+export const ProcurementGroupBuyStatus = {
+  open: 'open',
+  closed: 'closed',
+  cancelled: 'cancelled',
+} as const;
+
+export interface ProcurementGroupBuy {
+  id: number;
+  status: ProcurementGroupBuyStatus;
+  vendorItemId: number;
+  itemName: string;
+  unit: string;
+  vendorId: number;
+  vendorName: string;
+  basePrice: number;
+  bulkTiers: ProcurementBulkTier[];
+  organizerTenantId: number;
+  organizerTenantName: string;
+  /** Sum of every participant's quantity — the pooled volume. */
+  totalQuantity: number;
+  /** The volume-discount tier the pool has reached (null = base pricing). */
+  currentTier?: ProcurementBulkTier | null;
+  /** The next tier the pool could unlock (null = top tier reached). */
+  nextTier?: ProcurementBulkTier | null;
+  /** Live per-unit price at the reached tier (frozen achieved price once closed). */
+  currentUnitPrice: number;
+  participants: ProcurementGroupBuyParticipant[];
+  /**
+     * The scoped tenant's quantity in this pool (null when not participating).
+     * @nullable
+     */
+  myQuantity?: number | null;
+  /** @nullable */
+  achievedTierMinQty?: number | null;
+  /** @nullable */
+  achievedUnitPrice?: number | null;
+  /** @nullable */
+  closedAt?: string | null;
+  createdAt: string;
+}
+
+export interface ProcurementGroupBuyCreate {
+  vendorItemId: number;
+  /**
+     * @minimum 1
+     * @maximum 10000
+     */
+  quantity: number;
+}
+
+export interface ProcurementGroupBuyJoin {
+  /**
+     * This tenant's pooled quantity; 0 leaves the group buy.
+     * @minimum 0
+     * @maximum 10000
+     */
+  quantity: number;
+}
+
+export interface ProcurementLedgerEntry {
+  id: number;
+  groupBuyId: number;
+  tenantId: number;
+  tenantName: string;
+  itemName: string;
+  vendorName: string;
+  quantity: number;
+  unitPrice: number;
+  baseUnitPrice: number;
+  /** quantity × achieved unit price — this participant's proportional share. */
+  shareAmount: number;
+  /** quantity × (base − achieved unit price) — savings versus solo pricing. */
+  savingsAmount: number;
+  createdAt: string;
+}
+
+export type ProcurementLedgerViewTotals = {
+  quantity: number;
+  amount: number;
+  savings: number;
+};
+
+export interface ProcurementLedgerView {
+  groupBuy: ProcurementGroupBuy;
+  /** Organizer sees every participant line; participants see their own. */
+  entries: ProcurementLedgerEntry[];
+  totals: ProcurementLedgerViewTotals;
+}
+
+export interface ProcurementSupplyItem {
+  id: number;
+  name: string;
+  unit: string;
+  onHandQty: number;
+  lowStockThreshold: number;
+  /** @nullable */
+  vendorItemId?: number | null;
+  /** @nullable */
+  vendorItemName?: string | null;
+  /** @nullable */
+  vendorName?: string | null;
+  autoRequestEnabled: boolean;
+  /** True when on-hand quantity is below the low-stock threshold — a reorder reminder is due. */
+  belowThreshold: boolean;
+  /**
+     * An open group buy on the linked vendor item, when one exists (join target for one-click replenishment).
+     * @nullable
+     */
+  openGroupBuyId?: number | null;
+  /** @nullable */
+  lastReorderRemindedAt?: string | null;
+  createdAt: string;
+}
+
+export interface ProcurementSupplyCreate {
+  /** @minLength 1 */
+  name: string;
+  /** @minLength 1 */
+  unit?: string;
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
+  onHandQty?: number;
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
+  lowStockThreshold?: number;
+  vendorItemId?: number;
+  autoRequestEnabled?: boolean;
+}
+
+export interface ProcurementSupplyUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @minLength 1 */
+  unit?: string;
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
+  onHandQty?: number;
+  /**
+     * @minimum 0
+     * @maximum 1000000
+     */
+  lowStockThreshold?: number;
+  /** @nullable */
+  vendorItemId?: number | null;
+  autoRequestEnabled?: boolean;
+}
+
+export interface ProcurementReplenishRequest {
+  /**
+     * Quantity to pool; defaults to the shortfall versus the threshold (minimum 1).
+     * @minimum 1
+     * @maximum 10000
+     */
+  quantity?: number;
+}
+
+export type ProcurementReplenishResultAction = typeof ProcurementReplenishResultAction[keyof typeof ProcurementReplenishResultAction];
+
+
+export const ProcurementReplenishResultAction = {
+  created: 'created',
+  joined: 'joined',
+} as const;
+
+export interface ProcurementReplenishResult {
+  action: ProcurementReplenishResultAction;
+  groupBuy: ProcurementGroupBuy;
+}
+
+export type ProcurementAdminOverviewSavingsByTenantItem = {
+  tenantId: number;
+  tenantName: string;
+  savings: number;
+};
+
+export interface ProcurementAdminOverview {
+  vendorCount: number;
+  verifiedVendorCount: number;
+  openGroupBuys: ProcurementGroupBuy[];
+  closedGroupBuyCount: number;
+  /** Cumulative co-op savings across every ledger entry. */
+  totalSavings: number;
+  savingsByTenant: ProcurementAdminOverviewSavingsByTenantItem[];
 }
 
 export type GetTenantActivityParams = {

@@ -49,6 +49,7 @@ import { useToast } from '@/hooks/use-toast';
 import { CoopCampaignsSection } from '@/components/sos/coop-campaigns-content';
 import { PassportChallengesSection } from '@/components/sos/passport-challenges-content';
 import { CoopEventsSection } from '@/components/sos/coop-events-content';
+import { CoopProcurementSection } from '@/components/sos/coop-procurement-content';
 import { CoopSurgeSection, CapacityStatusBadge } from '@/components/sos/coop-surge-content';
 import {
   AlertTriangle, ArrowDownLeft, ArrowDownToLine, ArrowLeftRight, ArrowUpDown, ArrowUpFromLine,
@@ -207,6 +208,11 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
       {/* Community events & sponsorship sync — joint neighborhood events with
           cost splitting, joint announcements, and check-in attribution. */}
       <CoopEventsSection tenantId={tenantId} />
+
+      {/* Supplier & procurement marketplace — verified B2B vendor directory,
+          pooled group buys with bulk-tier discounts, cost-split ledgers, and
+          low-stock supply tracking with replenishment. */}
+      <CoopProcurementSection tenantId={tenantId} />
 
       {isLoading ? (
         <Skeleton className="h-24 w-full rounded-xl" />

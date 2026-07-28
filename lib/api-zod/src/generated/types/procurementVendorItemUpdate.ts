@@ -5,21 +5,18 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProcurementBulkTier } from './procurementBulkTier';
 
-export interface CoopRetailItemUpdate {
+export interface ProcurementVendorItemUpdate {
   /** @minLength 1 */
   name?: string;
-  /** @minimum 0 */
-  unitPrice?: number;
+  /** @minLength 1 */
+  unit?: string;
   /**
      * @minimum 0
-     * @maximum 100
+     * @maximum 100000
      */
-  ownerSharePercent?: number;
-  /**
-     * @minimum 0
-     * @maximum 1000000
-     */
-  lowStockThreshold?: number;
+  basePrice?: number;
+  bulkTiers?: ProcurementBulkTier[];
   isActive?: boolean;
 }

@@ -4755,6 +4755,400 @@ paths:
           description: No role in this org
 
 
+  # ── Co-Op Supplier & Procurement Marketplace ────────────────────────────────
+  /admin/procurement/vendors:
+    get:
+      operationId: listAdminProcurementVendors
+      tags: [admin]
+      summary: Admin-only — full B2B vendor directory including unverified drafts, with supply items
+      responses:
+        "200":
+          description: All vendors with their supply items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcurementVendor"
+    post:
+      operationId: createProcurementVendor
+      tags: [admin]
+      summary: Admin-only — add a regional B2B vendor to the directory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcurementVendorCreate"
+      responses:
+        "201":
+          description: Vendor created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementVendor"
+        "400":
+          description: Invalid body
+
+  /admin/procurement/vendors/{id}:
+    patch:
+      operationId: updateProcurementVendor
+      tags: [admin]
+      summary: Admin-only — edit a vendor (including the verified flag)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcurementVendorUpdate"
+      responses:
+        "200":
+          description: Updated vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementVendor"
+        "400":
+          description: Invalid body
+        "404":
+          description: Unknown vendor
+
+  /admin/procurement/vendors/{id}/items:
+    post:
+      operationId: createProcurementVendorItem
+      tags: [admin]
+      summary: Admin-only — add a supply item (with bulk pricing tiers) to a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcurementVendorItemCreate"
+      responses:
+        "201":
+          description: Supply item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementVendorItem"
+        "400":
+          description: Invalid body or malformed bulk tiers
+        "404":
+          description: Unknown vendor
+
+  /admin/procurement/vendor-items/{id}:
+    patch:
+      operationId: updateProcurementVendorItem
+      tags: [admin]
+      summary: Admin-only — edit a vendor supply item / its bulk tiers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcurementVendorItemUpdate"
+      responses:
+        "200":
+          description: Updated supply item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementVendorItem"
+        "400":
+          description: Invalid body
+        "404":
+          description: Unknown item
+
+  /admin/procurement/overview:
+    get:
+      operationId: getAdminProcurementOverview
+      tags: [admin]
+      summary: Admin-only — network-wide view of active group buys and cumulative co-op savings
+      responses:
+        "200":
+          description: Marketplace overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementAdminOverview"
+
+  /coop/procurement/vendors:
+    get:
+      operationId: listProcurementVendors
+      tags: [coop]
+      summary: Merchant-facing — verified, active vendors and their supply items only; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Verified vendor directory
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcurementVendor"
+        "400":
+          description: Missing x-tenant-id header
+
+  /coop/procurement/group-buys:
+    get:
+      operationId: listProcurementGroupBuys
+      tags: [coop]
+      summary: Merchant-facing — open group buys across the network plus this tenant's closed ones; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Group buys with live volume-discount tier progress
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcurementGroupBuy"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createProcurementGroupBuy
+      tags: [coop]
+      summary: Merchant-facing — open a group buy on a vendor supply item (organizer joins with an initial quantity)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcurementGroupBuyCreate"
+      responses:
+        "201":
+          description: Group buy opened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementGroupBuy"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+        "403":
+          description: Tenant is not part of the co-op network
+        "404":
+          description: Unknown or unavailable vendor item
+
+  /coop/procurement/group-buys/{id}/join:
+    post:
+      operationId: joinProcurementGroupBuy
+      tags: [coop]
+      summary: Merchant-facing — join an open group buy or adjust this tenant's pooled quantity
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcurementGroupBuyJoin"
+      responses:
+        "200":
+          description: Updated group buy with live tier progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementGroupBuy"
+        "400":
+          description: Invalid quantity or missing x-tenant-id header
+        "403":
+          description: Tenant is not part of the co-op network
+        "404":
+          description: Unknown group buy
+        "409":
+          description: Group buy is no longer open
+
+  /coop/procurement/group-buys/{id}/close:
+    post:
+      operationId: closeProcurementGroupBuy
+      tags: [coop]
+      summary: Merchant-facing — organizer closes the group buy; the achieved bulk tier is computed and the immutable cost-split ledger is generated
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Closed group buy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementGroupBuy"
+        "400":
+          description: Missing x-tenant-id header
+        "403":
+          description: Only the organizer can close a group buy
+        "404":
+          description: Unknown group buy
+        "409":
+          description: Group buy already closed
+
+  /coop/procurement/group-buys/{id}/ledger:
+    get:
+      operationId: getProcurementGroupBuyLedger
+      tags: [coop]
+      summary: Merchant-facing — cost-split ledger for a closed group buy; the organizer sees every line, participants see their own
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Ledger view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementLedgerView"
+        "400":
+          description: Missing x-tenant-id header
+        "403":
+          description: Tenant did not participate in this group buy
+        "404":
+          description: Unknown group buy
+        "409":
+          description: Group buy is still open — no ledger yet
+
+  /coop/procurement/ledger:
+    get:
+      operationId: listProcurementLedger
+      tags: [coop]
+      summary: Merchant-facing — this tenant's cost-split ledger lines across all closed group buys
+      responses:
+        "200":
+          description: Ledger lines, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcurementLedgerEntry"
+        "400":
+          description: Missing x-tenant-id header
+
+  /coop/procurement/supplies:
+    get:
+      operationId: listProcurementSupplies
+      tags: [coop]
+      summary: Merchant-facing — this tenant's tracked supply items with low-stock flags
+      responses:
+        "200":
+          description: Supply items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProcurementSupplyItem"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createProcurementSupply
+      tags: [coop]
+      summary: Merchant-facing — track a new essential supply item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcurementSupplyCreate"
+      responses:
+        "201":
+          description: Supply item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementSupplyItem"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+        "404":
+          description: Linked vendor item not found or not orderable
+
+  /coop/procurement/supplies/{id}:
+    patch:
+      operationId: updateProcurementSupply
+      tags: [coop]
+      summary: Merchant-facing — adjust on-hand quantity, threshold, vendor-item link, or auto-request mode
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcurementSupplyUpdate"
+      responses:
+        "200":
+          description: Updated supply item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementSupplyItem"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+        "404":
+          description: Unknown supply item (or not this tenant's)
+
+  /coop/procurement/supplies/{id}/replenish:
+    post:
+      operationId: replenishProcurementSupply
+      tags: [coop]
+      summary: Merchant-facing — one-click replenishment; joins an open group buy for the linked vendor item or opens a new one
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcurementReplenishRequest"
+      responses:
+        "200":
+          description: Replenishment group buy created or joined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcurementReplenishResult"
+        "400":
+          description: Supply not linked to a vendor item, invalid quantity, or missing x-tenant-id header
+        "403":
+          description: Tenant is not part of the co-op network
+        "404":
+          description: Unknown supply item (or not this tenant's)
+
 components:
   schemas:
     PosIntegration:
@@ -6715,6 +7109,7 @@ components:
         lowStockThreshold:
           type: integer
           minimum: 0
+          maximum: 1000000
           default: 3
 
     CoopRetailItemUpdate:
@@ -6733,6 +7128,7 @@ components:
         lowStockThreshold:
           type: integer
           minimum: 0
+          maximum: 1000000
         isActive:
           type: boolean
 
@@ -9774,3 +10170,445 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FranchiseRollupRegion"
+
+    # ── Co-Op Supplier & Procurement Marketplace ────────────────────────────
+    ProcurementBulkTier:
+      type: object
+      required: [minQty, unitPrice]
+      properties:
+        minQty:
+          type: integer
+          minimum: 1
+          description: Pooled quantity at (or above) which this tier's price applies.
+        unitPrice:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Per-unit price at this tier.
+
+    ProcurementVendorItem:
+      type: object
+      required: [id, vendorId, name, unit, basePrice, bulkTiers, isActive]
+      properties:
+        id:
+          type: integer
+        vendorId:
+          type: integer
+        name:
+          type: string
+        unit:
+          type: string
+        basePrice:
+          type: number
+          description: Solo (non-pooled) per-unit price — the savings baseline.
+        bulkTiers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcurementBulkTier"
+        isActive:
+          type: boolean
+
+    ProcurementVendor:
+      type: object
+      required: [id, name, category, region, isVerified, isActive, items, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+        region:
+          type: string
+        contactEmail:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isVerified:
+          type: boolean
+        isActive:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcurementVendorItem"
+        createdAt:
+          type: string
+          format: date-time
+
+    ProcurementVendorCreate:
+      type: object
+      required: [name, category, region]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          minLength: 1
+        region:
+          type: string
+          minLength: 1
+        contactEmail:
+          type: string
+        notes:
+          type: string
+        isVerified:
+          type: boolean
+
+    ProcurementVendorUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          minLength: 1
+        region:
+          type: string
+          minLength: 1
+        contactEmail:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isVerified:
+          type: boolean
+        isActive:
+          type: boolean
+
+    ProcurementVendorItemCreate:
+      type: object
+      required: [name, unit, basePrice]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+          minLength: 1
+        basePrice:
+          type: number
+          minimum: 0
+          maximum: 100000
+        bulkTiers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcurementBulkTier"
+
+    ProcurementVendorItemUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+          minLength: 1
+        basePrice:
+          type: number
+          minimum: 0
+          maximum: 100000
+        bulkTiers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcurementBulkTier"
+        isActive:
+          type: boolean
+
+    ProcurementGroupBuyParticipant:
+      type: object
+      required: [tenantId, tenantName, quantity, isOrganizer]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        quantity:
+          type: integer
+        isOrganizer:
+          type: boolean
+
+    ProcurementGroupBuy:
+      type: object
+      required:
+        [
+          id, status, vendorItemId, itemName, unit, vendorId, vendorName,
+          basePrice, bulkTiers, organizerTenantId, organizerTenantName,
+          totalQuantity, currentUnitPrice, participants, createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [open, closed, cancelled]
+        vendorItemId:
+          type: integer
+        itemName:
+          type: string
+        unit:
+          type: string
+        vendorId:
+          type: integer
+        vendorName:
+          type: string
+        basePrice:
+          type: number
+        bulkTiers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcurementBulkTier"
+        organizerTenantId:
+          type: integer
+        organizerTenantName:
+          type: string
+        totalQuantity:
+          type: integer
+          description: Sum of every participant's quantity — the pooled volume.
+        currentTier:
+          oneOf:
+            - $ref: "#/components/schemas/ProcurementBulkTier"
+            - type: "null"
+          description: The volume-discount tier the pool has reached (null = base pricing).
+        nextTier:
+          oneOf:
+            - $ref: "#/components/schemas/ProcurementBulkTier"
+            - type: "null"
+          description: The next tier the pool could unlock (null = top tier reached).
+        currentUnitPrice:
+          type: number
+          description: Live per-unit price at the reached tier (frozen achieved price once closed).
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcurementGroupBuyParticipant"
+        myQuantity:
+          type: ["integer", "null"]
+          description: The scoped tenant's quantity in this pool (null when not participating).
+        achievedTierMinQty:
+          type: ["integer", "null"]
+        achievedUnitPrice:
+          type: ["number", "null"]
+        closedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    ProcurementGroupBuyCreate:
+      type: object
+      required: [vendorItemId, quantity]
+      properties:
+        vendorItemId:
+          type: integer
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+
+    ProcurementGroupBuyJoin:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: integer
+          minimum: 0
+          maximum: 10000
+          description: This tenant's pooled quantity; 0 leaves the group buy.
+
+    ProcurementLedgerEntry:
+      type: object
+      required:
+        [
+          id, groupBuyId, tenantId, tenantName, itemName, vendorName, quantity,
+          unitPrice, baseUnitPrice, shareAmount, savingsAmount, createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        groupBuyId:
+          type: integer
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        itemName:
+          type: string
+        vendorName:
+          type: string
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+        baseUnitPrice:
+          type: number
+        shareAmount:
+          type: number
+          description: quantity × achieved unit price — this participant's proportional share.
+        savingsAmount:
+          type: number
+          description: quantity × (base − achieved unit price) — savings versus solo pricing.
+        createdAt:
+          type: string
+          format: date-time
+
+    ProcurementLedgerView:
+      type: object
+      required: [groupBuy, entries, totals]
+      properties:
+        groupBuy:
+          $ref: "#/components/schemas/ProcurementGroupBuy"
+        entries:
+          type: array
+          description: Organizer sees every participant line; participants see their own.
+          items:
+            $ref: "#/components/schemas/ProcurementLedgerEntry"
+        totals:
+          type: object
+          required: [quantity, amount, savings]
+          properties:
+            quantity:
+              type: integer
+            amount:
+              type: number
+            savings:
+              type: number
+
+    ProcurementSupplyItem:
+      type: object
+      required:
+        [
+          id, name, unit, onHandQty, lowStockThreshold, autoRequestEnabled,
+          belowThreshold, createdAt,
+        ]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        unit:
+          type: string
+        onHandQty:
+          type: integer
+        lowStockThreshold:
+          type: integer
+        vendorItemId:
+          type: ["integer", "null"]
+        vendorItemName:
+          type: ["string", "null"]
+        vendorName:
+          type: ["string", "null"]
+        autoRequestEnabled:
+          type: boolean
+        belowThreshold:
+          type: boolean
+          description: True when on-hand quantity is below the low-stock threshold — a reorder reminder is due.
+        openGroupBuyId:
+          type: ["integer", "null"]
+          description: An open group buy on the linked vendor item, when one exists (join target for one-click replenishment).
+        lastReorderRemindedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    ProcurementSupplyCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+          minLength: 1
+        onHandQty:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        lowStockThreshold:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        vendorItemId:
+          type: integer
+        autoRequestEnabled:
+          type: boolean
+
+    ProcurementSupplyUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+          minLength: 1
+        onHandQty:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        lowStockThreshold:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        vendorItemId:
+          type: ["integer", "null"]
+        autoRequestEnabled:
+          type: boolean
+
+    ProcurementReplenishRequest:
+      type: object
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+          description: Quantity to pool; defaults to the shortfall versus the threshold (minimum 1).
+
+    ProcurementReplenishResult:
+      type: object
+      required: [action, groupBuy]
+      properties:
+        action:
+          type: string
+          enum: [created, joined]
+        groupBuy:
+          $ref: "#/components/schemas/ProcurementGroupBuy"
+
+    ProcurementAdminOverview:
+      type: object
+      required:
+        [
+          vendorCount, verifiedVendorCount, openGroupBuys, closedGroupBuyCount,
+          totalSavings, savingsByTenant,
+        ]
+      properties:
+        vendorCount:
+          type: integer
+        verifiedVendorCount:
+          type: integer
+        openGroupBuys:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProcurementGroupBuy"
+        closedGroupBuyCount:
+          type: integer
+        totalSavings:
+          type: number
+          description: Cumulative co-op savings across every ledger entry.
+        savingsByTenant:
+          type: array
+          items:
+            type: object
+            required: [tenantId, tenantName, savings]
+            properties:
+              tenantId:
+                type: integer
+              tenantName:
+                type: string
+              savings:
+                type: number

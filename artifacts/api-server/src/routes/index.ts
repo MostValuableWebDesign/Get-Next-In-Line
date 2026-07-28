@@ -14,6 +14,7 @@ import partnersRouter from "./partners";
 import coopRouter from "./coop";
 import coopSurgeRouter from "./coopSurge";
 import coopRetailRouter from "./coopRetail";
+import procurementRouter from "./procurement";
 import safetyRouter from "./safety";
 import emergencyRouter from "./emergency";
 import posRouter from "./pos";
@@ -106,6 +107,7 @@ router.use(partnersRouter); // Partner-Direct Integrations proxy engine (/v1/par
 router.use(coopRouter);     // Merchant co-op partnerships (/coop)
 router.use(coopSurgeRouter); // Surge pricing & traffic balancing (/coop/capacity, /coop/surge-*)
 router.use(coopRetailRouter); // Co-op shelf-space retail inventory (/coop/retail)
+router.use(procurementRouter); // Co-Op Supplier & Procurement Marketplace (/coop/procurement, /admin/procurement)
 router.use(franchiseRouter); // Multi-Location Franchise Co-Op Controller (/franchise)
 router.use(posRouter);      // External POS webhook connectors (/pos)
 router.use(gatewayRouter);  // Co-Op API gateway: token mgmt (/gateway) + public API (/v1/gateway)

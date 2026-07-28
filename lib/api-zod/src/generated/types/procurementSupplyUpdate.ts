@@ -6,20 +6,22 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CoopRetailItemUpdate {
+export interface ProcurementSupplyUpdate {
   /** @minLength 1 */
   name?: string;
-  /** @minimum 0 */
-  unitPrice?: number;
+  /** @minLength 1 */
+  unit?: string;
   /**
      * @minimum 0
-     * @maximum 100
+     * @maximum 1000000
      */
-  ownerSharePercent?: number;
+  onHandQty?: number;
   /**
      * @minimum 0
      * @maximum 1000000
      */
   lowStockThreshold?: number;
-  isActive?: boolean;
+  /** @nullable */
+  vendorItemId?: number | null;
+  autoRequestEnabled?: boolean;
 }

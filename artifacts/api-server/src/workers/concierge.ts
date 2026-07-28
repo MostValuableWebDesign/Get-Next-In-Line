@@ -27,6 +27,7 @@ import { evaluateCoopPartnershipTiers } from "../lib/coopTiers";
 import { sweepEmergencyBroadcastFanout } from "../lib/emergencyBroadcasts";
 import { runSurgeSweep } from "../lib/surgeEngine";
 import { runReputationEnforcement } from "../lib/coopReputation";
+import { sweepSupplyReorders } from "../lib/procurement";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -396,6 +397,10 @@ export interface ConciergeTickResult {
   surgeEnded: number;
   /** Reputation Shield transitions this tick (flags + decouples + clears). */
   reputationActions: number;
+  /** Low-stock supply items reminded this tick (procurement marketplace). */
+  supplyReminders: number;
+  /** Group-buy replenishment requests auto-created/joined this tick. */
+  supplyAutoRequests: number;
 }
 
 /**
@@ -413,7 +418,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0, supplyReminders: 0, supplyAutoRequests: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
     const expiredPerks = await sweepExpiredCoopPerks(now);
@@ -444,9 +449,16 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     // tenants below the reliability threshold, auto-clear recovered flags.
     const rep = await runReputationEnforcement(now);
     const reputationActions = rep.flagged + rep.decoupled + rep.cleared;
+
+    // Procurement marketplace: flag low-stock supplies (reorder reminders)
+    // and auto-pool group-buy replenishment where merchants opted in. The
+    // lastReorderRemindedAt stamp + cooldown inside the sweep makes it
+    // idempotent across ticks.
+    const { reminded: supplyReminders, autoRequested: supplyAutoRequests } =
+      await sweepSupplyReorders(now);
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
-    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, tierTransitions, emergencyFanouts, surgeActivated, surgeEnded, reputationActions };
+    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, tierTransitions, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests };
   });
 }
 
@@ -491,6 +503,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       await sweepEmergencyBroadcastFanout();
       await runSurgeSweep();
       await runReputationEnforcement();
+      await sweepSupplyReorders();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;
@@ -517,10 +530,10 @@ function startIntervalWorker(): ConciergeWorkerHandle {
     if (running) return; // don't overlap slow ticks
     running = true;
     try {
-      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions } = await runConciergeTick();
-      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts + emergencyFanouts + surgeActivated + surgeEnded + reputationActions > 0) {
+      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests } = await runConciergeTick();
+      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts + emergencyFanouts + surgeActivated + surgeEnded + reputationActions + supplyReminders + supplyAutoRequests > 0) {
         logger.info(
-          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions },
+          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests },
           "Concierge interval tick dispatched messages",
         );
       }

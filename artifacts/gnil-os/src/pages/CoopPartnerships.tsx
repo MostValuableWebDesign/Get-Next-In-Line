@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { EmergencyBroadcastContent } from '@/components/sos/emergency-broadcast-content';
+import { ProcurementAdminSection } from '@/components/sos/procurement-admin-content';
 import {
   AlertTriangle, ArrowLeftRight, Ban, Gavel, Handshake, MapPin, NotebookPen, Plus, Power,
   RotateCcw, ShieldAlert, ShieldOff, Ticket, Unlock,
@@ -208,6 +209,10 @@ export default function CoopPartnerships() {
 
       <DisputeQueue />
       <PlazaConflictsSection />
+
+      {/* Co-Op Supplier & Procurement Marketplace — vendor directory curation
+          plus network-wide group-buy activity and cumulative savings. */}
+      <ProcurementAdminSection />
 
       {/* Co-Op Emergency & Crisis Network Broadcast — admin console (unscoped):
           platform-wide or selected-tenant crisis alerts with live check-ins. */}
