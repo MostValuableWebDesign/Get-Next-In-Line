@@ -75,6 +75,8 @@ router.use(coopApplicationsRouter);
 export const SESSION_EXEMPT_PATHS = new Set([
   "/sos/twilio/inbound",
   "/sos/twilio/status",
+  "/sos/twilio/voice",
+  "/sos/twilio/voice/recording",
 ]);
 // Parameterized session-auth bypasses (paths with dynamic segments that a
 // static Set can't express). Same guarded-growth rule applies: every pattern

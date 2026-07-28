@@ -5124,6 +5124,8 @@ export const SosMessageKind = {
   coop_financial_dispute: 'coop_financial_dispute',
   booking_confirmation: 'booking_confirmation',
   receipt: 'receipt',
+  voice_call: 'voice_call',
+  voicemail: 'voicemail',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];

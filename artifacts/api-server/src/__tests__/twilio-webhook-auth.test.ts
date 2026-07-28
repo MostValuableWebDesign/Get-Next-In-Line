@@ -20,10 +20,15 @@ import twilio from "twilio";
 import app from "../app";
 import { SESSION_EXEMPT_PATHS } from "../routes/index";
 
-const WEBHOOK_PATHS = ["/sos/twilio/inbound", "/sos/twilio/status"];
+const WEBHOOK_PATHS = [
+  "/sos/twilio/inbound",
+  "/sos/twilio/status",
+  "/sos/twilio/voice",
+  "/sos/twilio/voice/recording",
+];
 
 describe("session-auth exemption list", () => {
-  it("contains exactly the two Twilio webhook paths and nothing else", () => {
+  it("contains exactly the Twilio webhook paths and nothing else", () => {
     expect([...SESSION_EXEMPT_PATHS].sort()).toEqual([...WEBHOOK_PATHS].sort());
   });
 

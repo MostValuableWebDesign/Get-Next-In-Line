@@ -129,7 +129,7 @@ import {
   sendBookingConfirmationEmailSafe,
   sendReceiptEmailSafe,
 } from "../lib/transactionalEmail";
-import { isValidEmail } from "../lib/email";
+import { isValidEmail, publicAppBaseUrl } from "../lib/email";
 import {
   addressFieldsTouched,
   resolveSettings,
@@ -786,9 +786,18 @@ router.get("/sos/customers/:id/timeline", async (req, res): Promise<void> => {
     if (!matches) continue;
     const isConcierge = m.origin === "concierge";
     const isEmail = m.channel === "email";
+    // Real inbound phone calls (and voicemails) surface as ai_call entries,
+    // same bucket as simulated receptionist calls.
+    const isVoice = m.channel === "voice";
     entries.push({
-      id: isEmail ? `email-${m.id}` : isConcierge ? `concierge-${m.id}` : `sms-${m.id}`,
-      channel: isEmail ? "email" : isConcierge ? "concierge" : "sms",
+      id: isVoice
+        ? `voice-${m.id}`
+        : isEmail
+          ? `email-${m.id}`
+          : isConcierge
+            ? `concierge-${m.id}`
+            : `sms-${m.id}`,
+      channel: isVoice ? "ai_call" : isEmail ? "email" : isConcierge ? "concierge" : "sms",
       kind: m.kind,
       direction: m.direction === "inbound" ? "inbound" : "outbound",
       status: m.status,
@@ -2793,6 +2802,147 @@ router.post("/sos/twilio/inbound", webhookRateLimit, async (req, res): Promise<v
   // keyword === "none": logged, no auto-response.
 
   res.type("text/xml").send(twiml);
+});
+
+// ── Twilio inbound voice webhook ─────────────────────────────────────────────
+
+/** Escape a string for safe interpolation into TwiML text nodes/attributes. */
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+/**
+ * Verify a Twilio webhook request. Returns "ok" when the signature is valid,
+ * "invalid" when a token is configured but the signature doesn't check out,
+ * and "simulated" when no Twilio auth token exists at all — in that mode no
+ * real Twilio traffic can arrive, so the endpoint stays usable for local/dev
+ * simulation, consistent with the simulated-SMS pattern.
+ */
+async function checkTwilioVoiceSignature(
+  req: Request,
+): Promise<"ok" | "invalid" | "simulated"> {
+  const authToken = await getTwilioAuthToken();
+  if (!authToken) return "simulated";
+  const signature = req.header("X-Twilio-Signature") ?? "";
+  const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+  const params = (req.body ?? {}) as Record<string, string>;
+  return twilio.validateRequest(authToken, signature, url, params) ? "ok" : "invalid";
+}
+
+// Public endpoint Twilio calls when a phone call arrives ("A call comes in").
+// Greets the caller with the business's branding, bridges them to the SMS
+// receptionist (texts a booking link so the existing SMS intelligence takes
+// over), and falls back to recording a voicemail surfaced to staff.
+router.post("/sos/twilio/voice", async (req, res): Promise<void> => {
+  const sigCheck = await checkTwilioVoiceSignature(req);
+  if (sigCheck === "invalid") {
+    logger.warn("Rejected inbound voice webhook: invalid Twilio signature");
+    res.status(403).json({ message: "Invalid Twilio signature" });
+    return;
+  }
+  if (sigCheck === "simulated") {
+    logger.info("Inbound voice webhook handled in simulated mode (no Twilio credentials)");
+  }
+
+  const params = (req.body ?? {}) as Record<string, string>;
+  const fromNumber = normalizeToE164(params.From) ?? params.From ?? null;
+  // Same tenant resolution as inbound SMS: the number the call was placed TO
+  // identifies the business.
+  const scope = await resolveTenantScopeFromToNumber(normalizeToE164(params.To));
+  const customer = await findCustomerByPhone(normalizeToE164(params.From), scope);
+  const tenantId = customer?.tenantId ?? (scope.resolved ? scope.tenantId : null);
+  const settings = await resolveSettings(tenantId);
+  const businessName = settings.businessName?.trim() || "our team";
+
+  // The call itself is an interaction on the customer timeline.
+  await recordInboundMessage({
+    tenantId,
+    customerId: customer?.id ?? null,
+    clientProfileId: customer?.clientProfileId ?? null,
+    fromNumber,
+    body: `Inbound phone call answered by the AI receptionist`,
+    providerSid: params.CallSid ?? null,
+    kind: "voice_call",
+    channel: "voice",
+    payload: { callSid: params.CallSid ?? null, toNumber: params.To ?? null },
+  });
+
+  // Bridge to the SMS receptionist: text the caller a booking link so the
+  // existing SMS flow does the heavy lifting. Gated on the receptionist
+  // toggle; opt-outs and missing numbers are handled by the shared guards.
+  let smsBridged = false;
+  if (settings.aiReceptionistEnabled && fromNumber) {
+    let bookingUrl = publicAppBaseUrl();
+    if (tenantId != null) {
+      const [tenant] = await db
+        .select({ subdomain: tenantsTable.subdomain })
+        .from(tenantsTable)
+        .where(eq(tenantsTable.id, tenantId));
+      if (tenant?.subdomain) bookingUrl = `${bookingUrl}/book/${tenant.subdomain}`;
+    }
+    const greetName = customer?.name ? ` ${customer.name}` : "";
+    const sent = await sendMessageSafe({
+      tenantId,
+      customerId: customer?.id ?? null,
+      clientProfileId: customer?.clientProfileId ?? null,
+      toNumber: fromNumber,
+      kind: "ai_followup",
+      body: `Hi${greetName}! Thanks for calling ${businessName}. Book a time that works for you here: ${bookingUrl} — or just reply to this text and we'll help you out.`,
+      context: { trigger: "inbound_voice_call", callSid: params.CallSid ?? null },
+    });
+    smsBridged = sent != null && sent.status !== "skipped" && sent.status !== "failed";
+  }
+
+  const greeting = smsBridged
+    ? `Thanks for calling ${businessName}. We just texted you a booking link, and you can reply to that text any time — our virtual receptionist will take it from there.`
+    : `Thanks for calling ${businessName}.`;
+
+  const voiceTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say>${escapeXml(greeting)} If you'd like to leave a message instead, stay on the line and speak after the tone. Press the pound key when you're done.</Say><Record action="/api/sos/twilio/voice/recording" method="POST" maxLength="120" finishOnKey="#" playBeep="true"/><Say>We didn't catch a message. Goodbye!</Say></Response>`;
+  res.type("text/xml").send(voiceTwiml);
+});
+
+// Public endpoint Twilio POSTs the voicemail recording details to (the
+// <Record action> URL above). Logs the voicemail on the customer timeline so
+// staff can follow up.
+router.post("/sos/twilio/voice/recording", async (req, res): Promise<void> => {
+  const sigCheck = await checkTwilioVoiceSignature(req);
+  if (sigCheck === "invalid") {
+    logger.warn("Rejected voice recording callback: invalid Twilio signature");
+    res.status(403).json({ message: "Invalid Twilio signature" });
+    return;
+  }
+
+  const params = (req.body ?? {}) as Record<string, string>;
+  const fromNumber = normalizeToE164(params.From) ?? params.From ?? null;
+  const scope = await resolveTenantScopeFromToNumber(normalizeToE164(params.To));
+  const customer = await findCustomerByPhone(normalizeToE164(params.From), scope);
+  const recordingUrl = params.RecordingUrl?.trim() || null;
+  const duration = params.RecordingDuration ?? null;
+
+  await recordInboundMessage({
+    tenantId: customer?.tenantId ?? (scope.resolved ? scope.tenantId : null),
+    customerId: customer?.id ?? null,
+    clientProfileId: customer?.clientProfileId ?? null,
+    fromNumber,
+    body: `Voicemail${duration ? ` (${duration}s)` : ""}${recordingUrl ? `: ${recordingUrl}` : ""}`,
+    providerSid: params.RecordingSid ?? params.CallSid ?? null,
+    kind: "voicemail",
+    channel: "voice",
+    payload: {
+      callSid: params.CallSid ?? null,
+      recordingSid: params.RecordingSid ?? null,
+      recordingUrl,
+      durationSeconds: duration != null ? Number(duration) || null : null,
+    },
+  });
+
+  const byeTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Thanks, we got your message. Someone will follow up with you soon. Goodbye!</Say><Hangup/></Response>`;
+  res.type("text/xml").send(byeTwiml);
 });
 
 // ── Twilio delivery-status callback ─────────────────────────────────────────

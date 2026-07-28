@@ -359,6 +359,12 @@ export interface RecordInboundOptions {
   fromNumber: string | null;
   body: string;
   providerSid?: string | null;
+  /** Message kind; defaults to "inbound" (an inbound SMS). Voice-call events use "voice_call" / "voicemail". */
+  kind?: "inbound" | "voice_call" | "voicemail";
+  /** Channel; defaults to "sms". Voice-call events pass "voice". */
+  channel?: "sms" | "voice";
+  /** Extra structured context (e.g. call SID, recording URL). */
+  payload?: Record<string, unknown>;
 }
 
 /** Record one inbound message in the unified table (status "received"). */
@@ -373,12 +379,13 @@ export async function recordInboundMessage(
       customerId: opts.customerId ?? null,
       clientProfileId: opts.clientProfileId ?? null,
       direction: "inbound",
-      kind: "inbound",
-      channel: "sms",
+      kind: opts.kind ?? "inbound",
+      channel: opts.channel ?? "sms",
       toNumber: opts.fromNumber,
       body: opts.body,
       status: "received",
       providerSid: opts.providerSid ?? null,
+      payload: opts.payload ?? {},
     })
     .returning();
   return row;
