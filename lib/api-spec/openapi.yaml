@@ -3604,6 +3604,256 @@ paths:
         "404":
           description: Staff member not found
 
+  /sos/staff/{id}/license-verification:
+    post:
+      operationId: verifySosStaffLicense
+      tags: [sos]
+      summary: Manually attest a staff member's license (records verifier + date); editing license fields later resets it
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosStaffLicenseVerify"
+      responses:
+        "200":
+          description: Staff member with verified license
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosStaffMember"
+        "400":
+          description: No license on file to verify
+        "404":
+          description: Staff member not found
+
+  /coop/coverage/partner-staff:
+    get:
+      operationId: listCoopCoveragePartnerStaff
+      tags: [coop]
+      summary: Privacy-safe coverage cards for partners' staff opted into co-op coverage; visible to accepted active partners only; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Coverage cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopCoverageStaffCard"
+        "400":
+          description: Missing x-tenant-id header
+
+  /coop/coverage/shifts:
+    get:
+      operationId: listCoopCoverageShifts
+      tags: [coop]
+      summary: Open-shift board — the tenant's own shifts plus open/offered shifts posted by accepted active partners; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Shifts visible to the scoped tenant
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopCoverageShift"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createCoopCoverageShift
+      tags: [coop]
+      summary: Post an open coverage shift, broadcast to accepted active co-op partners; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopCoverageShiftCreate"
+      responses:
+        "201":
+          description: Created shift
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCoverageShift"
+        "400":
+          description: Missing x-tenant-id, invalid window, or no license state on file
+
+  /coop/coverage/shifts/{id}/offers:
+    post:
+      operationId: offerCoopCoverageStaff
+      tags: [coop]
+      summary: Offer one of the tenant's eligible staff on a partner's open shift (verified, unexpired, state-matching license and required skill enforced); tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopCoverageOfferCreate"
+      responses:
+        "201":
+          description: Shift with the new offer recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCoverageShift"
+        "400":
+          description: Missing x-tenant-id header
+        "403":
+          description: Not an accepted active partner of the posting business
+        "404":
+          description: Shift or staff member not found
+        "409":
+          description: Staff ineligible (with reason) or shift no longer accepting offers
+
+  /coop/coverage/offers/{id}/accept:
+    post:
+      operationId: acceptCoopCoverageOffer
+      tags: [coop]
+      summary: Posting merchant accepts one offer — conditional-update guard confirms exactly one winner; other pending offers are declined; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Confirmed shift
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCoverageShift"
+        "400":
+          description: Missing x-tenant-id header
+        "403":
+          description: Only the posting business can accept offers
+        "404":
+          description: Offer not found
+        "409":
+          description: Another offer already won, or the shift is not accepting
+
+  /coop/coverage/shifts/{id}/complete:
+    post:
+      operationId: completeCoopCoverageShift
+      tags: [coop]
+      summary: Posting merchant completes a confirmed shift, recording actual hours worked; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopCoverageComplete"
+      responses:
+        "200":
+          description: Completed shift
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCoverageShift"
+        "400":
+          description: Missing x-tenant-id header
+        "403":
+          description: Only the posting business can complete the shift
+        "404":
+          description: Shift not found
+        "409":
+          description: Shift is not confirmed
+
+  /coop/coverage/shifts/{id}/cancel:
+    post:
+      operationId: cancelCoopCoverageShift
+      tags: [coop]
+      summary: Posting merchant cancels a shift that hasn't completed; pending offers are declined; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cancelled shift
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCoverageShift"
+        "400":
+          description: Missing x-tenant-id header
+        "403":
+          description: Only the posting business can cancel the shift
+        "404":
+          description: Shift not found
+        "409":
+          description: Shift already completed or cancelled
+
+  /coop/coverage/shifts/{id}/rating:
+    post:
+      operationId: rateCoopCoverageShift
+      tags: [coop]
+      summary: Host rates the covering staff member (1–5 + comment) after a completed shift; one rating per shift; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopCoverageRatingCreate"
+      responses:
+        "201":
+          description: Shift with the rating recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCoverageShift"
+        "400":
+          description: Missing x-tenant-id header
+        "403":
+          description: Only the posting business can rate
+        "404":
+          description: Shift not found
+        "409":
+          description: Shift not completed, or already rated
+
+  /coop/coverage/ledger:
+    get:
+      operationId: getCoopCoverageLedger
+      tags: [coop]
+      summary: Shared coverage ledger — shifts the tenant posted and shifts its staff covered, with rates, hours, and ratings; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Coverage ledger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCoverageLedger"
+        "400":
+          description: Missing x-tenant-id header
+
   /sos/staff-earnings:
     get:
       operationId: getSosStaffEarnings
@@ -9274,7 +9524,11 @@ components:
 
     SosStaffMember:
       type: object
-      required: [id, name, phone, email, isActive, compensationType, commissionPercent, amount, cadence, tipPercent, tipRoleWeight, createdAt]
+      required:
+        [id, name, phone, email, isActive, compensationType, commissionPercent, amount, cadence,
+         tipPercent, tipRoleWeight,
+         skills, certifications, licenseNumber, licenseState, licenseExpiresAt, licenseStatus,
+         licenseVerifiedBy, licenseVerifiedAt, coopCoverageEnabled, createdAt]
       properties:
         id:
           type: integer
@@ -9306,6 +9560,31 @@ components:
         # Tip pooling: role weight for the role_weighted rule. NULL = weight 1.
         tipRoleWeight:
           type: ["integer", "null"]
+        # ── Credential registry (co-op shift coverage) ──────────────────────
+        skills:
+          type: array
+          items:
+            type: string
+        certifications:
+          type: array
+          items:
+            type: string
+        licenseNumber:
+          type: ["string", "null"]
+        licenseState:
+          type: ["string", "null"]
+        licenseExpiresAt:
+          type: ["string", "null"]
+        # Effective status — "expired" is derived from licenseExpiresAt.
+        licenseStatus:
+          type: string
+          enum: [unverified, verified, expired]
+        licenseVerifiedBy:
+          type: ["string", "null"]
+        licenseVerifiedAt:
+          type: ["string", "null"]
+        coopCoverageEnabled:
+          type: boolean
         createdAt:
           type: string
 
@@ -9333,6 +9612,22 @@ components:
         cadence:
           type: string
           enum: [weekly, monthly]
+        skills:
+          type: array
+          items:
+            type: string
+        certifications:
+          type: array
+          items:
+            type: string
+        licenseNumber:
+          type: string
+        licenseState:
+          type: string
+        licenseExpiresAt:
+          type: string
+        coopCoverageEnabled:
+          type: boolean
 
     SosStaffMemberUpdate:
       type: object
@@ -9359,6 +9654,228 @@ components:
         cadence:
           type: string
           enum: [weekly, monthly]
+        skills:
+          type: array
+          items:
+            type: string
+        certifications:
+          type: array
+          items:
+            type: string
+        # Editing any license field resets verification to unverified.
+        licenseNumber:
+          type: ["string", "null"]
+        licenseState:
+          type: ["string", "null"]
+        licenseExpiresAt:
+          type: ["string", "null"]
+        coopCoverageEnabled:
+          type: boolean
+
+    SosStaffLicenseVerify:
+      type: object
+      required: [verifiedBy]
+      properties:
+        verifiedBy:
+          type: string
+          minLength: 1
+
+    CoopCoverageShiftCreate:
+      type: object
+      required: [startsAt, endsAt, requiredSkill, offeredHourlyRate]
+      properties:
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+        requiredSkill:
+          type: string
+          minLength: 1
+        # Defaults to the posting business's own state (addressRegion).
+        requiredLicenseState:
+          type: string
+        offeredHourlyRate:
+          type: number
+          minimum: 0
+        notes:
+          type: string
+
+    CoopCoverageOfferCreate:
+      type: object
+      required: [staffId]
+      properties:
+        staffId:
+          type: integer
+        note:
+          type: string
+
+    CoopCoverageComplete:
+      type: object
+      required: [hoursWorked]
+      properties:
+        hoursWorked:
+          type: number
+          minimum: 0
+
+    CoopCoverageRatingCreate:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+
+    CoopCoverageStaffCard:
+      type: object
+      description: >
+        Privacy-safe coverage card a merchant's accepted co-op partners see for
+        staff opted into coverage — never includes compensation data.
+      required:
+        [staffId, staffName, tenantId, tenantName, skills, certifications,
+         licenseState, licenseStatus, averageRating, ratingCount]
+      properties:
+        staffId:
+          type: integer
+        staffName:
+          type: string
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+        certifications:
+          type: array
+          items:
+            type: string
+        licenseState:
+          type: ["string", "null"]
+        licenseStatus:
+          type: string
+          enum: [unverified, verified, expired]
+        averageRating:
+          type: ["number", "null"]
+        ratingCount:
+          type: integer
+
+    CoopCoverageOffer:
+      type: object
+      required:
+        [id, shiftId, offeringTenantId, offeringTenantName, staffId, staffName,
+         skills, licenseState, licenseStatus, averageRating, ratingCount, note,
+         status, createdAt]
+      properties:
+        id:
+          type: integer
+        shiftId:
+          type: integer
+        offeringTenantId:
+          type: integer
+        offeringTenantName:
+          type: string
+        staffId:
+          type: integer
+        staffName:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+        licenseState:
+          type: ["string", "null"]
+        licenseStatus:
+          type: string
+          enum: [unverified, verified, expired]
+        averageRating:
+          type: ["number", "null"]
+        ratingCount:
+          type: integer
+        note:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, accepted, declined]
+        createdAt:
+          type: string
+
+    CoopCoverageRatingEntry:
+      type: object
+      required: [rating, comment, createdAt]
+      properties:
+        rating:
+          type: integer
+        comment:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    CoopCoverageShift:
+      type: object
+      required:
+        [id, tenantId, tenantName, startsAt, endsAt, requiredSkill,
+         requiredLicenseState, offeredHourlyRate, notes, status,
+         acceptedOfferId, hoursWorked, isMine, offers, rating, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+        requiredSkill:
+          type: string
+        requiredLicenseState:
+          type: string
+        offeredHourlyRate:
+          type: number
+        notes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [open, offered, confirmed, completed, cancelled]
+        acceptedOfferId:
+          type: ["integer", "null"]
+        hoursWorked:
+          type: ["number", "null"]
+        # True when the scoped tenant posted this shift.
+        isMine:
+          type: boolean
+        # Poster sees every offer; a partner sees only its own offers.
+        offers:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopCoverageOffer"
+        rating:
+          oneOf:
+            - $ref: "#/components/schemas/CoopCoverageRatingEntry"
+            - type: "null"
+        createdAt:
+          type: string
+
+    CoopCoverageLedger:
+      type: object
+      required: [posted, covered]
+      properties:
+        # Shifts this business posted (any status).
+        posted:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopCoverageShift"
+        # Shifts another business posted where one of this business's staff
+        # was offered or confirmed.
+        covered:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopCoverageShift"
 
     SosStaffEarningsRow:
       type: object

@@ -7,6 +7,7 @@
  */
 import type { SosStaffMemberCadence } from './sosStaffMemberCadence';
 import type { SosStaffMemberCompensationType } from './sosStaffMemberCompensationType';
+import type { SosStaffMemberLicenseStatus } from './sosStaffMemberLicenseStatus';
 
 export interface SosStaffMember {
   id: number;
@@ -27,5 +28,19 @@ export interface SosStaffMember {
   tipPercent: number | null;
   /** @nullable */
   tipRoleWeight: number | null;
+  skills: string[];
+  certifications: string[];
+  /** @nullable */
+  licenseNumber: string | null;
+  /** @nullable */
+  licenseState: string | null;
+  /** @nullable */
+  licenseExpiresAt: string | null;
+  licenseStatus: SosStaffMemberLicenseStatus;
+  /** @nullable */
+  licenseVerifiedBy: string | null;
+  /** @nullable */
+  licenseVerifiedAt: string | null;
+  coopCoverageEnabled: boolean;
   createdAt: string;
 }

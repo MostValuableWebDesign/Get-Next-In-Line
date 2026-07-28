@@ -56,6 +56,13 @@ import type {
   CoopComplianceLedgerEntry,
   CoopComplianceManualEntryCreate,
   CoopComplianceSummary,
+  CoopCoverageComplete,
+  CoopCoverageLedger,
+  CoopCoverageOfferCreate,
+  CoopCoverageRatingCreate,
+  CoopCoverageShift,
+  CoopCoverageShiftCreate,
+  CoopCoverageStaffCard,
   CoopDirectoryEntry,
   CoopDispute,
   CoopDisputeCreate,
@@ -248,6 +255,7 @@ import type {
   SosSettings,
   SosSettingsUpdate,
   SosStaffEarningsRow,
+  SosStaffLicenseVerify,
   SosStaffMember,
   SosStaffMemberInput,
   SosStaffMemberUpdate,
@@ -12765,6 +12773,738 @@ export const useUpdateSosStaffMember = <TError = ErrorType<void>,
       > => {
       return useMutation(getUpdateSosStaffMemberMutationOptions(options));
     }
+
+export const getVerifySosStaffLicenseUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/staff/${id}/license-verification`
+}
+
+/**
+ * @summary Manually attest a staff member's license (records verifier + date); editing license fields later resets it
+ */
+export const verifySosStaffLicense = async (id: number,
+    sosStaffLicenseVerify: SosStaffLicenseVerify, options?: RequestInit): Promise<SosStaffMember> => {
+
+  return customFetch<SosStaffMember>(getVerifySosStaffLicenseUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosStaffLicenseVerify)
+  }
+);}
+
+
+
+
+
+export const getVerifySosStaffLicenseMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifySosStaffLicense>>, TError,{id: number;data: BodyType<SosStaffLicenseVerify>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifySosStaffLicense>>, TError,{id: number;data: BodyType<SosStaffLicenseVerify>}, TContext> => {
+
+const mutationKey = ['verifySosStaffLicense'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifySosStaffLicense>>, {id: number;data: BodyType<SosStaffLicenseVerify>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  verifySosStaffLicense(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifySosStaffLicenseMutationResult = NonNullable<Awaited<ReturnType<typeof verifySosStaffLicense>>>
+    export type VerifySosStaffLicenseMutationBody = BodyType<SosStaffLicenseVerify>
+    export type VerifySosStaffLicenseMutationError = ErrorType<void>
+
+    /**
+ * @summary Manually attest a staff member's license (records verifier + date); editing license fields later resets it
+ */
+export const useVerifySosStaffLicense = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifySosStaffLicense>>, TError,{id: number;data: BodyType<SosStaffLicenseVerify>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifySosStaffLicense>>,
+        TError,
+        {id: number;data: BodyType<SosStaffLicenseVerify>},
+        TContext
+      > => {
+      return useMutation(getVerifySosStaffLicenseMutationOptions(options));
+    }
+
+export const getListCoopCoveragePartnerStaffUrl = () => {
+
+
+
+
+  return `/api/coop/coverage/partner-staff`
+}
+
+/**
+ * @summary Privacy-safe coverage cards for partners' staff opted into co-op coverage; visible to accepted active partners only; tenant scope via x-tenant-id
+ */
+export const listCoopCoveragePartnerStaff = async ( options?: RequestInit): Promise<CoopCoverageStaffCard[]> => {
+
+  return customFetch<CoopCoverageStaffCard[]>(getListCoopCoveragePartnerStaffUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopCoveragePartnerStaffQueryKey = () => {
+    return [
+    `/api/coop/coverage/partner-staff`
+    ] as const;
+    }
+
+
+export const getListCoopCoveragePartnerStaffQueryOptions = <TData = Awaited<ReturnType<typeof listCoopCoveragePartnerStaff>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopCoveragePartnerStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopCoveragePartnerStaffQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopCoveragePartnerStaff>>> = ({ signal }) => listCoopCoveragePartnerStaff({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopCoveragePartnerStaff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopCoveragePartnerStaffQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopCoveragePartnerStaff>>>
+export type ListCoopCoveragePartnerStaffQueryError = ErrorType<void>
+
+
+/**
+ * @summary Privacy-safe coverage cards for partners' staff opted into co-op coverage; visible to accepted active partners only; tenant scope via x-tenant-id
+ */
+
+export function useListCoopCoveragePartnerStaff<TData = Awaited<ReturnType<typeof listCoopCoveragePartnerStaff>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopCoveragePartnerStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopCoveragePartnerStaffQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCoopCoverageShiftsUrl = () => {
+
+
+
+
+  return `/api/coop/coverage/shifts`
+}
+
+/**
+ * @summary Open-shift board — the tenant's own shifts plus open/offered shifts posted by accepted active partners; tenant scope via x-tenant-id
+ */
+export const listCoopCoverageShifts = async ( options?: RequestInit): Promise<CoopCoverageShift[]> => {
+
+  return customFetch<CoopCoverageShift[]>(getListCoopCoverageShiftsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopCoverageShiftsQueryKey = () => {
+    return [
+    `/api/coop/coverage/shifts`
+    ] as const;
+    }
+
+
+export const getListCoopCoverageShiftsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopCoverageShifts>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopCoverageShifts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopCoverageShiftsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopCoverageShifts>>> = ({ signal }) => listCoopCoverageShifts({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopCoverageShifts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopCoverageShiftsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopCoverageShifts>>>
+export type ListCoopCoverageShiftsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Open-shift board — the tenant's own shifts plus open/offered shifts posted by accepted active partners; tenant scope via x-tenant-id
+ */
+
+export function useListCoopCoverageShifts<TData = Awaited<ReturnType<typeof listCoopCoverageShifts>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopCoverageShifts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopCoverageShiftsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopCoverageShiftUrl = () => {
+
+
+
+
+  return `/api/coop/coverage/shifts`
+}
+
+/**
+ * @summary Post an open coverage shift, broadcast to accepted active co-op partners; tenant scope via x-tenant-id
+ */
+export const createCoopCoverageShift = async (coopCoverageShiftCreate: CoopCoverageShiftCreate, options?: RequestInit): Promise<CoopCoverageShift> => {
+
+  return customFetch<CoopCoverageShift>(getCreateCoopCoverageShiftUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopCoverageShiftCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopCoverageShiftMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopCoverageShift>>, TError,{data: BodyType<CoopCoverageShiftCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopCoverageShift>>, TError,{data: BodyType<CoopCoverageShiftCreate>}, TContext> => {
+
+const mutationKey = ['createCoopCoverageShift'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopCoverageShift>>, {data: BodyType<CoopCoverageShiftCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopCoverageShift(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopCoverageShiftMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopCoverageShift>>>
+    export type CreateCoopCoverageShiftMutationBody = BodyType<CoopCoverageShiftCreate>
+    export type CreateCoopCoverageShiftMutationError = ErrorType<void>
+
+    /**
+ * @summary Post an open coverage shift, broadcast to accepted active co-op partners; tenant scope via x-tenant-id
+ */
+export const useCreateCoopCoverageShift = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopCoverageShift>>, TError,{data: BodyType<CoopCoverageShiftCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopCoverageShift>>,
+        TError,
+        {data: BodyType<CoopCoverageShiftCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopCoverageShiftMutationOptions(options));
+    }
+
+export const getOfferCoopCoverageStaffUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/coverage/shifts/${id}/offers`
+}
+
+/**
+ * @summary Offer one of the tenant's eligible staff on a partner's open shift (verified, unexpired, state-matching license and required skill enforced); tenant scope via x-tenant-id
+ */
+export const offerCoopCoverageStaff = async (id: number,
+    coopCoverageOfferCreate: CoopCoverageOfferCreate, options?: RequestInit): Promise<CoopCoverageShift> => {
+
+  return customFetch<CoopCoverageShift>(getOfferCoopCoverageStaffUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopCoverageOfferCreate)
+  }
+);}
+
+
+
+
+
+export const getOfferCoopCoverageStaffMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof offerCoopCoverageStaff>>, TError,{id: number;data: BodyType<CoopCoverageOfferCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof offerCoopCoverageStaff>>, TError,{id: number;data: BodyType<CoopCoverageOfferCreate>}, TContext> => {
+
+const mutationKey = ['offerCoopCoverageStaff'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof offerCoopCoverageStaff>>, {id: number;data: BodyType<CoopCoverageOfferCreate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  offerCoopCoverageStaff(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OfferCoopCoverageStaffMutationResult = NonNullable<Awaited<ReturnType<typeof offerCoopCoverageStaff>>>
+    export type OfferCoopCoverageStaffMutationBody = BodyType<CoopCoverageOfferCreate>
+    export type OfferCoopCoverageStaffMutationError = ErrorType<void>
+
+    /**
+ * @summary Offer one of the tenant's eligible staff on a partner's open shift (verified, unexpired, state-matching license and required skill enforced); tenant scope via x-tenant-id
+ */
+export const useOfferCoopCoverageStaff = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof offerCoopCoverageStaff>>, TError,{id: number;data: BodyType<CoopCoverageOfferCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof offerCoopCoverageStaff>>,
+        TError,
+        {id: number;data: BodyType<CoopCoverageOfferCreate>},
+        TContext
+      > => {
+      return useMutation(getOfferCoopCoverageStaffMutationOptions(options));
+    }
+
+export const getAcceptCoopCoverageOfferUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/coverage/offers/${id}/accept`
+}
+
+/**
+ * @summary Posting merchant accepts one offer — conditional-update guard confirms exactly one winner; other pending offers are declined; tenant scope via x-tenant-id
+ */
+export const acceptCoopCoverageOffer = async (id: number, options?: RequestInit): Promise<CoopCoverageShift> => {
+
+  return customFetch<CoopCoverageShift>(getAcceptCoopCoverageOfferUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAcceptCoopCoverageOfferMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptCoopCoverageOffer>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acceptCoopCoverageOffer>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['acceptCoopCoverageOffer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptCoopCoverageOffer>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  acceptCoopCoverageOffer(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcceptCoopCoverageOfferMutationResult = NonNullable<Awaited<ReturnType<typeof acceptCoopCoverageOffer>>>
+
+    export type AcceptCoopCoverageOfferMutationError = ErrorType<void>
+
+    /**
+ * @summary Posting merchant accepts one offer — conditional-update guard confirms exactly one winner; other pending offers are declined; tenant scope via x-tenant-id
+ */
+export const useAcceptCoopCoverageOffer = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptCoopCoverageOffer>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acceptCoopCoverageOffer>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getAcceptCoopCoverageOfferMutationOptions(options));
+    }
+
+export const getCompleteCoopCoverageShiftUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/coverage/shifts/${id}/complete`
+}
+
+/**
+ * @summary Posting merchant completes a confirmed shift, recording actual hours worked; tenant scope via x-tenant-id
+ */
+export const completeCoopCoverageShift = async (id: number,
+    coopCoverageComplete: CoopCoverageComplete, options?: RequestInit): Promise<CoopCoverageShift> => {
+
+  return customFetch<CoopCoverageShift>(getCompleteCoopCoverageShiftUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopCoverageComplete)
+  }
+);}
+
+
+
+
+
+export const getCompleteCoopCoverageShiftMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeCoopCoverageShift>>, TError,{id: number;data: BodyType<CoopCoverageComplete>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeCoopCoverageShift>>, TError,{id: number;data: BodyType<CoopCoverageComplete>}, TContext> => {
+
+const mutationKey = ['completeCoopCoverageShift'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeCoopCoverageShift>>, {id: number;data: BodyType<CoopCoverageComplete>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  completeCoopCoverageShift(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteCoopCoverageShiftMutationResult = NonNullable<Awaited<ReturnType<typeof completeCoopCoverageShift>>>
+    export type CompleteCoopCoverageShiftMutationBody = BodyType<CoopCoverageComplete>
+    export type CompleteCoopCoverageShiftMutationError = ErrorType<void>
+
+    /**
+ * @summary Posting merchant completes a confirmed shift, recording actual hours worked; tenant scope via x-tenant-id
+ */
+export const useCompleteCoopCoverageShift = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeCoopCoverageShift>>, TError,{id: number;data: BodyType<CoopCoverageComplete>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeCoopCoverageShift>>,
+        TError,
+        {id: number;data: BodyType<CoopCoverageComplete>},
+        TContext
+      > => {
+      return useMutation(getCompleteCoopCoverageShiftMutationOptions(options));
+    }
+
+export const getCancelCoopCoverageShiftUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/coverage/shifts/${id}/cancel`
+}
+
+/**
+ * @summary Posting merchant cancels a shift that hasn't completed; pending offers are declined; tenant scope via x-tenant-id
+ */
+export const cancelCoopCoverageShift = async (id: number, options?: RequestInit): Promise<CoopCoverageShift> => {
+
+  return customFetch<CoopCoverageShift>(getCancelCoopCoverageShiftUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCancelCoopCoverageShiftMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelCoopCoverageShift>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelCoopCoverageShift>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['cancelCoopCoverageShift'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelCoopCoverageShift>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  cancelCoopCoverageShift(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelCoopCoverageShiftMutationResult = NonNullable<Awaited<ReturnType<typeof cancelCoopCoverageShift>>>
+
+    export type CancelCoopCoverageShiftMutationError = ErrorType<void>
+
+    /**
+ * @summary Posting merchant cancels a shift that hasn't completed; pending offers are declined; tenant scope via x-tenant-id
+ */
+export const useCancelCoopCoverageShift = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelCoopCoverageShift>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelCoopCoverageShift>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getCancelCoopCoverageShiftMutationOptions(options));
+    }
+
+export const getRateCoopCoverageShiftUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/coverage/shifts/${id}/rating`
+}
+
+/**
+ * @summary Host rates the covering staff member (1–5 + comment) after a completed shift; one rating per shift; tenant scope via x-tenant-id
+ */
+export const rateCoopCoverageShift = async (id: number,
+    coopCoverageRatingCreate: CoopCoverageRatingCreate, options?: RequestInit): Promise<CoopCoverageShift> => {
+
+  return customFetch<CoopCoverageShift>(getRateCoopCoverageShiftUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopCoverageRatingCreate)
+  }
+);}
+
+
+
+
+
+export const getRateCoopCoverageShiftMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rateCoopCoverageShift>>, TError,{id: number;data: BodyType<CoopCoverageRatingCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rateCoopCoverageShift>>, TError,{id: number;data: BodyType<CoopCoverageRatingCreate>}, TContext> => {
+
+const mutationKey = ['rateCoopCoverageShift'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rateCoopCoverageShift>>, {id: number;data: BodyType<CoopCoverageRatingCreate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  rateCoopCoverageShift(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RateCoopCoverageShiftMutationResult = NonNullable<Awaited<ReturnType<typeof rateCoopCoverageShift>>>
+    export type RateCoopCoverageShiftMutationBody = BodyType<CoopCoverageRatingCreate>
+    export type RateCoopCoverageShiftMutationError = ErrorType<void>
+
+    /**
+ * @summary Host rates the covering staff member (1–5 + comment) after a completed shift; one rating per shift; tenant scope via x-tenant-id
+ */
+export const useRateCoopCoverageShift = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rateCoopCoverageShift>>, TError,{id: number;data: BodyType<CoopCoverageRatingCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rateCoopCoverageShift>>,
+        TError,
+        {id: number;data: BodyType<CoopCoverageRatingCreate>},
+        TContext
+      > => {
+      return useMutation(getRateCoopCoverageShiftMutationOptions(options));
+    }
+
+export const getGetCoopCoverageLedgerUrl = () => {
+
+
+
+
+  return `/api/coop/coverage/ledger`
+}
+
+/**
+ * @summary Shared coverage ledger — shifts the tenant posted and shifts its staff covered, with rates, hours, and ratings; tenant scope via x-tenant-id
+ */
+export const getCoopCoverageLedger = async ( options?: RequestInit): Promise<CoopCoverageLedger> => {
+
+  return customFetch<CoopCoverageLedger>(getGetCoopCoverageLedgerUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopCoverageLedgerQueryKey = () => {
+    return [
+    `/api/coop/coverage/ledger`
+    ] as const;
+    }
+
+
+export const getGetCoopCoverageLedgerQueryOptions = <TData = Awaited<ReturnType<typeof getCoopCoverageLedger>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopCoverageLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopCoverageLedgerQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopCoverageLedger>>> = ({ signal }) => getCoopCoverageLedger({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopCoverageLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopCoverageLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopCoverageLedger>>>
+export type GetCoopCoverageLedgerQueryError = ErrorType<void>
+
+
+/**
+ * @summary Shared coverage ledger — shifts the tenant posted and shifts its staff covered, with rates, hours, and ratings; tenant scope via x-tenant-id
+ */
+
+export function useGetCoopCoverageLedger<TData = Awaited<ReturnType<typeof getCoopCoverageLedger>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopCoverageLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopCoverageLedgerQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetSosStaffEarningsUrl = (params: GetSosStaffEarningsParams,) => {
   const normalizedParams = new URLSearchParams();

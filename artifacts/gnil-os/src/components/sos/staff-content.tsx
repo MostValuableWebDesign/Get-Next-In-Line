@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   useListSosStaff, useCreateSosStaffMember, useUpdateSosStaffMember,
+  useVerifySosStaffLicense,
   useGetSosStaffEarnings, getListSosStaffQueryKey, getGetSosStaffEarningsQueryKey,
   useGetSosGratuityConfig, useUpdateSosGratuityConfig, getGetSosGratuityConfigQueryKey,
   type SosStaffMember,
@@ -16,7 +17,31 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Users, DollarSign, Percent, Home, HandCoins } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Pencil, Users, DollarSign, Percent, Home, HandCoins, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
+
+/** Credential status badge shared by the roster and the co-op coverage hub. */
+export function LicenseStatusBadge({ status }: { status: SosStaffMember['licenseStatus'] }) {
+  if (status === 'verified') {
+    return (
+      <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-600 gap-1">
+        <ShieldCheck className="h-3 w-3" /> Verified
+      </Badge>
+    );
+  }
+  if (status === 'expired') {
+    return (
+      <Badge variant="destructive" className="text-[10px] gap-1">
+        <ShieldX className="h-3 w-3" /> License expired
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="secondary" className="text-[10px] gap-1">
+      <ShieldAlert className="h-3 w-3" /> Unverified
+    </Badge>
+  );
+}
 
 type CompType = 'commission' | 'flat_fee' | 'booth_rent';
 
@@ -327,7 +352,30 @@ function StaffRow({ member, onEdit }: { member: SosStaffMember; onEdit: () => vo
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const update = useUpdateSosStaffMember();
+  const verify = useVerifySosStaffLicense();
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifierName, setVerifierName] = useState('');
   const Icon = COMP_ICONS[member.compensationType as CompType] ?? Percent;
+
+  const handleVerify = () => {
+    verify.mutate(
+      { id: member.id, data: { verifiedBy: verifierName.trim() } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSosStaffQueryKey() });
+          setVerifyOpen(false);
+          setVerifierName('');
+          toast({
+            title: 'License verified',
+            description: `${member.name}'s license attestation was recorded.`,
+          });
+        },
+        onError: (err: any) => {
+          toast({ title: 'Verification failed', description: err?.response?.data?.message || err?.message, variant: 'destructive' });
+        },
+      },
+    );
+  };
 
   const toggleActive = () => {
     update.mutate(
@@ -355,16 +403,74 @@ function StaffRow({ member, onEdit }: { member: SosStaffMember; onEdit: () => vo
       data-testid={`staff-row-${member.id}`}
     >
       <div>
-        <div className="font-medium text-sm flex items-center gap-2">
+        <div className="font-medium text-sm flex items-center gap-2 flex-wrap">
           {member.name}
           {!member.isActive && <Badge variant="secondary" className="text-[10px]">Inactive</Badge>}
+          {member.licenseNumber && <LicenseStatusBadge status={member.licenseStatus} />}
+          {member.coopCoverageEnabled && (
+            <Badge variant="outline" className="text-[10px]">Co-op coverage</Badge>
+          )}
         </div>
         <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
           <Icon className="h-3 w-3" /> {compSummary(member)}
           {(member.phone || member.email) && <span>• {member.phone || member.email}</span>}
         </div>
+        {member.licenseNumber && (
+          <div className="text-[11px] text-muted-foreground mt-0.5">
+            License {member.licenseNumber} ({member.licenseState ?? '—'})
+            {member.licenseExpiresAt && ` • expires ${new Date(member.licenseExpiresAt).toLocaleDateString()}`}
+            {member.licenseStatus === 'verified' && member.licenseVerifiedBy && ` • verified by ${member.licenseVerifiedBy}`}
+          </div>
+        )}
+        {(member.skills.length > 0 || member.certifications.length > 0) && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {member.skills.map(s => <Badge key={`sk-${s}`} variant="secondary" className="text-[10px]">{s}</Badge>)}
+            {member.certifications.map(c => <Badge key={`ct-${c}`} variant="outline" className="text-[10px]">{c}</Badge>)}
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-1 shrink-0">
+        {member.licenseNumber && member.licenseStatus === 'unverified' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => setVerifyOpen(true)}
+            data-testid={`btn-verify-license-${member.id}`}
+          >
+            Verify license
+          </Button>
+        )}
+        <Dialog open={verifyOpen} onOpenChange={setVerifyOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Verify {member.name}'s license</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <p className="text-xs text-muted-foreground">
+                Manual attestation: confirm you checked license {member.licenseNumber} with the issuing
+                state board. Your name and the date are recorded.
+              </p>
+              <Label>Verified by</Label>
+              <Input
+                value={verifierName}
+                onChange={e => setVerifierName(e.target.value)}
+                placeholder="Your name"
+                data-testid="input-verifier-name"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setVerifyOpen(false)}>Cancel</Button>
+              <Button
+                onClick={handleVerify}
+                disabled={!verifierName.trim() || verify.isPending}
+                data-testid="btn-confirm-verify-license"
+              >
+                Record Verification
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit} data-testid={`btn-edit-staff-${member.id}`}>
           <Pencil className="h-3.5 w-3.5" />
         </Button>
@@ -404,6 +510,16 @@ function StaffDialog({
   const [commissionPercent, setCommissionPercent] = useState(member?.commissionPercent?.toString() ?? '');
   const [amount, setAmount] = useState(member?.amount?.toString() ?? '');
   const [cadence, setCadence] = useState<'weekly' | 'monthly'>((member?.cadence as 'weekly' | 'monthly') ?? 'monthly');
+  const [skills, setSkills] = useState((member?.skills ?? []).join(', '));
+  const [certifications, setCertifications] = useState((member?.certifications ?? []).join(', '));
+  const [licenseNumber, setLicenseNumber] = useState(member?.licenseNumber ?? '');
+  const [licenseState, setLicenseState] = useState(member?.licenseState ?? '');
+  const [licenseExpiresAt, setLicenseExpiresAt] = useState(
+    member?.licenseExpiresAt ? member.licenseExpiresAt.slice(0, 10) : '',
+  );
+  const [coopCoverageEnabled, setCoopCoverageEnabled] = useState(member?.coopCoverageEnabled ?? false);
+
+  const parseList = (raw: string) => raw.split(',').map(x => x.trim()).filter(Boolean);
 
   const isCommission = compType === 'commission';
   const valid =
@@ -434,14 +550,22 @@ function StaffDialog({
       ...(phone.trim() ? { phone: phone.trim() } : {}),
       ...(email.trim() ? { email: email.trim() } : {}),
     };
+    const credentials = {
+      skills: parseList(skills),
+      certifications: parseList(certifications),
+      licenseNumber: licenseNumber.trim(),
+      licenseState: licenseState.trim().toUpperCase(),
+      licenseExpiresAt: licenseExpiresAt,
+      coopCoverageEnabled,
+    };
     if (member) {
       update.mutate(
-        { id: member.id, data: { name: name.trim(), ...contact, compensationType: compType, ...terms } },
+        { id: member.id, data: { name: name.trim(), ...contact, compensationType: compType, ...terms, ...credentials } },
         { onSuccess: () => done('Staff member updated'), onError: fail },
       );
     } else {
       create.mutate(
-        { data: { name: name.trim(), ...contact, compensationType: compType, ...terms } },
+        { data: { name: name.trim(), ...contact, compensationType: compType, ...terms, ...credentials } },
         { onSuccess: () => done('Staff member added'), onError: fail },
       );
     }
@@ -531,6 +655,79 @@ function StaffDialog({
               </div>
             </div>
           )}
+          {/* ── Credentials (co-op shift coverage) ── */}
+          <div className="border-t pt-4 space-y-4">
+            <div>
+              <div className="text-sm font-medium">Skills & Credentials</div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Used for co-op shift coverage eligibility. Changing license details resets verification.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Skills (comma-separated)</Label>
+                <Input
+                  value={skills}
+                  onChange={e => setSkills(e.target.value)}
+                  placeholder="fades, color, braids"
+                  data-testid="input-staff-skills"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Certifications (comma-separated)</Label>
+                <Input
+                  value={certifications}
+                  onChange={e => setCertifications(e.target.value)}
+                  placeholder="Barber certificate"
+                  data-testid="input-staff-certifications"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label>License #</Label>
+                <Input
+                  value={licenseNumber}
+                  onChange={e => setLicenseNumber(e.target.value)}
+                  placeholder="BAR-12345"
+                  data-testid="input-license-number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>License State</Label>
+                <Input
+                  value={licenseState}
+                  onChange={e => setLicenseState(e.target.value)}
+                  placeholder="TX"
+                  maxLength={2}
+                  data-testid="input-license-state"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Expires</Label>
+                <Input
+                  type="date"
+                  value={licenseExpiresAt}
+                  onChange={e => setLicenseExpiresAt(e.target.value)}
+                  data-testid="input-license-expires"
+                />
+              </div>
+            </div>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <Checkbox
+                checked={coopCoverageEnabled}
+                onCheckedChange={v => setCoopCoverageEnabled(v === true)}
+                data-testid="checkbox-coop-coverage"
+              />
+              <span className="text-sm leading-tight">
+                Available for co-op coverage
+                <span className="block text-xs text-muted-foreground font-normal">
+                  Shows a privacy-safe card (name, skills, verified credentials, rating — never pay)
+                  to accepted co-op partners.
+                </span>
+              </span>
+            </label>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

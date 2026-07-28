@@ -371,6 +371,35 @@ describe("flag → grace → decouple → reinstate lifecycle", () => {
     expect(redeem.body.valid).toBe(false);
   });
 
+  it("participants cannot resume a decoupled partnership, and perks stay hidden even if isActive is toggled", async () => {
+    // Neither side can reactivate around the decouple — admin-only reinstate.
+    const resumeAsSalon = await agent
+      .post(`/api/coop/partnerships/${salonCafePartnershipId}/resume`)
+      .set("x-tenant-id", String(salonId))
+      .expect(409);
+    expect(resumeAsSalon.body.message).toMatch(/reinstated by an administrator/i);
+    await agent
+      .post(`/api/coop/partnerships/${salonCafePartnershipId}/resume`)
+      .set("x-tenant-id", String(cafeId))
+      .expect(409);
+
+    // Defense in depth: even with isActive forced on out-of-band, decoupled
+    // tenants' perks never reach the customer perk surface.
+    await db
+      .update(merchantCoopPartnershipsTable)
+      .set({ isActive: true })
+      .where(eq(merchantCoopPartnershipsTable.id, salonCafePartnershipId));
+    const perks = await agent
+      .get("/api/coop/perks")
+      .set("x-tenant-id", String(salonId))
+      .expect(200);
+    expect(perks.body.perks.some((k: { id: number }) => k.id === salonCafePartnershipId)).toBe(false);
+    await db
+      .update(merchantCoopPartnershipsTable)
+      .set({ isActive: false })
+      .where(eq(merchantCoopPartnershipsTable.id, salonCafePartnershipId));
+  });
+
   it("admin lists the decoupled tenant with its audited score history", async () => {
     const res = await agent.get("/api/admin/coop/reputation").expect(200);
     const entry = res.body.find((e: { tenantId: number }) => e.tenantId === cafeId);

@@ -2135,6 +2135,16 @@ router.post("/coop/partnerships/:id/resume", async (req, res): Promise<void> => 
     res.status(409).json({ message: "Only accepted partnerships can be resumed" });
     return;
   }
+  // Reputation Shield: a decouple is reversible only by platform-admin
+  // reinstatement — participants must not be able to reactivate around it.
+  const decoupled = await decoupledTenantIdSet();
+  if (decoupled.has(p.hostTenantId) || decoupled.has(p.partnerTenantId)) {
+    res.status(409).json({
+      message:
+        "This partnership is paused by the platform's reputation policy and can only be reinstated by an administrator.",
+    });
+    return;
+  }
   await db
     .update(merchantCoopPartnershipsTable)
     .set({ isActive: true, updatedAt: new Date() })
@@ -2572,7 +2582,16 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
     allRows.map((r) => r.partnership)
   );
   const visibleIds = new Set(visible.map((p) => p.id));
-  const rows = allRows.filter((r) => visibleIds.has(r.partnership.id));
+  // Reputation Shield defense in depth: even if a decoupled partnership's
+  // isActive were toggled through some path, decoupled tenants' perks must
+  // never reach customer surfaces until admin reinstatement.
+  const decoupledForPerks = await decoupledTenantIdSet();
+  const rows = allRows.filter(
+    (r) =>
+      visibleIds.has(r.partnership.id) &&
+      !decoupledForPerks.has(r.partnership.hostTenantId) &&
+      !decoupledForPerks.has(r.partnership.partnerTenantId)
+  );
   // Analytics: each perk served to this business's customer surfaces
   // (checkout ticket, receipt, pass) counts as one impression. Best-effort.
   // Recorded only for perks that passed the firewall filter — never-rendered

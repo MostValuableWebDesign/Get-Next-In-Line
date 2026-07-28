@@ -8,6 +8,7 @@ import {
   timestamp,
   jsonb,
   index,
+  unique,
 } from "drizzle-orm/pg-core";
 import { clientProfilesTable } from "./concierge";
 import { tenantsTable } from "./agency";
@@ -203,6 +204,26 @@ export const sosStaffMembersTable = pgTable(
     // role_weighted rule: relative weight (e.g. senior=2, junior=1).
     // NULL = default weight 1.
     tipRoleWeight: integer("tip_role_weight"),
+    // ── Credential registry (co-op shift coverage) ────────────────────────
+    // Skills/specialties and certifications shown on the coverage card.
+    skills: jsonb("skills").$type<string[]>().notNull().default([]),
+    certifications: jsonb("certifications").$type<string[]>().notNull().default([]),
+    // Professional license details. Verification is a manual attestation:
+    // a named verifier flips the status; editing any license field resets it
+    // to unverified. "Expired" is derived from licenseExpiresAt at read time,
+    // never stored.
+    licenseNumber: text("license_number"),
+    licenseState: text("license_state"),
+    licenseExpiresAt: timestamp("license_expires_at"),
+    // unverified | verified (expired is computed from licenseExpiresAt)
+    licenseVerificationStatus: text("license_verification_status")
+      .notNull()
+      .default("unverified"),
+    licenseVerifiedBy: text("license_verified_by"),
+    licenseVerifiedAt: timestamp("license_verified_at"),
+    // Merchant opt-in: staff visible to accepted co-op partners as coverage
+    // candidates (privacy-safe card — never compensation data).
+    coopCoverageEnabled: boolean("coop_coverage_enabled").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("sos_staff_members_tenant_id_idx").on(t.tenantId)],
@@ -495,3 +516,99 @@ export const sosCallsTable = pgTable(
   },
   (t) => [index("sos_calls_tenant_id_idx").on(t.tenantId)],
 );
+
+// ── Co-op shift coverage marketplace ─────────────────────────────────────────
+// A merchant short on staff posts an open shift; accepted, active co-op
+// partners see it and can offer one of their eligible (verified, unexpired,
+// state-matching, skill-matching) staff. The poster accepts exactly one offer
+// (conditional-update concurrency guard), then completes/cancels the shift,
+// recording actual hours. Rates are tracked, never settled — no payments.
+
+export const coopCoverageShiftsTable = pgTable(
+  "coop_coverage_shifts",
+  {
+    id: serial("id").primaryKey(),
+    // The posting (host) business. Coverage is tenant-only — no legacy scope.
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    startsAt: timestamp("starts_at").notNull(),
+    endsAt: timestamp("ends_at").notNull(),
+    // Skill the covering staff member must list (case-insensitive match).
+    requiredSkill: text("required_skill").notNull(),
+    // License state the covering staff member must be licensed in — defaults
+    // to the posting business's own state at post time.
+    requiredLicenseState: text("required_license_state").notNull(),
+    offeredHourlyRate: numeric("offered_hourly_rate", { precision: 10, scale: 2 }).notNull(),
+    notes: text("notes"),
+    // open | offered | confirmed | completed | cancelled
+    status: text("status").notNull().default("open"),
+    // Winning offer once the poster accepts. The conditional UPDATE that sets
+    // this (guarded on status + accepted_offer_id IS NULL) is the single-
+    // winner lock under concurrent accepts.
+    acceptedOfferId: integer("accepted_offer_id"),
+    // Actual hours recorded at completion.
+    hoursWorked: numeric("hours_worked", { precision: 6, scale: 2 }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_coverage_shifts_tenant_idx").on(t.tenantId)],
+);
+
+export type CoopCoverageShift = typeof coopCoverageShiftsTable.$inferSelect;
+
+export const coopCoverageOffersTable = pgTable(
+  "coop_coverage_offers",
+  {
+    id: serial("id").primaryKey(),
+    shiftId: integer("shift_id")
+      .notNull()
+      .references(() => coopCoverageShiftsTable.id, { onDelete: "cascade" }),
+    // The partner business offering one of its staff.
+    offeringTenantId: integer("offering_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => sosStaffMembersTable.id, { onDelete: "cascade" }),
+    note: text("note"),
+    // pending | accepted | declined
+    status: text("status").notNull().default("pending"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    // One offer per staff member per shift.
+    unique("coop_coverage_offers_shift_staff_uq").on(t.shiftId, t.staffId),
+    index("coop_coverage_offers_shift_idx").on(t.shiftId),
+    index("coop_coverage_offers_tenant_idx").on(t.offeringTenantId),
+  ],
+);
+
+export type CoopCoverageOffer = typeof coopCoverageOffersTable.$inferSelect;
+
+// Cross-store rating the host leaves for the covering staff member after a
+// completed shift. One rating per shift; the average shows on the staff
+// member's coverage card.
+export const coopCoverageRatingsTable = pgTable(
+  "coop_coverage_ratings",
+  {
+    id: serial("id").primaryKey(),
+    shiftId: integer("shift_id")
+      .notNull()
+      .unique()
+      .references(() => coopCoverageShiftsTable.id, { onDelete: "cascade" }),
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => sosStaffMembersTable.id, { onDelete: "cascade" }),
+    ratedByTenantId: integer("rated_by_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    // 1–5 (validated at the API layer).
+    rating: integer("rating").notNull(),
+    comment: text("comment"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_coverage_ratings_staff_idx").on(t.staffId)],
+);
+
+export type CoopCoverageRating = typeof coopCoverageRatingsTable.$inferSelect;

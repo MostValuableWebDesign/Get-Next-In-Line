@@ -3085,6 +3085,15 @@ export const SosStaffMemberCadence = {
   monthly: 'monthly',
 } as const;
 
+export type SosStaffMemberLicenseStatus = typeof SosStaffMemberLicenseStatus[keyof typeof SosStaffMemberLicenseStatus];
+
+
+export const SosStaffMemberLicenseStatus = {
+  unverified: 'unverified',
+  verified: 'verified',
+  expired: 'expired',
+} as const;
+
 export interface SosStaffMember {
   id: number;
   name: string;
@@ -3104,6 +3113,20 @@ export interface SosStaffMember {
   tipPercent: number | null;
   /** @nullable */
   tipRoleWeight: number | null;
+  skills: string[];
+  certifications: string[];
+  /** @nullable */
+  licenseNumber: string | null;
+  /** @nullable */
+  licenseState: string | null;
+  /** @nullable */
+  licenseExpiresAt: string | null;
+  licenseStatus: SosStaffMemberLicenseStatus;
+  /** @nullable */
+  licenseVerifiedBy: string | null;
+  /** @nullable */
+  licenseVerifiedAt: string | null;
+  coopCoverageEnabled: boolean;
   createdAt: string;
 }
 
@@ -3138,6 +3161,12 @@ export interface SosStaffMemberInput {
   /** @minimum 0 */
   amount?: number;
   cadence?: SosStaffMemberInputCadence;
+  skills?: string[];
+  certifications?: string[];
+  licenseNumber?: string;
+  licenseState?: string;
+  licenseExpiresAt?: string;
+  coopCoverageEnabled?: boolean;
 }
 
 export type SosStaffMemberUpdateCompensationType = typeof SosStaffMemberUpdateCompensationType[keyof typeof SosStaffMemberUpdateCompensationType];
@@ -3172,6 +3201,160 @@ export interface SosStaffMemberUpdate {
   /** @minimum 0 */
   amount?: number;
   cadence?: SosStaffMemberUpdateCadence;
+  skills?: string[];
+  certifications?: string[];
+  /** @nullable */
+  licenseNumber?: string | null;
+  /** @nullable */
+  licenseState?: string | null;
+  /** @nullable */
+  licenseExpiresAt?: string | null;
+  coopCoverageEnabled?: boolean;
+}
+
+export interface SosStaffLicenseVerify {
+  /** @minLength 1 */
+  verifiedBy: string;
+}
+
+export interface CoopCoverageShiftCreate {
+  startsAt: string;
+  endsAt: string;
+  /** @minLength 1 */
+  requiredSkill: string;
+  requiredLicenseState?: string;
+  /** @minimum 0 */
+  offeredHourlyRate: number;
+  notes?: string;
+}
+
+export interface CoopCoverageOfferCreate {
+  staffId: number;
+  note?: string;
+}
+
+export interface CoopCoverageComplete {
+  /** @minimum 0 */
+  hoursWorked: number;
+}
+
+export interface CoopCoverageRatingCreate {
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  rating: number;
+  comment?: string;
+}
+
+export type CoopCoverageStaffCardLicenseStatus = typeof CoopCoverageStaffCardLicenseStatus[keyof typeof CoopCoverageStaffCardLicenseStatus];
+
+
+export const CoopCoverageStaffCardLicenseStatus = {
+  unverified: 'unverified',
+  verified: 'verified',
+  expired: 'expired',
+} as const;
+
+/**
+ * Privacy-safe coverage card a merchant's accepted co-op partners see for staff opted into coverage — never includes compensation data.
+ */
+export interface CoopCoverageStaffCard {
+  staffId: number;
+  staffName: string;
+  tenantId: number;
+  tenantName: string;
+  skills: string[];
+  certifications: string[];
+  /** @nullable */
+  licenseState: string | null;
+  licenseStatus: CoopCoverageStaffCardLicenseStatus;
+  /** @nullable */
+  averageRating: number | null;
+  ratingCount: number;
+}
+
+export type CoopCoverageOfferLicenseStatus = typeof CoopCoverageOfferLicenseStatus[keyof typeof CoopCoverageOfferLicenseStatus];
+
+
+export const CoopCoverageOfferLicenseStatus = {
+  unverified: 'unverified',
+  verified: 'verified',
+  expired: 'expired',
+} as const;
+
+export type CoopCoverageOfferStatus = typeof CoopCoverageOfferStatus[keyof typeof CoopCoverageOfferStatus];
+
+
+export const CoopCoverageOfferStatus = {
+  pending: 'pending',
+  accepted: 'accepted',
+  declined: 'declined',
+} as const;
+
+export interface CoopCoverageOffer {
+  id: number;
+  shiftId: number;
+  offeringTenantId: number;
+  offeringTenantName: string;
+  staffId: number;
+  staffName: string;
+  skills: string[];
+  /** @nullable */
+  licenseState: string | null;
+  licenseStatus: CoopCoverageOfferLicenseStatus;
+  /** @nullable */
+  averageRating: number | null;
+  ratingCount: number;
+  /** @nullable */
+  note: string | null;
+  status: CoopCoverageOfferStatus;
+  createdAt: string;
+}
+
+export interface CoopCoverageRatingEntry {
+  rating: number;
+  /** @nullable */
+  comment: string | null;
+  createdAt: string;
+}
+
+export type CoopCoverageShiftStatus = typeof CoopCoverageShiftStatus[keyof typeof CoopCoverageShiftStatus];
+
+
+export const CoopCoverageShiftStatus = {
+  open: 'open',
+  offered: 'offered',
+  confirmed: 'confirmed',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const;
+
+export interface CoopCoverageShift {
+  id: number;
+  tenantId: number;
+  tenantName: string;
+  startsAt: string;
+  endsAt: string;
+  requiredSkill: string;
+  requiredLicenseState: string;
+  offeredHourlyRate: number;
+  /** @nullable */
+  notes: string | null;
+  status: CoopCoverageShiftStatus;
+  /** @nullable */
+  acceptedOfferId: number | null;
+  /** @nullable */
+  hoursWorked: number | null;
+  isMine: boolean;
+  offers: CoopCoverageOffer[];
+  rating: CoopCoverageRatingEntry | null;
+  createdAt: string;
+}
+
+export interface CoopCoverageLedger {
+  posted: CoopCoverageShift[];
+  covered: CoopCoverageShift[];
 }
 
 export type SosStaffEarningsRowCompensationType = typeof SosStaffEarningsRowCompensationType[keyof typeof SosStaffEarningsRowCompensationType];

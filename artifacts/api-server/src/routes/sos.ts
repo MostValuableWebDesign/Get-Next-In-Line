@@ -80,6 +80,8 @@ import {
   CreateSosStaffMemberResponse,
   UpdateSosStaffMemberBody,
   UpdateSosStaffMemberResponse,
+  VerifySosStaffLicenseBody,
+  VerifySosStaffLicenseResponse,
   GetSosStaffEarningsResponse,
   GetSosGratuityConfigResponse,
   UpdateSosGratuityConfigBody,
@@ -1190,6 +1192,19 @@ router.post("/sos/customer-plans/:id/cancel", async (req, res): Promise<void> =>
 
 type StaffRow = typeof sosStaffMembersTable.$inferSelect;
 
+/**
+ * Effective license status: "expired" is always derived from the expiration
+ * date (never stored), so a verified license that lapses flips to expired
+ * automatically without any sweeper.
+ */
+export function staffLicenseStatus(s: {
+  licenseExpiresAt: Date | null;
+  licenseVerificationStatus: string;
+}): "unverified" | "verified" | "expired" {
+  if (s.licenseExpiresAt != null && s.licenseExpiresAt.getTime() <= Date.now()) return "expired";
+  return s.licenseVerificationStatus === "verified" ? "verified" : "unverified";
+}
+
 function serializeStaffMember(s: StaffRow) {
   return {
     id: s.id,
@@ -1203,9 +1218,31 @@ function serializeStaffMember(s: StaffRow) {
     cadence: s.cadence,
     tipPercent: s.tipPercent,
     tipRoleWeight: s.tipRoleWeight,
+    skills: s.skills,
+    certifications: s.certifications,
+    licenseNumber: s.licenseNumber,
+    licenseState: s.licenseState,
+    licenseExpiresAt: iso(s.licenseExpiresAt),
+    licenseStatus: staffLicenseStatus(s),
+    licenseVerifiedBy: s.licenseVerifiedBy,
+    licenseVerifiedAt: iso(s.licenseVerifiedAt),
+    coopCoverageEnabled: s.coopCoverageEnabled,
     createdAt: s.createdAt.toISOString(),
   };
 }
+
+/** Normalize skill/cert lists: trim entries, drop empties. */
+function cleanList(list: string[] | undefined): string[] | undefined {
+  if (list == null) return undefined;
+  return list.map((x) => x.trim()).filter((x) => x.length > 0);
+}
+
+const parseExpiry = (raw: string | null | undefined): Date | null | undefined => {
+  if (raw === undefined) return undefined;
+  if (raw === null || raw === "") return null;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? undefined : d;
+};
 
 /**
  * Cross-field validation for a compensation model: each model must carry
@@ -1264,6 +1301,12 @@ router.post("/sos/staff", async (req, res): Promise<void> => {
       commissionPercent: terms.commissionPercent,
       amount: terms.amount == null ? null : terms.amount.toFixed(2),
       cadence: terms.cadence,
+      skills: cleanList(body.skills) ?? [],
+      certifications: cleanList(body.certifications) ?? [],
+      licenseNumber: body.licenseNumber?.trim() || null,
+      licenseState: body.licenseState?.trim().toUpperCase() || null,
+      licenseExpiresAt: parseExpiry(body.licenseExpiresAt) ?? null,
+      coopCoverageEnabled: body.coopCoverageEnabled ?? false,
     })
     .returning();
   res.status(201).json(CreateSosStaffMemberResponse.parse(serializeStaffMember(row)));
@@ -1314,6 +1357,23 @@ router.patch("/sos/staff/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // Any change to the license itself invalidates the manual attestation —
+  // the credential on file is no longer the one that was verified.
+  const nextLicenseNumber =
+    body.licenseNumber === undefined
+      ? existing.licenseNumber
+      : body.licenseNumber?.trim() || null;
+  const nextLicenseState =
+    body.licenseState === undefined
+      ? existing.licenseState
+      : body.licenseState?.trim().toUpperCase() || null;
+  const parsedExpiry = parseExpiry(body.licenseExpiresAt);
+  const nextLicenseExpiresAt = parsedExpiry === undefined ? existing.licenseExpiresAt : parsedExpiry;
+  const licenseTouched =
+    nextLicenseNumber !== existing.licenseNumber ||
+    nextLicenseState !== existing.licenseState ||
+    (nextLicenseExpiresAt?.getTime() ?? null) !== (existing.licenseExpiresAt?.getTime() ?? null);
+
   const [row] = await db
     .update(sosStaffMembersTable)
     .set({
@@ -1325,10 +1385,58 @@ router.patch("/sos/staff/:id", async (req, res): Promise<void> => {
       commissionPercent: terms.commissionPercent,
       amount: terms.amount == null ? null : terms.amount.toFixed(2),
       cadence: terms.cadence,
+      skills: cleanList(body.skills) ?? existing.skills,
+      certifications: cleanList(body.certifications) ?? existing.certifications,
+      licenseNumber: nextLicenseNumber,
+      licenseState: nextLicenseState,
+      licenseExpiresAt: nextLicenseExpiresAt,
+      ...(licenseTouched
+        ? {
+            licenseVerificationStatus: "unverified",
+            licenseVerifiedBy: null,
+            licenseVerifiedAt: null,
+          }
+        : {}),
+      coopCoverageEnabled: body.coopCoverageEnabled ?? existing.coopCoverageEnabled,
     })
     .where(eq(sosStaffMembersTable.id, id))
     .returning();
   res.json(UpdateSosStaffMemberResponse.parse(serializeStaffMember(row)));
+});
+
+// Manual license attestation: a named verifier confirms the license on file.
+// Recorded verifier + timestamp make the attestation auditable; there is no
+// automated state-board check by design.
+router.post("/sos/staff/:id/license-verification", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  const body = VerifySosStaffLicenseBody.parse(req.body);
+  const [existing] = await db
+    .select()
+    .from(sosStaffMembersTable)
+    .where(
+      and(
+        eq(sosStaffMembersTable.id, id),
+        tenantMatch(sosStaffMembersTable.tenantId, tenantIdFrom(req)),
+      ),
+    );
+  if (!existing) {
+    res.status(404).json({ message: "Staff member not found" });
+    return;
+  }
+  if (!existing.licenseNumber) {
+    res.status(400).json({ message: "No license on file to verify — add a license number first" });
+    return;
+  }
+  const [row] = await db
+    .update(sosStaffMembersTable)
+    .set({
+      licenseVerificationStatus: "verified",
+      licenseVerifiedBy: body.verifiedBy.trim(),
+      licenseVerifiedAt: new Date(),
+    })
+    .where(eq(sosStaffMembersTable.id, id))
+    .returning();
+  res.json(VerifySosStaffLicenseResponse.parse(serializeStaffMember(row)));
 });
 
 router.get("/sos/staff-earnings", async (req, res): Promise<void> => {

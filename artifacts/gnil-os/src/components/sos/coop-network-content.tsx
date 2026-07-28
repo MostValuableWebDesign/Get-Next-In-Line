@@ -52,6 +52,7 @@ import { CoopEventsSection } from '@/components/sos/coop-events-content';
 import { CoopProcurementSection } from '@/components/sos/coop-procurement-content';
 import { CoopSurgeSection, CapacityStatusBadge } from '@/components/sos/coop-surge-content';
 import { SponsorshipHub } from '@/components/sos/sponsorship-hub';
+import { ShiftCoverageSection } from '@/components/sos/coop-coverage-content';
 import {
   AlertTriangle, ArrowDownLeft, ArrowDownToLine, ArrowLeftRight, ArrowUpDown, ArrowUpFromLine,
   ArrowUpRight, BarChart3, Bell, CalendarClock, Check, Copy, DollarSign, Eye, FileSignature, Flag,
@@ -205,6 +206,11 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
       {/* Dynamic surge pricing & traffic balancing: capacity broadcasting,
           traffic-routing rules on partnerships, and live boost activity. */}
       <CoopSurgeSection tenantId={tenantId} partnerships={partnerships ?? []} />
+
+      {/* Staff cross-training & shift coverage — share vetted licensed staff
+          with accepted partners: post shifts, offer eligible staff, track the
+          agreement (rate + hours) and cross-store ratings on a shared ledger. */}
+      <ShiftCoverageSection tenantId={tenantId} />
 
       {/* Community events & sponsorship sync — joint neighborhood events with
           cost splitting, joint announcements, and check-in attribution. */}

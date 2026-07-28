@@ -23,4 +23,13 @@ export interface SosStaffMemberUpdate {
   /** @minimum 0 */
   amount?: number;
   cadence?: SosStaffMemberUpdateCadence;
+  skills?: string[];
+  certifications?: string[];
+  /** @nullable */
+  licenseNumber?: string | null;
+  /** @nullable */
+  licenseState?: string | null;
+  /** @nullable */
+  licenseExpiresAt?: string | null;
+  coopCoverageEnabled?: boolean;
 }

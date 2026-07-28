@@ -22,4 +22,10 @@ export interface SosStaffMemberInput {
   /** @minimum 0 */
   amount?: number;
   cadence?: SosStaffMemberInputCadence;
+  skills?: string[];
+  certifications?: string[];
+  licenseNumber?: string;
+  licenseState?: string;
+  licenseExpiresAt?: string;
+  coopCoverageEnabled?: boolean;
 }

@@ -29,6 +29,11 @@ Rule: same-plaza category exclusivity is enforced in BOTH directions at invite t
 **Why:** releases are deliberate dispute resolutions per pairing — a broader release would silently void exclusivity for uninvolved businesses, and a member-accessible release is a privilege escalation (caught in review).
 **How to apply:** any new surface that creates partnerships (accept flows, admin creation, campaigns) must run the same both-direction check and honor releases; keep admin-only classification in tenantAccess for new conflict-console routes.
 
+## Shift coverage (labor sharing)
+Rule: every offer write path must enforce full eligibility server-side (staff owned by caller, coverage-enabled, active, verified AND unexpired license, state match to the shift's requiredLicenseState, case-insensitive skill match) with human-readable reasons; the UI mirrors these only as feedback. "Expired" is derived from licenseExpiresAt at read time — never stored — so lapses need no sweeper; editing any license field resets verification to unverified.
+**Why:** licensing compliance is the product's trust promise; a path that skips a check lets an unlicensed worker be booked across stores.
+**How to apply:** single-winner acceptance is a conditional UPDATE on the shift row (status in open/offered AND accepted_offer_id IS NULL) — keep any new accept path on that claim; losers get 409 and remaining pending offers flip to declined. Partner coverage cards are privacy-safe (never compensation fields). Non-partners get 404 (not 403) on shift offers so existence isn't revealed.
+
 ## Performance tiers (added 2026-07-27)
 Partnership tiers (premier/standard + performancePausedAt pause) are evaluated by the concierge tick against rolling 30-day coop_attribution_events counts; transitions are state-diffs with conditional-claim updates (idempotent) and audited in coop_tier_events.
 **Rule:** performance-paused partnerships are hidden from every perk *render* surface (coop/perks, landing, pass granting) but their codes/passes still VALIDATE and REDEEM — that is intentional: redemptions are the attribution source, so blocking them would make "auto-reactivate when traffic resumes" impossible. Do not add performancePausedAt checks to redemption paths.

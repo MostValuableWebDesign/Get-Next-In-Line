@@ -4734,6 +4734,15 @@ export const ListSosStaffResponseItem = zod.object({
   "cadence": zod.union([zod.literal('weekly'),zod.literal('monthly'),zod.literal(null)]).nullable(),
   "tipPercent": zod.number().nullable(),
   "tipRoleWeight": zod.number().nullable(),
+  "skills": zod.array(zod.string()),
+  "certifications": zod.array(zod.string()),
+  "licenseNumber": zod.string().nullable(),
+  "licenseState": zod.string().nullable(),
+  "licenseExpiresAt": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "licenseVerifiedBy": zod.string().nullable(),
+  "licenseVerifiedAt": zod.string().nullable(),
+  "coopCoverageEnabled": zod.boolean(),
   "createdAt": zod.string()
 })
 export const ListSosStaffResponse = zod.array(ListSosStaffResponseItem)
@@ -4757,7 +4766,13 @@ export const CreateSosStaffMemberBody = zod.object({
   "compensationType": zod.enum(['commission', 'flat_fee', 'booth_rent']),
   "commissionPercent": zod.number().min(createSosStaffMemberBodyCommissionPercentMin).max(createSosStaffMemberBodyCommissionPercentMax).optional(),
   "amount": zod.number().min(createSosStaffMemberBodyAmountMin).optional(),
-  "cadence": zod.enum(['weekly', 'monthly']).optional()
+  "cadence": zod.enum(['weekly', 'monthly']).optional(),
+  "skills": zod.array(zod.string()).optional(),
+  "certifications": zod.array(zod.string()).optional(),
+  "licenseNumber": zod.string().optional(),
+  "licenseState": zod.string().optional(),
+  "licenseExpiresAt": zod.string().optional(),
+  "coopCoverageEnabled": zod.boolean().optional()
 })
 
 export const CreateSosStaffMemberResponse = zod.object({
@@ -4772,6 +4787,15 @@ export const CreateSosStaffMemberResponse = zod.object({
   "cadence": zod.union([zod.literal('weekly'),zod.literal('monthly'),zod.literal(null)]).nullable(),
   "tipPercent": zod.number().nullable(),
   "tipRoleWeight": zod.number().nullable(),
+  "skills": zod.array(zod.string()),
+  "certifications": zod.array(zod.string()),
+  "licenseNumber": zod.string().nullable(),
+  "licenseState": zod.string().nullable(),
+  "licenseExpiresAt": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "licenseVerifiedBy": zod.string().nullable(),
+  "licenseVerifiedAt": zod.string().nullable(),
+  "coopCoverageEnabled": zod.boolean(),
   "createdAt": zod.string()
 })
 
@@ -4799,7 +4823,13 @@ export const UpdateSosStaffMemberBody = zod.object({
   "compensationType": zod.enum(['commission', 'flat_fee', 'booth_rent']).optional(),
   "commissionPercent": zod.number().min(updateSosStaffMemberBodyCommissionPercentMin).max(updateSosStaffMemberBodyCommissionPercentMax).optional(),
   "amount": zod.number().min(updateSosStaffMemberBodyAmountMin).optional(),
-  "cadence": zod.enum(['weekly', 'monthly']).optional()
+  "cadence": zod.enum(['weekly', 'monthly']).optional(),
+  "skills": zod.array(zod.string()).optional(),
+  "certifications": zod.array(zod.string()).optional(),
+  "licenseNumber": zod.string().nullish(),
+  "licenseState": zod.string().nullish(),
+  "licenseExpiresAt": zod.string().nullish(),
+  "coopCoverageEnabled": zod.boolean().optional()
 })
 
 export const UpdateSosStaffMemberResponse = zod.object({
@@ -4814,7 +4844,505 @@ export const UpdateSosStaffMemberResponse = zod.object({
   "cadence": zod.union([zod.literal('weekly'),zod.literal('monthly'),zod.literal(null)]).nullable(),
   "tipPercent": zod.number().nullable(),
   "tipRoleWeight": zod.number().nullable(),
+  "skills": zod.array(zod.string()),
+  "certifications": zod.array(zod.string()),
+  "licenseNumber": zod.string().nullable(),
+  "licenseState": zod.string().nullable(),
+  "licenseExpiresAt": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "licenseVerifiedBy": zod.string().nullable(),
+  "licenseVerifiedAt": zod.string().nullable(),
+  "coopCoverageEnabled": zod.boolean(),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Manually attest a staff member's license (records verifier + date); editing license fields later resets it
+ */
+export const VerifySosStaffLicenseParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const VerifySosStaffLicenseBody = zod.object({
+  "verifiedBy": zod.string().min(1)
+})
+
+export const VerifySosStaffLicenseResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string().nullable(),
+  "email": zod.string().nullable(),
+  "isActive": zod.boolean(),
+  "compensationType": zod.enum(['commission', 'flat_fee', 'booth_rent']),
+  "commissionPercent": zod.number().nullable(),
+  "amount": zod.number().nullable(),
+  "cadence": zod.union([zod.literal('weekly'),zod.literal('monthly'),zod.literal(null)]).nullable(),
+  "tipPercent": zod.number().nullable(),
+  "tipRoleWeight": zod.number().nullable(),
+  "skills": zod.array(zod.string()),
+  "certifications": zod.array(zod.string()),
+  "licenseNumber": zod.string().nullable(),
+  "licenseState": zod.string().nullable(),
+  "licenseExpiresAt": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "licenseVerifiedBy": zod.string().nullable(),
+  "licenseVerifiedAt": zod.string().nullable(),
+  "coopCoverageEnabled": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Privacy-safe coverage cards for partners' staff opted into co-op coverage; visible to accepted active partners only; tenant scope via x-tenant-id
+ */
+export const ListCoopCoveragePartnerStaffResponseItem = zod.object({
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "skills": zod.array(zod.string()),
+  "certifications": zod.array(zod.string()),
+  "licenseState": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "averageRating": zod.number().nullable(),
+  "ratingCount": zod.number()
+}).describe('Privacy-safe coverage card a merchant\'s accepted co-op partners see for staff opted into coverage — never includes compensation data.\n')
+export const ListCoopCoveragePartnerStaffResponse = zod.array(ListCoopCoveragePartnerStaffResponseItem)
+
+
+/**
+ * @summary Open-shift board — the tenant's own shifts plus open/offered shifts posted by accepted active partners; tenant scope via x-tenant-id
+ */
+export const ListCoopCoverageShiftsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "requiredSkill": zod.string(),
+  "requiredLicenseState": zod.string(),
+  "offeredHourlyRate": zod.number(),
+  "notes": zod.string().nullable(),
+  "status": zod.enum(['open', 'offered', 'confirmed', 'completed', 'cancelled']),
+  "acceptedOfferId": zod.number().nullable(),
+  "hoursWorked": zod.number().nullable(),
+  "isMine": zod.boolean(),
+  "offers": zod.array(zod.object({
+  "id": zod.number(),
+  "shiftId": zod.number(),
+  "offeringTenantId": zod.number(),
+  "offeringTenantName": zod.string(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "skills": zod.array(zod.string()),
+  "licenseState": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "averageRating": zod.number().nullable(),
+  "ratingCount": zod.number(),
+  "note": zod.string().nullable(),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.string()
+})),
+  "rating": zod.union([zod.object({
+  "rating": zod.number(),
+  "comment": zod.string().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "createdAt": zod.string()
+})
+export const ListCoopCoverageShiftsResponse = zod.array(ListCoopCoverageShiftsResponseItem)
+
+
+/**
+ * @summary Post an open coverage shift, broadcast to accepted active co-op partners; tenant scope via x-tenant-id
+ */
+
+export const createCoopCoverageShiftBodyOfferedHourlyRateMin = 0;
+
+
+
+export const CreateCoopCoverageShiftBody = zod.object({
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "requiredSkill": zod.string().min(1),
+  "requiredLicenseState": zod.string().optional(),
+  "offeredHourlyRate": zod.number().min(createCoopCoverageShiftBodyOfferedHourlyRateMin),
+  "notes": zod.string().optional()
+})
+
+export const CreateCoopCoverageShiftResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "requiredSkill": zod.string(),
+  "requiredLicenseState": zod.string(),
+  "offeredHourlyRate": zod.number(),
+  "notes": zod.string().nullable(),
+  "status": zod.enum(['open', 'offered', 'confirmed', 'completed', 'cancelled']),
+  "acceptedOfferId": zod.number().nullable(),
+  "hoursWorked": zod.number().nullable(),
+  "isMine": zod.boolean(),
+  "offers": zod.array(zod.object({
+  "id": zod.number(),
+  "shiftId": zod.number(),
+  "offeringTenantId": zod.number(),
+  "offeringTenantName": zod.string(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "skills": zod.array(zod.string()),
+  "licenseState": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "averageRating": zod.number().nullable(),
+  "ratingCount": zod.number(),
+  "note": zod.string().nullable(),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.string()
+})),
+  "rating": zod.union([zod.object({
+  "rating": zod.number(),
+  "comment": zod.string().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Offer one of the tenant's eligible staff on a partner's open shift (verified, unexpired, state-matching license and required skill enforced); tenant scope via x-tenant-id
+ */
+export const OfferCoopCoverageStaffParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const OfferCoopCoverageStaffBody = zod.object({
+  "staffId": zod.number(),
+  "note": zod.string().optional()
+})
+
+export const OfferCoopCoverageStaffResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "requiredSkill": zod.string(),
+  "requiredLicenseState": zod.string(),
+  "offeredHourlyRate": zod.number(),
+  "notes": zod.string().nullable(),
+  "status": zod.enum(['open', 'offered', 'confirmed', 'completed', 'cancelled']),
+  "acceptedOfferId": zod.number().nullable(),
+  "hoursWorked": zod.number().nullable(),
+  "isMine": zod.boolean(),
+  "offers": zod.array(zod.object({
+  "id": zod.number(),
+  "shiftId": zod.number(),
+  "offeringTenantId": zod.number(),
+  "offeringTenantName": zod.string(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "skills": zod.array(zod.string()),
+  "licenseState": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "averageRating": zod.number().nullable(),
+  "ratingCount": zod.number(),
+  "note": zod.string().nullable(),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.string()
+})),
+  "rating": zod.union([zod.object({
+  "rating": zod.number(),
+  "comment": zod.string().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Posting merchant accepts one offer — conditional-update guard confirms exactly one winner; other pending offers are declined; tenant scope via x-tenant-id
+ */
+export const AcceptCoopCoverageOfferParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AcceptCoopCoverageOfferResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "requiredSkill": zod.string(),
+  "requiredLicenseState": zod.string(),
+  "offeredHourlyRate": zod.number(),
+  "notes": zod.string().nullable(),
+  "status": zod.enum(['open', 'offered', 'confirmed', 'completed', 'cancelled']),
+  "acceptedOfferId": zod.number().nullable(),
+  "hoursWorked": zod.number().nullable(),
+  "isMine": zod.boolean(),
+  "offers": zod.array(zod.object({
+  "id": zod.number(),
+  "shiftId": zod.number(),
+  "offeringTenantId": zod.number(),
+  "offeringTenantName": zod.string(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "skills": zod.array(zod.string()),
+  "licenseState": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "averageRating": zod.number().nullable(),
+  "ratingCount": zod.number(),
+  "note": zod.string().nullable(),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.string()
+})),
+  "rating": zod.union([zod.object({
+  "rating": zod.number(),
+  "comment": zod.string().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Posting merchant completes a confirmed shift, recording actual hours worked; tenant scope via x-tenant-id
+ */
+export const CompleteCoopCoverageShiftParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const completeCoopCoverageShiftBodyHoursWorkedMin = 0;
+
+
+
+export const CompleteCoopCoverageShiftBody = zod.object({
+  "hoursWorked": zod.number().min(completeCoopCoverageShiftBodyHoursWorkedMin)
+})
+
+export const CompleteCoopCoverageShiftResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "requiredSkill": zod.string(),
+  "requiredLicenseState": zod.string(),
+  "offeredHourlyRate": zod.number(),
+  "notes": zod.string().nullable(),
+  "status": zod.enum(['open', 'offered', 'confirmed', 'completed', 'cancelled']),
+  "acceptedOfferId": zod.number().nullable(),
+  "hoursWorked": zod.number().nullable(),
+  "isMine": zod.boolean(),
+  "offers": zod.array(zod.object({
+  "id": zod.number(),
+  "shiftId": zod.number(),
+  "offeringTenantId": zod.number(),
+  "offeringTenantName": zod.string(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "skills": zod.array(zod.string()),
+  "licenseState": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "averageRating": zod.number().nullable(),
+  "ratingCount": zod.number(),
+  "note": zod.string().nullable(),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.string()
+})),
+  "rating": zod.union([zod.object({
+  "rating": zod.number(),
+  "comment": zod.string().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Posting merchant cancels a shift that hasn't completed; pending offers are declined; tenant scope via x-tenant-id
+ */
+export const CancelCoopCoverageShiftParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CancelCoopCoverageShiftResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "requiredSkill": zod.string(),
+  "requiredLicenseState": zod.string(),
+  "offeredHourlyRate": zod.number(),
+  "notes": zod.string().nullable(),
+  "status": zod.enum(['open', 'offered', 'confirmed', 'completed', 'cancelled']),
+  "acceptedOfferId": zod.number().nullable(),
+  "hoursWorked": zod.number().nullable(),
+  "isMine": zod.boolean(),
+  "offers": zod.array(zod.object({
+  "id": zod.number(),
+  "shiftId": zod.number(),
+  "offeringTenantId": zod.number(),
+  "offeringTenantName": zod.string(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "skills": zod.array(zod.string()),
+  "licenseState": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "averageRating": zod.number().nullable(),
+  "ratingCount": zod.number(),
+  "note": zod.string().nullable(),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.string()
+})),
+  "rating": zod.union([zod.object({
+  "rating": zod.number(),
+  "comment": zod.string().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Host rates the covering staff member (1–5 + comment) after a completed shift; one rating per shift; tenant scope via x-tenant-id
+ */
+export const RateCoopCoverageShiftParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const rateCoopCoverageShiftBodyRatingMax = 5;
+
+
+
+export const RateCoopCoverageShiftBody = zod.object({
+  "rating": zod.number().min(1).max(rateCoopCoverageShiftBodyRatingMax),
+  "comment": zod.string().optional()
+})
+
+export const RateCoopCoverageShiftResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "requiredSkill": zod.string(),
+  "requiredLicenseState": zod.string(),
+  "offeredHourlyRate": zod.number(),
+  "notes": zod.string().nullable(),
+  "status": zod.enum(['open', 'offered', 'confirmed', 'completed', 'cancelled']),
+  "acceptedOfferId": zod.number().nullable(),
+  "hoursWorked": zod.number().nullable(),
+  "isMine": zod.boolean(),
+  "offers": zod.array(zod.object({
+  "id": zod.number(),
+  "shiftId": zod.number(),
+  "offeringTenantId": zod.number(),
+  "offeringTenantName": zod.string(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "skills": zod.array(zod.string()),
+  "licenseState": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "averageRating": zod.number().nullable(),
+  "ratingCount": zod.number(),
+  "note": zod.string().nullable(),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.string()
+})),
+  "rating": zod.union([zod.object({
+  "rating": zod.number(),
+  "comment": zod.string().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Shared coverage ledger — shifts the tenant posted and shifts its staff covered, with rates, hours, and ratings; tenant scope via x-tenant-id
+ */
+export const GetCoopCoverageLedgerResponse = zod.object({
+  "posted": zod.array(zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "requiredSkill": zod.string(),
+  "requiredLicenseState": zod.string(),
+  "offeredHourlyRate": zod.number(),
+  "notes": zod.string().nullable(),
+  "status": zod.enum(['open', 'offered', 'confirmed', 'completed', 'cancelled']),
+  "acceptedOfferId": zod.number().nullable(),
+  "hoursWorked": zod.number().nullable(),
+  "isMine": zod.boolean(),
+  "offers": zod.array(zod.object({
+  "id": zod.number(),
+  "shiftId": zod.number(),
+  "offeringTenantId": zod.number(),
+  "offeringTenantName": zod.string(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "skills": zod.array(zod.string()),
+  "licenseState": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "averageRating": zod.number().nullable(),
+  "ratingCount": zod.number(),
+  "note": zod.string().nullable(),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.string()
+})),
+  "rating": zod.union([zod.object({
+  "rating": zod.number(),
+  "comment": zod.string().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "createdAt": zod.string()
+})),
+  "covered": zod.array(zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string(),
+  "requiredSkill": zod.string(),
+  "requiredLicenseState": zod.string(),
+  "offeredHourlyRate": zod.number(),
+  "notes": zod.string().nullable(),
+  "status": zod.enum(['open', 'offered', 'confirmed', 'completed', 'cancelled']),
+  "acceptedOfferId": zod.number().nullable(),
+  "hoursWorked": zod.number().nullable(),
+  "isMine": zod.boolean(),
+  "offers": zod.array(zod.object({
+  "id": zod.number(),
+  "shiftId": zod.number(),
+  "offeringTenantId": zod.number(),
+  "offeringTenantName": zod.string(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "skills": zod.array(zod.string()),
+  "licenseState": zod.string().nullable(),
+  "licenseStatus": zod.enum(['unverified', 'verified', 'expired']),
+  "averageRating": zod.number().nullable(),
+  "ratingCount": zod.number(),
+  "note": zod.string().nullable(),
+  "status": zod.enum(['pending', 'accepted', 'declined']),
+  "createdAt": zod.string()
+})),
+  "rating": zod.union([zod.object({
+  "rating": zod.number(),
+  "comment": zod.string().nullable(),
+  "createdAt": zod.string()
+}),zod.null()]),
+  "createdAt": zod.string()
+}))
 })
 
 
