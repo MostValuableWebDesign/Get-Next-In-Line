@@ -54,33 +54,150 @@ const RULE_TYPE_LABEL: Record<string, string> = Object.fromEntries(
 
 // ── Engagement rules ──────────────────────────────────────────────────────────
 
+// Form state mirrors the server-side zod config shapes
+// (reminderRuleConfigSchema / rebookingRuleConfigSchema / upsellRuleConfigSchema)
+// but keeps numeric fields as strings so partially-typed input isn't clobbered.
+
+const DEFAULT_REMINDER_TEMPLATE =
+  'Hi {{name}}, this is a reminder about your upcoming appointment on {{when}}. See you soon!';
+const DEFAULT_REBOOKING_TEMPLATE =
+  "Hi {{name}}, it's been a while since your last visit — reply to this text to book your next appointment!";
+
+interface AddOnRow {
+  name: string;
+  price: string; // '' = no price
+  description: string; // '' = no description
+  compatibleServices: string; // comma-separated; '' = every service
+}
+
 interface RuleFormState {
   ruleType: string;
   isActive: boolean;
-  configText: string;
+  leadHours: string;
+  reminderTemplate: string;
+  cooldownDays: string;
+  rebookingTemplate: string;
+  addOns: AddOnRow[];
 }
 
-function defaultConfigFor(ruleType: string): string {
-  switch (ruleType) {
-    case 'reminder':
-      return JSON.stringify(
-        { leadHours: 24, template: 'Hi {{name}}, this is a reminder about your upcoming appointment on {{when}}. See you soon!' },
-        null,
-        2,
-      );
-    case 'rebooking_nudge':
-      return JSON.stringify(
-        { cooldownDays: 7, template: "Hi {{name}}, it's been a while since your last visit — reply to this text to book your next appointment!" },
-        null,
-        2,
-      );
-    default:
-      return JSON.stringify(
-        { addOns: [{ name: 'Deep Conditioning', price: 25, compatibleServices: [] }] },
-        null,
-        2,
-      );
+const EMPTY_ADD_ON: AddOnRow = { name: '', price: '', description: '', compatibleServices: '' };
+
+function defaultRuleForm(ruleType: string): RuleFormState {
+  return {
+    ruleType,
+    isActive: true,
+    leadHours: '24',
+    reminderTemplate: DEFAULT_REMINDER_TEMPLATE,
+    cooldownDays: '7',
+    rebookingTemplate: DEFAULT_REBOOKING_TEMPLATE,
+    addOns: [{ ...EMPTY_ADD_ON }],
+  };
+}
+
+/** Populate the typed form from an existing rule's stored config. */
+function formFromRule(rule: EngagementRule): RuleFormState {
+  const cfg = (rule.config ?? {}) as Record<string, unknown>;
+  const base = defaultRuleForm(rule.ruleType);
+  base.isActive = rule.isActive;
+  if (rule.ruleType === 'reminder') {
+    if (typeof cfg.leadHours === 'number') base.leadHours = String(cfg.leadHours);
+    if (typeof cfg.template === 'string') base.reminderTemplate = cfg.template;
+  } else if (rule.ruleType === 'rebooking_nudge') {
+    if (typeof cfg.cooldownDays === 'number') base.cooldownDays = String(cfg.cooldownDays);
+    if (typeof cfg.template === 'string') base.rebookingTemplate = cfg.template;
+  } else {
+    const addOns = Array.isArray(cfg.addOns) ? cfg.addOns : [];
+    base.addOns = addOns.length
+      ? addOns.map((a) => {
+          const row = (a ?? {}) as Record<string, unknown>;
+          return {
+            name: typeof row.name === 'string' ? row.name : '',
+            price: typeof row.price === 'number' ? String(row.price) : '',
+            description: typeof row.description === 'string' ? row.description : '',
+            compatibleServices: Array.isArray(row.compatibleServices)
+              ? (row.compatibleServices as unknown[]).filter((s): s is string => typeof s === 'string').join(', ')
+              : '',
+          };
+        })
+      : [{ ...EMPTY_ADD_ON }];
   }
+  return base;
+}
+
+/**
+ * Validate the typed form and serialize it to the config payload the server
+ * expects. Mirrors the server-side zod schemas so bad input is caught before
+ * the request is sent. Returns { config } or { error }.
+ */
+function buildRuleConfig(
+  form: RuleFormState,
+): { config: Record<string, unknown>; error?: never } | { error: string; config?: never } {
+  if (form.ruleType === 'reminder') {
+    const leadHours = Number(form.leadHours);
+    if (!Number.isInteger(leadHours) || leadHours <= 0) {
+      return { error: 'Lead hours must be a positive whole number.' };
+    }
+    const template = form.reminderTemplate.trim();
+    if (!template) return { error: 'Message template is required.' };
+    return { config: { leadHours, template } };
+  }
+  if (form.ruleType === 'rebooking_nudge') {
+    const cooldownDays = Number(form.cooldownDays);
+    if (!Number.isInteger(cooldownDays) || cooldownDays <= 0) {
+      return { error: 'Cooldown days must be a positive whole number.' };
+    }
+    const template = form.rebookingTemplate.trim();
+    if (!template) return { error: 'Message template is required.' };
+    return { config: { cooldownDays, template } };
+  }
+  // upsell — drop fully-empty rows, require a name on the rest
+  const rows = form.addOns.filter(
+    (r) => r.name.trim() || r.price.trim() || r.description.trim() || r.compatibleServices.trim(),
+  );
+  const addOns: Array<Record<string, unknown>> = [];
+  for (const [i, row] of rows.entries()) {
+    if (!row.name.trim()) {
+      return { error: `Add-on ${i + 1} needs a name.` };
+    }
+    let price: number | null = null;
+    if (row.price.trim() !== '') {
+      price = Number(row.price);
+      if (!Number.isFinite(price) || price < 0) {
+        return { error: `Add-on "${row.name.trim()}" has an invalid price.` };
+      }
+    }
+    const compatibleServices = row.compatibleServices
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    addOns.push({
+      name: row.name.trim(),
+      price,
+      description: row.description.trim() || null,
+      compatibleServices,
+    });
+  }
+  return { config: { addOns } };
+}
+
+/** Human summary of a rule's stored config, for the list row. */
+function summarizeRuleConfig(rule: EngagementRule): string {
+  const cfg = (rule.config ?? {}) as Record<string, unknown>;
+  if (rule.ruleType === 'reminder') {
+    return `${cfg.leadHours ?? 24}h before appointment — "${String(cfg.template ?? '')}"`;
+  }
+  if (rule.ruleType === 'rebooking_nudge') {
+    return `${cfg.cooldownDays ?? 7}-day cooldown — "${String(cfg.template ?? '')}"`;
+  }
+  const addOns = Array.isArray(cfg.addOns) ? cfg.addOns : [];
+  if (addOns.length === 0) return 'No add-ons configured';
+  return addOns
+    .map((a) => {
+      const row = (a ?? {}) as Record<string, unknown>;
+      const price = typeof row.price === 'number' ? ` ($${row.price})` : '';
+      return `${String(row.name ?? '')}${price}`;
+    })
+    .join(', ');
 }
 
 export function RulesTab({ tenantId }: { tenantId: number }) {
@@ -95,39 +212,36 @@ export function RulesTab({ tenantId }: { tenantId: number }) {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EngagementRule | null>(null);
-  const [form, setForm] = useState<RuleFormState>({
-    ruleType: 'reminder',
-    isActive: true,
-    configText: defaultConfigFor('reminder'),
-  });
+  const [form, setForm] = useState<RuleFormState>(defaultRuleForm('reminder'));
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: getListEngagementRulesQueryKey(tenantId) });
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ ruleType: 'reminder', isActive: true, configText: defaultConfigFor('reminder') });
+    setForm(defaultRuleForm('reminder'));
     setDialogOpen(true);
   };
 
   const openEdit = (rule: EngagementRule) => {
     setEditing(rule);
-    setForm({
-      ruleType: rule.ruleType,
-      isActive: rule.isActive,
-      configText: JSON.stringify(rule.config ?? {}, null, 2),
-    });
+    setForm(formFromRule(rule));
     setDialogOpen(true);
   };
 
+  const setAddOn = (index: number, patch: Partial<AddOnRow>) =>
+    setForm((f) => ({
+      ...f,
+      addOns: f.addOns.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    }));
+
   const submit = () => {
-    let config: Record<string, unknown>;
-    try {
-      config = JSON.parse(form.configText || '{}');
-    } catch {
-      toast({ title: 'Configuration must be valid JSON', variant: 'destructive' });
+    const result = buildRuleConfig(form);
+    if (result.error) {
+      toast({ title: result.error, variant: 'destructive' });
       return;
     }
+    const config = result.config;
     const onError = (err: unknown) => {
       const message = (err as { data?: { error?: string } })?.data?.error;
       toast({
@@ -205,8 +319,8 @@ export function RulesTab({ tenantId }: { tenantId: number }) {
                       {rule.isActive ? 'Active' : 'Paused'}
                     </Badge>
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono truncate mt-0.5 max-w-xl">
-                    {JSON.stringify(rule.config)}
+                  <div className="text-xs text-muted-foreground truncate mt-0.5 max-w-xl" data-testid={`text-rule-summary-${rule.id}`}>
+                    {summarizeRuleConfig(rule)}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -239,7 +353,7 @@ export function RulesTab({ tenantId }: { tenantId: number }) {
                 <Label>Rule Type</Label>
                 <Select
                   value={form.ruleType}
-                  onValueChange={(v) => setForm((f) => ({ ...f, ruleType: v, configText: defaultConfigFor(v) }))}
+                  onValueChange={(v) => setForm((f) => ({ ...defaultRuleForm(v), isActive: f.isActive }))}
                 >
                   <SelectTrigger data-testid="select-rule-type">
                     <SelectValue />
@@ -252,19 +366,137 @@ export function RulesTab({ tenantId }: { tenantId: number }) {
                 </Select>
               </div>
             )}
-            <div className="grid gap-2">
-              <Label>Configuration (JSON)</Label>
-              <Textarea
-                rows={8}
-                className="font-mono text-xs"
-                value={form.configText}
-                onChange={(e) => setForm((f) => ({ ...f, configText: e.target.value }))}
-                data-testid="input-rule-config"
-              />
-              <p className="text-xs text-muted-foreground">
-                Templates support {'{{name}}'}, {'{{when}}'} and {'{{days}}'} placeholders.
-              </p>
-            </div>
+            {form.ruleType === 'reminder' && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="rule-lead-hours">Send reminder (hours before appointment)</Label>
+                  <Input
+                    id="rule-lead-hours"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={form.leadHours}
+                    onChange={(e) => setForm((f) => ({ ...f, leadHours: e.target.value }))}
+                    data-testid="input-rule-lead-hours"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="rule-reminder-template">Message template</Label>
+                  <Textarea
+                    id="rule-reminder-template"
+                    rows={4}
+                    value={form.reminderTemplate}
+                    onChange={(e) => setForm((f) => ({ ...f, reminderTemplate: e.target.value }))}
+                    data-testid="input-rule-reminder-template"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Supports {'{{name}}'} and {'{{when}}'} placeholders.
+                  </p>
+                </div>
+              </>
+            )}
+            {form.ruleType === 'rebooking_nudge' && (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="rule-cooldown-days">Cooldown between nudges (days)</Label>
+                  <Input
+                    id="rule-cooldown-days"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={form.cooldownDays}
+                    onChange={(e) => setForm((f) => ({ ...f, cooldownDays: e.target.value }))}
+                    data-testid="input-rule-cooldown-days"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="rule-rebooking-template">Message template</Label>
+                  <Textarea
+                    id="rule-rebooking-template"
+                    rows={4}
+                    value={form.rebookingTemplate}
+                    onChange={(e) => setForm((f) => ({ ...f, rebookingTemplate: e.target.value }))}
+                    data-testid="input-rule-rebooking-template"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Supports {'{{name}}'} and {'{{days}}'} placeholders.
+                  </p>
+                </div>
+              </>
+            )}
+            {form.ruleType === 'upsell' && (
+              <div className="grid gap-2">
+                <Label>Add-ons to suggest</Label>
+                <div className="space-y-3" data-testid="list-addon-rows">
+                  {form.addOns.map((row, i) => (
+                    <div key={i} className="p-3 border rounded-lg space-y-2" data-testid={`row-addon-${i}`}>
+                      <div className="flex items-start gap-2">
+                        <div className="grid gap-2 flex-1">
+                          <Input
+                            value={row.name}
+                            onChange={(e) => setAddOn(i, { name: e.target.value })}
+                            placeholder="Add-on name (e.g. Deep Conditioning)"
+                            aria-label={`Add-on ${i + 1} name`}
+                            data-testid={`input-addon-name-${i}`}
+                          />
+                        </div>
+                        <div className="w-28">
+                          <Input
+                            type="number"
+                            min={0}
+                            value={row.price}
+                            onChange={(e) => setAddOn(i, { price: e.target.value })}
+                            placeholder="Price"
+                            aria-label={`Add-on ${i + 1} price`}
+                            data-testid={`input-addon-price-${i}`}
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            setForm((f) => ({
+                              ...f,
+                              addOns:
+                                f.addOns.length > 1
+                                  ? f.addOns.filter((_, j) => j !== i)
+                                  : [{ ...EMPTY_ADD_ON }],
+                            }))
+                          }
+                          aria-label={`Remove add-on ${i + 1}`}
+                          data-testid={`button-remove-addon-${i}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                      <Input
+                        value={row.description}
+                        onChange={(e) => setAddOn(i, { description: e.target.value })}
+                        placeholder="Description shown with the suggestion (optional)"
+                        aria-label={`Add-on ${i + 1} description`}
+                        data-testid={`input-addon-description-${i}`}
+                      />
+                      <Input
+                        value={row.compatibleServices}
+                        onChange={(e) => setAddOn(i, { compatibleServices: e.target.value })}
+                        placeholder="Compatible services, comma-separated (blank = all services)"
+                        aria-label={`Add-on ${i + 1} compatible services`}
+                        data-testid={`input-addon-services-${i}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-fit"
+                  onClick={() => setForm((f) => ({ ...f, addOns: [...f.addOns, { ...EMPTY_ADD_ON }] }))}
+                  data-testid="button-add-addon"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Add add-on
+                </Button>
+              </div>
+            )}
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <Label>Active</Label>
               <Switch
