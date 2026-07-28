@@ -3242,6 +3242,10 @@ export interface SosSettings {
   coopReciprocityMarginPercent?: number | null;
   /** Evaluation window (days) for co-op reciprocity flagging. */
   coopReciprocityWindowDays?: number;
+  /** Marketing branding logo as a data URL; empty when unset. */
+  brandLogoUrl?: string;
+  brandPrimaryColor?: string;
+  brandSecondaryColor?: string;
   updatedAt: string;
 }
 
@@ -3302,6 +3306,275 @@ export interface SosSettingsUpdate {
      * @maximum 365
      */
   coopReciprocityWindowDays?: number;
+  /**
+     * Marketing branding logo as a data URL (client-resized); empty string clears it.
+     * @maxLength 400000
+     * @pattern ^$|^data:image/
+     */
+  brandLogoUrl?: string;
+  /** @maxLength 32 */
+  brandPrimaryColor?: string;
+  /** @maxLength 32 */
+  brandSecondaryColor?: string;
+}
+
+export type CoopMarketingTemplateChannel = typeof CoopMarketingTemplateChannel[keyof typeof CoopMarketingTemplateChannel];
+
+
+export const CoopMarketingTemplateChannel = {
+  sms: 'sms',
+  instagram: 'instagram',
+  facebook: 'facebook',
+  print: 'print',
+} as const;
+
+export interface CoopMarketingTemplate {
+  slug: string;
+  label: string;
+  description: string;
+  /**
+     * Rendered asset width in pixels; null for text-only formats.
+     * @nullable
+     */
+  width: number | null;
+  /** @nullable */
+  height: number | null;
+  channel: CoopMarketingTemplateChannel;
+}
+
+export interface CoopMarketingBranding {
+  tenantId: number;
+  name: string;
+  /** Data-URL logo; empty when the business hasn't uploaded one. */
+  logoUrl: string;
+  primaryColor: string;
+  secondaryColor: string;
+}
+
+export interface CoopMarketingBrandingPair {
+  partnershipId: number;
+  perkTitle: string;
+  host: CoopMarketingBranding;
+  partner: CoopMarketingBranding;
+}
+
+export type CoopMarketingChannelConnectionPlatform = typeof CoopMarketingChannelConnectionPlatform[keyof typeof CoopMarketingChannelConnectionPlatform];
+
+
+export const CoopMarketingChannelConnectionPlatform = {
+  instagram: 'instagram',
+  facebook: 'facebook',
+} as const;
+
+/**
+ * Simulated when no real posting credentials are configured.
+ */
+export type CoopMarketingChannelConnectionMode = typeof CoopMarketingChannelConnectionMode[keyof typeof CoopMarketingChannelConnectionMode];
+
+
+export const CoopMarketingChannelConnectionMode = {
+  live: 'live',
+  simulated: 'simulated',
+} as const;
+
+export interface CoopMarketingChannelConnection {
+  id: number;
+  tenantId: number;
+  platform: CoopMarketingChannelConnectionPlatform;
+  handle: string;
+  /** Simulated when no real posting credentials are configured. */
+  mode: CoopMarketingChannelConnectionMode;
+  createdAt: string;
+}
+
+export type CoopMarketingChannelCreatePlatform = typeof CoopMarketingChannelCreatePlatform[keyof typeof CoopMarketingChannelCreatePlatform];
+
+
+export const CoopMarketingChannelCreatePlatform = {
+  instagram: 'instagram',
+  facebook: 'facebook',
+} as const;
+
+export interface CoopMarketingChannelCreate {
+  platform: CoopMarketingChannelCreatePlatform;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  handle: string;
+}
+
+export interface CoopMarketingCopySuggestBody {
+  partnershipId: number;
+  templateSlug: string;
+  /** @maxLength 500 */
+  offerText?: string;
+}
+
+export interface CoopMarketingCopy {
+  headline: string;
+  body: string;
+  smsText: string;
+  usedAi: boolean;
+}
+
+export type CoopMarketingChannelTargetChannel = typeof CoopMarketingChannelTargetChannel[keyof typeof CoopMarketingChannelTargetChannel];
+
+
+export const CoopMarketingChannelTargetChannel = {
+  sms: 'sms',
+  instagram: 'instagram',
+  facebook: 'facebook',
+} as const;
+
+export interface CoopMarketingChannelTarget {
+  tenantId: number;
+  channel: CoopMarketingChannelTargetChannel;
+}
+
+/**
+ * Snapshot of the rendered asset inputs (branding + offer fields).
+ */
+export type CoopMarketingCampaignCreateAssetPayload = { [key: string]: unknown };
+
+export interface CoopMarketingCampaignCreate {
+  partnershipId: number;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  name: string;
+  templateSlug: string;
+  /** @maxLength 200 */
+  headline?: string;
+  /** @maxLength 1000 */
+  bodyText?: string;
+  /** @maxLength 320 */
+  smsText?: string;
+  /** Snapshot of the rendered asset inputs (branding + offer fields). */
+  assetPayload?: CoopMarketingCampaignCreateAssetPayload;
+  /** @minItems 1 */
+  channels: CoopMarketingChannelTarget[];
+  /**
+     * ISO send time; null/omitted = send immediately once approved.
+     * @nullable
+     */
+  scheduledAt?: string | null;
+}
+
+export type CoopMarketingParticipantStatusApproval = typeof CoopMarketingParticipantStatusApproval[keyof typeof CoopMarketingParticipantStatusApproval];
+
+
+export const CoopMarketingParticipantStatusApproval = {
+  pending: 'pending',
+  approved: 'approved',
+  declined: 'declined',
+} as const;
+
+export interface CoopMarketingParticipantStatus {
+  tenantId: number;
+  tenantName: string;
+  approval: CoopMarketingParticipantStatusApproval;
+  /** @nullable */
+  respondedAt: string | null;
+}
+
+export type CoopMarketingCampaignAssetPayload = { [key: string]: unknown };
+
+export type CoopMarketingCampaignStatus = typeof CoopMarketingCampaignStatus[keyof typeof CoopMarketingCampaignStatus];
+
+
+export const CoopMarketingCampaignStatus = {
+  pending_approval: 'pending_approval',
+  scheduled: 'scheduled',
+  sending: 'sending',
+  sent: 'sent',
+  failed: 'failed',
+  declined: 'declined',
+} as const;
+
+export type CoopMarketingCampaignMyApproval = typeof CoopMarketingCampaignMyApproval[keyof typeof CoopMarketingCampaignMyApproval];
+
+
+export const CoopMarketingCampaignMyApproval = {
+  pending: 'pending',
+  approved: 'approved',
+  declined: 'declined',
+} as const;
+
+export interface CoopMarketingCampaign {
+  id: number;
+  name: string;
+  partnershipId: number;
+  templateSlug: string;
+  headline: string;
+  bodyText: string;
+  smsText: string;
+  assetPayload: CoopMarketingCampaignAssetPayload;
+  channels: CoopMarketingChannelTarget[];
+  /** @nullable */
+  scheduledAt: string | null;
+  status: CoopMarketingCampaignStatus;
+  creatorTenantId: number;
+  creatorTenantName: string;
+  isCreator: boolean;
+  myApproval: CoopMarketingCampaignMyApproval;
+  /** @nullable */
+  dispatchTriggeredAt: string | null;
+  participants: CoopMarketingParticipantStatus[];
+  createdAt: string;
+}
+
+export type CoopMarketingRespondBodyAction = typeof CoopMarketingRespondBodyAction[keyof typeof CoopMarketingRespondBodyAction];
+
+
+export const CoopMarketingRespondBodyAction = {
+  approve: 'approve',
+  decline: 'decline',
+} as const;
+
+export interface CoopMarketingRespondBody {
+  action: CoopMarketingRespondBodyAction;
+}
+
+export interface CoopMarketingDispatchResult {
+  dispatched: boolean;
+  sends: number;
+  smsSent: number;
+  smsSkipped: number;
+  smsFailed: number;
+}
+
+export interface CoopMarketingAnalyticsEntry {
+  tenantId: number;
+  tenantName: string;
+  channel: string;
+  status: string;
+  /** True when this channel ran without real credentials; its reach is an estimate. */
+  simulated: boolean;
+  recipients: number;
+  delivered: number;
+  failed: number;
+  skipped: number;
+  impressions: number;
+  clicks: number;
+  /** @nullable */
+  linkCode: string | null;
+}
+
+export type CoopMarketingAnalyticsTotals = {
+  delivered: number;
+  failed: number;
+  clicks: number;
+  /** SMS deliveries + social impressions. */
+  reach: number;
+  /** Portion of reach that came from simulated channels. */
+  simulatedReach: number;
+};
+
+export interface CoopMarketingAnalytics {
+  entries: CoopMarketingAnalyticsEntry[];
+  totals: CoopMarketingAnalyticsTotals;
 }
 
 export interface SosReview {
@@ -4510,6 +4783,7 @@ export const SosMessageKind = {
   coop_dispute: 'coop_dispute',
   coop_invite: 'coop_invite',
   coop_campaign_blast: 'coop_campaign_blast',
+  coop_marketing_blast: 'coop_marketing_blast',
   coop_tier_change: 'coop_tier_change',
   passport_reward: 'passport_reward',
   emergency_broadcast: 'emergency_broadcast',
@@ -6002,6 +6276,10 @@ export type DeleteCoopSurgeRule200 = {
 export type ListCoopPartnerPerformanceParams = {
 from?: string;
 to?: string;
+};
+
+export type GetCoopMarketingBrandingParams = {
+partnershipId: number;
 };
 
 export type GetCoopStatsParams = {

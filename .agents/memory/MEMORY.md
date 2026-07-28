@@ -44,8 +44,11 @@
 - Co-op tax compliance ledger: entries snapshot the tenant's rates at write time (never recompute); 1099 payout accumulation must only run for rows the idempotent insert actually created; export CSVs are raw routes (not zod-parsed).
 - [Co-op sponsorship hub](coop-sponsorship.md) — boost auction lifecycle, real-time rendering vs injected resolve clock, shared global fee row, wallet/payout invariants.
 - api-server: never call drizzle `alias()` (or touch schema tables) at module top level in route/lib files — tests that partially mock @workspace/db fail at import; build aliases inside functions.
+- [Co-op Marketing Hub](coop-marketing-hub.md) — dispatch send-once lock, approval gating, simulated social flagging, /api/mr tracked links, data-URL branding; all sends via dispatchMarketingCampaign.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.
 - [Tip pooling & gratuity ledger](gratuity-tips.md) — ledger rows scoped to the STAFF's tenant; tips never touch revenue/commission/margin; new checkout paths must reuse the split engine.
+- Checkout tip fallback: bundled visits or tenants with a live co-op partnership + servicing staff → tip-pool ledger (whole tip to staff); otherwise legacy gratuity-pool split — both test suites rely on this split.
+- SMS bodies must carry fully-qualified public URLs (APP_BASE_URL → REPLIT_DOMAINS fallback), never relative paths — recipients are outside the app.
 - [Co-op tip pooling](tip-pooling.md) — checkout-time partnership gating, cents math with remainder to servicing staff, immutable snapshot ledger; origin derived at read. Coexists with the per-tenant gratuity pool: a resolved tip-pool rule wins, else tenant config splits; exactly one ledger per tip.
 - [Network governance roles](network-governance.md) — 4-tier roles on users.role + memberships as scope; staff read-only via tenantAccess; join-application approval provisions tenants under a conditional status claim.
 - [Co-op surge boosts](coop-surge.md) — capacity status has a 30s in-process cache (tests must clear it); surge activation lock = partial unique index on live activations; firewall backstop re-checked at sweep time.

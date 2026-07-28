@@ -1468,6 +1468,177 @@ export const coopWalletEntriesTable = pgTable(
 
 export type CoopWalletEntry = typeof coopWalletEntriesTable.$inferSelect;
 
+// ── Co-op Marketing & Social Syndication Hub ─────────────────────────────────
+// Joint co-branded marketing campaigns between accepted co-op partners:
+// per-tenant social channel connections (simulated mode when no real
+// credentials), campaigns with per-partner approval gating, per-channel
+// dispatch ledger, and tracked short links for click attribution.
+
+// A tenant's connected social channel. A row = connected; deleting the row
+// disconnects. Whether posting is live or simulated is derived at read/post
+// time from platform credentials, never stored here.
+export const coopMarketingChannelsTable = pgTable(
+  "coop_marketing_channels",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // instagram | facebook
+    platform: text("platform").notNull(),
+    // Public account handle/page name shown in the hub.
+    handle: text("handle").notNull(),
+    // Reserved for real OAuth credentials; NEVER serialized in API responses.
+    accessToken: text("access_token"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("coop_marketing_channels_tenant_platform_uq").on(t.tenantId, t.platform),
+    index("coop_marketing_channels_tenant_idx").on(t.tenantId),
+  ],
+);
+export type CoopMarketingChannel = typeof coopMarketingChannelsTable.$inferSelect;
+
+// A joint co-branded marketing campaign built on an accepted partnership.
+// Status flow: pending_approval → scheduled → sending → sent | failed.
+// (draft is reserved for client-side unfinished composers; the API only
+// creates pending_approval campaigns.)
+export const coopMarketingCampaignsTable = pgTable(
+  "coop_marketing_campaigns",
+  {
+    id: serial("id").primaryKey(),
+    creatorTenantId: integer("creator_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    // Marketing template slug (instagram_square | facebook_post | story |
+    // flyer | sms_blast) the asset was generated from.
+    templateSlug: text("template_slug").notNull(),
+    headline: text("headline").notNull().default(""),
+    bodyText: text("body_text").notNull().default(""),
+    // The SMS blast text (short link appended per recipient tenant at send).
+    smsText: text("sms_text").notNull().default(""),
+    // Snapshot of the rendered asset inputs (both businesses' branding +
+    // offer fields) so the asset stays reproducible even if branding changes.
+    assetPayload: jsonb("asset_payload").notNull().default({}),
+    // Selected targets: array of { tenantId, channel } where channel is
+    // sms | instagram | facebook.
+    channels: jsonb("channels").notNull().default([]),
+    // Null = send immediately once fully approved.
+    scheduledAt: timestamp("scheduled_at"),
+    // pending_approval | scheduled | sending | sent | failed | declined
+    status: text("status").notNull().default("pending_approval"),
+    // Stamped when dispatch starts. The conditional `IS NULL` claim on this
+    // column is the send-once lock — dispatch can never double-fire.
+    dispatchTriggeredAt: timestamp("dispatch_triggered_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_marketing_campaigns_creator_idx").on(t.creatorTenantId),
+    index("coop_marketing_campaigns_partnership_idx").on(t.partnershipId),
+    // Worker sweep: scheduled campaigns whose dispatch hasn't fired.
+    index("coop_marketing_campaigns_due_idx")
+      .on(t.scheduledAt)
+      .where(sql`dispatch_triggered_at is null and status = 'scheduled'`),
+  ],
+);
+export type CoopMarketingCampaign = typeof coopMarketingCampaignsTable.$inferSelect;
+
+// Per-business approval: the creator's row is auto-approved; every other
+// participant must approve before the campaign can dispatch on ANY channel.
+export const coopMarketingParticipantsTable = pgTable(
+  "coop_marketing_participants",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => coopMarketingCampaignsTable.id, { onDelete: "cascade" }),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // pending | approved | declined
+    approval: text("approval").notNull().default("pending"),
+    respondedAt: timestamp("responded_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    unique("coop_marketing_participants_campaign_tenant_uq").on(t.campaignId, t.tenantId),
+    index("coop_marketing_participants_tenant_idx").on(t.tenantId),
+  ],
+);
+export type CoopMarketingParticipant = typeof coopMarketingParticipantsTable.$inferSelect;
+
+// Dispatch ledger — one row per (campaign, tenant, channel) fan-out. SMS rows
+// aggregate recipient counts from the unified messages table outcomes; social
+// rows record the (possibly simulated) post and its impressions.
+export const coopMarketingSendsTable = pgTable(
+  "coop_marketing_sends",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => coopMarketingCampaignsTable.id, { onDelete: "cascade" }),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // sms | instagram | facebook
+    channel: text("channel").notNull(),
+    // sent | failed | simulated
+    status: text("status").notNull(),
+    // True when the channel ran in simulated mode (no real credentials) —
+    // reach numbers from simulated sends are flagged in analytics.
+    simulated: boolean("simulated").notNull().default(false),
+    recipients: integer("recipients").notNull().default(0),
+    delivered: integer("delivered").notNull().default(0),
+    failed: integer("failed").notNull().default(0),
+    skipped: integer("skipped").notNull().default(0),
+    // Social reach where available; simulated posts carry an estimate.
+    impressions: integer("impressions").notNull().default(0),
+    // The tracked short-link code used for this (tenant, channel) audience.
+    linkCode: text("link_code"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_marketing_sends_campaign_idx").on(t.campaignId)],
+);
+export type CoopMarketingSend = typeof coopMarketingSendsTable.$inferSelect;
+
+// Tracked short links (/mr/:code) — one per (campaign, tenant, channel).
+export const coopMarketingLinksTable = pgTable(
+  "coop_marketing_links",
+  {
+    id: serial("id").primaryKey(),
+    campaignId: integer("campaign_id")
+      .notNull()
+      .references(() => coopMarketingCampaignsTable.id, { onDelete: "cascade" }),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    channel: text("channel").notNull(),
+    code: text("code").notNull().unique(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_marketing_links_campaign_idx").on(t.campaignId)],
+);
+export type CoopMarketingLink = typeof coopMarketingLinksTable.$inferSelect;
+
+// One row per click on a tracked marketing link.
+export const coopMarketingLinkClicksTable = pgTable(
+  "coop_marketing_link_clicks",
+  {
+    id: serial("id").primaryKey(),
+    linkId: integer("link_id")
+      .notNull()
+      .references(() => coopMarketingLinksTable.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_marketing_link_clicks_link_idx").on(t.linkId)],
+);
+export type CoopMarketingLinkClick = typeof coopMarketingLinkClicksTable.$inferSelect;
+
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,
   provisionedAt: true,

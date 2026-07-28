@@ -1555,6 +1555,246 @@ paths:
         "409":
           description: Blast already fired, or the campaign window is not open
 
+
+  /coop/marketing/templates:
+    get:
+      operationId: listCoopMarketingTemplates
+      tags: [coop]
+      summary: Merchant-facing — Marketing Hub asset template library (channel-exact dimensions)
+      responses:
+        "200":
+          description: Templates for the co-branded asset generator
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopMarketingTemplate"
+
+  /coop/marketing/branding:
+    get:
+      operationId: getCoopMarketingBranding
+      tags: [coop]
+      summary: Merchant-facing — both businesses' branding inputs (name, logo, colors with defaults) for a partnership; tenant scope via x-tenant-id
+      parameters:
+        - name: partnershipId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Branding for both sides of the partnership
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopMarketingBrandingPair"
+        "400":
+          description: Missing x-tenant-id header or partnershipId
+        "403":
+          description: The scoped tenant is not a party to this partnership
+        "404":
+          description: Partnership not found
+
+  /coop/marketing/channels:
+    get:
+      operationId: listCoopMarketingChannels
+      tags: [coop]
+      summary: Merchant-facing — the scoped tenant's connected social channels with live/simulated mode; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Connected channels (a row = connected)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopMarketingChannelConnection"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createCoopMarketingChannel
+      tags: [coop]
+      summary: Merchant-facing — connect a social channel (simulated mode when no real credentials are configured); tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopMarketingChannelCreate"
+      responses:
+        "201":
+          description: Channel connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopMarketingChannelConnection"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+        "409":
+          description: This platform is already connected for the tenant
+
+  /coop/marketing/channels/{id}:
+    delete:
+      operationId: deleteCoopMarketingChannel
+      tags: [coop]
+      summary: Merchant-facing — disconnect a social channel; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Disconnected
+        "404":
+          description: Not found for this tenant
+
+  /coop/marketing/copy:
+    post:
+      operationId: suggestCoopMarketingCopy
+      tags: [coop]
+      summary: Merchant-facing — AI-suggested co-branded promo copy (deterministic template fallback), always editable; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopMarketingCopySuggestBody"
+      responses:
+        "200":
+          description: Suggested headline, body, and SMS text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopMarketingCopy"
+        "400":
+          description: Invalid body or missing x-tenant-id header
+        "403":
+          description: The scoped tenant is not a party to this partnership
+        "404":
+          description: Partnership not found
+
+  /coop/marketing/campaigns:
+    get:
+      operationId: listCoopMarketingCampaigns
+      tags: [coop]
+      summary: Merchant-facing — joint marketing campaigns the scoped tenant participates in (pending approvals included), newest first; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Campaigns visible to the tenant
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopMarketingCampaign"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createCoopMarketingCampaign
+      tags: [coop]
+      summary: Merchant-facing — compose a joint campaign on an accepted partnership; the partner must approve before any dispatch; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopMarketingCampaignCreate"
+      responses:
+        "201":
+          description: Campaign created, pending partner approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopMarketingCampaign"
+        "400":
+          description: Invalid body/schedule or missing x-tenant-id header
+        "403":
+          description: The scoped tenant is not a party to an accepted, active partnership
+        "404":
+          description: Partnership not found
+
+  /coop/marketing/campaigns/{id}/respond:
+    post:
+      operationId: respondToCoopMarketingCampaign
+      tags: [coop]
+      summary: Merchant-facing — a partner approves or declines a joint campaign before it can go out on their channels/customer list; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopMarketingRespondBody"
+      responses:
+        "200":
+          description: Updated campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopMarketingCampaign"
+        "403":
+          description: Only a non-creator participant can respond
+        "404":
+          description: Not found
+        "409":
+          description: Already responded, or the campaign already dispatched
+
+  /coop/marketing/campaigns/{id}/dispatch:
+    post:
+      operationId: dispatchCoopMarketingCampaign
+      tags: [coop]
+      summary: Merchant-facing — the creator fires an immediate multi-channel send for a fully-approved campaign; scheduled campaigns fire automatically; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dispatch summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopMarketingDispatchResult"
+        "403":
+          description: Only the campaign creator can dispatch
+        "404":
+          description: Not found
+        "409":
+          description: Not fully approved yet, or already dispatched
+
+  /coop/marketing/campaigns/{id}/analytics:
+    get:
+      operationId: getCoopMarketingCampaignAnalytics
+      tags: [coop]
+      summary: Merchant-facing — unified cross-channel analytics ledger for a campaign (deliveries, failures, clicks, reach; simulated counts flagged); tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Per-channel, per-business analytics with totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopMarketingAnalytics"
+        "403":
+          description: Only a participant business can view campaign analytics
+        "404":
+          description: Not found
+
   /coop/events:
     get:
       operationId: listCoopEvents
@@ -10563,6 +10803,13 @@ components:
         coopReciprocityWindowDays:
           type: integer
           description: Evaluation window (days) for co-op reciprocity flagging.
+        brandLogoUrl:
+          type: string
+          description: Marketing branding logo as a data URL; empty when unset.
+        brandPrimaryColor:
+          type: string
+        brandSecondaryColor:
+          type: string
         updatedAt:
           type: string
 
@@ -10643,6 +10890,307 @@ components:
           type: integer
           minimum: 1
           maximum: 365
+        brandLogoUrl:
+          type: string
+          maxLength: 400000
+          pattern: "^$|^data:image/"
+          description: Marketing branding logo as a data URL (client-resized); empty string clears it.
+        brandPrimaryColor:
+          type: string
+          maxLength: 32
+        brandSecondaryColor:
+          type: string
+          maxLength: 32
+
+
+    CoopMarketingTemplate:
+      type: object
+      required: [slug, label, description, width, height, channel]
+      properties:
+        slug:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        width:
+          type: ["integer", "null"]
+          description: Rendered asset width in pixels; null for text-only formats.
+        height:
+          type: ["integer", "null"]
+        channel:
+          type: string
+          enum: [sms, instagram, facebook, print]
+
+    CoopMarketingBranding:
+      type: object
+      required: [tenantId, name, logoUrl, primaryColor, secondaryColor]
+      properties:
+        tenantId:
+          type: integer
+        name:
+          type: string
+        logoUrl:
+          type: string
+          description: Data-URL logo; empty when the business hasn't uploaded one.
+        primaryColor:
+          type: string
+        secondaryColor:
+          type: string
+
+    CoopMarketingBrandingPair:
+      type: object
+      required: [partnershipId, perkTitle, host, partner]
+      properties:
+        partnershipId:
+          type: integer
+        perkTitle:
+          type: string
+        host:
+          $ref: "#/components/schemas/CoopMarketingBranding"
+        partner:
+          $ref: "#/components/schemas/CoopMarketingBranding"
+
+    CoopMarketingChannelConnection:
+      type: object
+      required: [id, tenantId, platform, handle, mode, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        platform:
+          type: string
+          enum: [instagram, facebook]
+        handle:
+          type: string
+        mode:
+          type: string
+          enum: [live, simulated]
+          description: Simulated when no real posting credentials are configured.
+        createdAt:
+          type: string
+
+    CoopMarketingChannelCreate:
+      type: object
+      required: [platform, handle]
+      properties:
+        platform:
+          type: string
+          enum: [instagram, facebook]
+        handle:
+          type: string
+          minLength: 1
+          maxLength: 120
+
+    CoopMarketingCopySuggestBody:
+      type: object
+      required: [partnershipId, templateSlug]
+      properties:
+        partnershipId:
+          type: integer
+        templateSlug:
+          type: string
+        offerText:
+          type: string
+          maxLength: 500
+
+    CoopMarketingCopy:
+      type: object
+      required: [headline, body, smsText, usedAi]
+      properties:
+        headline:
+          type: string
+        body:
+          type: string
+        smsText:
+          type: string
+        usedAi:
+          type: boolean
+
+    CoopMarketingChannelTarget:
+      type: object
+      required: [tenantId, channel]
+      properties:
+        tenantId:
+          type: integer
+        channel:
+          type: string
+          enum: [sms, instagram, facebook]
+
+    CoopMarketingCampaignCreate:
+      type: object
+      required: [partnershipId, name, templateSlug, channels]
+      properties:
+        partnershipId:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+          maxLength: 160
+        templateSlug:
+          type: string
+        headline:
+          type: string
+          maxLength: 200
+        bodyText:
+          type: string
+          maxLength: 1000
+        smsText:
+          type: string
+          maxLength: 320
+        assetPayload:
+          type: object
+          additionalProperties: true
+          description: Snapshot of the rendered asset inputs (branding + offer fields).
+        channels:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/CoopMarketingChannelTarget"
+        scheduledAt:
+          type: ["string", "null"]
+          description: ISO send time; null/omitted = send immediately once approved.
+
+    CoopMarketingParticipantStatus:
+      type: object
+      required: [tenantId, tenantName, approval, respondedAt]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        approval:
+          type: string
+          enum: [pending, approved, declined]
+        respondedAt:
+          type: ["string", "null"]
+
+    CoopMarketingCampaign:
+      type: object
+      required: [id, name, partnershipId, templateSlug, headline, bodyText, smsText, assetPayload, channels, scheduledAt, status, creatorTenantId, creatorTenantName, isCreator, myApproval, dispatchTriggeredAt, participants, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        partnershipId:
+          type: integer
+        templateSlug:
+          type: string
+        headline:
+          type: string
+        bodyText:
+          type: string
+        smsText:
+          type: string
+        assetPayload:
+          type: object
+          additionalProperties: true
+        channels:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopMarketingChannelTarget"
+        scheduledAt:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending_approval, scheduled, sending, sent, failed, declined]
+        creatorTenantId:
+          type: integer
+        creatorTenantName:
+          type: string
+        isCreator:
+          type: boolean
+        myApproval:
+          type: string
+          enum: [pending, approved, declined]
+        dispatchTriggeredAt:
+          type: ["string", "null"]
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopMarketingParticipantStatus"
+        createdAt:
+          type: string
+
+    CoopMarketingRespondBody:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [approve, decline]
+
+    CoopMarketingDispatchResult:
+      type: object
+      required: [dispatched, sends, smsSent, smsSkipped, smsFailed]
+      properties:
+        dispatched:
+          type: boolean
+        sends:
+          type: integer
+        smsSent:
+          type: integer
+        smsSkipped:
+          type: integer
+        smsFailed:
+          type: integer
+
+    CoopMarketingAnalyticsEntry:
+      type: object
+      required: [tenantId, tenantName, channel, status, simulated, recipients, delivered, failed, skipped, impressions, clicks, linkCode]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        channel:
+          type: string
+        status:
+          type: string
+        simulated:
+          type: boolean
+          description: True when this channel ran without real credentials; its reach is an estimate.
+        recipients:
+          type: integer
+        delivered:
+          type: integer
+        failed:
+          type: integer
+        skipped:
+          type: integer
+        impressions:
+          type: integer
+        clicks:
+          type: integer
+        linkCode:
+          type: ["string", "null"]
+
+    CoopMarketingAnalytics:
+      type: object
+      required: [entries, totals]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopMarketingAnalyticsEntry"
+        totals:
+          type: object
+          required: [delivered, failed, clicks, reach, simulatedReach]
+          properties:
+            delivered:
+              type: integer
+            failed:
+              type: integer
+            clicks:
+              type: integer
+            reach:
+              type: integer
+              description: SMS deliveries + social impressions.
+            simulatedReach:
+              type: integer
+              description: Portion of reach that came from simulated channels.
 
     SosReview:
       type: object
@@ -12011,7 +12559,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock, coop_reputation, coop_feedback_request, coop_financial_dispute]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_marketing_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock, coop_reputation, coop_feedback_request, coop_financial_dispute]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

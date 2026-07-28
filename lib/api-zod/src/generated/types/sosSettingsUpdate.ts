@@ -63,4 +63,14 @@ export interface SosSettingsUpdate {
      * @maximum 365
      */
   coopReciprocityWindowDays?: number;
+  /**
+     * Marketing branding logo as a data URL (client-resized); empty string clears it.
+     * @maxLength 400000
+     * @pattern ^$|^data:image/
+     */
+  brandLogoUrl?: string;
+  /** @maxLength 32 */
+  brandPrimaryColor?: string;
+  /** @maxLength 32 */
+  brandSecondaryColor?: string;
 }

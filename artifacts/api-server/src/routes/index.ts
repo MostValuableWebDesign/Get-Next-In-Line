@@ -19,6 +19,7 @@ import procurementRouter from "./procurement";
 import coopComplianceRouter from "./coopCompliance";
 import coopSponsorshipRouter from "./coopSponsorship";
 import coopCoverageRouter from "./coopCoverage";
+import coopMarketingRouter from "./coopMarketing";
 import safetyRouter from "./safety";
 import emergencyRouter from "./emergency";
 import posRouter from "./pos";
@@ -121,6 +122,7 @@ router.use(coopRetailRouter); // Co-op shelf-space retail inventory (/coop/retai
 router.use(procurementRouter); // Co-Op Supplier & Procurement Marketplace (/coop/procurement, /admin/procurement)
 router.use(coopComplianceRouter); // Co-op tax & revenue compliance ledger (/coop/compliance)
 router.use(coopCoverageRouter); // Co-op staff shift coverage marketplace (/coop/coverage)
+router.use(coopMarketingRouter); // Co-op Marketing & Social Syndication Hub (/coop/marketing)
 router.use(franchiseRouter); // Multi-Location Franchise Co-Op Controller (/franchise)
 router.use(coopSponsorshipRouter); // Sponsorship Hub: boosts, wallet, admin payouts (/coop/sponsorship, /coop/wallet, /admin/coop)
 router.use(posRouter);      // External POS webhook connectors (/pos)

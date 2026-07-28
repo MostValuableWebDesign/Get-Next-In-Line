@@ -89,7 +89,7 @@ import {
   UpdateSosGratuityConfigResponse,
   GetSosGratuityLedgerResponse,
 } from "@workspace/api-zod";
-import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import twilio from "twilio";
 import { getSmsStatus, getTwilioAuthToken, normalizeToE164 } from "../lib/sms";
 import {
@@ -117,6 +117,7 @@ import {
 import { logger } from "../lib/logger";
 import { attachRevenueToRecentCrossoverSafe } from "../lib/coopEvents";
 import { resolveTipRuleForVisit, writeGratuityLedger } from "../lib/tipPooling";
+import { merchantCoopPartnershipsTable } from "@workspace/db";
 import {
   addressFieldsTouched,
   getLegacySettings,
@@ -1900,6 +1901,35 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
         bundleId: visit.bundleId,
         tenantId: visit.tenantId,
       })) != null;
+    // Tenants in a live co-op partnership are on the tip-pooling system:
+    // with a servicing staff member on the checkout, an unruled tip defaults
+    // to that staff member in the tip-pool ledger (rule-less fallback) rather
+    // than the legacy tenant-wide gratuity pool split.
+    // A bundled visit is always on the tip-pooling system — even when its
+    // partnership rule is no longer live, the fallback pays the servicing
+    // staff member via the tip-pool ledger.
+    if (!usesTipPoolRule && visit.bundleId != null && body.staffId != null) {
+      usesTipPoolRule = true;
+    }
+    if (!usesTipPoolRule && body.staffId != null && visit.tenantId != null) {
+      const [live] = await db
+        .select({ id: merchantCoopPartnershipsTable.id })
+        .from(merchantCoopPartnershipsTable)
+        .where(
+          and(
+            or(
+              eq(merchantCoopPartnershipsTable.hostTenantId, visit.tenantId),
+              eq(merchantCoopPartnershipsTable.partnerTenantId, visit.tenantId),
+            ),
+            eq(merchantCoopPartnershipsTable.status, "accepted"),
+            eq(merchantCoopPartnershipsTable.isActive, true),
+            eq(merchantCoopPartnershipsTable.disputeSuspended, false),
+            isNull(merchantCoopPartnershipsTable.bannedAt),
+          ),
+        )
+        .limit(1);
+      if (live) usesTipPoolRule = true;
+    }
     if (!usesTipPoolRule) {
       const settings = await resolveSettings(tenantIdFrom(req));
       const rule: TipSplitRule =

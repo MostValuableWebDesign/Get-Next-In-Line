@@ -34,6 +34,7 @@ export type OutboundMessageKind =
   | "coop_financial_dispute"
   | "coop_invite"
   | "coop_campaign_blast"
+  | "coop_marketing_blast"
   | "coop_tier_change"
   | "passport_reward"
   | "emergency_broadcast"

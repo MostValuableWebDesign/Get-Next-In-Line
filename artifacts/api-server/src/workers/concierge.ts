@@ -25,6 +25,7 @@ import { resolveSettings } from "../lib/settings";
 import { generateCoopMonthlyReports } from "../lib/coopEvents";
 import { generateCoopSentimentReports } from "../lib/coopFeedback";
 import { sweepCampaignAutoBlasts } from "../lib/coopCampaigns";
+import { sweepMarketingCampaignDispatch } from "../lib/coopMarketing";
 import { evaluateCoopPartnershipTiers } from "../lib/coopTiers";
 import { sweepEmergencyBroadcastFanout } from "../lib/emergencyBroadcasts";
 import { runSurgeSweep } from "../lib/surgeEngine";
@@ -389,6 +390,8 @@ export interface ConciergeTickResult {
   escalatedDisputes: number;
   /** Co-op campaign joint blasts auto-fired at campaign start this tick. */
   campaignBlasts: number;
+  /** Co-op marketing joint campaigns whose scheduled dispatch fired this tick. */
+  marketingDispatches: number;
   /** Co-op partnership tier transitions (pause/downgrade/promote/reactivate) applied this tick. */
   tierTransitions: number;
   /** Emergency broadcast targets whose subscriber SMS fan-out ran this tick. */
@@ -425,7 +428,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0, supplyReminders: 0, supplyAutoRequests: 0, boostAuctionsSettled: 0, boostsExpired: 0, sentimentReports: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, marketingDispatches: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0, supplyReminders: 0, supplyAutoRequests: 0, boostAuctionsSettled: 0, boostsExpired: 0, sentimentReports: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
     const expiredPerks = await sweepExpiredCoopPerks(now);
@@ -442,6 +445,10 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     // blast_triggered_at conditional claim inside the sweep is the send-once
     // lock, so this is safe to run on every tick.
     const campaignBlasts = await sweepCampaignAutoBlasts(now);
+    // Co-op marketing scheduled dispatch: the dispatch_triggered_at
+    // conditional claim inside the sweep is the send-once lock, so this is
+    // safe to run on every tick.
+    const marketingDispatches = await sweepMarketingCampaignDispatch(now);
     // Performance-based partnership tiers: state-diff transitions are
     // idempotent, so running on every tick only ever applies each change once.
     const tierResult = await evaluateCoopPartnershipTiers(now);
@@ -474,7 +481,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const nudges = await handleRebookingNudge(now);
     return {
       ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, supplyReminders, supplyAutoRequests,
-      campaignBlasts, tierTransitions, emergencyFanouts, surgeActivated, surgeEnded, reputationActions,
+      campaignBlasts, marketingDispatches, tierTransitions, emergencyFanouts, surgeActivated, surgeEnded, reputationActions,
       boostAuctionsSettled: boostResolution.auctionsSettled,
       boostsExpired: boostResolution.boostsExpired,
       sentimentReports,
@@ -519,6 +526,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       await generateCoopMonthlyReports();
       await escalateExpiredCoopDisputes();
       await sweepCampaignAutoBlasts();
+      await sweepMarketingCampaignDispatch();
       await evaluateCoopPartnershipTiers();
       await sweepEmergencyBroadcastFanout();
       await runSurgeSweep();

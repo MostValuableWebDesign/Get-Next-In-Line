@@ -77,5 +77,9 @@ export interface SosSettings {
   coopReciprocityMarginPercent?: number | null;
   /** Evaluation window (days) for co-op reciprocity flagging. */
   coopReciprocityWindowDays?: number;
+  /** Marketing branding logo as a data URL; empty when unset. */
+  brandLogoUrl?: string;
+  brandPrimaryColor?: string;
+  brandSecondaryColor?: string;
   updatedAt: string;
 }

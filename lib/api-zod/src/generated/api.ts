@@ -1938,6 +1938,296 @@ export const TriggerCoopCampaignBlastResponse = zod.object({
 
 
 /**
+ * @summary Merchant-facing — Marketing Hub asset template library (channel-exact dimensions)
+ */
+export const ListCoopMarketingTemplatesResponseItem = zod.object({
+  "slug": zod.string(),
+  "label": zod.string(),
+  "description": zod.string(),
+  "width": zod.number().nullable().describe('Rendered asset width in pixels; null for text-only formats.'),
+  "height": zod.number().nullable(),
+  "channel": zod.enum(['sms', 'instagram', 'facebook', 'print'])
+})
+export const ListCoopMarketingTemplatesResponse = zod.array(ListCoopMarketingTemplatesResponseItem)
+
+
+/**
+ * @summary Merchant-facing — both businesses' branding inputs (name, logo, colors with defaults) for a partnership; tenant scope via x-tenant-id
+ */
+export const GetCoopMarketingBrandingQueryParams = zod.object({
+  "partnershipId": zod.coerce.number()
+})
+
+export const GetCoopMarketingBrandingResponse = zod.object({
+  "partnershipId": zod.number(),
+  "perkTitle": zod.string(),
+  "host": zod.object({
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "logoUrl": zod.string().describe('Data-URL logo; empty when the business hasn\'t uploaded one.'),
+  "primaryColor": zod.string(),
+  "secondaryColor": zod.string()
+}),
+  "partner": zod.object({
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "logoUrl": zod.string().describe('Data-URL logo; empty when the business hasn\'t uploaded one.'),
+  "primaryColor": zod.string(),
+  "secondaryColor": zod.string()
+})
+})
+
+
+/**
+ * @summary Merchant-facing — the scoped tenant's connected social channels with live/simulated mode; tenant scope via x-tenant-id
+ */
+export const ListCoopMarketingChannelsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "platform": zod.enum(['instagram', 'facebook']),
+  "handle": zod.string(),
+  "mode": zod.enum(['live', 'simulated']).describe('Simulated when no real posting credentials are configured.'),
+  "createdAt": zod.string()
+})
+export const ListCoopMarketingChannelsResponse = zod.array(ListCoopMarketingChannelsResponseItem)
+
+
+/**
+ * @summary Merchant-facing — connect a social channel (simulated mode when no real credentials are configured); tenant scope via x-tenant-id
+ */
+export const createCoopMarketingChannelBodyHandleMax = 120;
+
+
+
+export const CreateCoopMarketingChannelBody = zod.object({
+  "platform": zod.enum(['instagram', 'facebook']),
+  "handle": zod.string().min(1).max(createCoopMarketingChannelBodyHandleMax)
+})
+
+export const CreateCoopMarketingChannelResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "platform": zod.enum(['instagram', 'facebook']),
+  "handle": zod.string(),
+  "mode": zod.enum(['live', 'simulated']).describe('Simulated when no real posting credentials are configured.'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — disconnect a social channel; tenant scope via x-tenant-id
+ */
+export const DeleteCoopMarketingChannelParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteCoopMarketingChannelResponse = zod.void()
+
+
+/**
+ * @summary Merchant-facing — AI-suggested co-branded promo copy (deterministic template fallback), always editable; tenant scope via x-tenant-id
+ */
+export const suggestCoopMarketingCopyBodyOfferTextMax = 500;
+
+
+
+export const SuggestCoopMarketingCopyBody = zod.object({
+  "partnershipId": zod.number(),
+  "templateSlug": zod.string(),
+  "offerText": zod.string().max(suggestCoopMarketingCopyBodyOfferTextMax).optional()
+})
+
+export const SuggestCoopMarketingCopyResponse = zod.object({
+  "headline": zod.string(),
+  "body": zod.string(),
+  "smsText": zod.string(),
+  "usedAi": zod.boolean()
+})
+
+
+/**
+ * @summary Merchant-facing — joint marketing campaigns the scoped tenant participates in (pending approvals included), newest first; tenant scope via x-tenant-id
+ */
+export const ListCoopMarketingCampaignsResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "partnershipId": zod.number(),
+  "templateSlug": zod.string(),
+  "headline": zod.string(),
+  "bodyText": zod.string(),
+  "smsText": zod.string(),
+  "assetPayload": zod.record(zod.string(), zod.unknown()),
+  "channels": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "channel": zod.enum(['sms', 'instagram', 'facebook'])
+})),
+  "scheduledAt": zod.string().nullable(),
+  "status": zod.enum(['pending_approval', 'scheduled', 'sending', 'sent', 'failed', 'declined']),
+  "creatorTenantId": zod.number(),
+  "creatorTenantName": zod.string(),
+  "isCreator": zod.boolean(),
+  "myApproval": zod.enum(['pending', 'approved', 'declined']),
+  "dispatchTriggeredAt": zod.string().nullable(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "approval": zod.enum(['pending', 'approved', 'declined']),
+  "respondedAt": zod.string().nullable()
+})),
+  "createdAt": zod.string()
+})
+export const ListCoopMarketingCampaignsResponse = zod.array(ListCoopMarketingCampaignsResponseItem)
+
+
+/**
+ * @summary Merchant-facing — compose a joint campaign on an accepted partnership; the partner must approve before any dispatch; tenant scope via x-tenant-id
+ */
+export const createCoopMarketingCampaignBodyNameMax = 160;
+
+export const createCoopMarketingCampaignBodyHeadlineMax = 200;
+
+export const createCoopMarketingCampaignBodyBodyTextMax = 1000;
+
+export const createCoopMarketingCampaignBodySmsTextMax = 320;
+
+
+
+
+export const CreateCoopMarketingCampaignBody = zod.object({
+  "partnershipId": zod.number(),
+  "name": zod.string().min(1).max(createCoopMarketingCampaignBodyNameMax),
+  "templateSlug": zod.string(),
+  "headline": zod.string().max(createCoopMarketingCampaignBodyHeadlineMax).optional(),
+  "bodyText": zod.string().max(createCoopMarketingCampaignBodyBodyTextMax).optional(),
+  "smsText": zod.string().max(createCoopMarketingCampaignBodySmsTextMax).optional(),
+  "assetPayload": zod.record(zod.string(), zod.unknown()).optional().describe('Snapshot of the rendered asset inputs (branding + offer fields).'),
+  "channels": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "channel": zod.enum(['sms', 'instagram', 'facebook'])
+})).min(1),
+  "scheduledAt": zod.string().nullish().describe('ISO send time; null\/omitted = send immediately once approved.')
+})
+
+export const CreateCoopMarketingCampaignResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "partnershipId": zod.number(),
+  "templateSlug": zod.string(),
+  "headline": zod.string(),
+  "bodyText": zod.string(),
+  "smsText": zod.string(),
+  "assetPayload": zod.record(zod.string(), zod.unknown()),
+  "channels": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "channel": zod.enum(['sms', 'instagram', 'facebook'])
+})),
+  "scheduledAt": zod.string().nullable(),
+  "status": zod.enum(['pending_approval', 'scheduled', 'sending', 'sent', 'failed', 'declined']),
+  "creatorTenantId": zod.number(),
+  "creatorTenantName": zod.string(),
+  "isCreator": zod.boolean(),
+  "myApproval": zod.enum(['pending', 'approved', 'declined']),
+  "dispatchTriggeredAt": zod.string().nullable(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "approval": zod.enum(['pending', 'approved', 'declined']),
+  "respondedAt": zod.string().nullable()
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — a partner approves or declines a joint campaign before it can go out on their channels/customer list; tenant scope via x-tenant-id
+ */
+export const RespondToCoopMarketingCampaignParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RespondToCoopMarketingCampaignBody = zod.object({
+  "action": zod.enum(['approve', 'decline'])
+})
+
+export const RespondToCoopMarketingCampaignResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "partnershipId": zod.number(),
+  "templateSlug": zod.string(),
+  "headline": zod.string(),
+  "bodyText": zod.string(),
+  "smsText": zod.string(),
+  "assetPayload": zod.record(zod.string(), zod.unknown()),
+  "channels": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "channel": zod.enum(['sms', 'instagram', 'facebook'])
+})),
+  "scheduledAt": zod.string().nullable(),
+  "status": zod.enum(['pending_approval', 'scheduled', 'sending', 'sent', 'failed', 'declined']),
+  "creatorTenantId": zod.number(),
+  "creatorTenantName": zod.string(),
+  "isCreator": zod.boolean(),
+  "myApproval": zod.enum(['pending', 'approved', 'declined']),
+  "dispatchTriggeredAt": zod.string().nullable(),
+  "participants": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "approval": zod.enum(['pending', 'approved', 'declined']),
+  "respondedAt": zod.string().nullable()
+})),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — the creator fires an immediate multi-channel send for a fully-approved campaign; scheduled campaigns fire automatically; tenant scope via x-tenant-id
+ */
+export const DispatchCoopMarketingCampaignParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DispatchCoopMarketingCampaignResponse = zod.object({
+  "dispatched": zod.boolean(),
+  "sends": zod.number(),
+  "smsSent": zod.number(),
+  "smsSkipped": zod.number(),
+  "smsFailed": zod.number()
+})
+
+
+/**
+ * @summary Merchant-facing — unified cross-channel analytics ledger for a campaign (deliveries, failures, clicks, reach; simulated counts flagged); tenant scope via x-tenant-id
+ */
+export const GetCoopMarketingCampaignAnalyticsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCoopMarketingCampaignAnalyticsResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "channel": zod.string(),
+  "status": zod.string(),
+  "simulated": zod.boolean().describe('True when this channel ran without real credentials; its reach is an estimate.'),
+  "recipients": zod.number(),
+  "delivered": zod.number(),
+  "failed": zod.number(),
+  "skipped": zod.number(),
+  "impressions": zod.number(),
+  "clicks": zod.number(),
+  "linkCode": zod.string().nullable()
+})),
+  "totals": zod.object({
+  "delivered": zod.number(),
+  "failed": zod.number(),
+  "clicks": zod.number(),
+  "reach": zod.number().describe('SMS deliveries + social impressions.'),
+  "simulatedReach": zod.number().describe('Portion of reach that came from simulated channels.')
+})
+})
+
+
+/**
  * @summary Merchant-facing — shared co-op event calendar; joint events the scoped tenant hosts or was invited to, soonest first; tenant scope via x-tenant-id
  */
 export const ListCoopEventsResponseItem = zod.object({
@@ -4553,6 +4843,9 @@ export const GetSosSettingsResponse = zod.object({
   "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
   "coopReciprocityMarginPercent": zod.number().nullish().describe('Co-op reciprocity disparity margin (%); null = imbalance flagging off.'),
   "coopReciprocityWindowDays": zod.number().optional().describe('Evaluation window (days) for co-op reciprocity flagging.'),
+  "brandLogoUrl": zod.string().optional().describe('Marketing branding logo as a data URL; empty when unset.'),
+  "brandPrimaryColor": zod.string().optional(),
+  "brandSecondaryColor": zod.string().optional(),
   "updatedAt": zod.string()
 })
 
@@ -4580,6 +4873,14 @@ export const updateSosSettingsBodyCoopReciprocityMarginPercentMin = 0;
 export const updateSosSettingsBodyCoopReciprocityMarginPercentMax = 100;
 
 export const updateSosSettingsBodyCoopReciprocityWindowDaysMax = 365;
+
+export const updateSosSettingsBodyBrandLogoUrlMax = 400000;
+
+
+export const updateSosSettingsBodyBrandLogoUrlRegExp = new RegExp('^$|^data:image');
+export const updateSosSettingsBodyBrandPrimaryColorMax = 32;
+
+export const updateSosSettingsBodyBrandSecondaryColorMax = 32;
 
 
 
@@ -4611,7 +4912,10 @@ export const UpdateSosSettingsBody = zod.object({
   "coopRadiusMiles": zod.number().min(1).max(updateSosSettingsBodyCoopRadiusMilesMax).optional(),
   "coopRadiusOverrideMiles": zod.number().min(updateSosSettingsBodyCoopRadiusOverrideMilesMin).max(updateSosSettingsBodyCoopRadiusOverrideMilesMax).nullish().describe('Merchant override of the co-op radius (miles). Send null to revert to automatic.'),
   "coopReciprocityMarginPercent": zod.number().min(updateSosSettingsBodyCoopReciprocityMarginPercentMin).max(updateSosSettingsBodyCoopReciprocityMarginPercentMax).nullish(),
-  "coopReciprocityWindowDays": zod.number().min(1).max(updateSosSettingsBodyCoopReciprocityWindowDaysMax).optional()
+  "coopReciprocityWindowDays": zod.number().min(1).max(updateSosSettingsBodyCoopReciprocityWindowDaysMax).optional(),
+  "brandLogoUrl": zod.string().max(updateSosSettingsBodyBrandLogoUrlMax).regex(updateSosSettingsBodyBrandLogoUrlRegExp).optional().describe('Marketing branding logo as a data URL (client-resized); empty string clears it.'),
+  "brandPrimaryColor": zod.string().max(updateSosSettingsBodyBrandPrimaryColorMax).optional(),
+  "brandSecondaryColor": zod.string().max(updateSosSettingsBodyBrandSecondaryColorMax).optional()
 })
 
 export const UpdateSosSettingsResponse = zod.object({
@@ -4653,6 +4957,9 @@ export const UpdateSosSettingsResponse = zod.object({
   "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
   "coopReciprocityMarginPercent": zod.number().nullish().describe('Co-op reciprocity disparity margin (%); null = imbalance flagging off.'),
   "coopReciprocityWindowDays": zod.number().optional().describe('Evaluation window (days) for co-op reciprocity flagging.'),
+  "brandLogoUrl": zod.string().optional().describe('Marketing branding logo as a data URL; empty when unset.'),
+  "brandPrimaryColor": zod.string().optional(),
+  "brandSecondaryColor": zod.string().optional(),
   "updatedAt": zod.string()
 })
 
@@ -5221,7 +5528,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -5250,7 +5557,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -6681,6 +6988,9 @@ export const GetTenantSettingsResponse = zod.object({
   "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
   "coopReciprocityMarginPercent": zod.number().nullish().describe('Co-op reciprocity disparity margin (%); null = imbalance flagging off.'),
   "coopReciprocityWindowDays": zod.number().optional().describe('Evaluation window (days) for co-op reciprocity flagging.'),
+  "brandLogoUrl": zod.string().optional().describe('Marketing branding logo as a data URL; empty when unset.'),
+  "brandPrimaryColor": zod.string().optional(),
+  "brandSecondaryColor": zod.string().optional(),
   "updatedAt": zod.string()
 })
 
@@ -6713,6 +7023,14 @@ export const updateTenantSettingsBodyCoopReciprocityMarginPercentMax = 100;
 
 export const updateTenantSettingsBodyCoopReciprocityWindowDaysMax = 365;
 
+export const updateTenantSettingsBodyBrandLogoUrlMax = 400000;
+
+
+export const updateTenantSettingsBodyBrandLogoUrlRegExp = new RegExp('^$|^data:image');
+export const updateTenantSettingsBodyBrandPrimaryColorMax = 32;
+
+export const updateTenantSettingsBodyBrandSecondaryColorMax = 32;
+
 
 
 export const UpdateTenantSettingsBody = zod.object({
@@ -6743,7 +7061,10 @@ export const UpdateTenantSettingsBody = zod.object({
   "coopRadiusMiles": zod.number().min(1).max(updateTenantSettingsBodyCoopRadiusMilesMax).optional(),
   "coopRadiusOverrideMiles": zod.number().min(updateTenantSettingsBodyCoopRadiusOverrideMilesMin).max(updateTenantSettingsBodyCoopRadiusOverrideMilesMax).nullish().describe('Merchant override of the co-op radius (miles). Send null to revert to automatic.'),
   "coopReciprocityMarginPercent": zod.number().min(updateTenantSettingsBodyCoopReciprocityMarginPercentMin).max(updateTenantSettingsBodyCoopReciprocityMarginPercentMax).nullish(),
-  "coopReciprocityWindowDays": zod.number().min(1).max(updateTenantSettingsBodyCoopReciprocityWindowDaysMax).optional()
+  "coopReciprocityWindowDays": zod.number().min(1).max(updateTenantSettingsBodyCoopReciprocityWindowDaysMax).optional(),
+  "brandLogoUrl": zod.string().max(updateTenantSettingsBodyBrandLogoUrlMax).regex(updateTenantSettingsBodyBrandLogoUrlRegExp).optional().describe('Marketing branding logo as a data URL (client-resized); empty string clears it.'),
+  "brandPrimaryColor": zod.string().max(updateTenantSettingsBodyBrandPrimaryColorMax).optional(),
+  "brandSecondaryColor": zod.string().max(updateTenantSettingsBodyBrandSecondaryColorMax).optional()
 })
 
 export const UpdateTenantSettingsResponse = zod.object({
@@ -6785,6 +7106,9 @@ export const UpdateTenantSettingsResponse = zod.object({
   "coopRadiusEffectiveMiles": zod.number().describe('Effective co-op radius — the override when set, else the auto default.'),
   "coopReciprocityMarginPercent": zod.number().nullish().describe('Co-op reciprocity disparity margin (%); null = imbalance flagging off.'),
   "coopReciprocityWindowDays": zod.number().optional().describe('Evaluation window (days) for co-op reciprocity flagging.'),
+  "brandLogoUrl": zod.string().optional().describe('Marketing branding logo as a data URL; empty when unset.'),
+  "brandPrimaryColor": zod.string().optional(),
+  "brandSecondaryColor": zod.string().optional(),
   "updatedAt": zod.string()
 })
 

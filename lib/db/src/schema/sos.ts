@@ -82,6 +82,12 @@ export const sosSettingsTable = pgTable("sos_settings", {
   // How lat/lng were set: "" (unset), "manual" (typed by the merchant — never
   // overwritten by auto-detection) or "auto" (geocoded from the address).
   coordinatesSource: text("coordinates_source").notNull().default(""),
+  // ── Marketing branding assets ──────────────────────────────────────────────
+  // Logo stored as a data URL (client-side resized before upload; empty when
+  // unset) plus brand colors, used by the co-op Marketing Hub asset generator.
+  brandLogoUrl: text("brand_logo_url").notNull().default(""),
+  brandPrimaryColor: text("brand_primary_color").notNull().default(""),
+  brandSecondaryColor: text("brand_secondary_color").notNull().default(""),
   // Auto-detected commercial density around the address: dense_urban |
   // suburban | rural. Suburban is the documented fallback when the address is
   // missing or geocoding/POI lookup fails.

@@ -50,6 +50,7 @@ import { CoopCampaignsSection } from '@/components/sos/coop-campaigns-content';
 import {
   FileFinancialDisputeDialog, FinancialDisputesSection,
 } from '@/components/sos/coop-financial-disputes-content';
+import { CoopMarketingSection } from '@/components/sos/coop-marketing-content';
 import { PassportChallengesSection } from '@/components/sos/passport-challenges-content';
 import { CoopEventsSection } from '@/components/sos/coop-events-content';
 import { CoopProcurementSection } from '@/components/sos/coop-procurement-content';
@@ -202,6 +203,10 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
       {/* Flash campaigns & seasonal blasts — synchronized limited-time perks
           across the partner network with one frequency-capped joint SMS. */}
       <CoopCampaignsSection tenantId={tenantId} />
+
+      {/* Marketing Hub — co-branded asset generator, joint multi-channel
+          syndication (social + SMS) with partner approval, unified analytics. */}
+      <CoopMarketingSection tenantId={tenantId} />
 
       {/* Neighborhood Passport — sponsor milestone challenges that reward
           customers for redeeming perks at N distinct partner businesses. */}

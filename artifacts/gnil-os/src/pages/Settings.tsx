@@ -106,6 +106,11 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
   });
   const [coopMargin, setCoopMargin] = useState('');
   const [coopWindow, setCoopWindow] = useState('30');
+  const [branding, setBranding] = React.useState({
+    brandLogoUrl: '',
+    brandPrimaryColor: '#1e3a5f',
+    brandSecondaryColor: '#f4a259',
+  });
 
   const initialized = useRef(false);
 
@@ -148,6 +153,11 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
         settings.coopReciprocityMarginPercent == null ? '' : String(settings.coopReciprocityMarginPercent),
       );
       setCoopWindow(String(settings.coopReciprocityWindowDays ?? 30));
+      setBranding({
+        brandLogoUrl: settings.brandLogoUrl ?? '',
+        brandPrimaryColor: settings.brandPrimaryColor || '#1e3a5f',
+        brandSecondaryColor: settings.brandSecondaryColor || '#f4a259',
+      });
       initialized.current = true;
     }
   }, [settings]);
@@ -200,6 +210,9 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       coopRadiusOverrideMiles: number | null;
       coopReciprocityMarginPercent: number | null;
       coopReciprocityWindowDays: number;
+      brandLogoUrl: string;
+      brandPrimaryColor: string;
+      brandSecondaryColor: string;
     }>,
   ) => {
     const onSuccess = () => {
@@ -425,6 +438,16 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
           seo={seo}
           setSeo={setSeo}
           onSave={() => saveSection('Local SEO profile', seo)}
+          isPending={isPending}
+        />
+      )}
+
+      {/* ── Marketing Branding (tenant-scoped only) ─────────────────── */}
+      {isTenantScoped && (
+        <BrandingCard
+          branding={branding}
+          setBranding={setBranding}
+          onSave={() => saveSection('Marketing branding', branding)}
           isPending={isPending}
         />
       )}
@@ -934,6 +957,119 @@ function CoopRadiusCard({
             data-testid="button-save-coop-radius"
           >
             Save Radius
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Marketing Branding section (tenant-scoped only): logo upload (stored as a
+ * client-resized data URL) and brand colors used by the Co-Op Marketing Hub
+ * asset generator. Sensible defaults apply when unset.
+ */
+function BrandingCard({
+  branding, setBranding, onSave, isPending,
+}: {
+  branding: { brandLogoUrl: string; brandPrimaryColor: string; brandSecondaryColor: string };
+  setBranding: React.Dispatch<React.SetStateAction<{
+    brandLogoUrl: string; brandPrimaryColor: string; brandSecondaryColor: string;
+  }>>;
+  onSave: () => void;
+  isPending: boolean;
+}) {
+  const onLogoFile = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        // Resize client-side so the stored data URL stays small.
+        const max = 256;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setBranding(b => ({ ...b, brandLogoUrl: canvas.toDataURL('image/png') }));
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <Card id="branding" className="scroll-mt-6" data-testid="section-branding">
+      <CardHeader>
+        <CardTitle>Marketing Branding</CardTitle>
+        <CardDescription>
+          Your logo and brand colors power the co-branded assets in the Co-Op Marketing Hub.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-4">
+          {branding.brandLogoUrl ? (
+            <img
+              src={branding.brandLogoUrl}
+              alt="Business logo"
+              className="w-16 h-16 rounded-md border object-contain bg-white"
+              data-testid="img-brand-logo"
+            />
+          ) : (
+            <div
+              className="w-16 h-16 rounded-md border border-dashed flex items-center justify-center text-xs text-muted-foreground"
+              data-testid="placeholder-brand-logo"
+            >
+              No logo
+            </div>
+          )}
+          <div className="space-y-1">
+            <Input
+              type="file"
+              accept="image/*"
+              className="max-w-xs"
+              onChange={e => onLogoFile(e.target.files?.[0])}
+              data-testid="input-brand-logo"
+            />
+            {branding.brandLogoUrl && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground -ml-2"
+                onClick={() => setBranding(b => ({ ...b, brandLogoUrl: '' }))}
+                data-testid="button-clear-brand-logo"
+              >
+                Remove logo
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4 max-w-sm">
+          <div className="grid gap-1.5">
+            <Label htmlFor="brand-primary">Primary color</Label>
+            <Input
+              id="brand-primary"
+              type="color"
+              value={branding.brandPrimaryColor}
+              onChange={e => setBranding(b => ({ ...b, brandPrimaryColor: e.target.value }))}
+              data-testid="input-brand-primary"
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="brand-secondary">Secondary color</Label>
+            <Input
+              id="brand-secondary"
+              type="color"
+              value={branding.brandSecondaryColor}
+              onChange={e => setBranding(b => ({ ...b, brandSecondaryColor: e.target.value }))}
+              data-testid="input-brand-secondary"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={onSave} disabled={isPending} data-testid="button-save-branding">
+            Save Branding
           </Button>
         </div>
       </CardContent>

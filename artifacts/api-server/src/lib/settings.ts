@@ -188,6 +188,9 @@ export async function serializeSettings(s: SosSettingsRow) {
     coopRadiusEffectiveMiles: effectiveCoopRadiusMiles(s),
     coopReciprocityMarginPercent: s.coopReciprocityMarginPercent,
     coopReciprocityWindowDays: s.coopReciprocityWindowDays,
+    brandLogoUrl: s.brandLogoUrl,
+    brandPrimaryColor: s.brandPrimaryColor,
+    brandSecondaryColor: s.brandSecondaryColor,
     updatedAt: s.updatedAt.toISOString(),
   };
 }

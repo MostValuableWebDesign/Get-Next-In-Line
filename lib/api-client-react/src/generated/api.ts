@@ -92,6 +92,17 @@ import type {
   CoopInviteCreate,
   CoopInviteRespond,
   CoopLedgerResponse,
+  CoopMarketingAnalytics,
+  CoopMarketingBrandingPair,
+  CoopMarketingCampaign,
+  CoopMarketingCampaignCreate,
+  CoopMarketingChannelConnection,
+  CoopMarketingChannelCreate,
+  CoopMarketingCopy,
+  CoopMarketingCopySuggestBody,
+  CoopMarketingDispatchResult,
+  CoopMarketingRespondBody,
+  CoopMarketingTemplate,
   CoopMonthlyReport,
   CoopPartnerPayoutsResponse,
   CoopPartnerPerformance,
@@ -168,6 +179,7 @@ import type {
   GetAdminComplianceSummaryParams,
   GetCoopComplianceSummaryParams,
   GetCoopLedgerParams,
+  GetCoopMarketingBrandingParams,
   GetCoopStatsParams,
   GetGratuityShiftReportParams,
   GetSosGratuityLedgerParams,
@@ -5805,6 +5817,825 @@ export const useTriggerCoopCampaignBlast = <TError = ErrorType<void>,
       > => {
       return useMutation(getTriggerCoopCampaignBlastMutationOptions(options));
     }
+
+export const getListCoopMarketingTemplatesUrl = () => {
+
+
+
+
+  return `/api/coop/marketing/templates`
+}
+
+/**
+ * @summary Merchant-facing — Marketing Hub asset template library (channel-exact dimensions)
+ */
+export const listCoopMarketingTemplates = async ( options?: RequestInit): Promise<CoopMarketingTemplate[]> => {
+
+  return customFetch<CoopMarketingTemplate[]>(getListCoopMarketingTemplatesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopMarketingTemplatesQueryKey = () => {
+    return [
+    `/api/coop/marketing/templates`
+    ] as const;
+    }
+
+
+export const getListCoopMarketingTemplatesQueryOptions = <TData = Awaited<ReturnType<typeof listCoopMarketingTemplates>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopMarketingTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopMarketingTemplatesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopMarketingTemplates>>> = ({ signal }) => listCoopMarketingTemplates({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopMarketingTemplates>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopMarketingTemplatesQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopMarketingTemplates>>>
+export type ListCoopMarketingTemplatesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Merchant-facing — Marketing Hub asset template library (channel-exact dimensions)
+ */
+
+export function useListCoopMarketingTemplates<TData = Awaited<ReturnType<typeof listCoopMarketingTemplates>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopMarketingTemplates>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopMarketingTemplatesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCoopMarketingBrandingUrl = (params: GetCoopMarketingBrandingParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/coop/marketing/branding?${stringifiedParams}` : `/api/coop/marketing/branding`
+}
+
+/**
+ * @summary Merchant-facing — both businesses' branding inputs (name, logo, colors with defaults) for a partnership; tenant scope via x-tenant-id
+ */
+export const getCoopMarketingBranding = async (params: GetCoopMarketingBrandingParams, options?: RequestInit): Promise<CoopMarketingBrandingPair> => {
+
+  return customFetch<CoopMarketingBrandingPair>(getGetCoopMarketingBrandingUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopMarketingBrandingQueryKey = (params?: GetCoopMarketingBrandingParams,) => {
+    return [
+    `/api/coop/marketing/branding`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCoopMarketingBrandingQueryOptions = <TData = Awaited<ReturnType<typeof getCoopMarketingBranding>>, TError = ErrorType<void>>(params: GetCoopMarketingBrandingParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopMarketingBranding>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopMarketingBrandingQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopMarketingBranding>>> = ({ signal }) => getCoopMarketingBranding(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopMarketingBranding>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopMarketingBrandingQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopMarketingBranding>>>
+export type GetCoopMarketingBrandingQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — both businesses' branding inputs (name, logo, colors with defaults) for a partnership; tenant scope via x-tenant-id
+ */
+
+export function useGetCoopMarketingBranding<TData = Awaited<ReturnType<typeof getCoopMarketingBranding>>, TError = ErrorType<void>>(
+ params: GetCoopMarketingBrandingParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopMarketingBranding>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopMarketingBrandingQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListCoopMarketingChannelsUrl = () => {
+
+
+
+
+  return `/api/coop/marketing/channels`
+}
+
+/**
+ * @summary Merchant-facing — the scoped tenant's connected social channels with live/simulated mode; tenant scope via x-tenant-id
+ */
+export const listCoopMarketingChannels = async ( options?: RequestInit): Promise<CoopMarketingChannelConnection[]> => {
+
+  return customFetch<CoopMarketingChannelConnection[]>(getListCoopMarketingChannelsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopMarketingChannelsQueryKey = () => {
+    return [
+    `/api/coop/marketing/channels`
+    ] as const;
+    }
+
+
+export const getListCoopMarketingChannelsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopMarketingChannels>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopMarketingChannels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopMarketingChannelsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopMarketingChannels>>> = ({ signal }) => listCoopMarketingChannels({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopMarketingChannels>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopMarketingChannelsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopMarketingChannels>>>
+export type ListCoopMarketingChannelsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — the scoped tenant's connected social channels with live/simulated mode; tenant scope via x-tenant-id
+ */
+
+export function useListCoopMarketingChannels<TData = Awaited<ReturnType<typeof listCoopMarketingChannels>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopMarketingChannels>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopMarketingChannelsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopMarketingChannelUrl = () => {
+
+
+
+
+  return `/api/coop/marketing/channels`
+}
+
+/**
+ * @summary Merchant-facing — connect a social channel (simulated mode when no real credentials are configured); tenant scope via x-tenant-id
+ */
+export const createCoopMarketingChannel = async (coopMarketingChannelCreate: CoopMarketingChannelCreate, options?: RequestInit): Promise<CoopMarketingChannelConnection> => {
+
+  return customFetch<CoopMarketingChannelConnection>(getCreateCoopMarketingChannelUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopMarketingChannelCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopMarketingChannelMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopMarketingChannel>>, TError,{data: BodyType<CoopMarketingChannelCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopMarketingChannel>>, TError,{data: BodyType<CoopMarketingChannelCreate>}, TContext> => {
+
+const mutationKey = ['createCoopMarketingChannel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopMarketingChannel>>, {data: BodyType<CoopMarketingChannelCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopMarketingChannel(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopMarketingChannelMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopMarketingChannel>>>
+    export type CreateCoopMarketingChannelMutationBody = BodyType<CoopMarketingChannelCreate>
+    export type CreateCoopMarketingChannelMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — connect a social channel (simulated mode when no real credentials are configured); tenant scope via x-tenant-id
+ */
+export const useCreateCoopMarketingChannel = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopMarketingChannel>>, TError,{data: BodyType<CoopMarketingChannelCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopMarketingChannel>>,
+        TError,
+        {data: BodyType<CoopMarketingChannelCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopMarketingChannelMutationOptions(options));
+    }
+
+export const getDeleteCoopMarketingChannelUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/marketing/channels/${id}`
+}
+
+/**
+ * @summary Merchant-facing — disconnect a social channel; tenant scope via x-tenant-id
+ */
+export const deleteCoopMarketingChannel = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteCoopMarketingChannelUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteCoopMarketingChannelMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCoopMarketingChannel>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCoopMarketingChannel>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteCoopMarketingChannel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCoopMarketingChannel>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteCoopMarketingChannel(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCoopMarketingChannelMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCoopMarketingChannel>>>
+
+    export type DeleteCoopMarketingChannelMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — disconnect a social channel; tenant scope via x-tenant-id
+ */
+export const useDeleteCoopMarketingChannel = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCoopMarketingChannel>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCoopMarketingChannel>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteCoopMarketingChannelMutationOptions(options));
+    }
+
+export const getSuggestCoopMarketingCopyUrl = () => {
+
+
+
+
+  return `/api/coop/marketing/copy`
+}
+
+/**
+ * @summary Merchant-facing — AI-suggested co-branded promo copy (deterministic template fallback), always editable; tenant scope via x-tenant-id
+ */
+export const suggestCoopMarketingCopy = async (coopMarketingCopySuggestBody: CoopMarketingCopySuggestBody, options?: RequestInit): Promise<CoopMarketingCopy> => {
+
+  return customFetch<CoopMarketingCopy>(getSuggestCoopMarketingCopyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopMarketingCopySuggestBody)
+  }
+);}
+
+
+
+
+
+export const getSuggestCoopMarketingCopyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suggestCoopMarketingCopy>>, TError,{data: BodyType<CoopMarketingCopySuggestBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof suggestCoopMarketingCopy>>, TError,{data: BodyType<CoopMarketingCopySuggestBody>}, TContext> => {
+
+const mutationKey = ['suggestCoopMarketingCopy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof suggestCoopMarketingCopy>>, {data: BodyType<CoopMarketingCopySuggestBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  suggestCoopMarketingCopy(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SuggestCoopMarketingCopyMutationResult = NonNullable<Awaited<ReturnType<typeof suggestCoopMarketingCopy>>>
+    export type SuggestCoopMarketingCopyMutationBody = BodyType<CoopMarketingCopySuggestBody>
+    export type SuggestCoopMarketingCopyMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — AI-suggested co-branded promo copy (deterministic template fallback), always editable; tenant scope via x-tenant-id
+ */
+export const useSuggestCoopMarketingCopy = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof suggestCoopMarketingCopy>>, TError,{data: BodyType<CoopMarketingCopySuggestBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof suggestCoopMarketingCopy>>,
+        TError,
+        {data: BodyType<CoopMarketingCopySuggestBody>},
+        TContext
+      > => {
+      return useMutation(getSuggestCoopMarketingCopyMutationOptions(options));
+    }
+
+export const getListCoopMarketingCampaignsUrl = () => {
+
+
+
+
+  return `/api/coop/marketing/campaigns`
+}
+
+/**
+ * @summary Merchant-facing — joint marketing campaigns the scoped tenant participates in (pending approvals included), newest first; tenant scope via x-tenant-id
+ */
+export const listCoopMarketingCampaigns = async ( options?: RequestInit): Promise<CoopMarketingCampaign[]> => {
+
+  return customFetch<CoopMarketingCampaign[]>(getListCoopMarketingCampaignsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopMarketingCampaignsQueryKey = () => {
+    return [
+    `/api/coop/marketing/campaigns`
+    ] as const;
+    }
+
+
+export const getListCoopMarketingCampaignsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopMarketingCampaigns>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopMarketingCampaigns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopMarketingCampaignsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopMarketingCampaigns>>> = ({ signal }) => listCoopMarketingCampaigns({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopMarketingCampaigns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopMarketingCampaignsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopMarketingCampaigns>>>
+export type ListCoopMarketingCampaignsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — joint marketing campaigns the scoped tenant participates in (pending approvals included), newest first; tenant scope via x-tenant-id
+ */
+
+export function useListCoopMarketingCampaigns<TData = Awaited<ReturnType<typeof listCoopMarketingCampaigns>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopMarketingCampaigns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopMarketingCampaignsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopMarketingCampaignUrl = () => {
+
+
+
+
+  return `/api/coop/marketing/campaigns`
+}
+
+/**
+ * @summary Merchant-facing — compose a joint campaign on an accepted partnership; the partner must approve before any dispatch; tenant scope via x-tenant-id
+ */
+export const createCoopMarketingCampaign = async (coopMarketingCampaignCreate: CoopMarketingCampaignCreate, options?: RequestInit): Promise<CoopMarketingCampaign> => {
+
+  return customFetch<CoopMarketingCampaign>(getCreateCoopMarketingCampaignUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopMarketingCampaignCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopMarketingCampaignMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopMarketingCampaign>>, TError,{data: BodyType<CoopMarketingCampaignCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopMarketingCampaign>>, TError,{data: BodyType<CoopMarketingCampaignCreate>}, TContext> => {
+
+const mutationKey = ['createCoopMarketingCampaign'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopMarketingCampaign>>, {data: BodyType<CoopMarketingCampaignCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopMarketingCampaign(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopMarketingCampaignMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopMarketingCampaign>>>
+    export type CreateCoopMarketingCampaignMutationBody = BodyType<CoopMarketingCampaignCreate>
+    export type CreateCoopMarketingCampaignMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — compose a joint campaign on an accepted partnership; the partner must approve before any dispatch; tenant scope via x-tenant-id
+ */
+export const useCreateCoopMarketingCampaign = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopMarketingCampaign>>, TError,{data: BodyType<CoopMarketingCampaignCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopMarketingCampaign>>,
+        TError,
+        {data: BodyType<CoopMarketingCampaignCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopMarketingCampaignMutationOptions(options));
+    }
+
+export const getRespondToCoopMarketingCampaignUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/marketing/campaigns/${id}/respond`
+}
+
+/**
+ * @summary Merchant-facing — a partner approves or declines a joint campaign before it can go out on their channels/customer list; tenant scope via x-tenant-id
+ */
+export const respondToCoopMarketingCampaign = async (id: number,
+    coopMarketingRespondBody: CoopMarketingRespondBody, options?: RequestInit): Promise<CoopMarketingCampaign> => {
+
+  return customFetch<CoopMarketingCampaign>(getRespondToCoopMarketingCampaignUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopMarketingRespondBody)
+  }
+);}
+
+
+
+
+
+export const getRespondToCoopMarketingCampaignMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopMarketingCampaign>>, TError,{id: number;data: BodyType<CoopMarketingRespondBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof respondToCoopMarketingCampaign>>, TError,{id: number;data: BodyType<CoopMarketingRespondBody>}, TContext> => {
+
+const mutationKey = ['respondToCoopMarketingCampaign'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof respondToCoopMarketingCampaign>>, {id: number;data: BodyType<CoopMarketingRespondBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  respondToCoopMarketingCampaign(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RespondToCoopMarketingCampaignMutationResult = NonNullable<Awaited<ReturnType<typeof respondToCoopMarketingCampaign>>>
+    export type RespondToCoopMarketingCampaignMutationBody = BodyType<CoopMarketingRespondBody>
+    export type RespondToCoopMarketingCampaignMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — a partner approves or declines a joint campaign before it can go out on their channels/customer list; tenant scope via x-tenant-id
+ */
+export const useRespondToCoopMarketingCampaign = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof respondToCoopMarketingCampaign>>, TError,{id: number;data: BodyType<CoopMarketingRespondBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof respondToCoopMarketingCampaign>>,
+        TError,
+        {id: number;data: BodyType<CoopMarketingRespondBody>},
+        TContext
+      > => {
+      return useMutation(getRespondToCoopMarketingCampaignMutationOptions(options));
+    }
+
+export const getDispatchCoopMarketingCampaignUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/marketing/campaigns/${id}/dispatch`
+}
+
+/**
+ * @summary Merchant-facing — the creator fires an immediate multi-channel send for a fully-approved campaign; scheduled campaigns fire automatically; tenant scope via x-tenant-id
+ */
+export const dispatchCoopMarketingCampaign = async (id: number, options?: RequestInit): Promise<CoopMarketingDispatchResult> => {
+
+  return customFetch<CoopMarketingDispatchResult>(getDispatchCoopMarketingCampaignUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDispatchCoopMarketingCampaignMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchCoopMarketingCampaign>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof dispatchCoopMarketingCampaign>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['dispatchCoopMarketingCampaign'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof dispatchCoopMarketingCampaign>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  dispatchCoopMarketingCampaign(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DispatchCoopMarketingCampaignMutationResult = NonNullable<Awaited<ReturnType<typeof dispatchCoopMarketingCampaign>>>
+
+    export type DispatchCoopMarketingCampaignMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — the creator fires an immediate multi-channel send for a fully-approved campaign; scheduled campaigns fire automatically; tenant scope via x-tenant-id
+ */
+export const useDispatchCoopMarketingCampaign = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof dispatchCoopMarketingCampaign>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof dispatchCoopMarketingCampaign>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDispatchCoopMarketingCampaignMutationOptions(options));
+    }
+
+export const getGetCoopMarketingCampaignAnalyticsUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/marketing/campaigns/${id}/analytics`
+}
+
+/**
+ * @summary Merchant-facing — unified cross-channel analytics ledger for a campaign (deliveries, failures, clicks, reach; simulated counts flagged); tenant scope via x-tenant-id
+ */
+export const getCoopMarketingCampaignAnalytics = async (id: number, options?: RequestInit): Promise<CoopMarketingAnalytics> => {
+
+  return customFetch<CoopMarketingAnalytics>(getGetCoopMarketingCampaignAnalyticsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopMarketingCampaignAnalyticsQueryKey = (id: number,) => {
+    return [
+    `/api/coop/marketing/campaigns/${id}/analytics`
+    ] as const;
+    }
+
+
+export const getGetCoopMarketingCampaignAnalyticsQueryOptions = <TData = Awaited<ReturnType<typeof getCoopMarketingCampaignAnalytics>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopMarketingCampaignAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopMarketingCampaignAnalyticsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopMarketingCampaignAnalytics>>> = ({ signal }) => getCoopMarketingCampaignAnalytics(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopMarketingCampaignAnalytics>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopMarketingCampaignAnalyticsQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopMarketingCampaignAnalytics>>>
+export type GetCoopMarketingCampaignAnalyticsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — unified cross-channel analytics ledger for a campaign (deliveries, failures, clicks, reach; simulated counts flagged); tenant scope via x-tenant-id
+ */
+
+export function useGetCoopMarketingCampaignAnalytics<TData = Awaited<ReturnType<typeof getCoopMarketingCampaignAnalytics>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopMarketingCampaignAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopMarketingCampaignAnalyticsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListCoopEventsUrl = () => {
 
