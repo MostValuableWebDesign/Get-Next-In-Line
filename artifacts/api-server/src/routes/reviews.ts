@@ -6,6 +6,7 @@ import {
   CreateTenantReviewBody,
   UpdateTenantReviewBody,
 } from "@workspace/api-zod";
+import { requireRole } from "../middlewares/roles";
 
 // ── Tenant review management (session-authenticated) ────────────────────────
 // Owner-facing CRUD for the customer reviews shown on the public SEO landing
@@ -50,7 +51,12 @@ router.get("/tenants/:id/reviews", async (req, res): Promise<void> => {
   res.json(rows.map(serializeReview));
 });
 
-router.post("/tenants/:id/reviews", async (req, res): Promise<void> => {
+// Review curation is owner/admin surface (it controls what appears on the
+// public landing page) — staff are read-only, enforced at route level like
+// the tenant settings writes.
+const requireReviewWriteRole = requireRole("super_admin", "district_manager", "merchant");
+
+router.post("/tenants/:id/reviews", requireReviewWriteRole, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   if (!(await tenantExists(tenantId))) {
     res.status(404).json({ error: "Tenant not found" });
@@ -70,7 +76,7 @@ router.post("/tenants/:id/reviews", async (req, res): Promise<void> => {
   res.status(201).json(serializeReview(created));
 });
 
-router.patch("/tenants/:id/reviews/:reviewId", async (req, res): Promise<void> => {
+router.patch("/tenants/:id/reviews/:reviewId", requireReviewWriteRole, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   const reviewId = Number(req.params.reviewId);
   if (!(await tenantExists(tenantId)) || !Number.isInteger(reviewId)) {
@@ -92,7 +98,7 @@ router.patch("/tenants/:id/reviews/:reviewId", async (req, res): Promise<void> =
   res.json(serializeReview(updated));
 });
 
-router.delete("/tenants/:id/reviews/:reviewId", async (req, res): Promise<void> => {
+router.delete("/tenants/:id/reviews/:reviewId", requireReviewWriteRole, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   const reviewId = Number(req.params.reviewId);
   if (!(await tenantExists(tenantId)) || !Number.isInteger(reviewId)) {

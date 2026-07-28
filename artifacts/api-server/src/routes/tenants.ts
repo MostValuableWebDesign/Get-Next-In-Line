@@ -50,7 +50,13 @@ router.get("/tenants/:id/settings", async (req, res): Promise<void> => {
   res.json(GetTenantSettingsResponse.parse(await serializeSettings(settings)));
 });
 
-router.patch("/tenants/:id/settings", async (req, res): Promise<void> => {
+// Brand-level settings writes are owner/admin surface: merchants (business
+// owners), district managers, and platform admins. Staff are read-only here
+// — enforced at route level (defense in depth beyond the path-prefix staff
+// guard in middlewares/tenantAccess.ts). Reads stay open to any member.
+const requireSettingsWriteRole = requireRole("super_admin", "district_manager", "merchant");
+
+router.patch("/tenants/:id/settings", requireSettingsWriteRole, async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
   const body = UpdateTenantSettingsBody.parse(req.body);
   const settings = Number.isInteger(tenantId)
@@ -312,7 +318,11 @@ router.get("/tenants/:id/modules", async (req, res): Promise<void> => {
   );
 });
 
-router.patch("/tenants/:id", async (req, res): Promise<void> => {
+// Tenant record management (brand name, subdomain, status, payout account,
+// deletion) is platform-level — same bar as provisioning (POST /tenants).
+// Membership alone must not allow a merchant to rewrite or delete their own
+// tenant record.
+router.patch("/tenants/:id", requireRole("super_admin"), async (req, res): Promise<void> => {
   const params = UpdateTenantParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -369,7 +379,7 @@ router.patch("/tenants/:id", async (req, res): Promise<void> => {
   );
 });
 
-router.delete("/tenants/:id", async (req, res): Promise<void> => {
+router.delete("/tenants/:id", requireRole("super_admin"), async (req, res): Promise<void> => {
   const params = DeleteTenantParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
