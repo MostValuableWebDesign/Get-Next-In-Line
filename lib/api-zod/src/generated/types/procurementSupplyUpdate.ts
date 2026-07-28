@@ -24,4 +24,5 @@ export interface ProcurementSupplyUpdate {
   /** @nullable */
   vendorItemId?: number | null;
   autoRequestEnabled?: boolean;
+  autoRestockEnabled?: boolean;
 }

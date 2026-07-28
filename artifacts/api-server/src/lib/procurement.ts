@@ -260,6 +260,27 @@ export async function closeGroupBuy(groupBuyId: number, now: Date = new Date()):
           }))
         )
         .onConflictDoNothing();
+
+      // Close the replenishment loop: each participant's supply items linked
+      // to this vendor item gain the settled quantity on hand (unless the
+      // merchant opted out of auto-restock). Mirrors the PATCH-route restock
+      // behavior — reaching the threshold resets the reorder-reminder episode.
+      for (const p of participants) {
+        await tx
+          .update(procurementSupplyItemsTable)
+          .set({
+            onHandQty: sql`${procurementSupplyItemsTable.onHandQty} + ${p.quantity}`,
+            lastReorderRemindedAt: sql`CASE WHEN ${procurementSupplyItemsTable.onHandQty} + ${p.quantity} >= ${procurementSupplyItemsTable.lowStockThreshold} THEN NULL ELSE ${procurementSupplyItemsTable.lastReorderRemindedAt} END`,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(procurementSupplyItemsTable.tenantId, p.tenantId),
+              eq(procurementSupplyItemsTable.vendorItemId, claimed.vendorItemId),
+              eq(procurementSupplyItemsTable.autoRestockEnabled, true)
+            )
+          );
+      }
     }
     return true;
   });

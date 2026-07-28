@@ -6671,6 +6671,8 @@ export interface ProcurementSupplyItem {
   /** @nullable */
   vendorName?: string | null;
   autoRequestEnabled: boolean;
+  /** When true (default), a settling group buy on the linked vendor item adds the settled quantity to on-hand stock automatically. */
+  autoRestockEnabled: boolean;
   /** True when on-hand quantity is below the low-stock threshold — a reorder reminder is due. */
   belowThreshold: boolean;
   /**
@@ -6700,6 +6702,7 @@ export interface ProcurementSupplyCreate {
   lowStockThreshold?: number;
   vendorItemId?: number;
   autoRequestEnabled?: boolean;
+  autoRestockEnabled?: boolean;
 }
 
 export interface ProcurementSupplyUpdate {
@@ -6720,6 +6723,7 @@ export interface ProcurementSupplyUpdate {
   /** @nullable */
   vendorItemId?: number | null;
   autoRequestEnabled?: boolean;
+  autoRestockEnabled?: boolean;
 }
 
 export interface ProcurementReplenishRequest {

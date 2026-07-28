@@ -117,7 +117,7 @@ export function CoopProcurementSection({ tenantId }: { tenantId: number }) {
   const [supplyDialogOpen, setSupplyDialogOpen] = useState(false);
   const [supplyForm, setSupplyForm] = useState({
     name: '', unit: 'unit', onHandQty: '0', lowStockThreshold: '0',
-    vendorItemId: 'none', autoRequestEnabled: false,
+    vendorItemId: 'none', autoRequestEnabled: false, autoRestockEnabled: true,
   });
   const createSupply = useCreateProcurementSupply({
     mutation: {
@@ -400,6 +400,18 @@ export function CoopProcurementSection({ tenantId }: { tenantId: number }) {
                         <span className="text-xs text-muted-foreground">Auto-request</span>
                       </div>
                     )}
+                    {s.vendorItemId != null && (
+                      <div className="flex items-center gap-1">
+                        <Switch
+                          checked={s.autoRestockEnabled}
+                          data-testid={`switch-restock-${s.id}`}
+                          onCheckedChange={(checked) =>
+                            updateSupply.mutate({ id: s.id, data: { autoRestockEnabled: checked } })
+                          }
+                        />
+                        <span className="text-xs text-muted-foreground">Auto-restock</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -551,6 +563,16 @@ export function CoopProcurementSection({ tenantId }: { tenantId: number }) {
                 <span className="text-sm">Auto-request a group buy when stock runs low</span>
               </div>
             )}
+            {supplyForm.vendorItemId !== 'none' && (
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={supplyForm.autoRestockEnabled}
+                  data-testid="switch-supply-restock"
+                  onCheckedChange={(checked) => setSupplyForm({ ...supplyForm, autoRestockEnabled: checked })}
+                />
+                <span className="text-sm">Auto-restock on hand when a group buy settles</span>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -567,6 +589,7 @@ export function CoopProcurementSection({ tenantId }: { tenantId: number }) {
                       ? {
                           vendorItemId: Number(supplyForm.vendorItemId),
                           autoRequestEnabled: supplyForm.autoRequestEnabled,
+                          autoRestockEnabled: supplyForm.autoRestockEnabled,
                         }
                       : {}),
                   },

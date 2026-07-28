@@ -15093,7 +15093,7 @@ components:
       required:
         [
           id, name, unit, onHandQty, lowStockThreshold, autoRequestEnabled,
-          belowThreshold, createdAt,
+          autoRestockEnabled, belowThreshold, createdAt,
         ]
       properties:
         id:
@@ -15114,6 +15114,9 @@ components:
           type: ["string", "null"]
         autoRequestEnabled:
           type: boolean
+        autoRestockEnabled:
+          type: boolean
+          description: When true (default), a settling group buy on the linked vendor item adds the settled quantity to on-hand stock automatically.
         belowThreshold:
           type: boolean
           description: True when on-hand quantity is below the low-stock threshold — a reorder reminder is due.
@@ -15149,6 +15152,8 @@ components:
           type: integer
         autoRequestEnabled:
           type: boolean
+        autoRestockEnabled:
+          type: boolean
 
     ProcurementSupplyUpdate:
       type: object
@@ -15170,6 +15175,8 @@ components:
         vendorItemId:
           type: ["integer", "null"]
         autoRequestEnabled:
+          type: boolean
+        autoRestockEnabled:
           type: boolean
 
     ProcurementReplenishRequest:

@@ -1,0 +1,1 @@
+ALTER TABLE "procurement_supply_items" ADD COLUMN "auto_restock_enabled" boolean DEFAULT true NOT NULL;

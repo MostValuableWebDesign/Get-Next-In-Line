@@ -179,6 +179,10 @@ export const procurementSupplyItemsTable = pgTable(
     // Auto-replenish: the worker creates or joins an open group buy when the
     // supply drops below its threshold (requires vendorItemId).
     autoRequestEnabled: boolean("auto_request_enabled").notNull().default(false),
+    // Auto-restock: when a group buy on the linked vendor item settles, the
+    // tenant's settled quantity is added to on-hand stock automatically.
+    // Opt-out for merchants who prefer manual counts.
+    autoRestockEnabled: boolean("auto_restock_enabled").notNull().default(true),
     // Stamped when the low-stock sweep last reminded / auto-requested for this
     // item; cleared when the item is restocked to (or above) the threshold.
     lastReorderRemindedAt: timestamp("last_reorder_reminded_at"),

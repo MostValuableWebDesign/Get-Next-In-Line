@@ -9803,6 +9803,7 @@ export const ListProcurementSuppliesResponseItem = zod.object({
   "vendorItemName": zod.string().nullish(),
   "vendorName": zod.string().nullish(),
   "autoRequestEnabled": zod.boolean(),
+  "autoRestockEnabled": zod.boolean().describe('When true (default), a settling group buy on the linked vendor item adds the settled quantity to on-hand stock automatically.'),
   "belowThreshold": zod.boolean().describe('True when on-hand quantity is below the low-stock threshold — a reorder reminder is due.'),
   "openGroupBuyId": zod.number().nullish().describe('An open group buy on the linked vendor item, when one exists (join target for one-click replenishment).'),
   "lastReorderRemindedAt": zod.coerce.date().nullish(),
@@ -9830,7 +9831,8 @@ export const CreateProcurementSupplyBody = zod.object({
   "onHandQty": zod.number().min(createProcurementSupplyBodyOnHandQtyMin).max(createProcurementSupplyBodyOnHandQtyMax).optional(),
   "lowStockThreshold": zod.number().min(createProcurementSupplyBodyLowStockThresholdMin).max(createProcurementSupplyBodyLowStockThresholdMax).optional(),
   "vendorItemId": zod.number().optional(),
-  "autoRequestEnabled": zod.boolean().optional()
+  "autoRequestEnabled": zod.boolean().optional(),
+  "autoRestockEnabled": zod.boolean().optional()
 })
 
 export const CreateProcurementSupplyResponse = zod.object({
@@ -9843,6 +9845,7 @@ export const CreateProcurementSupplyResponse = zod.object({
   "vendorItemName": zod.string().nullish(),
   "vendorName": zod.string().nullish(),
   "autoRequestEnabled": zod.boolean(),
+  "autoRestockEnabled": zod.boolean().describe('When true (default), a settling group buy on the linked vendor item adds the settled quantity to on-hand stock automatically.'),
   "belowThreshold": zod.boolean().describe('True when on-hand quantity is below the low-stock threshold — a reorder reminder is due.'),
   "openGroupBuyId": zod.number().nullish().describe('An open group buy on the linked vendor item, when one exists (join target for one-click replenishment).'),
   "lastReorderRemindedAt": zod.coerce.date().nullish(),
@@ -9873,7 +9876,8 @@ export const UpdateProcurementSupplyBody = zod.object({
   "onHandQty": zod.number().min(updateProcurementSupplyBodyOnHandQtyMin).max(updateProcurementSupplyBodyOnHandQtyMax).optional(),
   "lowStockThreshold": zod.number().min(updateProcurementSupplyBodyLowStockThresholdMin).max(updateProcurementSupplyBodyLowStockThresholdMax).optional(),
   "vendorItemId": zod.number().nullish(),
-  "autoRequestEnabled": zod.boolean().optional()
+  "autoRequestEnabled": zod.boolean().optional(),
+  "autoRestockEnabled": zod.boolean().optional()
 })
 
 export const UpdateProcurementSupplyResponse = zod.object({
@@ -9886,6 +9890,7 @@ export const UpdateProcurementSupplyResponse = zod.object({
   "vendorItemName": zod.string().nullish(),
   "vendorName": zod.string().nullish(),
   "autoRequestEnabled": zod.boolean(),
+  "autoRestockEnabled": zod.boolean().describe('When true (default), a settling group buy on the linked vendor item adds the settled quantity to on-hand stock automatically.'),
   "belowThreshold": zod.boolean().describe('True when on-hand quantity is below the low-stock threshold — a reorder reminder is due.'),
   "openGroupBuyId": zod.number().nullish().describe('An open group buy on the linked vendor item, when one exists (join target for one-click replenishment).'),
   "lastReorderRemindedAt": zod.coerce.date().nullish(),

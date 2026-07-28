@@ -441,6 +441,66 @@ describe("supply inventory, thresholds, and replenishment", () => {
       .expect(200);
   });
 
+  it("settling a group buy restocks linked supplies (unless opted out) and clears the reminder", async () => {
+    // Barber: auto-restock (default on), below threshold, mid-reminder-episode.
+    const restockable = await agent
+      .post("/api/coop/procurement/supplies")
+      .set("x-tenant-id", String(barberId))
+      .send({ name: `Foils ${RUN}`, unit: "roll", onHandQty: 0, lowStockThreshold: 3, vendorItemId: plainItemId })
+      .expect(201);
+    expect(restockable.body.autoRestockEnabled).toBe(true);
+    await db
+      .update(procurementSupplyItemsTable)
+      .set({ lastReorderRemindedAt: new Date() })
+      .where(eq(procurementSupplyItemsTable.id, restockable.body.id));
+
+    // Salon: opted out of auto-restock (manual counts).
+    const manualCount = await agent
+      .post("/api/coop/procurement/supplies")
+      .set("x-tenant-id", String(salonId))
+      .send({
+        name: `Manual foils ${RUN}`, unit: "roll", onHandQty: 1, lowStockThreshold: 4,
+        vendorItemId: plainItemId, autoRestockEnabled: false,
+      })
+      .expect(201);
+    expect(manualCount.body.autoRestockEnabled).toBe(false);
+
+    const opened = await agent
+      .post("/api/coop/procurement/group-buys")
+      .set("x-tenant-id", String(barberId))
+      .send({ vendorItemId: plainItemId, quantity: 5 })
+      .expect(201);
+    await agent
+      .post(`/api/coop/procurement/group-buys/${opened.body.id}/join`)
+      .set("x-tenant-id", String(salonId))
+      .send({ quantity: 2 })
+      .expect(200);
+    await agent
+      .post(`/api/coop/procurement/group-buys/${opened.body.id}/close`)
+      .set("x-tenant-id", String(barberId))
+      .expect(200);
+
+    // Barber's linked supply gained their settled quantity; hitting the
+    // threshold cleared the low-stock flag and reset the reminder episode.
+    const barberSupplies = await agent
+      .get("/api/coop/procurement/supplies")
+      .set("x-tenant-id", String(barberId))
+      .expect(200);
+    const restocked = barberSupplies.body.find((s: { id: number }) => s.id === restockable.body.id);
+    expect(restocked.onHandQty).toBe(5);
+    expect(restocked.belowThreshold).toBe(false);
+    expect(restocked.lastReorderRemindedAt).toBeNull();
+
+    // Salon opted out — on-hand count untouched.
+    const salonSupplies = await agent
+      .get("/api/coop/procurement/supplies")
+      .set("x-tenant-id", String(salonId))
+      .expect(200);
+    const untouched = salonSupplies.body.find((s: { id: number }) => s.id === manualCount.body.id);
+    expect(untouched.onHandQty).toBe(1);
+    expect(untouched.belowThreshold).toBe(true);
+  });
+
   it("close is atomic: a ledger write failure rolls back and the pool stays open", async () => {
     // High-price item so an out-of-band huge quantity overflows numeric(12,2).
     const pricey = await agent

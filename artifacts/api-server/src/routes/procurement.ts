@@ -687,6 +687,7 @@ async function serializeSupplies(tenantId: number) {
       vendorItemName: link?.item.name ?? null,
       vendorName: link?.vendorName ?? null,
       autoRequestEnabled: s.autoRequestEnabled,
+      autoRestockEnabled: s.autoRestockEnabled,
       belowThreshold: s.onHandQty < s.lowStockThreshold,
       openGroupBuyId: openBuy?.id ?? null,
       lastReorderRemindedAt: s.lastReorderRemindedAt
@@ -731,6 +732,7 @@ router.post("/coop/procurement/supplies", async (req, res): Promise<void> => {
       lowStockThreshold: parsed.data.lowStockThreshold ?? 0,
       vendorItemId: parsed.data.vendorItemId ?? null,
       autoRequestEnabled: parsed.data.autoRequestEnabled ?? false,
+      autoRestockEnabled: parsed.data.autoRestockEnabled ?? true,
     })
     .returning({ id: procurementSupplyItemsTable.id });
   const all = await serializeSupplies(tenantId);
@@ -783,6 +785,8 @@ router.patch("/coop/procurement/supplies/:id", async (req, res): Promise<void> =
   if ("vendorItemId" in parsed.data) updates.vendorItemId = parsed.data.vendorItemId ?? null;
   if (parsed.data.autoRequestEnabled != null)
     updates.autoRequestEnabled = parsed.data.autoRequestEnabled;
+  if (parsed.data.autoRestockEnabled != null)
+    updates.autoRestockEnabled = parsed.data.autoRestockEnabled;
   // Restocking to (or above) the threshold resets the reminder episode so the
   // next drop below threshold reminds again.
   const nextOnHand = parsed.data.onHandQty ?? existing.onHandQty;

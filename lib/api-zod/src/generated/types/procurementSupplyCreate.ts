@@ -23,4 +23,5 @@ export interface ProcurementSupplyCreate {
   lowStockThreshold?: number;
   vendorItemId?: number;
   autoRequestEnabled?: boolean;
+  autoRestockEnabled?: boolean;
 }

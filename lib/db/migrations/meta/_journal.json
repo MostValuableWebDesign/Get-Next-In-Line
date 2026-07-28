@@ -526,6 +526,13 @@
       "when": 1785251649592,
       "tag": "0074_bumpy_reptil",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1785252682646,
+      "tag": "0075_old_multiple_man",
+      "breakpoints": true
     }
   ]
 }
