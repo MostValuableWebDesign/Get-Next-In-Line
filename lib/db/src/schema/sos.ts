@@ -374,6 +374,14 @@ export const sosDepositHoldsTable = pgTable("sos_deposit_holds", {
   checkoutUrl: text("checkout_url"),
   // Human-readable reason for the outcome (why a fee was / wasn't charged).
   outcomeReason: text("outcome_reason"),
+  // ── Failed-operation retry bookkeeping ─────────────────────────────────────
+  // When a Stripe capture/void fails transiently, the hold stays "held" and
+  // the failed operation is recorded here so the worker sweep can re-attempt
+  // it. Cleared on success; NULL means no retry is pending.
+  //   retryOperation: capture_late_cancel | capture_no_show | void
+  retryOperation: text("retry_operation"),
+  retryAttempts: integer("retry_attempts").notNull().default(0),
+  nextRetryAt: timestamp("next_retry_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at"),
 });

@@ -33,6 +33,7 @@ import { runReputationEnforcement } from "../lib/coopReputation";
 import { sweepSupplyReorders } from "../lib/procurement";
 import { expireStaleNotifiedWaitlistEntries } from "../lib/waitlistClaim";
 import { recordConciergeHeartbeat } from "../lib/workerHeartbeat";
+import { sweepDepositHoldRetries } from "../lib/noShowShield";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -422,6 +423,8 @@ export interface ConciergeTickResult {
   sentimentReports: number;
   /** Stale notified waitlist entries reverted to "waiting" this tick. */
   staleWaitlistReverted: number;
+  /** Failed no-show deposit captures/voids re-attempted against Stripe this tick. */
+  depositRetries: number;
 }
 
 /**
@@ -443,7 +446,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, marketingDispatches: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0, supplyReminders: 0, supplyAutoRequests: 0, boostAuctionsSettled: 0, boostsExpired: 0, sentimentReports: 0, staleWaitlistReverted: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, marketingDispatches: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0, supplyReminders: 0, supplyAutoRequests: 0, boostAuctionsSettled: 0, boostsExpired: 0, sentimentReports: 0, staleWaitlistReverted: 0, depositRetries: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
     // Waitlist offer timeout: notified entries whose "Reply YES" window
@@ -451,6 +454,10 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     // of stalling forever on a customer who never replied. Idempotent (status
     // guard) and can't race a claim — claims flip status to "booked" first.
     const staleWaitlistReverted = await expireStaleNotifiedWaitlistEntries(now);
+    // No-Show Shield: re-attempt Stripe captures/voids that failed
+    // transiently. The per-hold conditional claim inside the sweep is the
+    // double-attempt lock, so this is safe to run on every tick.
+    const depositRetries = await sweepDepositHoldRetries(now);
     const expiredPerks = await sweepExpiredCoopPerks(now);
     const perkReminders = await sweepPerkExpiryReminders(now);
     // Sponsorship Hub: settle due featured-slot auctions (highest bid wins),
@@ -506,6 +513,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
       boostsExpired: boostResolution.boostsExpired,
       sentimentReports,
       staleWaitlistReverted,
+      depositRetries,
     };
   });
 }
@@ -544,6 +552,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       // Crash-mid-send recovery and the perk-expiry sweep apply on this path too.
       await reapStalePendingMessages();
       await expireStaleNotifiedWaitlistEntries();
+      await sweepDepositHoldRetries();
       await sweepExpiredCoopPerks();
       await sweepPerkExpiryReminders();
       await generateCoopMonthlyReports();

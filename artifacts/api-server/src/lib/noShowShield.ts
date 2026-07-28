@@ -239,16 +239,68 @@ export async function placeDepositHoldIfActive(
   }
 }
 
-/** Void a Stripe authorization; returns an error message instead of throwing. */
-async function voidAuthorization(paymentIntentId: string): Promise<string | null> {
+// ── Stripe operation failures & retry policy ────────────────────────────────
+
+/** Outcome of a failed Stripe capture/void attempt. */
+export type StripeOpFailure = {
+  message: string;
+  /** Permanent failures (card declines, invalid requests) are never retried. */
+  permanent: boolean;
+};
+
+/** Max total attempts (initial call + sweep retries) before a hold goes terminal. */
+export const MAX_DEPOSIT_RETRY_ATTEMPTS = 5;
+
+/** Backoff schedule, indexed by the number of attempts already made. */
+export const DEPOSIT_RETRY_BACKOFF_MS = [
+  60 * 1000, // after 1st failure → retry in 1 min
+  5 * 60 * 1000,
+  15 * 60 * 1000,
+  60 * 60 * 1000,
+] as const;
+
+export function depositRetryBackoffMs(attemptsMade: number): number {
+  return (
+    DEPOSIT_RETRY_BACKOFF_MS[
+      Math.min(attemptsMade - 1, DEPOSIT_RETRY_BACKOFF_MS.length - 1)
+    ] ?? DEPOSIT_RETRY_BACKOFF_MS[DEPOSIT_RETRY_BACKOFF_MS.length - 1]
+  );
+}
+
+/**
+ * Classify a Stripe error as permanent (retrying can never succeed: card
+ * declines, invalid/absent objects) vs transient (API/connection/rate-limit
+ * errors, or anything unrecognized — retrying is safe because capture and
+ * cancel are idempotent against an already-settled PaymentIntent).
+ */
+function isPermanentStripeError(err: unknown): boolean {
+  const type = (err as { type?: string } | null)?.type;
+  return (
+    type === "StripeCardError" ||
+    type === "card_error" ||
+    type === "StripeInvalidRequestError" ||
+    type === "invalid_request_error"
+  );
+}
+
+function toStripeOpFailure(err: unknown): StripeOpFailure {
+  return {
+    message: err instanceof Error ? err.message : String(err),
+    permanent: isPermanentStripeError(err),
+  };
+}
+
+/** Void a Stripe authorization; returns a failure record instead of throwing. */
+async function voidAuthorization(
+  paymentIntentId: string,
+): Promise<StripeOpFailure | null> {
   try {
     const stripe = await getUncachableStripeClient();
     await stripe.paymentIntents.cancel(paymentIntentId);
     return null;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
     logger.error({ err, paymentIntentId }, "Failed to void Stripe authorization");
-    return msg;
+    return toStripeOpFailure(err);
   }
 }
 
@@ -273,7 +325,7 @@ async function expireCheckoutSession(sessionId: string): Promise<string | null> 
 async function captureAuthorization(
   paymentIntentId: string,
   amountCents: number,
-): Promise<string | null> {
+): Promise<StripeOpFailure | null> {
   try {
     const stripe = await getUncachableStripeClient();
     await stripe.paymentIntents.capture(paymentIntentId, {
@@ -281,9 +333,8 @@ async function captureAuthorization(
     });
     return null;
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
     logger.error({ err, paymentIntentId }, "Failed to capture Stripe authorization");
-    return msg;
+    return toStripeOpFailure(err);
   }
 }
 
@@ -295,7 +346,9 @@ async function settleHold(
 ): Promise<DepositHoldRow | null> {
   const [settled] = await db
     .update(sosDepositHoldsTable)
-    .set(updates)
+    // Any terminal settle clears retry bookkeeping — a settled hold must
+    // never be picked up by the retry sweep again.
+    .set({ retryOperation: null, nextRetryAt: null, ...updates })
     .where(
       and(
         eq(sosDepositHoldsTable.id, holdId),
@@ -309,19 +362,56 @@ async function settleHold(
   return settled ?? null;
 }
 
+/** Retryable Stripe operations recorded on a hold. */
+export type DepositRetryOperation = "capture_late_cancel" | "capture_no_show" | "void";
+
+function retryOpLabel(op: DepositRetryOperation): string {
+  return op === "void" ? "release" : "fee capture";
+}
+
 /**
- * Record a Stripe operation failure on the hold WITHOUT changing its status:
- * the authorization is still out there, so staff must see the error and the
- * hold stays actionable rather than silently flipping to a paper outcome.
+ * Handle a failed Stripe capture/void on a still-"held" hold.
+ *
+ * Permanent failures (card declines, invalid requests) go terminal
+ * immediately: the hold flips to "failed" with a human-readable reason.
+ * Transient failures keep the hold "held" and schedule an automatic retry
+ * (attempt count + next-attempt time); once MAX_DEPOSIT_RETRY_ATTEMPTS is
+ * exhausted the hold also goes terminally "failed" so staff see it instead
+ * of it being silently stuck.
  */
-async function recordStripeFailure(
-  holdId: number,
-  message: string,
+async function recordStripeOpFailure(
+  hold: DepositHoldRow,
+  operation: DepositRetryOperation,
+  failure: StripeOpFailure,
+  attemptsMade: number,
+  now: Date = new Date(),
 ): Promise<DepositHoldRow | null> {
+  if (failure.permanent) {
+    return settleHold(hold.id, "held", {
+      status: "failed",
+      resolvedAt: now,
+      outcomeReason: `Stripe ${retryOpLabel(operation)} FAILED permanently (will not be retried) — the card hold may still be active on Stripe and needs staff attention: ${failure.message}`,
+    });
+  }
+  if (attemptsMade >= MAX_DEPOSIT_RETRY_ATTEMPTS) {
+    return settleHold(hold.id, "held", {
+      status: "failed",
+      resolvedAt: now,
+      outcomeReason: `Stripe ${retryOpLabel(operation)} FAILED ${attemptsMade} times and the automatic retry budget is exhausted — the card hold may still be active on Stripe and needs staff attention. Last error: ${failure.message}`,
+    });
+  }
+  const nextRetryAt = new Date(now.getTime() + depositRetryBackoffMs(attemptsMade));
   const [updated] = await db
     .update(sosDepositHoldsTable)
-    .set({ outcomeReason: message })
-    .where(eq(sosDepositHoldsTable.id, holdId))
+    .set({
+      retryOperation: operation,
+      retryAttempts: attemptsMade,
+      nextRetryAt,
+      outcomeReason: `Stripe ${retryOpLabel(operation)} failed (attempt ${attemptsMade} of ${MAX_DEPOSIT_RETRY_ATTEMPTS}) — will retry automatically at ${nextRetryAt.toISOString()}. The card hold is still active. Error: ${failure.message}`,
+    })
+    .where(
+      and(eq(sosDepositHoldsTable.id, hold.id), eq(sosDepositHoldsTable.status, "held")),
+    )
     .returning();
   return updated ?? null;
 }
@@ -372,14 +462,17 @@ export async function settleHoldOnCancellation(
   // Real authorization exists: void or capture it on Stripe first. Legacy
   // paper holds (no PaymentIntent) settle as bookkeeping only.
   if (hold.stripePaymentIntentId) {
-    const stripeError = outsideWindow
+    const failure = outsideWindow
       ? await voidAuthorization(hold.stripePaymentIntentId)
       : await captureAuthorization(hold.stripePaymentIntentId, cents(hold.feeAmount));
-    if (stripeError) {
+    if (failure) {
       return (
-        (await recordStripeFailure(
-          hold.id,
-          `Stripe ${outsideWindow ? "release" : "fee capture"} FAILED — the card hold is still active and needs staff attention: ${stripeError}`,
+        (await recordStripeOpFailure(
+          hold,
+          outsideWindow ? "void" : "capture_late_cancel",
+          failure,
+          hold.retryAttempts + 1,
+          now,
         )) ?? hold
       );
     }
@@ -430,15 +523,18 @@ export async function captureHoldForNoShow(
   if (hold.status !== "held") return hold;
 
   if (hold.stripePaymentIntentId) {
-    const stripeError = await captureAuthorization(
+    const failure = await captureAuthorization(
       hold.stripePaymentIntentId,
       cents(hold.feeAmount),
     );
-    if (stripeError) {
+    if (failure) {
       return (
-        (await recordStripeFailure(
-          hold.id,
-          `Stripe no-show fee capture FAILED — the card hold is still active and needs staff attention: ${stripeError}`,
+        (await recordStripeOpFailure(
+          hold,
+          "capture_no_show",
+          failure,
+          hold.retryAttempts + 1,
+          now,
         )) ?? hold
       );
     }
@@ -452,6 +548,93 @@ export async function captureHoldForNoShow(
   // Notify only when this call performed the transition (concurrency guard).
   if (captured) await notifyDepositEvent(captured, "captured_no_show");
   return captured ?? hold;
+}
+
+// ── Background retry sweep ───────────────────────────────────────────────────
+
+/**
+ * Re-attempt Stripe captures/voids that previously failed transiently.
+ * Runs from the concierge worker tick.
+ *
+ * Idempotency & concurrency:
+ *  - Candidates are claimed with a conditional UPDATE that bumps the attempt
+ *    count and pushes nextRetryAt into the future; a concurrent sweep that
+ *    loses the claim skips the hold, so an attempt is never doubled.
+ *  - The final settle goes through settleHold's status="held" conditional
+ *    update, so a hold settled by any other path (webhook, staff action)
+ *    can never be double-captured or captured after a successful void.
+ *
+ * Returns the number of holds re-attempted this tick.
+ */
+export async function sweepDepositHoldRetries(now: Date = new Date()): Promise<number> {
+  const candidates = await db
+    .select()
+    .from(sosDepositHoldsTable)
+    .where(
+      and(
+        eq(sosDepositHoldsTable.status, "held"),
+        sql`${sosDepositHoldsTable.retryOperation} is not null`,
+        sql`${sosDepositHoldsTable.nextRetryAt} <= ${now}`,
+      ),
+    );
+
+  let attempted = 0;
+  for (const candidate of candidates) {
+    const operation = candidate.retryOperation as DepositRetryOperation;
+    // Claim: exactly one worker performs this attempt, even under concurrent
+    // ticks. Bumps the attempt count and reschedules pessimistically; success
+    // or terminal failure below overwrites the rescheduled state.
+    const [claimed] = await db
+      .update(sosDepositHoldsTable)
+      .set({
+        retryAttempts: sql`${sosDepositHoldsTable.retryAttempts} + 1`,
+        nextRetryAt: new Date(
+          now.getTime() + depositRetryBackoffMs(candidate.retryAttempts + 1),
+        ),
+      })
+      .where(
+        and(
+          eq(sosDepositHoldsTable.id, candidate.id),
+          eq(sosDepositHoldsTable.status, "held"),
+          sql`${sosDepositHoldsTable.nextRetryAt} <= ${now}`,
+        ),
+      )
+      .returning();
+    if (!claimed || !claimed.stripePaymentIntentId) continue;
+    attempted++;
+
+    const failure =
+      operation === "void"
+        ? await voidAuthorization(claimed.stripePaymentIntentId)
+        : await captureAuthorization(claimed.stripePaymentIntentId, cents(claimed.feeAmount));
+
+    if (failure) {
+      await recordStripeOpFailure(claimed, operation, failure, claimed.retryAttempts, now);
+      continue;
+    }
+
+    const settled = await settleHold(claimed.id, "held", {
+      status: operation === "void" ? "released" : "captured",
+      resolvedAt: now,
+      outcomeReason:
+        operation === "void"
+          ? `Deposit hold released after ${claimed.retryAttempts} attempt(s) — the earlier Stripe release failure was resolved automatically; no fee charged.`
+          : operation === "capture_no_show"
+            ? `Marked as a no-show — $${claimed.feeAmount} no-show fee captured from the held deposit (succeeded automatically after ${claimed.retryAttempts} attempt(s)).`
+            : `Cancelled within the ${claimed.cancellationWindowHours}h cancellation window — late-cancellation fee of $${claimed.feeAmount} captured from the held deposit (succeeded automatically after ${claimed.retryAttempts} attempt(s)).`,
+    });
+    if (settled) {
+      await notifyDepositEvent(
+        settled,
+        operation === "void"
+          ? "released"
+          : operation === "capture_no_show"
+            ? "captured_no_show"
+            : "captured_late_cancel",
+      );
+    }
+  }
+  return attempted;
 }
 
 // ── Stripe webhook lifecycle ─────────────────────────────────────────────────
@@ -521,7 +704,7 @@ export async function applyStripeDepositEvent(
           .update(sosDepositHoldsTable)
           .set({
             outcomeReason: voidError
-              ? `${staleHold.outcomeReason ?? ""} The customer later authorized the expired payment link and the automatic void FAILED — a card hold may still be active and needs staff attention: ${voidError}`.trim()
+              ? `${staleHold.outcomeReason ?? ""} The customer later authorized the expired payment link and the automatic void FAILED — a card hold may still be active and needs staff attention: ${voidError.message}`.trim()
               : `${staleHold.outcomeReason ?? ""} The customer later authorized the payment link after settlement; the authorization was automatically voided — no money is held.`.trim(),
           })
           .where(eq(sosDepositHoldsTable.id, staleHold.id));
@@ -556,6 +739,9 @@ export async function applyStripeDepositEvent(
       .set({
         status: "released",
         resolvedAt: new Date(),
+        // A pending capture/void retry is moot once the authorization is gone.
+        retryOperation: null,
+        nextRetryAt: null,
         outcomeReason:
           "The card authorization was voided or expired on Stripe — the deposit hold is no longer active.",
       })
