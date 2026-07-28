@@ -18,6 +18,7 @@ import request from "supertest";
 // Mock @workspace/db so the app can be imported without a real database.
 vi.mock("@workspace/db", () => ({
   db: {},
+  pool: undefined,
   modulesTable: {},
   agencySettingsTable: {},
   tenantsTable: {},

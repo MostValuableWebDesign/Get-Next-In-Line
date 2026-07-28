@@ -3,6 +3,11 @@ import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { sessionRole } from "../middlewares/roles";
+import {
+  loginBruteForceGuard,
+  recordLoginFailure,
+  clearLoginFailures,
+} from "../middlewares/rateLimit";
 
 const router: IRouter = Router();
 
@@ -14,7 +19,7 @@ const router: IRouter = Router();
  *   users (no user-management UI yet); the session carries that user's
  *   identity and tenant memberships govern what it may access.
  */
-router.post("/auth/login", async (req, res): Promise<void> => {
+router.post("/auth/login", loginBruteForceGuard, async (req, res): Promise<void> => {
   const { password, loginToken } = req.body as {
     password?: string;
     loginToken?: string;
@@ -25,6 +30,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     isPlatformAdmin: boolean,
     role?: string,
   ) => {
+    clearLoginFailures(req);
     req.session.authenticated = true;
     if (userId != null) req.session.userId = userId;
     req.session.isPlatformAdmin = isPlatformAdmin;
@@ -44,6 +50,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       .from(usersTable)
       .where(eq(usersTable.loginToken, loginToken));
     if (!user) {
+      recordLoginFailure(req);
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
@@ -62,6 +69,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   if (!password || password !== adminPassword) {
     // Uniform response — do not reveal whether it's the password or username
+    recordLoginFailure(req);
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }

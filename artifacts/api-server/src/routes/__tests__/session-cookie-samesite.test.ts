@@ -19,6 +19,9 @@ import request from "supertest";
 // Mock @workspace/db so the app can be imported without a real database.
 vi.mock("@workspace/db", () => ({
   db: {},
+  // No pool in this unit test: app.ts falls back to the in-memory session
+  // store (cookie attributes under test are independent of the store).
+  pool: undefined,
   modulesTable: {},
   agencySettingsTable: {},
   tenantsTable: {},

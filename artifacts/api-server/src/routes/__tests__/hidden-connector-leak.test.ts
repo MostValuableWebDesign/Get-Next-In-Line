@@ -54,7 +54,7 @@ vi.mock("@workspace/db", () => {
       },
     }),
   };
-  return { db, modulesTable, agencySettingsTable };
+  return { db, pool: undefined, modulesTable, agencySettingsTable };
 });
 
 process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "test-admin-password";

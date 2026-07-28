@@ -117,7 +117,7 @@ vi.mock("@workspace/db", () => {
       }),
     }),
   };
-  return { db, tenantsTable, tenantActivitiesTable, tenantModulesTable, modulesTable, agencySettingsTable };
+  return { db, pool: undefined, tenantsTable, tenantActivitiesTable, tenantModulesTable, modulesTable, agencySettingsTable };
 });
 
 // Mock drizzle-orm's eq so the .where() mock above can read the tenantId value.

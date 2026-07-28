@@ -1,5 +1,7 @@
 # Memory index
 
+- Sessions are Postgres-backed (connect-pg-simple, "session" table owned by Drizzle); api-server rate limiters (global + login guard) are disabled under NODE_ENV=test — tests force-enable via `__configure*ForTests` hooks. Any test mocking @workspace/db must export `pool` (even undefined) or app.ts import fails.
+
 - [Testing admin APIs with curl](api-testing-auth.md) — session cookie is Secure; authenticate over https://$REPLIT_DEV_DOMAIN, not localhost:80.
 - [Frontend test auto-cleanup](frontend-test-cleanup.md) — with vitest `globals: false`, RTL auto-cleanup is off; setup must `afterEach(cleanup)`.
 - [Drizzle migrations](drizzle-migrations.md) — schema changes go through `pnpm run db:push` (generate+migrate); avoid `drizzle-kit push`, it prompts even with --force in non-TTY shells.

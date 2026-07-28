@@ -11,9 +11,12 @@ function isZodError(err: unknown): err is { issues: Array<{ path: Array<string |
 }
 import cors from "cors";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import pinoHttp from "pino-http";
+import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { globalRateLimit } from "./middlewares/rateLimit";
 
 // ---------------------------------------------------------------------------
 // Allowed CORS origins
@@ -158,6 +161,12 @@ app.post(
   },
 );
 
+// Global rate limit. Mounted AFTER the raw-body webhook routes above, so
+// vendor-signed webhook deliveries (Stripe, POS) are never throttled, and it
+// internally skips /api/healthz. Everything else gets a generous per-IP
+// ceiling that returns 429 + Retry-After when exceeded.
+app.use(globalRateLimit);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -187,9 +196,29 @@ const isHttps =
 // plain-HTTP local development, where "none" would be rejected.
 const sameSite: "none" | "lax" = isHttps ? "none" : "lax";
 
+// Persistent session store: sessions live in the existing Postgres database
+// (the "session" table, owned by the Drizzle schema — see lib/db
+// schema/sessions.ts) so logins survive server restarts and redeploys. The
+// store prunes expired rows on an interval; under tests pruning is disabled
+// so no timer keeps the vitest process alive (expired rows are inert — the
+// store ignores them on read).
+// Some unit tests mock @workspace/db without a `pool` export; fall back to
+// the default in-memory store there (never in real runs, where pool exists).
+const PgSessionStore = connectPgSimple(session);
+const sessionStore = pool
+  ? new PgSessionStore({
+      pool,
+      tableName: "session",
+      createTableIfMissing: false, // table is managed by Drizzle migrations
+      pruneSessionInterval:
+        process.env.NODE_ENV === "test" ? false : 15 * 60, // seconds
+    })
+  : undefined;
+
 app.use(
   session({
     name: "gnil.sid",
+    store: sessionStore,
     secret: sessionSecret ?? "dev-fallback-secret-change-me",
     resave: false,
     saveUninitialized: false,

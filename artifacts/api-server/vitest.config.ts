@@ -10,6 +10,10 @@ export default defineConfig({
     // validation commands; the default 5s per-test timeout flakes under
     // that load (different test each run), so give them headroom.
     testTimeout: 20000,
+    // beforeAll hooks import the app (a large module graph) and seed data on
+    // that same loaded DB; the default 10s hook timeout flakes under
+    // parallel validation load just like the per-test timeout did.
+    hookTimeout: 20000,
     // The suites also share global co-op state through that one database
     // (perk feeds, concierge sweeps, tier evaluation, passport identities),
     // so running files in parallel produces rare cross-suite races — a

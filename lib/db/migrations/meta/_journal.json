@@ -512,6 +512,13 @@
       "when": 1785249566382,
       "tag": "0072_soft_kid_colt",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1785251066475,
+      "tag": "0073_rich_moondragon",
+      "breakpoints": true
     }
   ]
 }

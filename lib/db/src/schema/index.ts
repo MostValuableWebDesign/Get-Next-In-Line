@@ -11,6 +11,7 @@ export * from "./ambassador";
 export * from "./safety";
 export * from "./emergency";
 export * from "./users";
+export * from "./sessions";
 export * from "./franchise";
 export * from "./procurement";
 export * from "./coopCompliance";

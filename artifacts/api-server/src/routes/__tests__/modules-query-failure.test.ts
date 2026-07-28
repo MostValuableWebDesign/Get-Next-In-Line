@@ -33,7 +33,7 @@ vi.mock("@workspace/db", () => {
       },
     }),
   };
-  return { db, modulesTable, agencySettingsTable, tenantModulesTable, tenantsTable };
+  return { db, pool: undefined, modulesTable, agencySettingsTable, tenantModulesTable, tenantsTable };
 });
 
 process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "test-admin-password";
