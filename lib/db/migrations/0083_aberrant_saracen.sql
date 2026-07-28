@@ -1,0 +1,1 @@
+ALTER TABLE "sos_settings" ADD COLUMN "hours_confirmed_at" timestamp;

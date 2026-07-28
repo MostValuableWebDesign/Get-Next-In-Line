@@ -5301,6 +5301,17 @@ export interface SosDashboard {
   revenueToday: number;
 }
 
+export interface SosOnboarding {
+  /** The scope has at least one service (structured catalog or legacy names) */
+  addServiceDone: boolean;
+  /** The scope has at least one active staff member */
+  addStaffDone: boolean;
+  /** Open/close hours have been saved at least once */
+  confirmHoursDone: boolean;
+  /** Every server-derived onboarding step is done */
+  complete: boolean;
+}
+
 export interface SosDayCount {
   day: string;
   count: number;

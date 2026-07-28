@@ -91,6 +91,7 @@ import {
   UpdateSosGratuityConfigResponse,
   GetSosGratuityLedgerResponse,
   GetSosTwilioWebhookStatusResponse,
+  GetSosOnboardingResponse,
 } from "@workspace/api-zod";
 import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import twilio from "twilio";
@@ -473,6 +474,40 @@ router.patch("/sos/settings", async (req, res): Promise<void> => {
   // Address changed → re-run co-op density detection in the background.
   if (addressFieldsTouched(body)) scheduleDensityDetection(updated.id);
   res.json(UpdateSosSettingsResponse.parse(await serializeSettings(updated)));
+});
+
+// First-run onboarding checklist state, derived from the scope's existing
+// data: at least one service (structured catalog or legacy names), at least
+// one active staff member, and hours saved at least once (hoursConfirmedAt
+// is stamped whenever a settings update touches openTime/closeTime). The
+// frontend hides the checklist once `complete` — existing tenants with data
+// therefore never see it.
+router.get("/sos/onboarding", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  const settings = await resolveSettings(tenantId);
+  const [serviceNames, staffRows] = await Promise.all([
+    getServiceNamesForScope(tenantId, settings.serviceNames),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(sosStaffMembersTable)
+      .where(
+        and(
+          eq(sosStaffMembersTable.isActive, true),
+          tenantMatch(sosStaffMembersTable.tenantId, tenantId),
+        ),
+      ),
+  ]);
+  const addServiceDone = serviceNames.length > 0;
+  const addStaffDone = staffRows[0].n > 0;
+  const confirmHoursDone = settings.hoursConfirmedAt != null;
+  res.json(
+    GetSosOnboardingResponse.parse({
+      addServiceDone,
+      addStaffDone,
+      confirmHoursDone,
+      complete: addServiceDone && addStaffDone && confirmHoursDone,
+    }),
+  );
 });
 
 // Live check (Twilio API) of whether the active SMS number's "A message

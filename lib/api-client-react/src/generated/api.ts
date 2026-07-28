@@ -295,6 +295,7 @@ import type {
   SosGratuityLedgerSummary,
   SosMessage,
   SosMessageInput,
+  SosOnboarding,
   SosPlan,
   SosPlanInput,
   SosPlanUpdate,
@@ -13163,6 +13164,83 @@ export function useGetSosDashboard<TData = Awaited<ReturnType<typeof getSosDashb
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetSosDashboardQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSosOnboardingUrl = () => {
+
+
+
+
+  return `/api/sos/onboarding`
+}
+
+/**
+ * @summary First-run onboarding checklist state, derived from the scope's existing data
+ */
+export const getSosOnboarding = async ( options?: RequestInit): Promise<SosOnboarding> => {
+
+  return customFetch<SosOnboarding>(getGetSosOnboardingUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSosOnboardingQueryKey = () => {
+    return [
+    `/api/sos/onboarding`
+    ] as const;
+    }
+
+
+export const getGetSosOnboardingQueryOptions = <TData = Awaited<ReturnType<typeof getSosOnboarding>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosOnboarding>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSosOnboardingQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSosOnboarding>>> = ({ signal }) => getSosOnboarding({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSosOnboarding>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSosOnboardingQueryResult = NonNullable<Awaited<ReturnType<typeof getSosOnboarding>>>
+export type GetSosOnboardingQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary First-run onboarding checklist state, derived from the scope's existing data
+ */
+
+export function useGetSosOnboarding<TData = Awaited<ReturnType<typeof getSosOnboarding>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosOnboarding>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSosOnboardingQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

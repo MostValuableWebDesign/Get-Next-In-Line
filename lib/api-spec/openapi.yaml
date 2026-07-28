@@ -3767,6 +3767,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/SosDashboard"
 
+  /sos/onboarding:
+    get:
+      operationId: getSosOnboarding
+      tags: [sos]
+      summary: First-run onboarding checklist state, derived from the scope's existing data
+      responses:
+        "200":
+          description: Onboarding step completion state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosOnboarding"
+
   /sos/settings:
     get:
       operationId: getSosSettings
@@ -13297,6 +13310,23 @@ components:
           type: integer
         revenueToday:
           type: number
+
+    SosOnboarding:
+      type: object
+      required: [addServiceDone, addStaffDone, confirmHoursDone, complete]
+      properties:
+        addServiceDone:
+          type: boolean
+          description: The scope has at least one service (structured catalog or legacy names)
+        addStaffDone:
+          type: boolean
+          description: The scope has at least one active staff member
+        confirmHoursDone:
+          type: boolean
+          description: Open/close hours have been saved at least once
+        complete:
+          type: boolean
+          description: Every server-derived onboarding step is done
 
     SosReportsSummary:
       type: object

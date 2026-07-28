@@ -5249,6 +5249,17 @@ export const GetSosDashboardResponse = zod.object({
 
 
 /**
+ * @summary First-run onboarding checklist state, derived from the scope's existing data
+ */
+export const GetSosOnboardingResponse = zod.object({
+  "addServiceDone": zod.boolean().describe('The scope has at least one service (structured catalog or legacy names)'),
+  "addStaffDone": zod.boolean().describe('The scope has at least one active staff member'),
+  "confirmHoursDone": zod.boolean().describe('Open\/close hours have been saved at least once'),
+  "complete": zod.boolean().describe('Every server-derived onboarding step is done')
+})
+
+
+/**
  * @summary Get SOS business settings (business name, resource label, industry type)
  */
 export const GetSosSettingsResponse = zod.object({

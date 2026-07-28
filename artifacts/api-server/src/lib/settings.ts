@@ -89,12 +89,18 @@ export function toSettingsColumnUpdates<
     coopRadiusOverrideMiles?: number | null;
     latitude?: string;
     longitude?: string;
+    openTime?: string;
+    closeTime?: string;
   },
 >(body: T): Omit<T, "noShowDepositAmount" | "noShowFee" | "coopRadiusOverrideMiles"> &
   Partial<
     Pick<
       typeof sosSettingsTable.$inferInsert,
-      "noShowDepositAmount" | "noShowFee" | "coopRadiusOverrideMiles" | "coordinatesSource"
+      | "noShowDepositAmount"
+      | "noShowFee"
+      | "coopRadiusOverrideMiles"
+      | "coordinatesSource"
+      | "hoursConfirmedAt"
     >
   > {
   const { noShowDepositAmount, noShowFee, coopRadiusOverrideMiles, ...rest } = body;
@@ -118,6 +124,11 @@ export function toSettingsColumnUpdates<
         }
       : {}),
     ...(coordsTouched ? { coordinatesSource: coordsNonEmpty ? "manual" : "" } : {}),
+    // Saving open/close hours confirms them — the "confirm your hours"
+    // first-run onboarding step checks off on the first such save.
+    ...(body.openTime !== undefined || body.closeTime !== undefined
+      ? { hoursConfirmedAt: new Date() }
+      : {}),
   };
 }
 

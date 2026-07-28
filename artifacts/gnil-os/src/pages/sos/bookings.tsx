@@ -30,6 +30,7 @@ import { SafetyAlertsContent } from '@/components/sos/safety-alerts-content';
 import { CoopSentimentContent } from '@/components/sos/coop-sentiment-content';
 import { TipPoolingContent } from '@/components/sos/tip-pooling-content';
 import { EmergencyBroadcastContent } from '@/components/sos/emergency-broadcast-content';
+import { OnboardingChecklist } from '@/components/sos/onboarding-checklist';
 import {
   useListCoopPartnerships, getListCoopPartnershipsQueryKey,
 } from '@workspace/api-client-react';
@@ -156,6 +157,16 @@ export function BookingsPage() {
           <BookAppointmentDialog />
         </div>
       </div>
+
+      {/* First-run onboarding checklist — only for a selected business whose
+          setup is incomplete; hides itself once every step is done. */}
+      {selectedTenant != null && (
+        <OnboardingChecklist
+          key={selectedTenant}
+          tenantId={selectedTenant}
+          bookingSlug={tenants?.find(t => t.id === selectedTenant)?.subdomain ?? null}
+        />
+      )}
 
       {/* Live business KPIs — folded in from the retired standalone SOS Dashboard */}
       <div className="grid gap-3 grid-cols-2 md:grid-cols-4" data-testid="grid-sos-kpis">

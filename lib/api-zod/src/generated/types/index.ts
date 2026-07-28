@@ -557,6 +557,7 @@ export * from './sosMessageDirection';
 export * from './sosMessageInput';
 export * from './sosMessageInputKind';
 export * from './sosMessageKind';
+export * from './sosOnboarding';
 export * from './sosOutcomeCount';
 export * from './sosPlan';
 export * from './sosPlanBillingInterval';
