@@ -58,10 +58,13 @@ import { CoopProcurementSection } from '@/components/sos/coop-procurement-conten
 import { CoopSurgeSection, CapacityStatusBadge } from '@/components/sos/coop-surge-content';
 import { SponsorshipHub } from '@/components/sos/sponsorship-hub';
 import { ShiftCoverageSection } from '@/components/sos/coop-coverage-content';
+import { useOfflineCoopSync, OfflineSyncStatus, type OfflineCoopSync } from '@/components/sos/coop-offline';
+import { isSignedPassPayload, parseSignedPassPayload, verifyPassOffline } from '@/lib/offline-pass';
+import { enqueueOfflineRedemption, isQueuedLocally } from '@/lib/offline-redemptions';
 import {
   AlertTriangle, ArrowDownLeft, ArrowDownToLine, ArrowLeftRight, ArrowUpDown, ArrowUpFromLine,
   ArrowUpRight, BarChart3, Bell, CalendarClock, Check, Copy, DollarSign, Eye, FileSignature, Flag,
-  Handshake, Keyboard, Link2, Lock, MapPin, Pause, PauseCircle, Play, ScanLine, Scale, Search,
+  CloudOff, Handshake, Keyboard, Link2, Lock, MapPin, Pause, PauseCircle, Play, ScanLine, Scale, Search,
   Send, ShieldAlert, ShieldOff, Star, Store, Ticket, TrendingUp, Undo2, UserPlus, Users, X, XCircle,
 } from 'lucide-react';
 
@@ -99,6 +102,7 @@ export function CoopNetworkContent({ tenantId }: { tenantId: number | null }) {
 }
 
 function CoopNetworkInner({ tenantId }: { tenantId: number }) {
+  const offlineSync = useOfflineCoopSync(tenantId);
   const { data: partnerships, isLoading } = useListCoopPartnerships(
     { tenantId },
     { query: { queryKey: getListCoopPartnershipsQueryKey({ tenantId }) } },
@@ -157,8 +161,11 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
       </div>
 
       <div>
-        <ScanPerkDialog />
+        <ScanPerkDialog tenantId={tenantId} sync={offlineSync} />
       </div>
+
+      {/* Offline redemptions waiting to sync + post-sync conflict review. */}
+      <OfflineSyncStatus sync={offlineSync} />
 
       <PlazaExclusivityNotices />
 
@@ -1693,15 +1700,19 @@ function ReportPartnerIssueDialog({
 
 // ── Scan Perk — camera QR validation of a customer's co-op pass ─────────────
 
-function ScanPerkDialog() {
+type OfflineScanResult = { verified: boolean; reason: string | null; passCode: string | null };
+
+function ScanPerkDialog({ tenantId, sync }: { tenantId: number; sync: OfflineCoopSync }) {
   const [open, setOpen] = useState(false);
   const [manual, setManual] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [manualCode, setManualCode] = useState('');
   const [manualPass, setManualPass] = useState('');
   const [result, setResult] = useState<CoopPerkRedeemResult | null>(null);
+  const [offlineResult, setOfflineResult] = useState<OfflineScanResult | null>(null);
   const queryClient = useQueryClient();
   const redeem = useRedeemCoopPerk();
+  const { isOffline, pendingCount, refreshQueue } = sync;
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(null);
   const scanningRef = useRef(false);
   const regionId = 'coop-scan-region';
@@ -1716,10 +1727,34 @@ function ScanPerkDialog() {
     if (scanningRef.current) return;
     scanningRef.current = true;
     stopScanner();
+    const trimmed = payload.trim();
+    // Server-signed pass payload (GNILPASS.…): online it redeems through the
+    // normal endpoint; offline the device verifies it locally and queues it.
+    if (isSignedPassPayload(trimmed)) {
+      if (isOffline) {
+        void redeemOffline(trimmed);
+        return;
+      }
+      const parsed = parseSignedPassPayload(trimmed);
+      if (!parsed) {
+        setResult({ valid: false, reason: 'This pass QR code could not be read — try manual entry.', partnership: null, redeemedAt: null });
+        scanningRef.current = false;
+        return;
+      }
+      submit(parsed.c, parsed.p);
+      return;
+    }
+    if (isOffline) {
+      // Legacy plain-code and wallet passes carry no signature — they can
+      // only be validated by the server.
+      setOfflineResult({ verified: false, reason: 'This pass is not offline-verifiable — only signed pass QR codes can be redeemed without a connection.', passCode: null });
+      scanningRef.current = false;
+      return;
+    }
     // Wallet passes (from the customer Local Perks app) encode a single
     // WPASS- token that carries its own single-use state — no pass ID needed.
-    if (payload.trim().startsWith('WPASS-')) {
-      submit(payload.trim());
+    if (trimmed.startsWith('WPASS-')) {
+      submit(trimmed);
       return;
     }
     // QR payload: "<redemptionCode>|<passCode>"; a bare code is accepted but
@@ -1733,6 +1768,37 @@ function ScanPerkDialog() {
       return;
     }
     submit(code, passCode);
+  };
+
+  // Fully local offline path: Web Crypto signature + window check against the
+  // cached public key, same-device double-scan guard against the local queue,
+  // then a durable IndexedDB entry that syncs when connectivity returns.
+  const redeemOffline = async (payload: string) => {
+    try {
+      const verification = await verifyPassOffline(payload);
+      if (!verification.ok) {
+        setOfflineResult({ verified: false, reason: verification.reason, passCode: null });
+        return;
+      }
+      const { c: code, p: passCode } = verification.payload;
+      if (await isQueuedLocally(code, passCode)) {
+        setOfflineResult({ verified: false, reason: 'This pass was already scanned on this device and is waiting to sync.', passCode });
+        return;
+      }
+      await enqueueOfflineRedemption({
+        clientRedemptionId: crypto.randomUUID(),
+        code,
+        passCode,
+        scannedAt: new Date().toISOString(),
+        tenantId,
+      });
+      await refreshQueue();
+      setOfflineResult({ verified: true, reason: null, passCode });
+    } catch {
+      setOfflineResult({ verified: false, reason: 'Could not store this redemption on the device — try again.', passCode: null });
+    } finally {
+      scanningRef.current = false;
+    }
   };
 
   const submit = (code: string, passCode?: string) => {
@@ -1755,7 +1821,7 @@ function ScanPerkDialog() {
 
   // Start/stop the camera scanner while the dialog is open in camera mode.
   useEffect(() => {
-    if (!open || manual || result != null) return;
+    if (!open || manual || result != null || offlineResult != null) return;
     let cancelled = false;
     (async () => {
       try {
@@ -1778,7 +1844,7 @@ function ScanPerkDialog() {
     })();
     return () => { cancelled = true; stopScanner(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, manual, result]);
+  }, [open, manual, result, offlineResult]);
 
   const reset = () => {
     stopScanner();
@@ -1787,6 +1853,7 @@ function ScanPerkDialog() {
     setManualCode('');
     setManualPass('');
     setResult(null);
+    setOfflineResult(null);
   };
 
   return (
@@ -1802,7 +1869,48 @@ function ScanPerkDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        {result ? (
+        {isOffline && (
+          <div
+            className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm"
+            role="status"
+            data-testid="banner-offline-mode"
+          >
+            <CloudOff className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              Offline mode — passes are verified on this device and redemptions sync when you reconnect.
+              {pendingCount > 0 ? ` ${pendingCount} pending sync.` : ''}
+            </span>
+          </div>
+        )}
+
+        {offlineResult ? (
+          <div
+            className={`rounded-lg border p-4 space-y-2 ${offlineResult.verified ? 'border-amber-400 bg-amber-500/10' : 'border-destructive/50 bg-destructive/10'}`}
+            data-testid={offlineResult.verified ? 'result-scan-verified-offline' : 'result-scan-offline-invalid'}
+          >
+            <div className="flex items-center gap-2 font-semibold">
+              {offlineResult.verified ? (
+                <><CloudOff className="w-5 h-5 text-amber-600" /> Verified offline</>
+              ) : (
+                <><XCircle className="w-5 h-5 text-destructive" /> Not valid</>
+              )}
+            </div>
+            {offlineResult.verified ? (
+              <p className="text-sm text-muted-foreground" data-testid="text-offline-verified-note">
+                Signature and validity window checked on this device
+                {offlineResult.passCode ? ` for pass ${offlineResult.passCode}` : ''}. The redemption is
+                queued and will sync to the ledger when you're back online.
+              </p>
+            ) : (
+              offlineResult.reason && (
+                <p className="text-sm" data-testid="text-offline-scan-reason">{offlineResult.reason}</p>
+              )
+            )}
+            <Button size="sm" variant="outline" onClick={reset} data-testid="button-scan-again">
+              Scan another
+            </Button>
+          </div>
+        ) : result ? (
           <div
             className={`rounded-lg border p-4 space-y-2 ${result.valid ? 'border-emerald-400 bg-emerald-500/10' : 'border-destructive/50 bg-destructive/10'}`}
             data-testid={result.valid ? 'result-scan-valid' : 'result-scan-invalid'}
@@ -1867,7 +1975,7 @@ function ScanPerkDialog() {
             <div className="flex gap-2">
               <Button
                 onClick={() => submit(manualCode.trim(), manualPass.trim() || undefined)}
-                disabled={!manualCode.trim() || (!manualPass.trim() && !manualCode.trim().startsWith('WPASS-')) || redeem.isPending}
+                disabled={isOffline || !manualCode.trim() || (!manualPass.trim() && !manualCode.trim().startsWith('WPASS-')) || redeem.isPending}
                 data-testid="button-manual-redeem"
               >
                 Validate & Redeem

@@ -1460,6 +1460,61 @@ paths:
         "400":
           description: Missing x-tenant-id header or invalid body
 
+  /coop/pass-keys:
+    get:
+      operationId: listCoopPassKeys
+      tags: [coop]
+      summary: Public verification keys for offline pass signature checks — active key signs new passes; retired keys keep verifying already-issued ones
+      responses:
+        "200":
+          description: Verification keys, oldest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPassKeysResponse"
+
+  /coop/pass-signatures:
+    post:
+      operationId: signCoopPassPayloads
+      tags: [coop]
+      summary: Merchant-facing — server-signed QR payloads for a customer pass instance, one per perk code; tenant scope via x-tenant-id (only codes of partnerships the tenant participates in are signed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopPassSignatureRequest"
+      responses:
+        "200":
+          description: Signed QR payloads for the codes the tenant may issue
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopPassSignatureResponse"
+        "400":
+          description: Missing x-tenant-id header or invalid body
+
+  /coop/redemptions/sync:
+    post:
+      operationId: syncCoopOfflineRedemptions
+      tags: [coop]
+      summary: Merchant-facing — idempotently apply redemptions queued on an offline device; duplicates are ignored, already-redeemed passes come back as conflicts with the winning redemption; tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopOfflineSyncRequest"
+      responses:
+        "200":
+          description: Per-item outcome (accepted | duplicate | conflict | rejected), in input order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopOfflineSyncResponse"
+        "400":
+          description: Missing x-tenant-id header or invalid body
+
   /coop/analytics/partners:
     get:
       operationId: listCoopPartnerPerformance
@@ -10008,6 +10063,136 @@ components:
           type: string
           minLength: 1
           description: The specific customer pass/code instance being redeemed (locked after one use). Required for classic redemption codes; omitted for wallet pass tokens.
+
+    CoopPassKey:
+      type: object
+      required: [keyId, status, publicKeyJwk, createdAt]
+      properties:
+        keyId:
+          type: string
+        status:
+          type: string
+          enum: [active, retired]
+        publicKeyJwk:
+          type: object
+          required: [kty, crv, x, y]
+          properties:
+            kty:
+              type: string
+            crv:
+              type: string
+            x:
+              type: string
+            y:
+              type: string
+          description: ECDSA P-256 public key as a JWK, importable with Web Crypto importKey("jwk", …).
+        createdAt:
+          type: string
+          format: date-time
+
+    CoopPassKeysResponse:
+      type: object
+      required: [keys]
+      properties:
+        keys:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopPassKey"
+
+    CoopPassSignatureRequest:
+      type: object
+      required: [passCode, codes]
+      properties:
+        passCode:
+          type: string
+          minLength: 1
+          description: The customer pass instance the QR is rendered for (e.g. "C123").
+        codes:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+          description: Redemption/tracking codes to sign, one per perk shown on the pass surface.
+
+    CoopPassSignatureResponse:
+      type: object
+      required: [signatures]
+      properties:
+        signatures:
+          type: array
+          items:
+            type: object
+            required: [code, qrPayload]
+            properties:
+              code:
+                type: string
+              qrPayload:
+                type: string
+                description: Compact signed QR string (GNILPASS.<payload>.<signature>).
+
+    CoopOfflineRedemptionItem:
+      type: object
+      required: [clientRedemptionId, code, passCode, scannedAt]
+      properties:
+        clientRedemptionId:
+          type: string
+          minLength: 8
+          maxLength: 100
+          description: Client-generated unique id for this offline scan — the idempotency key across retried sync batches.
+        code:
+          type: string
+          minLength: 1
+        passCode:
+          type: string
+          minLength: 1
+        scannedAt:
+          type: string
+          format: date-time
+          description: When the device accepted the redemption offline.
+
+    CoopOfflineSyncRequest:
+      type: object
+      required: [redemptions]
+      properties:
+        redemptions:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/CoopOfflineRedemptionItem"
+
+    CoopOfflineSyncResult:
+      type: object
+      required: [clientRedemptionId, outcome, reason, redeemedAt, perkTitle, winningRedeemedAt]
+      properties:
+        clientRedemptionId:
+          type: string
+        outcome:
+          type: string
+          enum: [accepted, duplicate, conflict, rejected]
+          description: accepted = applied now; duplicate = this exact item already applied (retry); conflict = pass already redeemed elsewhere, entry recorded for audit; rejected = failed validation, recorded for audit.
+        reason:
+          type: ["string", "null"]
+        redeemedAt:
+          type: ["string", "null"]
+          format: date-time
+        perkTitle:
+          type: ["string", "null"]
+        winningRedeemedAt:
+          type: ["string", "null"]
+          format: date-time
+          description: For conflicts — when the winning redemption happened.
+
+    CoopOfflineSyncResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopOfflineSyncResult"
 
     CoopPerkRedeemResult:
       type: object

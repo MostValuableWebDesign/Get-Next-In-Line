@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // PORT and BASE_PATH are injected by the managed dev workflow. They are only
 // required when serving (dev/preview); builds fall back to defaults so the
@@ -40,6 +41,34 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    // Offline app shell (Co-Op Offline Fallback Mode): precache the built
+    // shell + assets so the merchant Scan Perk screen loads with no network.
+    // Only the SPA shell is cached — /api requests are never intercepted, so
+    // online behavior (health-check offline detection included) is unchanged.
+    VitePWA({
+      registerType: 'autoUpdate',
+      // Keep the existing hand-written public/manifest.webmanifest.
+      manifest: false,
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        navigateFallback: `${basePath}index.html`,
+        // API + non-SPA prefixes must hit the network, never the shell cache.
+        navigateFallbackDenylist: [/\/api\//, /^\/__mockup/],
+        runtimeCaching: [
+          {
+            // Fonts so the offline shell renders with the real typeface.
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts',
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+    }),
     ...(process.env.NODE_ENV !== 'production' &&
     process.env.REPL_ID !== undefined
       ? [

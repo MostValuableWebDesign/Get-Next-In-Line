@@ -109,6 +109,8 @@ import type {
   CoopMarketingRespondBody,
   CoopMarketingTemplate,
   CoopMonthlyReport,
+  CoopOfflineSyncRequest,
+  CoopOfflineSyncResponse,
   CoopPartnerPayoutsResponse,
   CoopPartnerPerformance,
   CoopPartnerRating,
@@ -117,6 +119,9 @@ import type {
   CoopPartnershipCreate,
   CoopPartnershipRedemption,
   CoopPartnershipUpdate,
+  CoopPassKeysResponse,
+  CoopPassSignatureRequest,
+  CoopPassSignatureResponse,
   CoopPerkRedeemRequest,
   CoopPerkRedeemResult,
   CoopPlazaConflict,
@@ -5475,6 +5480,225 @@ export const useRedeemCoopPerk = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRedeemCoopPerkMutationOptions(options));
+    }
+
+export const getListCoopPassKeysUrl = () => {
+
+
+
+
+  return `/api/coop/pass-keys`
+}
+
+/**
+ * @summary Public verification keys for offline pass signature checks — active key signs new passes; retired keys keep verifying already-issued ones
+ */
+export const listCoopPassKeys = async ( options?: RequestInit): Promise<CoopPassKeysResponse> => {
+
+  return customFetch<CoopPassKeysResponse>(getListCoopPassKeysUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopPassKeysQueryKey = () => {
+    return [
+    `/api/coop/pass-keys`
+    ] as const;
+    }
+
+
+export const getListCoopPassKeysQueryOptions = <TData = Awaited<ReturnType<typeof listCoopPassKeys>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPassKeys>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopPassKeysQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopPassKeys>>> = ({ signal }) => listCoopPassKeys({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopPassKeys>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopPassKeysQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopPassKeys>>>
+export type ListCoopPassKeysQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Public verification keys for offline pass signature checks — active key signs new passes; retired keys keep verifying already-issued ones
+ */
+
+export function useListCoopPassKeys<TData = Awaited<ReturnType<typeof listCoopPassKeys>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopPassKeys>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopPassKeysQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSignCoopPassPayloadsUrl = () => {
+
+
+
+
+  return `/api/coop/pass-signatures`
+}
+
+/**
+ * @summary Merchant-facing — server-signed QR payloads for a customer pass instance, one per perk code; tenant scope via x-tenant-id (only codes of partnerships the tenant participates in are signed)
+ */
+export const signCoopPassPayloads = async (coopPassSignatureRequest: CoopPassSignatureRequest, options?: RequestInit): Promise<CoopPassSignatureResponse> => {
+
+  return customFetch<CoopPassSignatureResponse>(getSignCoopPassPayloadsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopPassSignatureRequest)
+  }
+);}
+
+
+
+
+
+export const getSignCoopPassPayloadsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof signCoopPassPayloads>>, TError,{data: BodyType<CoopPassSignatureRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof signCoopPassPayloads>>, TError,{data: BodyType<CoopPassSignatureRequest>}, TContext> => {
+
+const mutationKey = ['signCoopPassPayloads'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof signCoopPassPayloads>>, {data: BodyType<CoopPassSignatureRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  signCoopPassPayloads(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SignCoopPassPayloadsMutationResult = NonNullable<Awaited<ReturnType<typeof signCoopPassPayloads>>>
+    export type SignCoopPassPayloadsMutationBody = BodyType<CoopPassSignatureRequest>
+    export type SignCoopPassPayloadsMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — server-signed QR payloads for a customer pass instance, one per perk code; tenant scope via x-tenant-id (only codes of partnerships the tenant participates in are signed)
+ */
+export const useSignCoopPassPayloads = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof signCoopPassPayloads>>, TError,{data: BodyType<CoopPassSignatureRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof signCoopPassPayloads>>,
+        TError,
+        {data: BodyType<CoopPassSignatureRequest>},
+        TContext
+      > => {
+      return useMutation(getSignCoopPassPayloadsMutationOptions(options));
+    }
+
+export const getSyncCoopOfflineRedemptionsUrl = () => {
+
+
+
+
+  return `/api/coop/redemptions/sync`
+}
+
+/**
+ * @summary Merchant-facing — idempotently apply redemptions queued on an offline device; duplicates are ignored, already-redeemed passes come back as conflicts with the winning redemption; tenant scope via x-tenant-id
+ */
+export const syncCoopOfflineRedemptions = async (coopOfflineSyncRequest: CoopOfflineSyncRequest, options?: RequestInit): Promise<CoopOfflineSyncResponse> => {
+
+  return customFetch<CoopOfflineSyncResponse>(getSyncCoopOfflineRedemptionsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopOfflineSyncRequest)
+  }
+);}
+
+
+
+
+
+export const getSyncCoopOfflineRedemptionsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncCoopOfflineRedemptions>>, TError,{data: BodyType<CoopOfflineSyncRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncCoopOfflineRedemptions>>, TError,{data: BodyType<CoopOfflineSyncRequest>}, TContext> => {
+
+const mutationKey = ['syncCoopOfflineRedemptions'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncCoopOfflineRedemptions>>, {data: BodyType<CoopOfflineSyncRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  syncCoopOfflineRedemptions(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncCoopOfflineRedemptionsMutationResult = NonNullable<Awaited<ReturnType<typeof syncCoopOfflineRedemptions>>>
+    export type SyncCoopOfflineRedemptionsMutationBody = BodyType<CoopOfflineSyncRequest>
+    export type SyncCoopOfflineRedemptionsMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — idempotently apply redemptions queued on an offline device; duplicates are ignored, already-redeemed passes come back as conflicts with the winning redemption; tenant scope via x-tenant-id
+ */
+export const useSyncCoopOfflineRedemptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncCoopOfflineRedemptions>>, TError,{data: BodyType<CoopOfflineSyncRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncCoopOfflineRedemptions>>,
+        TError,
+        {data: BodyType<CoopOfflineSyncRequest>},
+        TContext
+      > => {
+      return useMutation(getSyncCoopOfflineRedemptionsMutationOptions(options));
     }
 
 export const getListCoopPartnerPerformanceUrl = (params?: ListCoopPartnerPerformanceParams,) => {

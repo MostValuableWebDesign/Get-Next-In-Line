@@ -1,6 +1,8 @@
 import { useSearch } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
 import {
   useListCoopActivePerks, getListCoopActivePerksQueryKey,
+  signCoopPassPayloads,
   type CoopActivePerk, type CoopFlashPerk,
 } from '@workspace/api-client-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -79,6 +81,20 @@ export function PartnerPerksBlock({
   passCode?: string;
   title?: string;
 }) {
+  // Server-signed QR payloads (Co-Op Offline Fallback Mode): when this block
+  // renders a customer pass, ask the server to sign each perk's code so the
+  // QR can be verified offline at the partner. Until the signatures arrive
+  // (or if the call fails) the QR falls back to the legacy plain payload,
+  // which keeps validating online.
+  const codes = perks.map(perkPassCode);
+  const { data: signed } = useQuery({
+    queryKey: ['coop-pass-signatures', passCode ?? null, codes.join(',')],
+    queryFn: () => signCoopPassPayloads({ passCode: passCode!, codes }),
+    enabled: Boolean(passCode) && codes.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+  const signedByCode = new Map((signed?.signatures ?? []).map(s => [s.code, s.qrPayload]));
+
   if (perks.length === 0 && flashPerks.length === 0) return null;
   return (
     <div className="border rounded-md p-3 bg-emerald-500/5 border-emerald-500/30 space-y-2" data-testid="block-partner-perks">
@@ -150,7 +166,7 @@ export function PartnerPerksBlock({
             {passCode && (
               <div className="mt-1.5 flex items-center gap-3" data-testid={`qr-partner-perk-${perk.id}`}>
                 <div className="bg-white p-1.5 rounded-md border">
-                  <QRCodeSVG value={perkQrPayload(perkPassCode(perk), passCode)} size={72} />
+                  <QRCodeSVG value={signedByCode.get(perkPassCode(perk)) ?? perkQrPayload(perkPassCode(perk), passCode)} size={72} />
                 </div>
                 <div className="text-[10px] font-mono text-muted-foreground break-all">
                   {perkQrPayload(perkPassCode(perk), passCode)}

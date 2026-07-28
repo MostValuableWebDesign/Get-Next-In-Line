@@ -1882,6 +1882,79 @@ export const RedeemCoopPerkResponse = zod.object({
 
 
 /**
+ * @summary Public verification keys for offline pass signature checks — active key signs new passes; retired keys keep verifying already-issued ones
+ */
+export const ListCoopPassKeysResponse = zod.object({
+  "keys": zod.array(zod.object({
+  "keyId": zod.string(),
+  "status": zod.enum(['active', 'retired']),
+  "publicKeyJwk": zod.object({
+  "kty": zod.string(),
+  "crv": zod.string(),
+  "x": zod.string(),
+  "y": zod.string()
+}).describe('ECDSA P-256 public key as a JWK, importable with Web Crypto importKey(\"jwk\", …).'),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Merchant-facing — server-signed QR payloads for a customer pass instance, one per perk code; tenant scope via x-tenant-id (only codes of partnerships the tenant participates in are signed)
+ */
+
+
+export const signCoopPassPayloadsBodyCodesMax = 50;
+
+
+
+export const SignCoopPassPayloadsBody = zod.object({
+  "passCode": zod.string().min(1).describe('The customer pass instance the QR is rendered for (e.g. \"C123\").'),
+  "codes": zod.array(zod.string().min(1)).min(1).max(signCoopPassPayloadsBodyCodesMax).describe('Redemption\/tracking codes to sign, one per perk shown on the pass surface.')
+})
+
+export const SignCoopPassPayloadsResponse = zod.object({
+  "signatures": zod.array(zod.object({
+  "code": zod.string(),
+  "qrPayload": zod.string().describe('Compact signed QR string (GNILPASS.<payload>.<signature>).')
+}))
+})
+
+
+/**
+ * @summary Merchant-facing — idempotently apply redemptions queued on an offline device; duplicates are ignored, already-redeemed passes come back as conflicts with the winning redemption; tenant scope via x-tenant-id
+ */
+export const syncCoopOfflineRedemptionsBodyRedemptionsItemClientRedemptionIdMin = 8;
+export const syncCoopOfflineRedemptionsBodyRedemptionsItemClientRedemptionIdMax = 100;
+
+
+
+export const syncCoopOfflineRedemptionsBodyRedemptionsMax = 200;
+
+
+
+export const SyncCoopOfflineRedemptionsBody = zod.object({
+  "redemptions": zod.array(zod.object({
+  "clientRedemptionId": zod.string().min(syncCoopOfflineRedemptionsBodyRedemptionsItemClientRedemptionIdMin).max(syncCoopOfflineRedemptionsBodyRedemptionsItemClientRedemptionIdMax).describe('Client-generated unique id for this offline scan — the idempotency key across retried sync batches.'),
+  "code": zod.string().min(1),
+  "passCode": zod.string().min(1),
+  "scannedAt": zod.coerce.date().describe('When the device accepted the redemption offline.')
+})).min(1).max(syncCoopOfflineRedemptionsBodyRedemptionsMax)
+})
+
+export const SyncCoopOfflineRedemptionsResponse = zod.object({
+  "results": zod.array(zod.object({
+  "clientRedemptionId": zod.string(),
+  "outcome": zod.enum(['accepted', 'duplicate', 'conflict', 'rejected']).describe('accepted = applied now; duplicate = this exact item already applied (retry); conflict = pass already redeemed elsewhere, entry recorded for audit; rejected = failed validation, recorded for audit.'),
+  "reason": zod.string().nullable(),
+  "redeemedAt": zod.coerce.date().nullable(),
+  "perkTitle": zod.string().nullable(),
+  "winningRedeemedAt": zod.coerce.date().nullable().describe('For conflicts — when the winning redemption happened.')
+}))
+})
+
+
+/**
  * @summary Merchant-facing — per-partner co-op performance breakdown (impressions, claims, clients sent/received, revenue influenced); tenant scope via x-tenant-id
  */
 export const ListCoopPartnerPerformanceQueryParams = zod.object({

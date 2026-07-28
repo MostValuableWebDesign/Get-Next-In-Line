@@ -128,6 +128,20 @@ import {
   getTrafficByPartnership,
   recordCoopTrafficEvent,
 } from "../lib/coopTraffic";
+import { coopOfflineSyncAuditTable } from "@workspace/db";
+import {
+  ensureActiveCoopSigningKey,
+  listCoopVerificationKeys,
+  publicKeyJwk,
+  signCoopPassPayload,
+} from "../lib/coopPassSigning";
+import {
+  ListCoopPassKeysResponse,
+  SignCoopPassPayloadsBody,
+  SignCoopPassPayloadsResponse,
+  SyncCoopOfflineRedemptionsBody,
+  SyncCoopOfflineRedemptionsResponse,
+} from "@workspace/api-zod";
 import { resolveSettings } from "../lib/settings";
 import {
   coopCampaignsTable,
@@ -3169,6 +3183,32 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
     fail("This pass was already redeemed", row, existing?.redeemedAt ?? null);
     return;
   }
+  await applyClassicRedemptionEffects(row, redemption, tenantId, code, passCode);
+
+  res.json(
+    RedeemCoopPerkResponse.parse({
+      valid: true,
+      reason: null,
+      partnership: serialize(row.partnership, row.hostTenantName, row.partnerTenantName),
+      redeemedAt: redemption.redeemedAt.toISOString(),
+    })
+  );
+});
+
+/**
+ * Every side effect of a counted classic (non-wallet) redemption: revenue
+ * split, claim/crossover analytics, traffic ledger, attribution, passport
+ * stamp + feedback SMS, tax compliance. Shared by the online scan endpoint
+ * and the offline-sync endpoint so synced redemptions land in exactly the
+ * same records and metrics as online scans.
+ */
+async function applyClassicRedemptionEffects(
+  row: { partnership: MerchantCoopPartnership; hostTenantName: string; partnerTenantName: string },
+  redemption: { id: number; redeemedAt: Date },
+  tenantId: number,
+  code: string,
+  passCode: string
+): Promise<void> {
   // Revenue-share accounting: if the partnership carries split terms, log
   // the earning/charge wallet entries (net of the platform fee).
   await applyRedemptionSplitSafe(row.partnership, redemption.id, tenantId);
@@ -3273,15 +3313,296 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
     perkTitle: p.perkTitle,
     redeemedAt: redemption.redeemedAt,
   });
+}
 
+// ── GET /coop/pass-keys — public verification keys for offline scanning ─────
+// Merchant devices fetch and cache these while online so a scanned pass's
+// signature can be verified with Web Crypto while fully offline. The active
+// key signs newly issued pass QR payloads; retired keys stay in the list so
+// rotation never strands a device holding passes signed by an older key.
+// Only PUBLIC keys are ever serialized here.
+router.get("/coop/pass-keys", async (_req, res): Promise<void> => {
+  await ensureActiveCoopSigningKey();
+  const keys = await listCoopVerificationKeys();
   res.json(
-    RedeemCoopPerkResponse.parse({
-      valid: true,
-      reason: null,
-      partnership: serialize(row.partnership, row.hostTenantName, row.partnerTenantName),
-      redeemedAt: redemption.redeemedAt.toISOString(),
+    ListCoopPassKeysResponse.parse({
+      keys: keys.map((k) => ({
+        keyId: k.keyId,
+        status: k.status === "active" ? "active" : "retired",
+        publicKeyJwk: publicKeyJwk(k.publicKeyPem),
+        createdAt: k.createdAt.toISOString(),
+      })),
     })
   );
+});
+
+// ── POST /coop/pass-signatures — signed QR payloads for a customer pass ─────
+// The customer pass surface asks the server to sign each perk's redemption/
+// tracking code together with the pass instance and the perk's validity
+// window. Only codes of partnerships the scoped tenant participates in are
+// signed — unknown or foreign codes are silently omitted, never signed.
+router.post("/coop/pass-signatures", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = SignCoopPassPayloadsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+  const passCode = parsed.data.passCode.trim();
+  const signatures: Array<{ code: string; qrPayload: string }> = [];
+  for (const rawCode of parsed.data.codes) {
+    const code = rawCode.trim();
+    if (!code) continue;
+    const [row] = await partnershipRows().where(matchesAnyCode(code));
+    if (!row) continue;
+    if (
+      tenantId !== row.partnership.hostTenantId &&
+      tenantId !== row.partnership.partnerTenantId
+    ) {
+      continue;
+    }
+    signatures.push({
+      code,
+      qrPayload: await signCoopPassPayload({
+        code,
+        passCode,
+        notBefore: row.partnership.perkStartsAt,
+        expiresAt: row.partnership.perkEndsAt,
+      }),
+    });
+  }
+  res.json(SignCoopPassPayloadsResponse.parse({ signatures }));
+});
+
+// ── POST /coop/redemptions/sync — apply offline-queued redemptions ──────────
+// Idempotent batch endpoint for redemptions a merchant device accepted while
+// offline. Each item carries a client-generated id (the idempotency key):
+// retried batches return the recorded outcome instead of double-counting.
+// Applied items go through the exact same single-redemption lock and side
+// effects as an online scan; a pass already redeemed elsewhere comes back as
+// a conflict and the losing entry is written to the audit table.
+router.post("/coop/redemptions/sync", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  if (tenantId == null) {
+    res.status(400).json({ message: "x-tenant-id header is required" });
+    return;
+  }
+  const parsed = SyncCoopOfflineRedemptionsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ message: "Invalid request body", errors: parsed.error.flatten() });
+    return;
+  }
+
+  type SyncResult = {
+    clientRedemptionId: string;
+    outcome: "accepted" | "duplicate" | "conflict" | "rejected";
+    reason: string | null;
+    redeemedAt: string | null;
+    perkTitle: string | null;
+    winningRedeemedAt: string | null;
+  };
+  const results: SyncResult[] = [];
+
+  const recordAudit = async (item: {
+    clientRedemptionId: string;
+    passCode: string;
+    partnershipId: number | null;
+    outcome: "conflict" | "rejected";
+    reason: string;
+    winningRedemptionId: number | null;
+    scannedAt: Date | null;
+  }) => {
+    await db
+      .insert(coopOfflineSyncAuditTable)
+      .values({
+        clientRedemptionId: item.clientRedemptionId,
+        tenantId,
+        partnershipId: item.partnershipId,
+        passCode: item.passCode,
+        outcome: item.outcome,
+        reason: item.reason,
+        winningRedemptionId: item.winningRedemptionId,
+        scannedAt: item.scannedAt,
+      })
+      .onConflictDoNothing();
+  };
+
+  for (const item of parsed.data.redemptions) {
+    const clientRedemptionId = item.clientRedemptionId.trim();
+    const code = item.code.trim();
+    const passCode = item.passCode.trim();
+
+    // Clamp the device-reported scan time into a sane range: never in the
+    // future, never more than 30 days back. Guards metric windows against a
+    // device with a wildly wrong clock.
+    const now = Date.now();
+    const rawScannedAt = new Date(item.scannedAt).getTime();
+    const scannedAt = new Date(
+      Math.min(Math.max(Number.isNaN(rawScannedAt) ? now : rawScannedAt, now - 30 * 24 * 60 * 60 * 1000), now)
+    );
+
+    // Idempotency: this exact offline scan already applied on a prior sync.
+    const [priorRedemption] = await db
+      .select()
+      .from(coopPerkRedemptionsTable)
+      .where(eq(coopPerkRedemptionsTable.clientRedemptionId, clientRedemptionId));
+    if (priorRedemption) {
+      results.push({
+        clientRedemptionId,
+        outcome: "duplicate",
+        reason: null,
+        redeemedAt: priorRedemption.redeemedAt.toISOString(),
+        perkTitle: null,
+        winningRedeemedAt: null,
+      });
+      continue;
+    }
+    // …or it already lost/was rejected on a prior sync: return that verdict.
+    const [priorAudit] = await db
+      .select()
+      .from(coopOfflineSyncAuditTable)
+      .where(eq(coopOfflineSyncAuditTable.clientRedemptionId, clientRedemptionId));
+    if (priorAudit) {
+      let winningRedeemedAt: string | null = null;
+      if (priorAudit.winningRedemptionId != null) {
+        const [winner] = await db
+          .select({ redeemedAt: coopPerkRedemptionsTable.redeemedAt })
+          .from(coopPerkRedemptionsTable)
+          .where(eq(coopPerkRedemptionsTable.id, priorAudit.winningRedemptionId));
+        winningRedeemedAt = winner?.redeemedAt.toISOString() ?? null;
+      }
+      results.push({
+        clientRedemptionId,
+        outcome: priorAudit.outcome === "conflict" ? "conflict" : "rejected",
+        reason: priorAudit.reason,
+        redeemedAt: null,
+        perkTitle: null,
+        winningRedeemedAt,
+      });
+      continue;
+    }
+
+    const reject = async (reason: string, partnershipId: number | null = null) => {
+      await recordAudit({
+        clientRedemptionId,
+        passCode,
+        partnershipId,
+        outcome: "rejected",
+        reason,
+        winningRedemptionId: null,
+        scannedAt,
+      });
+      results.push({
+        clientRedemptionId,
+        outcome: "rejected",
+        reason,
+        redeemedAt: null,
+        perkTitle: null,
+        winningRedeemedAt: null,
+      });
+    };
+
+    const [row] = await partnershipRows().where(matchesAnyCode(code));
+    if (!row) {
+      await reject("Unknown redemption code");
+      continue;
+    }
+    const p = row.partnership;
+    // Same centralized policy guard as online/wallet/gateway redemptions:
+    // inactive, dispute-suspended, banned, Reputation-Shield-decoupled, and
+    // Mediation-Hub-suspended partnerships all reject identically.
+    const blockReason = await coopRedemptionBlockReason(p);
+    if (blockReason != null) {
+      await reject(blockReason, p.id);
+      continue;
+    }
+    // The perk window is evaluated at the time the device accepted the scan —
+    // a pass validly redeemed offline must not fail because sync happened
+    // after the window closed.
+    const windowState = perkWindowState(p, scannedAt);
+    if (windowState !== "open") {
+      await reject(
+        windowState === "expired" ? "This perk has expired" : "This perk is not active yet",
+        p.id
+      );
+      continue;
+    }
+    if (tenantId !== p.hostTenantId && tenantId !== p.partnerTenantId) {
+      await reject("Only a business in this partnership can redeem this perk", p.id);
+      continue;
+    }
+    if (code === p.hostTrackingCode && tenantId !== p.partnerTenantId) {
+      await reject("This code can only be redeemed at the partner business", p.id);
+      continue;
+    }
+    if (code === p.partnerTrackingCode && tenantId !== p.hostTenantId) {
+      await reject("This code can only be redeemed at the host business", p.id);
+      continue;
+    }
+
+    // Same single-redemption lock as online scans: the unique
+    // (partnership, passCode) pair admits exactly one winner.
+    const [redemption] = await db
+      .insert(coopPerkRedemptionsTable)
+      .values({
+        partnershipId: p.id,
+        passCode,
+        redeemedByTenantId: tenantId,
+        clientRedemptionId,
+        redeemedAt: scannedAt,
+      })
+      .onConflictDoNothing()
+      .returning();
+    if (!redemption) {
+      // Conflict: this pass was redeemed elsewhere first (online, or another
+      // device's queue that synced earlier). Record the losing entry.
+      const [winner] = await db
+        .select({ id: coopPerkRedemptionsTable.id, redeemedAt: coopPerkRedemptionsTable.redeemedAt })
+        .from(coopPerkRedemptionsTable)
+        .where(
+          and(
+            eq(coopPerkRedemptionsTable.partnershipId, p.id),
+            eq(coopPerkRedemptionsTable.passCode, passCode)
+          )
+        );
+      await recordAudit({
+        clientRedemptionId,
+        passCode,
+        partnershipId: p.id,
+        outcome: "conflict",
+        reason: "This pass was already redeemed elsewhere",
+        winningRedemptionId: winner?.id ?? null,
+        scannedAt,
+      });
+      results.push({
+        clientRedemptionId,
+        outcome: "conflict",
+        reason: "This pass was already redeemed elsewhere",
+        redeemedAt: null,
+        perkTitle: p.perkTitle,
+        winningRedeemedAt: winner?.redeemedAt.toISOString() ?? null,
+      });
+      continue;
+    }
+
+    // Applied — run the exact same side effects as an online scan so synced
+    // redemptions land in the same records and traffic/value metrics.
+    await applyClassicRedemptionEffects(row, redemption, tenantId, code, passCode);
+    results.push({
+      clientRedemptionId,
+      outcome: "accepted",
+      reason: null,
+      redeemedAt: redemption.redeemedAt.toISOString(),
+      perkTitle: p.perkTitle,
+      winningRedeemedAt: null,
+    });
+  }
+
+  res.json(SyncCoopOfflineRedemptionsResponse.parse({ results }));
 });
 
 // ── GET /coop/analytics/partners — per-partner performance breakdown ────────

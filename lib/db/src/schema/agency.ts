@@ -398,12 +398,74 @@ export const coopPerkRedemptionsTable = pgTable(
     redeemedByTenantId: integer("redeemed_by_tenant_id").references(() => tenantsTable.id, {
       onDelete: "set null",
     }),
+    // Client-generated id for redemptions accepted offline and synced later.
+    // Unique so a retried sync batch is idempotent: the same offline scan can
+    // never create two redemption rows. NULL for online scans.
+    clientRedemptionId: text("client_redemption_id").unique(),
     redeemedAt: timestamp("redeemed_at").notNull().defaultNow(),
   },
   (t) => [unique("coop_perk_redemptions_partnership_pass_uq").on(t.partnershipId, t.passCode)]
 );
 
 export type CoopPerkRedemption = typeof coopPerkRedemptionsTable.$inferSelect;
+
+// ── Co-op pass signing keys ──────────────────────────────────────────────────
+// Server-held ECDSA P-256 key pairs that sign customer pass QR payloads so a
+// merchant device can verify a pass entirely offline (Web Crypto + the cached
+// public key). The private key never leaves the server; only public keys are
+// served to devices. Rotation: the active key signs, retired keys remain
+// served for verification so already-issued passes don't strand devices.
+export const coopSigningKeysTable = pgTable(
+  "coop_signing_keys",
+  {
+    id: serial("id").primaryKey(),
+    // Short opaque key id embedded in every signed pass payload.
+    keyId: text("key_id").notNull().unique(),
+    publicKeyPem: text("public_key_pem").notNull(),
+    // PKCS8 PEM — server-side only; never expose via any API response.
+    privateKeyPem: text("private_key_pem").notNull(),
+    status: text("status").notNull().default("active"), // active | retired
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    retiredAt: timestamp("retired_at"),
+  },
+  (t) => [index("coop_signing_keys_status_idx").on(t.status)]
+);
+
+export type CoopSigningKey = typeof coopSigningKeysTable.$inferSelect;
+
+// ── Co-op offline sync audit ─────────────────────────────────────────────────
+// One row per offline-queued redemption that did NOT cleanly apply at sync
+// time (conflict: the pass was already redeemed elsewhere; or rejected:
+// validation failed). Losing entries are recorded here for audit rather than
+// silently dropped. clientRedemptionId is unique so retried batches return
+// the recorded outcome instead of double-logging.
+export const coopOfflineSyncAuditTable = pgTable(
+  "coop_offline_sync_audit",
+  {
+    id: serial("id").primaryKey(),
+    clientRedemptionId: text("client_redemption_id").notNull().unique(),
+    // Tenant whose device queued the offline redemption.
+    tenantId: integer("tenant_id").references(() => tenantsTable.id, { onDelete: "set null" }),
+    partnershipId: integer("partnership_id").references(() => merchantCoopPartnershipsTable.id, {
+      onDelete: "set null",
+    }),
+    passCode: text("pass_code").notNull(),
+    // conflict | rejected
+    outcome: text("outcome").notNull(),
+    reason: text("reason"),
+    // Redemption that won the pass (for conflicts).
+    winningRedemptionId: integer("winning_redemption_id").references(
+      () => coopPerkRedemptionsTable.id,
+      { onDelete: "set null" }
+    ),
+    // When the device says it scanned the pass (offline).
+    scannedAt: timestamp("scanned_at"),
+    syncedAt: timestamp("synced_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_offline_sync_audit_tenant_idx").on(t.tenantId)]
+);
+
+export type CoopOfflineSyncAudit = typeof coopOfflineSyncAuditTable.$inferSelect;
 
 // ── Co-op isolation pairs ────────────────────────────────────────────────────
 // Mutual competitor-isolation records produced by the automated conflict

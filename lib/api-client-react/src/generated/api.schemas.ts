@@ -2414,6 +2414,118 @@ export interface CoopPerkRedeemRequest {
   passCode?: string;
 }
 
+export type CoopPassKeyStatus = typeof CoopPassKeyStatus[keyof typeof CoopPassKeyStatus];
+
+
+export const CoopPassKeyStatus = {
+  active: 'active',
+  retired: 'retired',
+} as const;
+
+/**
+ * ECDSA P-256 public key as a JWK, importable with Web Crypto importKey("jwk", …).
+ */
+export type CoopPassKeyPublicKeyJwk = {
+  kty: string;
+  crv: string;
+  x: string;
+  y: string;
+};
+
+export interface CoopPassKey {
+  keyId: string;
+  status: CoopPassKeyStatus;
+  /** ECDSA P-256 public key as a JWK, importable with Web Crypto importKey("jwk", …). */
+  publicKeyJwk: CoopPassKeyPublicKeyJwk;
+  createdAt: string;
+}
+
+export interface CoopPassKeysResponse {
+  keys: CoopPassKey[];
+}
+
+export interface CoopPassSignatureRequest {
+  /**
+     * The customer pass instance the QR is rendered for (e.g. "C123").
+     * @minLength 1
+     */
+  passCode: string;
+  /**
+     * Redemption/tracking codes to sign, one per perk shown on the pass surface.
+     * @minItems 1
+     * @maxItems 50
+     * @items.minLength 1
+     */
+  codes: string[];
+}
+
+export type CoopPassSignatureResponseSignaturesItem = {
+  code: string;
+  /** Compact signed QR string (GNILPASS.<payload>.<signature>). */
+  qrPayload: string;
+};
+
+export interface CoopPassSignatureResponse {
+  signatures: CoopPassSignatureResponseSignaturesItem[];
+}
+
+export interface CoopOfflineRedemptionItem {
+  /**
+     * Client-generated unique id for this offline scan — the idempotency key across retried sync batches.
+     * @minLength 8
+     * @maxLength 100
+     */
+  clientRedemptionId: string;
+  /** @minLength 1 */
+  code: string;
+  /** @minLength 1 */
+  passCode: string;
+  /** When the device accepted the redemption offline. */
+  scannedAt: string;
+}
+
+export interface CoopOfflineSyncRequest {
+  /**
+     * @minItems 1
+     * @maxItems 200
+     */
+  redemptions: CoopOfflineRedemptionItem[];
+}
+
+/**
+ * accepted = applied now; duplicate = this exact item already applied (retry); conflict = pass already redeemed elsewhere, entry recorded for audit; rejected = failed validation, recorded for audit.
+ */
+export type CoopOfflineSyncResultOutcome = typeof CoopOfflineSyncResultOutcome[keyof typeof CoopOfflineSyncResultOutcome];
+
+
+export const CoopOfflineSyncResultOutcome = {
+  accepted: 'accepted',
+  duplicate: 'duplicate',
+  conflict: 'conflict',
+  rejected: 'rejected',
+} as const;
+
+export interface CoopOfflineSyncResult {
+  clientRedemptionId: string;
+  /** accepted = applied now; duplicate = this exact item already applied (retry); conflict = pass already redeemed elsewhere, entry recorded for audit; rejected = failed validation, recorded for audit. */
+  outcome: CoopOfflineSyncResultOutcome;
+  /** @nullable */
+  reason: string | null;
+  /** @nullable */
+  redeemedAt: string | null;
+  /** @nullable */
+  perkTitle: string | null;
+  /**
+     * For conflicts — when the winning redemption happened.
+     * @nullable
+     */
+  winningRedeemedAt: string | null;
+}
+
+export interface CoopOfflineSyncResponse {
+  results: CoopOfflineSyncResult[];
+}
+
 export interface CoopPerkRedeemResult {
   valid: boolean;
   /**
