@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { PublicBookingConfigCapacityStatus } from './publicBookingConfigCapacityStatus';
 import type { PublicBookingService } from './publicBookingService';
 import type { PublicBookingStaff } from './publicBookingStaff';
 
@@ -19,4 +20,9 @@ export interface PublicBookingConfig {
   closeTime: string;
   services: PublicBookingService[];
   staff: PublicBookingStaff[];
+  /**
+     * Live capacity status (busy / moderate / available); null when unavailable.
+     * @nullable
+     */
+  capacityStatus?: PublicBookingConfigCapacityStatus;
 }

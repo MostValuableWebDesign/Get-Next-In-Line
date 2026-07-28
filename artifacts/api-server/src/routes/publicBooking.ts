@@ -16,6 +16,7 @@ import {
 } from "@workspace/api-zod";
 import { listServicesForScope, type SosServiceRow } from "../lib/serviceCatalog";
 import { resolveSettings } from "../lib/settings";
+import { cachedCapacityStatus } from "../lib/capacityStatus";
 import { normalizeToE164 } from "../lib/sms";
 import { autoLinkCustomer } from "../lib/customerLink";
 import { logger } from "../lib/logger";
@@ -200,6 +201,12 @@ router.get("/public/booking/:slug", async (req, res): Promise<void> => {
         durationMinutes: s.durationMinutes,
       })),
       staff: resources.map((r) => ({ id: r.id, name: r.name })),
+      // Live capacity status (busy / moderate / available) so customers see
+      // how busy the business is right now; short-cached, never blocks the
+      // page on a status failure.
+      capacityStatus: await cachedCapacityStatus(tenant.id)
+        .then((r) => r.status)
+        .catch(() => null),
     }),
   );
 });

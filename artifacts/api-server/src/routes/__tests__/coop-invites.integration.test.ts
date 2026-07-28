@@ -139,6 +139,7 @@ describe("co-op directory", () => {
         "subCategory",
         "samePlaza",
         "plazaConflict",
+        "capacityStatus",
       ].sort()
     );
   });

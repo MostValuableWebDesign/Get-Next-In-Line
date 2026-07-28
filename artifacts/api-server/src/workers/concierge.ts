@@ -25,6 +25,7 @@ import { generateCoopMonthlyReports } from "../lib/coopEvents";
 import { sweepCampaignAutoBlasts } from "../lib/coopCampaigns";
 import { evaluateCoopPartnershipTiers } from "../lib/coopTiers";
 import { sweepEmergencyBroadcastFanout } from "../lib/emergencyBroadcasts";
+import { runSurgeSweep } from "../lib/surgeEngine";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -388,6 +389,10 @@ export interface ConciergeTickResult {
   tierTransitions: number;
   /** Emergency broadcast targets whose subscriber SMS fan-out ran this tick. */
   emergencyFanouts: number;
+  /** Co-op surge boosts activated this tick. */
+  surgeActivated: number;
+  /** Co-op surge boosts reverted (window ended / wait normalized) this tick. */
+  surgeEnded: number;
 }
 
 /**
@@ -405,7 +410,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, tierTransitions: 0, emergencyFanouts: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
     const expiredPerks = await sweepExpiredCoopPerks(now);
@@ -428,9 +433,13 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     // is the send-once lock, so this is safe to run on every tick — it is the
     // reliability net behind the immediate post-create kick.
     const emergencyFanouts = await sweepEmergencyBroadcastFanout(now);
+    // Surge traffic balancing: expire finished/normalized boosts, then
+    // activate rules whose triggers fire. Idempotent — the partial unique
+    // index on live activations is the double-activation lock.
+    const { activated: surgeActivated, ended: surgeEnded } = await runSurgeSweep(now);
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
-    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, tierTransitions, emergencyFanouts };
+    return { ran: true, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, tierTransitions, emergencyFanouts, surgeActivated, surgeEnded };
   });
 }
 
@@ -473,6 +482,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       await sweepCampaignAutoBlasts();
       await evaluateCoopPartnershipTiers();
       await sweepEmergencyBroadcastFanout();
+      await runSurgeSweep();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;
@@ -499,10 +509,10 @@ function startIntervalWorker(): ConciergeWorkerHandle {
     if (running) return; // don't overlap slow ticks
     running = true;
     try {
-      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts } = await runConciergeTick();
-      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts + emergencyFanouts > 0) {
+      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded } = await runConciergeTick();
+      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts + emergencyFanouts + surgeActivated + surgeEnded > 0) {
         logger.info(
-          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts },
+          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded },
           "Concierge interval tick dispatched messages",
         );
       }

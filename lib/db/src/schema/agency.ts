@@ -945,6 +945,96 @@ export const insertCoopTrafficEventSchema = createInsertSchema(coopTrafficEvents
 export type InsertCoopTrafficEvent = z.infer<typeof insertCoopTrafficEventSchema>;
 export type CoopTrafficEvent = typeof coopTrafficEventsTable.$inferSelect;
 
+// ── Co-op surge traffic-routing rules ────────────────────────────────────────
+// Per-partnership peak-hour traffic balancing: when the OWNER tenant (the
+// busy business) hits its trigger condition — a live-wait threshold or the
+// "busy / at capacity" status — the partnership's perk discount is boosted
+// for a limited window, routing waiting customers to the off-peak partner.
+// Only accepted, active partnerships may carry rules; the industry-barrier
+// firewall is re-checked at evaluation time as defense in depth.
+export const coopSurgeRulesTable = pgTable(
+  "coop_surge_rules",
+  {
+    id: serial("id").primaryKey(),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    // The busy business whose live signals trigger the boost. Always one of
+    // the partnership's two parties.
+    ownerTenantId: integer("owner_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // wait_minutes — fires when the owner's live wait estimate meets
+    // waitThresholdMinutes; at_capacity — fires when the owner's live
+    // capacity status is "busy".
+    triggerType: text("trigger_type").notNull(),
+    // wait_minutes rules only.
+    waitThresholdMinutes: integer("wait_threshold_minutes"),
+    // Discount framing shown with the boost, e.g. 10% → 20%.
+    baseDiscountPercent: integer("base_discount_percent").notNull(),
+    boostedDiscountPercent: integer("boosted_discount_percent").notNull(),
+    // How long an activation stays live once triggered.
+    boostDurationMinutes: integer("boost_duration_minutes").notNull().default(120),
+    // Optional local-hour window (0-23) during which the rule may fire —
+    // e.g. only during the partner's off-peak 13:00–17:00. NULL = any time.
+    // A window may wrap midnight (start > end).
+    windowStartHour: integer("window_start_hour"),
+    windowEndHour: integer("window_end_hour"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_surge_rules_owner_idx").on(t.ownerTenantId),
+    index("coop_surge_rules_partnership_idx").on(t.partnershipId),
+  ]
+);
+
+export type CoopSurgeRule = typeof coopSurgeRulesTable.$inferSelect;
+
+// ── Co-op surge boost activations ────────────────────────────────────────────
+// One row per boost firing. A live activation has ended_at IS NULL; the
+// partial unique index below is the double-activation lock — a concurrent
+// evaluation tick can never create two live boosts for the same rule. Ended
+// rows are the merchant-visible history (why it fired, when it reverted).
+export const coopSurgeActivationsTable = pgTable(
+  "coop_surge_activations",
+  {
+    id: serial("id").primaryKey(),
+    ruleId: integer("rule_id")
+      .notNull()
+      .references(() => coopSurgeRulesTable.id, { onDelete: "cascade" }),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    ownerTenantId: integer("owner_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // Snapshotted at activation time so later rule edits don't rewrite history.
+    baseDiscountPercent: integer("base_discount_percent").notNull(),
+    boostedDiscountPercent: integer("boosted_discount_percent").notNull(),
+    // Human-readable why, e.g. "Live wait 55 min ≥ 45 min threshold".
+    triggerReason: text("trigger_reason").notNull(),
+    activatedAt: timestamp("activated_at").notNull().defaultNow(),
+    // End of the boost window scheduled at activation time.
+    expiresAt: timestamp("expires_at").notNull(),
+    // Set when the boost actually reverted (window end or wait normalized).
+    endedAt: timestamp("ended_at"),
+    // window_ended | normalized | rule_disabled
+    endReason: text("end_reason"),
+  },
+  (t) => [
+    index("coop_surge_activations_owner_idx").on(t.ownerTenantId),
+    index("coop_surge_activations_partnership_idx").on(t.partnershipId),
+    // At most one LIVE activation per rule, even under concurrent ticks.
+    uniqueIndex("coop_surge_activations_one_live_per_rule_idx")
+      .on(t.ruleId)
+      .where(sql`ended_at is null`),
+  ]
+);
+
+export type CoopSurgeActivation = typeof coopSurgeActivationsTable.$inferSelect;
+
 export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).omit({
   id: true,
   provisionedAt: true,

@@ -40,3 +40,4 @@
 - Coop route convention: when x-tenant-id is present, treat the caller strictly as that tenant — no platform-admin bypass on visibility/resolve checks; admin superpowers apply only to unscoped requests. Tests rely on this.
 - [Co-op developer API gateway](gateway-api.md) — bearer tokens stored as SHA-256 hashes shown once; tenant scope from token only; sandbox = in-code fixtures; all machine redemptions via redeemWalletPassAsTenant.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.
+- [Co-op surge boosts](coop-surge.md) — capacity status has a 30s in-process cache (tests must clear it); surge activation lock = partial unique index on live activations; firewall backstop re-checked at sweep time.

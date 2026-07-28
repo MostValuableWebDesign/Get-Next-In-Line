@@ -379,6 +379,19 @@ export interface CoopLedgerResponse {
   entries: CoopLedgerEntry[];
 }
 
+/**
+ * The business's live capacity status; null when unavailable.
+ * @nullable
+ */
+export type CoopDirectoryEntryCapacityStatus = typeof CoopDirectoryEntryCapacityStatus[keyof typeof CoopDirectoryEntryCapacityStatus] | null;
+
+
+export const CoopDirectoryEntryCapacityStatus = {
+  available: 'available',
+  moderate: 'moderate',
+  busy: 'busy',
+} as const;
+
 export interface CoopDirectoryEntry {
   id: number;
   name: string;
@@ -407,6 +420,173 @@ export interface CoopDirectoryEntry {
   samePlaza: boolean;
   /** True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester's active same-plaza partnerships. */
   plazaConflict: boolean;
+  /**
+     * The business's live capacity status; null when unavailable.
+     * @nullable
+     */
+  capacityStatus?: CoopDirectoryEntryCapacityStatus;
+}
+
+export type CoopCapacityStatusStatus = typeof CoopCapacityStatusStatus[keyof typeof CoopCapacityStatusStatus];
+
+
+export const CoopCapacityStatusStatus = {
+  available: 'available',
+  moderate: 'moderate',
+  busy: 'busy',
+} as const;
+
+/**
+ * manual — merchant override in force; auto — derived from live queue wait, bookings vs. threshold, and resource occupancy.
+ */
+export type CoopCapacityStatusSource = typeof CoopCapacityStatusSource[keyof typeof CoopCapacityStatusSource];
+
+
+export const CoopCapacityStatusSource = {
+  manual: 'manual',
+  auto: 'auto',
+} as const;
+
+export interface CoopCapacityStatus {
+  status: CoopCapacityStatusStatus;
+  /** manual — merchant override in force; auto — derived from live queue wait, bookings vs. threshold, and resource occupancy. */
+  source: CoopCapacityStatusSource;
+  /** Highest live wait estimate (minutes) among queued visits. */
+  waitMinutes: number;
+  appointmentsToday: number;
+  /** @nullable */
+  capacityThreshold: number | null;
+  /** @nullable */
+  manualStatus: string | null;
+  /** @nullable */
+  overrideExpiresAt: string | null;
+}
+
+/**
+ * Manual live status; null reverts to automatic derivation.
+ * @nullable
+ */
+export type CoopCapacityUpdateManualStatus = typeof CoopCapacityUpdateManualStatus[keyof typeof CoopCapacityUpdateManualStatus] | null;
+
+
+export const CoopCapacityUpdateManualStatus = {
+  available: 'available',
+  moderate: 'moderate',
+  busy: 'busy',
+} as const;
+
+export interface CoopCapacityUpdate {
+  /**
+     * Daily appointment capacity threshold; null clears it.
+     * @minimum 0
+     * @nullable
+     */
+  capacityThreshold?: number | null;
+  /**
+     * Manual live status; null reverts to automatic derivation.
+     * @nullable
+     */
+  manualStatus?: CoopCapacityUpdateManualStatus;
+  /**
+     * Minutes the manual status holds before auto-reverting; null/0 = until cleared.
+     * @minimum 0
+     * @nullable
+     */
+  overrideMinutes?: number | null;
+}
+
+export type CoopSurgeRuleCreateTriggerType = typeof CoopSurgeRuleCreateTriggerType[keyof typeof CoopSurgeRuleCreateTriggerType];
+
+
+export const CoopSurgeRuleCreateTriggerType = {
+  wait_minutes: 'wait_minutes',
+  at_capacity: 'at_capacity',
+} as const;
+
+export interface CoopSurgeRuleCreate {
+  partnershipId: number;
+  triggerType: CoopSurgeRuleCreateTriggerType;
+  /** @nullable */
+  waitThresholdMinutes?: number | null;
+  baseDiscountPercent: number;
+  boostedDiscountPercent: number;
+  boostDurationMinutes: number;
+  /** @nullable */
+  windowStartHour?: number | null;
+  /** @nullable */
+  windowEndHour?: number | null;
+}
+
+export type CoopSurgeRuleUpdateTriggerType = typeof CoopSurgeRuleUpdateTriggerType[keyof typeof CoopSurgeRuleUpdateTriggerType];
+
+
+export const CoopSurgeRuleUpdateTriggerType = {
+  wait_minutes: 'wait_minutes',
+  at_capacity: 'at_capacity',
+} as const;
+
+export interface CoopSurgeRuleUpdate {
+  triggerType?: CoopSurgeRuleUpdateTriggerType;
+  /** @nullable */
+  waitThresholdMinutes?: number | null;
+  baseDiscountPercent?: number;
+  boostedDiscountPercent?: number;
+  boostDurationMinutes?: number;
+  /** @nullable */
+  windowStartHour?: number | null;
+  /** @nullable */
+  windowEndHour?: number | null;
+  isActive?: boolean;
+}
+
+export interface CoopSurgeRule {
+  id: number;
+  partnershipId: number;
+  ownerTenantId: number;
+  partnerName: string;
+  perkTitle: string;
+  triggerType: string;
+  /** @nullable */
+  waitThresholdMinutes: number | null;
+  baseDiscountPercent: number;
+  boostedDiscountPercent: number;
+  boostDurationMinutes: number;
+  /** @nullable */
+  windowStartHour: number | null;
+  /** @nullable */
+  windowEndHour: number | null;
+  isActive: boolean;
+  /**
+     * When the rule's currently live boost expires; null when no boost is live.
+     * @nullable
+     */
+  liveBoostExpiresAt: string | null;
+  createdAt: string;
+}
+
+export interface CoopSurgeActivation {
+  id: number;
+  ruleId: number;
+  partnershipId: number;
+  ownerTenantId: number;
+  perkTitle: string;
+  partnerName: string;
+  baseDiscountPercent: number;
+  boostedDiscountPercent: number;
+  triggerReason: string;
+  activatedAt: string;
+  expiresAt: string;
+  /** @nullable */
+  endedAt: string | null;
+  /** @nullable */
+  endReason: string | null;
+  isLive: boolean;
+}
+
+export interface CoopSurgeBoost {
+  baseDiscountPercent: number;
+  boostedDiscountPercent: number;
+  expiresAt: string;
 }
 
 export interface CoopTaxonomySubCategory {
@@ -548,6 +728,8 @@ export interface CoopActivePerk {
      * @nullable
      */
   perkEndsAt: string | null;
+  /** Live surge boost — when present, the perk shows the elevated discount and limited-time indicator until expiresAt. */
+  surge?: CoopSurgeBoost | null;
 }
 
 export interface CoopFlashPerk {
@@ -1454,6 +1636,19 @@ export interface PublicBookingStaff {
   name: string;
 }
 
+/**
+ * Live capacity status (busy / moderate / available); null when unavailable.
+ * @nullable
+ */
+export type PublicBookingConfigCapacityStatus = typeof PublicBookingConfigCapacityStatus[keyof typeof PublicBookingConfigCapacityStatus] | null;
+
+
+export const PublicBookingConfigCapacityStatus = {
+  available: 'available',
+  moderate: 'moderate',
+  busy: 'busy',
+} as const;
+
 export interface PublicBookingConfig {
   slug: string;
   brandName: string;
@@ -1465,6 +1660,11 @@ export interface PublicBookingConfig {
   closeTime: string;
   services: PublicBookingService[];
   staff: PublicBookingStaff[];
+  /**
+     * Live capacity status (busy / moderate / available); null when unavailable.
+     * @nullable
+     */
+  capacityStatus?: PublicBookingConfigCapacityStatus;
 }
 
 export interface PublicAvailabilityInput {
@@ -3847,6 +4047,10 @@ export type ListCoopDirectoryParams = {
 search?: string;
 city?: string;
 category?: string;
+};
+
+export type DeleteCoopSurgeRule200 = {
+  deleted: boolean;
 };
 
 export type ListCoopPartnerPerformanceParams = {

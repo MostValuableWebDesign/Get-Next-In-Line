@@ -43,6 +43,8 @@ import {
   passportChallengesTable,
 } from "@workspace/db";
 import { effectiveCoopRadiusMiles } from "../lib/geoDensity";
+import { cachedCapacityStatusesFor } from "../lib/capacityStatus";
+import { liveSurgeBoostsByPartnership } from "../lib/surgeEngine";
 import {
   recordCoopEventsSafe,
   recordPerkImpressionsSafe,
@@ -1126,7 +1128,15 @@ router.get("/coop/directory", async (req, res): Promise<void> => {
       return a.name.localeCompare(b.name);
     });
 
-  res.json(ListCoopDirectoryResponse.parse(entries));
+  // Live capacity status per listed business (busy / moderate / available),
+  // served from a short in-process cache so directory reads stay cheap.
+  const capacityStatuses = await cachedCapacityStatusesFor(entries.map((e) => e.id));
+  const withStatus = entries.map((e) => ({
+    ...e,
+    capacityStatus: capacityStatuses.get(e.id)?.status ?? null,
+  }));
+
+  res.json(ListCoopDirectoryResponse.parse(withStatus));
 });
 
 // ── GET /coop/suggestions — ranked Suggested Partners feed ──────────────────
@@ -2491,11 +2501,22 @@ router.get("/coop/perks", async (req, res): Promise<void> => {
   // Boosted flash offers from live campaigns this business joined — shown on
   // the same storefront perk surfaces, only while the campaign window is open.
   const flashPerks = await flashPerksForTenant(tenantId);
+  // Live surge boosts: when a traffic-routing rule has fired, the perk shows
+  // its elevated discount + limited-time window on every surface, and reverts
+  // automatically once the activation ends.
+  const surgeBoosts = await liveSurgeBoostsByPartnership(rows.map((r) => r.partnership.id));
   res.json(
     ListCoopActivePerksResponse.parse({
       disclaimer: COOP_PERK_DISCLAIMER,
       flashPerks,
       perks: rows.map((r) => ({
+        surge: surgeBoosts.has(r.partnership.id)
+          ? {
+              baseDiscountPercent: surgeBoosts.get(r.partnership.id)!.baseDiscountPercent,
+              boostedDiscountPercent: surgeBoosts.get(r.partnership.id)!.boostedDiscountPercent,
+              expiresAt: surgeBoosts.get(r.partnership.id)!.expiresAt.toISOString(),
+            }
+          : null,
         id: r.partnership.id,
         perkTitle: r.partnership.perkTitle,
         perkDescription: r.partnership.perkDescription,

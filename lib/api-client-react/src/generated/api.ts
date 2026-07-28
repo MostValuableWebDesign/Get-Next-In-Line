@@ -46,6 +46,8 @@ import type {
   CoopCampaignCreate,
   CoopCampaignRespond,
   CoopCampaignTemplate,
+  CoopCapacityStatus,
+  CoopCapacityUpdate,
   CoopDirectoryEntry,
   CoopDispute,
   CoopDisputeCreate,
@@ -77,8 +79,13 @@ import type {
   CoopStatsResponse,
   CoopSuggestion,
   CoopSuggestionDismissResult,
+  CoopSurgeActivation,
+  CoopSurgeRule,
+  CoopSurgeRuleCreate,
+  CoopSurgeRuleUpdate,
   CoopTaxonomyIndustry,
   CreateGatewayTokenRequest,
+  DeleteCoopSurgeRule200,
   EmergencyBroadcast,
   EmergencyBroadcastCreate,
   EmergencyCheckin,
@@ -3015,6 +3022,522 @@ export function useListCoopActivePerks<TData = Awaited<ReturnType<typeof listCoo
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListCoopActivePerksQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCoopCapacityUrl = () => {
+
+
+
+
+  return `/api/coop/capacity`
+}
+
+/**
+ * @summary Merchant-facing — live capacity status (manual override or auto-derived from queue wait, bookings vs. threshold, resource occupancy); tenant scope via x-tenant-id
+ */
+export const getCoopCapacity = async ( options?: RequestInit): Promise<CoopCapacityStatus> => {
+
+  return customFetch<CoopCapacityStatus>(getGetCoopCapacityUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopCapacityQueryKey = () => {
+    return [
+    `/api/coop/capacity`
+    ] as const;
+    }
+
+
+export const getGetCoopCapacityQueryOptions = <TData = Awaited<ReturnType<typeof getCoopCapacity>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopCapacity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopCapacityQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopCapacity>>> = ({ signal }) => getCoopCapacity({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopCapacity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopCapacityQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopCapacity>>>
+export type GetCoopCapacityQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — live capacity status (manual override or auto-derived from queue wait, bookings vs. threshold, resource occupancy); tenant scope via x-tenant-id
+ */
+
+export function useGetCoopCapacity<TData = Awaited<ReturnType<typeof getCoopCapacity>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopCapacity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopCapacityQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateCoopCapacityUrl = () => {
+
+
+
+
+  return `/api/coop/capacity`
+}
+
+/**
+ * @summary Merchant-facing — set the daily capacity threshold and/or flip the manual live status (null reverts to automatic); tenant scope via x-tenant-id
+ */
+export const updateCoopCapacity = async (coopCapacityUpdate: CoopCapacityUpdate, options?: RequestInit): Promise<CoopCapacityStatus> => {
+
+  return customFetch<CoopCapacityStatus>(getUpdateCoopCapacityUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopCapacityUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCoopCapacityMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopCapacity>>, TError,{data: BodyType<CoopCapacityUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCoopCapacity>>, TError,{data: BodyType<CoopCapacityUpdate>}, TContext> => {
+
+const mutationKey = ['updateCoopCapacity'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCoopCapacity>>, {data: BodyType<CoopCapacityUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateCoopCapacity(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCoopCapacityMutationResult = NonNullable<Awaited<ReturnType<typeof updateCoopCapacity>>>
+    export type UpdateCoopCapacityMutationBody = BodyType<CoopCapacityUpdate>
+    export type UpdateCoopCapacityMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — set the daily capacity threshold and/or flip the manual live status (null reverts to automatic); tenant scope via x-tenant-id
+ */
+export const useUpdateCoopCapacity = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopCapacity>>, TError,{data: BodyType<CoopCapacityUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCoopCapacity>>,
+        TError,
+        {data: BodyType<CoopCapacityUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCoopCapacityMutationOptions(options));
+    }
+
+export const getListCoopSurgeRulesUrl = () => {
+
+
+
+
+  return `/api/coop/surge-rules`
+}
+
+/**
+ * @summary Merchant-facing — the scoped tenant's surge traffic-routing rules; tenant scope via x-tenant-id
+ */
+export const listCoopSurgeRules = async ( options?: RequestInit): Promise<CoopSurgeRule[]> => {
+
+  return customFetch<CoopSurgeRule[]>(getListCoopSurgeRulesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopSurgeRulesQueryKey = () => {
+    return [
+    `/api/coop/surge-rules`
+    ] as const;
+    }
+
+
+export const getListCoopSurgeRulesQueryOptions = <TData = Awaited<ReturnType<typeof listCoopSurgeRules>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSurgeRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopSurgeRulesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopSurgeRules>>> = ({ signal }) => listCoopSurgeRules({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopSurgeRules>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopSurgeRulesQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopSurgeRules>>>
+export type ListCoopSurgeRulesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — the scoped tenant's surge traffic-routing rules; tenant scope via x-tenant-id
+ */
+
+export function useListCoopSurgeRules<TData = Awaited<ReturnType<typeof listCoopSurgeRules>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSurgeRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopSurgeRulesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopSurgeRuleUrl = () => {
+
+
+
+
+  return `/api/coop/surge-rules`
+}
+
+/**
+ * @summary Merchant-facing — create a traffic-routing rule on an accepted, active partnership (competitor pairs rejected); tenant scope via x-tenant-id
+ */
+export const createCoopSurgeRule = async (coopSurgeRuleCreate: CoopSurgeRuleCreate, options?: RequestInit): Promise<CoopSurgeRule> => {
+
+  return customFetch<CoopSurgeRule>(getCreateCoopSurgeRuleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopSurgeRuleCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopSurgeRuleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopSurgeRule>>, TError,{data: BodyType<CoopSurgeRuleCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopSurgeRule>>, TError,{data: BodyType<CoopSurgeRuleCreate>}, TContext> => {
+
+const mutationKey = ['createCoopSurgeRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopSurgeRule>>, {data: BodyType<CoopSurgeRuleCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopSurgeRule(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopSurgeRuleMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopSurgeRule>>>
+    export type CreateCoopSurgeRuleMutationBody = BodyType<CoopSurgeRuleCreate>
+    export type CreateCoopSurgeRuleMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — create a traffic-routing rule on an accepted, active partnership (competitor pairs rejected); tenant scope via x-tenant-id
+ */
+export const useCreateCoopSurgeRule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopSurgeRule>>, TError,{data: BodyType<CoopSurgeRuleCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopSurgeRule>>,
+        TError,
+        {data: BodyType<CoopSurgeRuleCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopSurgeRuleMutationOptions(options));
+    }
+
+export const getUpdateCoopSurgeRuleUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/surge-rules/${id}`
+}
+
+/**
+ * @summary Merchant-facing — edit or pause a surge rule; tenant scope via x-tenant-id
+ */
+export const updateCoopSurgeRule = async (id: number,
+    coopSurgeRuleUpdate: CoopSurgeRuleUpdate, options?: RequestInit): Promise<CoopSurgeRule> => {
+
+  return customFetch<CoopSurgeRule>(getUpdateCoopSurgeRuleUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopSurgeRuleUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCoopSurgeRuleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopSurgeRule>>, TError,{id: number;data: BodyType<CoopSurgeRuleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCoopSurgeRule>>, TError,{id: number;data: BodyType<CoopSurgeRuleUpdate>}, TContext> => {
+
+const mutationKey = ['updateCoopSurgeRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCoopSurgeRule>>, {id: number;data: BodyType<CoopSurgeRuleUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCoopSurgeRule(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCoopSurgeRuleMutationResult = NonNullable<Awaited<ReturnType<typeof updateCoopSurgeRule>>>
+    export type UpdateCoopSurgeRuleMutationBody = BodyType<CoopSurgeRuleUpdate>
+    export type UpdateCoopSurgeRuleMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — edit or pause a surge rule; tenant scope via x-tenant-id
+ */
+export const useUpdateCoopSurgeRule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopSurgeRule>>, TError,{id: number;data: BodyType<CoopSurgeRuleUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCoopSurgeRule>>,
+        TError,
+        {id: number;data: BodyType<CoopSurgeRuleUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCoopSurgeRuleMutationOptions(options));
+    }
+
+export const getDeleteCoopSurgeRuleUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/surge-rules/${id}`
+}
+
+/**
+ * @summary Merchant-facing — delete a surge rule (any live boost reverts immediately); tenant scope via x-tenant-id
+ */
+export const deleteCoopSurgeRule = async (id: number, options?: RequestInit): Promise<DeleteCoopSurgeRule200> => {
+
+  return customFetch<DeleteCoopSurgeRule200>(getDeleteCoopSurgeRuleUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteCoopSurgeRuleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCoopSurgeRule>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCoopSurgeRule>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteCoopSurgeRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCoopSurgeRule>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteCoopSurgeRule(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCoopSurgeRuleMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCoopSurgeRule>>>
+
+    export type DeleteCoopSurgeRuleMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — delete a surge rule (any live boost reverts immediately); tenant scope via x-tenant-id
+ */
+export const useDeleteCoopSurgeRule = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCoopSurgeRule>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCoopSurgeRule>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteCoopSurgeRuleMutationOptions(options));
+    }
+
+export const getListCoopSurgeActivationsUrl = () => {
+
+
+
+
+  return `/api/coop/surge-activations`
+}
+
+/**
+ * @summary Merchant-facing — live surge boosts plus recent activation history for partnerships this business participates in; tenant scope via x-tenant-id
+ */
+export const listCoopSurgeActivations = async ( options?: RequestInit): Promise<CoopSurgeActivation[]> => {
+
+  return customFetch<CoopSurgeActivation[]>(getListCoopSurgeActivationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopSurgeActivationsQueryKey = () => {
+    return [
+    `/api/coop/surge-activations`
+    ] as const;
+    }
+
+
+export const getListCoopSurgeActivationsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopSurgeActivations>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSurgeActivations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopSurgeActivationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopSurgeActivations>>> = ({ signal }) => listCoopSurgeActivations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopSurgeActivations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopSurgeActivationsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopSurgeActivations>>>
+export type ListCoopSurgeActivationsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — live surge boosts plus recent activation history for partnerships this business participates in; tenant scope via x-tenant-id
+ */
+
+export function useListCoopSurgeActivations<TData = Awaited<ReturnType<typeof listCoopSurgeActivations>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopSurgeActivations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopSurgeActivationsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

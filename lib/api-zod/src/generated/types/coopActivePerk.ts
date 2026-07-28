@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { CoopSurgeBoost } from './coopSurgeBoost';
 
 export interface CoopActivePerk {
   id: number;
@@ -25,4 +26,6 @@ export interface CoopActivePerk {
      * @nullable
      */
   perkEndsAt: string | null;
+  /** Live surge boost — when present, the perk shows the elevated discount and limited-time indicator until expiresAt. */
+  surge?: CoopSurgeBoost | null;
 }

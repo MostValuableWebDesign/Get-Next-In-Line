@@ -110,6 +110,21 @@ export function PartnerPerksBlock({
           <div key={perk.id} className="text-sm" data-testid={`row-partner-perk-${perk.id}`}>
             <span className="font-medium">{perk.perkTitle}</span>
             <span className="text-muted-foreground"> — with {perk.partnerName}</span>
+            {perk.surge && (
+              <span
+                className="ml-2 inline-flex items-center gap-1 rounded-md border border-orange-500/40 bg-orange-500/10 px-1.5 py-0.5 text-xs font-semibold text-orange-700 dark:text-orange-400"
+                data-testid={`badge-surge-boost-${perk.id}`}
+              >
+                🔥 Boosted: {perk.surge.boostedDiscountPercent}% off
+                <span className="font-normal text-muted-foreground line-through">
+                  {perk.surge.baseDiscountPercent}%
+                </span>
+                <span className="font-normal">
+                  — limited time, until{' '}
+                  {new Date(perk.surge.expiresAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                </span>
+              </span>
+            )}
             {staffFacing && (
               <span className="ml-2 inline-flex items-center gap-1 font-mono text-xs text-muted-foreground">
                 <Ticket className="w-3 h-3" /> {perk.redemptionCode}

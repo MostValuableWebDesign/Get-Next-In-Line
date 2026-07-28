@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { CoopDirectoryEntryCapacityStatus } from './coopDirectoryEntryCapacityStatus';
 
 export interface CoopDirectoryEntry {
   id: number;
@@ -34,4 +35,9 @@ export interface CoopDirectoryEntry {
   samePlaza: boolean;
   /** True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester's active same-plaza partnerships. */
   plazaConflict: boolean;
+  /**
+     * The business's live capacity status; null when unavailable.
+     * @nullable
+     */
+  capacityStatus?: CoopDirectoryEntryCapacityStatus;
 }

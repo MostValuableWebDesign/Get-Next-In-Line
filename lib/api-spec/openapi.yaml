@@ -835,6 +835,151 @@ paths:
         "400":
           description: Missing x-tenant-id header
 
+  /coop/capacity:
+    get:
+      operationId: getCoopCapacity
+      tags: [coop]
+      summary: Merchant-facing — live capacity status (manual override or auto-derived from queue wait, bookings vs. threshold, resource occupancy); tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Live capacity status plus the tenant's capacity settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCapacityStatus"
+        "400":
+          description: Missing x-tenant-id header
+    patch:
+      operationId: updateCoopCapacity
+      tags: [coop]
+      summary: Merchant-facing — set the daily capacity threshold and/or flip the manual live status (null reverts to automatic); tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopCapacityUpdate"
+      responses:
+        "200":
+          description: Updated live capacity status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopCapacityStatus"
+        "400":
+          description: Missing x-tenant-id header or invalid body
+        "404":
+          description: Business not found
+
+  /coop/surge-rules:
+    get:
+      operationId: listCoopSurgeRules
+      tags: [coop]
+      summary: Merchant-facing — the scoped tenant's surge traffic-routing rules; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Surge rules owned by this business (as the busy side)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopSurgeRule"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createCoopSurgeRule
+      tags: [coop]
+      summary: Merchant-facing — create a traffic-routing rule on an accepted, active partnership (competitor pairs rejected); tenant scope via x-tenant-id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopSurgeRuleCreate"
+      responses:
+        "201":
+          description: Created rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopSurgeRule"
+        "400":
+          description: Invalid rule or partnership not accepted/active
+        "403":
+          description: Not a party to the partnership, or industry-barrier pair
+        "404":
+          description: Partnership not found
+
+  /coop/surge-rules/{id}:
+    patch:
+      operationId: updateCoopSurgeRule
+      tags: [coop]
+      summary: Merchant-facing — edit or pause a surge rule; tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopSurgeRuleUpdate"
+      responses:
+        "200":
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopSurgeRule"
+        "400":
+          description: Invalid rule shape
+        "404":
+          description: Rule not found
+    delete:
+      operationId: deleteCoopSurgeRule
+      tags: [coop]
+      summary: Merchant-facing — delete a surge rule (any live boost reverts immediately); tenant scope via x-tenant-id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted]
+                properties:
+                  deleted:
+                    type: boolean
+        "404":
+          description: Rule not found
+
+  /coop/surge-activations:
+    get:
+      operationId: listCoopSurgeActivations
+      tags: [coop]
+      summary: Merchant-facing — live surge boosts plus recent activation history for partnerships this business participates in; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Activations, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CoopSurgeActivation"
+        "400":
+          description: Missing x-tenant-id header
+
   /coop/redemptions:
     post:
       operationId: redeemCoopPerk
@@ -4879,6 +5024,172 @@ components:
         plazaConflict:
           type: boolean
           description: True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester's active same-plaza partnerships.
+        capacityStatus:
+          type: ["string", "null"]
+          enum: [available, moderate, busy, null]
+          description: The business's live capacity status; null when unavailable.
+
+    CoopCapacityStatus:
+      type: object
+      required: [status, source, waitMinutes, appointmentsToday, capacityThreshold, manualStatus, overrideExpiresAt]
+      properties:
+        status:
+          type: string
+          enum: [available, moderate, busy]
+        source:
+          type: string
+          enum: [manual, auto]
+          description: manual — merchant override in force; auto — derived from live queue wait, bookings vs. threshold, and resource occupancy.
+        waitMinutes:
+          type: number
+          description: Highest live wait estimate (minutes) among queued visits.
+        appointmentsToday:
+          type: integer
+        capacityThreshold:
+          type: ["integer", "null"]
+        manualStatus:
+          type: ["string", "null"]
+        overrideExpiresAt:
+          type: ["string", "null"]
+
+    CoopCapacityUpdate:
+      type: object
+      properties:
+        capacityThreshold:
+          type: ["integer", "null"]
+          minimum: 0
+          description: Daily appointment capacity threshold; null clears it.
+        manualStatus:
+          type: ["string", "null"]
+          enum: [available, moderate, busy, null]
+          description: Manual live status; null reverts to automatic derivation.
+        overrideMinutes:
+          type: ["integer", "null"]
+          minimum: 0
+          description: Minutes the manual status holds before auto-reverting; null/0 = until cleared.
+
+    CoopSurgeRuleCreate:
+      type: object
+      required: [partnershipId, triggerType, baseDiscountPercent, boostedDiscountPercent, boostDurationMinutes]
+      properties:
+        partnershipId:
+          type: integer
+        triggerType:
+          type: string
+          enum: [wait_minutes, at_capacity]
+        waitThresholdMinutes:
+          type: ["integer", "null"]
+        baseDiscountPercent:
+          type: integer
+        boostedDiscountPercent:
+          type: integer
+        boostDurationMinutes:
+          type: integer
+        windowStartHour:
+          type: ["integer", "null"]
+        windowEndHour:
+          type: ["integer", "null"]
+
+    CoopSurgeRuleUpdate:
+      type: object
+      properties:
+        triggerType:
+          type: string
+          enum: [wait_minutes, at_capacity]
+        waitThresholdMinutes:
+          type: ["integer", "null"]
+        baseDiscountPercent:
+          type: integer
+        boostedDiscountPercent:
+          type: integer
+        boostDurationMinutes:
+          type: integer
+        windowStartHour:
+          type: ["integer", "null"]
+        windowEndHour:
+          type: ["integer", "null"]
+        isActive:
+          type: boolean
+
+    CoopSurgeRule:
+      type: object
+      required: [id, partnershipId, ownerTenantId, partnerName, perkTitle, triggerType, waitThresholdMinutes, baseDiscountPercent, boostedDiscountPercent, boostDurationMinutes, windowStartHour, windowEndHour, isActive, liveBoostExpiresAt, createdAt]
+      properties:
+        id:
+          type: integer
+        partnershipId:
+          type: integer
+        ownerTenantId:
+          type: integer
+        partnerName:
+          type: string
+        perkTitle:
+          type: string
+        triggerType:
+          type: string
+        waitThresholdMinutes:
+          type: ["integer", "null"]
+        baseDiscountPercent:
+          type: integer
+        boostedDiscountPercent:
+          type: integer
+        boostDurationMinutes:
+          type: integer
+        windowStartHour:
+          type: ["integer", "null"]
+        windowEndHour:
+          type: ["integer", "null"]
+        isActive:
+          type: boolean
+        liveBoostExpiresAt:
+          type: ["string", "null"]
+          description: When the rule's currently live boost expires; null when no boost is live.
+        createdAt:
+          type: string
+
+    CoopSurgeActivation:
+      type: object
+      required: [id, ruleId, partnershipId, ownerTenantId, perkTitle, partnerName, baseDiscountPercent, boostedDiscountPercent, triggerReason, activatedAt, expiresAt, endedAt, endReason, isLive]
+      properties:
+        id:
+          type: integer
+        ruleId:
+          type: integer
+        partnershipId:
+          type: integer
+        ownerTenantId:
+          type: integer
+        perkTitle:
+          type: string
+        partnerName:
+          type: string
+        baseDiscountPercent:
+          type: integer
+        boostedDiscountPercent:
+          type: integer
+        triggerReason:
+          type: string
+        activatedAt:
+          type: string
+        expiresAt:
+          type: string
+        endedAt:
+          type: ["string", "null"]
+        endReason:
+          type: ["string", "null"]
+        isLive:
+          type: boolean
+
+    CoopSurgeBoost:
+      type: object
+      required: [baseDiscountPercent, boostedDiscountPercent, expiresAt]
+      properties:
+        baseDiscountPercent:
+          type: integer
+        boostedDiscountPercent:
+          type: integer
+        expiresAt:
+          type: string
 
     CoopTaxonomySubCategory:
       type: object
@@ -5063,6 +5374,11 @@ components:
         perkEndsAt:
           type: ["string", "null"]
           description: ISO timestamp the perk expires; null = never expires.
+        surge:
+          anyOf:
+            - $ref: "#/components/schemas/CoopSurgeBoost"
+            - type: "null"
+          description: Live surge boost — when present, the perk shows the elevated discount and limited-time indicator until expiresAt.
 
     CoopActivePerksResponse:
       type: object
@@ -6302,6 +6618,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PublicBookingStaff"
+        capacityStatus:
+          type: ["string", "null"]
+          enum: [available, moderate, busy, null]
+          description: Live capacity status (busy / moderate / available); null when unavailable.
 
     PublicAvailabilityInput:
       type: object

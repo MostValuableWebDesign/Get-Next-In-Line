@@ -8,6 +8,7 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { getSettingsForTenant } from "../lib/settings";
+import { cachedCapacityStatus } from "../lib/capacityStatus";
 import { COOP_PERK_DISCLAIMER, perkWindowOpen } from "../lib/coopPerks";
 import { filterPartnershipsForConsumerSurface } from "../lib/coopFirewall";
 import { recordCoopEventsSafe } from "../lib/coopEvents";
@@ -431,6 +432,23 @@ router.get("/public/landing/:slug", async (req, res): Promise<void> => {
   ]
     .filter(Boolean)
     .join(" · ");
+  // Live capacity status (short-cached; never blocks the page render).
+  const capacityStatus = await cachedCapacityStatus(tenant.id)
+    .then((r) => r.status)
+    .catch(() => null);
+  if (capacityStatus) {
+    const capacityLabel =
+      capacityStatus === "busy"
+        ? "Very busy right now — long wait likely"
+        : capacityStatus === "moderate"
+          ? "Moderately busy right now"
+          : "Open — plenty of availability";
+    const capacityIcon =
+      capacityStatus === "busy" ? "🔴" : capacityStatus === "moderate" ? "🟡" : "🟢";
+    detailRows.push(
+      `<p class="detail" data-testid="text-capacity-status">${capacityIcon} ${escapeHtml(capacityLabel)}</p>`,
+    );
+  }
   if (addressLine) detailRows.push(`<p class="detail">📍 ${escapeHtml(addressLine)}</p>`);
   if (settings.publicPhone)
     detailRows.push(

@@ -149,6 +149,33 @@ function BookingFlow({ config, slug }: { config: PublicBookingConfig; slug: stri
         {config.businessName || config.brandName}
       </h1>
       <p className="text-sm text-muted-foreground">Book your appointment online</p>
+      {config.capacityStatus && (
+        <p
+          className={`text-xs font-medium inline-flex items-center gap-1.5 ${
+            config.capacityStatus === 'busy'
+              ? 'text-red-600'
+              : config.capacityStatus === 'moderate'
+                ? 'text-amber-600'
+                : 'text-emerald-600'
+          }`}
+          data-testid="text-public-capacity-status"
+        >
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${
+              config.capacityStatus === 'busy'
+                ? 'bg-red-500'
+                : config.capacityStatus === 'moderate'
+                  ? 'bg-amber-500'
+                  : 'bg-emerald-500'
+            }`}
+          />
+          {config.capacityStatus === 'busy'
+            ? 'Very busy right now — long wait likely'
+            : config.capacityStatus === 'moderate'
+              ? 'Moderately busy right now'
+              : 'Open — plenty of availability'}
+        </p>
+      )}
     </div>
   );
 

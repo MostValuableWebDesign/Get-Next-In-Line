@@ -99,6 +99,17 @@ export const sosSettingsTable = pgTable("sos_settings", {
   // exceeds the margin.
   coopReciprocityMarginPercent: integer("coop_reciprocity_margin_percent"),
   coopReciprocityWindowDays: integer("coop_reciprocity_window_days").notNull().default(30),
+  // ── Co-op surge pricing / capacity broadcasting ───────────────────────────
+  // Daily appointment capacity threshold used by the automatic capacity
+  // status. NULL = no threshold configured (auto status uses queue wait and
+  // resource occupancy only).
+  capacityThreshold: integer("capacity_threshold"),
+  // Manual live-status override: available | moderate | busy. Empty string =
+  // no override (status is derived automatically from live signals).
+  capacityStatusOverride: text("capacity_status_override").notNull().default(""),
+  // Optional expiry for the manual override; past this instant the status
+  // reverts to automatic derivation. NULL = override holds until cleared.
+  capacityOverrideExpiresAt: timestamp("capacity_override_expires_at"),
   // Business-specific service names the AI receptionist should recognize,
   // in addition to the generic industry-neutral terms.
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

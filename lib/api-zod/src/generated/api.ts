@@ -798,7 +798,8 @@ export const ListCoopDirectoryResponseItem = zod.object({
   "city": zod.string().nullable(),
   "sameIndustry": zod.boolean().describe('True when this business shares the requester\'s Level 1 industry (different sub-niche — pairing still allowed). Direct same-sub-category competitors never appear at all.'),
   "samePlaza": zod.boolean().describe('True when this business shares the requester\'s commercial complex (same address block + postal code, or lat\/long proximity).'),
-  "plazaConflict": zod.boolean().describe('True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester\'s active same-plaza partnerships.')
+  "plazaConflict": zod.boolean().describe('True when inviting this business would violate plaza exclusivity — its category is already held by one of the requester\'s active same-plaza partnerships.'),
+  "capacityStatus": zod.union([zod.literal('available'),zod.literal('moderate'),zod.literal('busy'),zod.literal(null)]).nullish().describe('The business\'s live capacity status; null when unavailable.')
 })
 export const ListCoopDirectoryResponse = zod.array(ListCoopDirectoryResponseItem)
 
@@ -996,7 +997,12 @@ export const ListCoopActivePerksResponse = zod.object({
   "partnerName": zod.string(),
   "redemptionCode": zod.string(),
   "trackingCode": zod.string().nullable().describe('Direction-aware tracking code for the scoped tenant as sender — encoded in the customer pass QR so redemptions at the partner are attributed to this business.'),
-  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.')
+  "perkEndsAt": zod.string().nullable().describe('ISO timestamp the perk expires; null = never expires.'),
+  "surge": zod.union([zod.object({
+  "baseDiscountPercent": zod.number(),
+  "boostedDiscountPercent": zod.number(),
+  "expiresAt": zod.string()
+}),zod.null()]).optional().describe('Live surge boost — when present, the perk shows the elevated discount and limited-time indicator until expiresAt.')
 })),
   "flashPerks": zod.array(zod.object({
   "campaignId": zod.number(),
@@ -1008,6 +1014,173 @@ export const ListCoopActivePerksResponse = zod.object({
   "endsAt": zod.string()
 })).describe('Boosted flash offers from live campaigns this business joined — present only while each campaign window is open.')
 })
+
+
+/**
+ * @summary Merchant-facing — live capacity status (manual override or auto-derived from queue wait, bookings vs. threshold, resource occupancy); tenant scope via x-tenant-id
+ */
+export const GetCoopCapacityResponse = zod.object({
+  "status": zod.enum(['available', 'moderate', 'busy']),
+  "source": zod.enum(['manual', 'auto']).describe('manual — merchant override in force; auto — derived from live queue wait, bookings vs. threshold, and resource occupancy.'),
+  "waitMinutes": zod.number().describe('Highest live wait estimate (minutes) among queued visits.'),
+  "appointmentsToday": zod.number(),
+  "capacityThreshold": zod.number().nullable(),
+  "manualStatus": zod.string().nullable(),
+  "overrideExpiresAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Merchant-facing — set the daily capacity threshold and/or flip the manual live status (null reverts to automatic); tenant scope via x-tenant-id
+ */
+export const updateCoopCapacityBodyCapacityThresholdMin = 0;
+
+export const updateCoopCapacityBodyOverrideMinutesMin = 0;
+
+
+
+export const UpdateCoopCapacityBody = zod.object({
+  "capacityThreshold": zod.number().min(updateCoopCapacityBodyCapacityThresholdMin).nullish().describe('Daily appointment capacity threshold; null clears it.'),
+  "manualStatus": zod.union([zod.literal('available'),zod.literal('moderate'),zod.literal('busy'),zod.literal(null)]).nullish().describe('Manual live status; null reverts to automatic derivation.'),
+  "overrideMinutes": zod.number().min(updateCoopCapacityBodyOverrideMinutesMin).nullish().describe('Minutes the manual status holds before auto-reverting; null\/0 = until cleared.')
+})
+
+export const UpdateCoopCapacityResponse = zod.object({
+  "status": zod.enum(['available', 'moderate', 'busy']),
+  "source": zod.enum(['manual', 'auto']).describe('manual — merchant override in force; auto — derived from live queue wait, bookings vs. threshold, and resource occupancy.'),
+  "waitMinutes": zod.number().describe('Highest live wait estimate (minutes) among queued visits.'),
+  "appointmentsToday": zod.number(),
+  "capacityThreshold": zod.number().nullable(),
+  "manualStatus": zod.string().nullable(),
+  "overrideExpiresAt": zod.string().nullable()
+})
+
+
+/**
+ * @summary Merchant-facing — the scoped tenant's surge traffic-routing rules; tenant scope via x-tenant-id
+ */
+export const ListCoopSurgeRulesResponseItem = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "ownerTenantId": zod.number(),
+  "partnerName": zod.string(),
+  "perkTitle": zod.string(),
+  "triggerType": zod.string(),
+  "waitThresholdMinutes": zod.number().nullable(),
+  "baseDiscountPercent": zod.number(),
+  "boostedDiscountPercent": zod.number(),
+  "boostDurationMinutes": zod.number(),
+  "windowStartHour": zod.number().nullable(),
+  "windowEndHour": zod.number().nullable(),
+  "isActive": zod.boolean(),
+  "liveBoostExpiresAt": zod.string().nullable().describe('When the rule\'s currently live boost expires; null when no boost is live.'),
+  "createdAt": zod.string()
+})
+export const ListCoopSurgeRulesResponse = zod.array(ListCoopSurgeRulesResponseItem)
+
+
+/**
+ * @summary Merchant-facing — create a traffic-routing rule on an accepted, active partnership (competitor pairs rejected); tenant scope via x-tenant-id
+ */
+export const CreateCoopSurgeRuleBody = zod.object({
+  "partnershipId": zod.number(),
+  "triggerType": zod.enum(['wait_minutes', 'at_capacity']),
+  "waitThresholdMinutes": zod.number().nullish(),
+  "baseDiscountPercent": zod.number(),
+  "boostedDiscountPercent": zod.number(),
+  "boostDurationMinutes": zod.number(),
+  "windowStartHour": zod.number().nullish(),
+  "windowEndHour": zod.number().nullish()
+})
+
+export const CreateCoopSurgeRuleResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "ownerTenantId": zod.number(),
+  "partnerName": zod.string(),
+  "perkTitle": zod.string(),
+  "triggerType": zod.string(),
+  "waitThresholdMinutes": zod.number().nullable(),
+  "baseDiscountPercent": zod.number(),
+  "boostedDiscountPercent": zod.number(),
+  "boostDurationMinutes": zod.number(),
+  "windowStartHour": zod.number().nullable(),
+  "windowEndHour": zod.number().nullable(),
+  "isActive": zod.boolean(),
+  "liveBoostExpiresAt": zod.string().nullable().describe('When the rule\'s currently live boost expires; null when no boost is live.'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — edit or pause a surge rule; tenant scope via x-tenant-id
+ */
+export const UpdateCoopSurgeRuleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateCoopSurgeRuleBody = zod.object({
+  "triggerType": zod.enum(['wait_minutes', 'at_capacity']).optional(),
+  "waitThresholdMinutes": zod.number().nullish(),
+  "baseDiscountPercent": zod.number().optional(),
+  "boostedDiscountPercent": zod.number().optional(),
+  "boostDurationMinutes": zod.number().optional(),
+  "windowStartHour": zod.number().nullish(),
+  "windowEndHour": zod.number().nullish(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateCoopSurgeRuleResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "ownerTenantId": zod.number(),
+  "partnerName": zod.string(),
+  "perkTitle": zod.string(),
+  "triggerType": zod.string(),
+  "waitThresholdMinutes": zod.number().nullable(),
+  "baseDiscountPercent": zod.number(),
+  "boostedDiscountPercent": zod.number(),
+  "boostDurationMinutes": zod.number(),
+  "windowStartHour": zod.number().nullable(),
+  "windowEndHour": zod.number().nullable(),
+  "isActive": zod.boolean(),
+  "liveBoostExpiresAt": zod.string().nullable().describe('When the rule\'s currently live boost expires; null when no boost is live.'),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — delete a surge rule (any live boost reverts immediately); tenant scope via x-tenant-id
+ */
+export const DeleteCoopSurgeRuleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteCoopSurgeRuleResponse = zod.object({
+  "deleted": zod.boolean()
+})
+
+
+/**
+ * @summary Merchant-facing — live surge boosts plus recent activation history for partnerships this business participates in; tenant scope via x-tenant-id
+ */
+export const ListCoopSurgeActivationsResponseItem = zod.object({
+  "id": zod.number(),
+  "ruleId": zod.number(),
+  "partnershipId": zod.number(),
+  "ownerTenantId": zod.number(),
+  "perkTitle": zod.string(),
+  "partnerName": zod.string(),
+  "baseDiscountPercent": zod.number(),
+  "boostedDiscountPercent": zod.number(),
+  "triggerReason": zod.string(),
+  "activatedAt": zod.string(),
+  "expiresAt": zod.string(),
+  "endedAt": zod.string().nullable(),
+  "endReason": zod.string().nullable(),
+  "isLive": zod.boolean()
+})
+export const ListCoopSurgeActivationsResponse = zod.array(ListCoopSurgeActivationsResponseItem)
 
 
 /**
@@ -4755,7 +4928,8 @@ export const GetPublicBookingConfigResponse = zod.object({
   "staff": zod.array(zod.object({
   "id": zod.number(),
   "name": zod.string()
-}))
+})),
+  "capacityStatus": zod.union([zod.literal('available'),zod.literal('moderate'),zod.literal('busy'),zod.literal(null)]).nullish().describe('Live capacity status (busy \/ moderate \/ available); null when unavailable.')
 })
 
 

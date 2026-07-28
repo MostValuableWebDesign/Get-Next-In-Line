@@ -45,6 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import { CoopCampaignsSection } from '@/components/sos/coop-campaigns-content';
 import { PassportChallengesSection } from '@/components/sos/passport-challenges-content';
 import { CoopEventsSection } from '@/components/sos/coop-events-content';
+import { CoopSurgeSection, CapacityStatusBadge } from '@/components/sos/coop-surge-content';
 import {
   AlertTriangle, ArrowDownLeft, ArrowDownToLine, ArrowLeftRight, ArrowUpDown, ArrowUpFromLine,
   ArrowUpRight, BarChart3, Bell, CalendarClock, Check, Copy, DollarSign, Eye, FileSignature, Flag,
@@ -169,6 +170,9 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
       {/* Neighborhood Passport — sponsor milestone challenges that reward
           customers for redeeming perks at N distinct partner businesses. */}
       <PassportChallengesSection tenantId={tenantId} />
+      {/* Dynamic surge pricing & traffic balancing: capacity broadcasting,
+          traffic-routing rules on partnerships, and live boost activity. */}
+      <CoopSurgeSection tenantId={tenantId} partnerships={partnerships ?? []} />
 
       {/* Community events & sponsorship sync — joint neighborhood events with
           cost splitting, joint announcements, and check-in attribution. */}
@@ -1775,6 +1779,7 @@ function Directory({
                       {biz.distanceMiles} mi away
                     </span>
                   )}
+                  <CapacityStatusBadge status={biz.capacityStatus} id={biz.id} />
                 </div>
                 {biz.sameIndustry && (
                   <Badge

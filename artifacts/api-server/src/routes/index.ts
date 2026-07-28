@@ -12,6 +12,7 @@ import sosRouter from "./sos";
 import conciergeRouter from "./concierge";
 import partnersRouter from "./partners";
 import coopRouter from "./coop";
+import coopSurgeRouter from "./coopSurge";
 import safetyRouter from "./safety";
 import emergencyRouter from "./emergency";
 import posRouter from "./pos";
@@ -102,6 +103,7 @@ router.use(adminRouter);
 router.use(conciergeRouter); // AI Concierge & Automation module
 router.use(partnersRouter); // Partner-Direct Integrations proxy engine (/v1/partners)
 router.use(coopRouter);     // Merchant co-op partnerships (/coop)
+router.use(coopSurgeRouter); // Surge pricing & traffic balancing (/coop/capacity, /coop/surge-*)
 router.use(franchiseRouter); // Multi-Location Franchise Co-Op Controller (/franchise)
 router.use(posRouter);      // External POS webhook connectors (/pos)
 router.use(gatewayRouter);  // Co-Op API gateway: token mgmt (/gateway) + public API (/v1/gateway)
