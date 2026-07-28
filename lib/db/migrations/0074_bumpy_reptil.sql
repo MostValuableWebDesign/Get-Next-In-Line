@@ -1,0 +1,1 @@
+ALTER TABLE "partner_connections" ADD COLUMN "webhook_secret_encrypted" text;

@@ -80,10 +80,10 @@ export const SESSION_EXEMPT_PATHS = new Set([
 // Parameterized session-auth bypasses (paths with dynamic segments that a
 // static Set can't express). Same guarded-growth rule applies: every pattern
 // here is a session-auth bypass and must carry its own authentication story.
-// Partner webhooks are server-to-server calls from partner platforms (no
-// session; sandbox pattern — signature verification drops in with real creds).
+// Partner webhooks (/v1/partners/:id/webhook) are HMAC-signed and mounted in
+// app.ts with express.raw() BEFORE the session middleware — they never reach
+// this router, so no exemption pattern is needed here.
 export const SESSION_EXEMPT_PATTERNS: RegExp[] = [
-  /^\/v1\/partners\/[a-z0-9-]+\/webhook$/,
   // Public Co-Op API Gateway: server-to-server calls from third-party POS /
   // developer systems, authenticated by per-tenant bearer tokens inside the
   // gateway router (rotation/revocation enforced there). Never session-authed.

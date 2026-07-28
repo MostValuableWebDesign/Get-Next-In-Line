@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { randomUUID } from "crypto";
+import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import {
   db,
   modulesTable,
@@ -18,7 +18,7 @@ import {
   GetPartnerConnectionStatusResponse,
   DisconnectPartnerResponse,
 } from "@workspace/api-zod";
-import { encryptToken } from "../lib/partnerCrypto";
+import { encryptToken, decryptToken } from "../lib/partnerCrypto";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -222,6 +222,10 @@ router.post("/v1/partners/:partnerId/callback", async (req, res): Promise<void> 
       oauthState: null,
       accessTokenEncrypted: encryptToken(`sandbox_access_${parsed.data.code}_${randomUUID()}`),
       refreshTokenEncrypted: encryptToken(`sandbox_refresh_${randomUUID()}`),
+      // Webhook signing secret issued at authorization time. Stored encrypted;
+      // the sandbox gateway shares it with the partner out-of-band — it is
+      // NEVER included in any API response.
+      webhookSecretEncrypted: encryptToken(`whsec_${randomBytes(32).toString("hex")}`),
       connectedAt: now,
       lastSyncAt: now,
       lastError: null,
@@ -274,6 +278,7 @@ router.post("/v1/partners/:partnerId/disconnect", async (req, res): Promise<void
         oauthState: null,
         accessTokenEncrypted: null,
         refreshTokenEncrypted: null,
+        webhookSecretEncrypted: null,
         connectedAt: null,
         lastError: null,
         updatedAt: new Date(),
@@ -287,45 +292,87 @@ router.post("/v1/partners/:partnerId/disconnect", async (req, res): Promise<void
 });
 
 // ── POST /v1/partners/:partnerId/webhook — partner event listener ──────────
-// Server-to-server: session-exempt (see SESSION_EXEMPT_PATTERNS in routes/index).
-// Only connections in "active" state accept events; every event is recorded in
-// the audit log and refreshes the connection's lastSyncAt.
-router.post("/v1/partners/:partnerId/webhook", async (req, res): Promise<void> => {
-  const module = await findPartnerModule(req.params.partnerId);
-  if (!module) {
-    res.status(404).json({ error: "Partner not found" });
-    return;
-  }
-  const body = (req.body ?? {}) as { event?: unknown; tenantId?: unknown };
-  const eventName = typeof body.event === "string" && body.event.trim() ? body.event.trim() : null;
-  if (!eventName) {
-    res.status(400).json({ error: "Missing event name" });
-    return;
-  }
+// Server-to-server. Mounted in app.ts with express.raw() BEFORE express.json()
+// (like Stripe/POS webhooks): the HMAC-SHA256 signature in x-partner-signature
+// is verified over the exact raw bytes with the connection's webhook secret
+// issued at authorization time. Unsigned/invalid requests are rejected and
+// never touch the audit log. Only "active" connections accept events; every
+// accepted event is recorded and refreshes the connection's lastSyncAt.
+
+export const PARTNER_WEBHOOK_SIGNATURE_HEADER = "x-partner-signature";
+
+export function computePartnerWebhookSignature(secret: string, rawBody: Buffer): string {
+  return createHmac("sha256", secret).update(rawBody).digest("hex");
+}
+
+function signatureMatches(expected: string, provided: string): boolean {
+  const a = Buffer.from(expected, "utf8");
+  const b = Buffer.from(provided, "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export async function handlePartnerWebhook(
+  partnerId: string,
+  tenantHeader: string | undefined,
+  rawBody: Buffer,
+  signatureHeader: string | undefined
+): Promise<{ http: number; body: Record<string, unknown> }> {
+  const module = await findPartnerModule(partnerId);
+  if (!module) return { http: 404, body: { error: "Partner not found" } };
+
   // Tenant scope comes ONLY from the server-side header convention (or the
   // agency-level NULL workspace). A tenantId in the webhook body is untrusted
   // caller input and is ignored — it can never redirect an event to another
   // tenant's connection.
-  const tenantId = tenantIdFrom(req);
-  if (body.tenantId !== undefined) {
-    logger.warn(
-      { partnerId: req.params.partnerId, bodyTenantId: body.tenantId, scopedTenantId: tenantId },
-      "Ignoring tenantId supplied in partner webhook body"
-    );
+  let tenantId: number | null = null;
+  if (tenantHeader) {
+    const parsed = Number(tenantHeader);
+    tenantId = Number.isInteger(parsed) && parsed > 0 ? parsed : null;
   }
 
   const conn = await findConnection(module.id, tenantId);
   if (!conn || conn.status !== "active") {
-    res.status(404).json({ error: "No active connection for this partner" });
-    return;
+    return { http: 404, body: { error: "No active connection for this partner" } };
   }
+
+  // Signature check BEFORE any state change or audit write: unsigned or
+  // mis-signed deliveries must leave zero trace beyond a server log line.
+  if (!conn.webhookSecretEncrypted) {
+    logger.warn({ partnerId, tenantId }, "Partner webhook rejected: connection has no signing secret");
+    return { http: 401, body: { error: "Webhook signature required" } };
+  }
+  if (!signatureHeader) {
+    logger.warn({ partnerId, tenantId }, "Partner webhook rejected: missing signature header");
+    return { http: 401, body: { error: "Webhook signature required" } };
+  }
+  const expected = computePartnerWebhookSignature(decryptToken(conn.webhookSecretEncrypted), rawBody);
+  if (!signatureMatches(expected, signatureHeader)) {
+    logger.warn({ partnerId, tenantId }, "Partner webhook rejected: invalid signature");
+    return { http: 401, body: { error: "Invalid webhook signature" } };
+  }
+
+  let body: { event?: unknown; tenantId?: unknown };
+  try {
+    body = JSON.parse(rawBody.toString("utf8") || "{}") as { event?: unknown; tenantId?: unknown };
+  } catch {
+    return { http: 400, body: { error: "Invalid JSON body" } };
+  }
+  const eventName = typeof body.event === "string" && body.event.trim() ? body.event.trim() : null;
+  if (!eventName) return { http: 400, body: { error: "Missing event name" } };
+  if (body.tenantId !== undefined) {
+    logger.warn(
+      { partnerId, bodyTenantId: body.tenantId, scopedTenantId: tenantId },
+      "Ignoring tenantId supplied in partner webhook body"
+    );
+  }
+
   const now = new Date();
   await db
     .update(partnerConnectionsTable)
     .set({ lastSyncAt: now, updatedAt: now })
     .where(eq(partnerConnectionsTable.id, conn.id));
   await recordEvent(conn.id, "webhook_received", eventName.slice(0, 500));
-  res.json({ received: true });
-});
+  return { http: 200, body: { received: true } };
+}
 
 export default router;

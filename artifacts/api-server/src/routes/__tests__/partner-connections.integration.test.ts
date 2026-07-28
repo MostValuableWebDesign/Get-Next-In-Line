@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { db, modulesTable, tenantsTable, partnerConnectionsTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
+import { decryptToken } from "../../lib/partnerCrypto";
+import { computePartnerWebhookSignature, PARTNER_WEBHOOK_SIGNATURE_HEADER } from "../partners";
 
 // ---------------------------------------------------------------------------
 // Partner-Direct proxy engine (/api/v1/partners/{partnerId}) integration tests
@@ -42,6 +44,30 @@ function assertNoCredentialLeak(payload: unknown) {
   expect(text).not.toMatch(/sandbox_access/);
   expect(text).not.toMatch(/sandbox_refresh/);
   expect(text).not.toMatch(/oauthState/);
+  expect(text).not.toMatch(/webhookSecret/i);
+  expect(text).not.toMatch(/whsec_/);
+}
+
+/** Look up the connection's webhook signing secret straight from the DB (test-only). */
+async function webhookSecretFor(tenant: number | null): Promise<string> {
+  const rows = await db
+    .select()
+    .from(partnerConnectionsTable)
+    .where(eq(partnerConnectionsTable.moduleId, moduleId));
+  const row = rows.find((r) => r.tenantId === tenant);
+  expect(row?.webhookSecretEncrypted).toBeTruthy();
+  return decryptToken(row!.webhookSecretEncrypted!);
+}
+
+/** Deliver a signed webhook exactly as a real partner gateway would. */
+function signedHook(payload: unknown, secret: string, tenantHeader?: string) {
+  const raw = JSON.stringify(payload);
+  let r = request(app)
+    .post(`/api/v1/partners/${PARTNER_ID}/webhook`)
+    .set("content-type", "application/json")
+    .set(PARTNER_WEBHOOK_SIGNATURE_HEADER, computePartnerWebhookSignature(secret, Buffer.from(raw)));
+  if (tenantHeader) r = r.set("x-tenant-id", tenantHeader);
+  return r.send(raw);
 }
 
 beforeAll(async () => {
@@ -131,12 +157,30 @@ describe("partner connection lifecycle", () => {
     expect(row.accessTokenEncrypted).not.toContain("sandbox_access");
     expect(row.oauthState).toBeNull();
 
-    // 3. webhook (no session) records event + bumps lastSyncAt
+    // a webhook signing secret is issued at authorization time (encrypted at rest)
+    expect(row.webhookSecretEncrypted).toMatch(/^v1:/);
+    expect(row.webhookSecretEncrypted).not.toContain("whsec_");
+    const secret = decryptToken(row.webhookSecretEncrypted!);
+    expect(secret).toMatch(/^whsec_/);
+
+    // 3a. UNSIGNED webhook is rejected and never touches the audit log
+    const unsigned = await request(app)
+      .post(`/api/v1/partners/${PARTNER_ID}/webhook`)
+      .send({ event: `unsigned.event.${RUN}` });
+    expect(unsigned.status).toBe(401);
+
+    // 3b. wrong signature is rejected too
+    const badSig = await request(app)
+      .post(`/api/v1/partners/${PARTNER_ID}/webhook`)
+      .set(PARTNER_WEBHOOK_SIGNATURE_HEADER, "deadbeef".repeat(8))
+      .set("content-type", "application/json")
+      .send(JSON.stringify({ event: `badsig.event.${RUN}` }));
+    expect(badSig.status).toBe(401);
+
+    // 3c. properly signed webhook (no session) records event + bumps lastSyncAt
     const before = row.lastSyncAt!.getTime();
     await new Promise((r) => setTimeout(r, 15));
-    const hook = await request(app)
-      .post(`/api/v1/partners/${PARTNER_ID}/webhook`)
-      .send({ event: "payroll.synced" });
+    const hook = await signedHook({ event: "payroll.synced" }, secret);
     expect(hook.status).toBe(200);
     expect(hook.body.received).toBe(true);
 
@@ -145,6 +189,10 @@ describe("partner connection lifecycle", () => {
     expect(new Date(status.body.lastSyncAt).getTime()).toBeGreaterThan(before);
     const types = status.body.events.map((e: { eventType: string }) => e.eventType);
     expect(types).toContain("webhook_received");
+    // rejected unsigned/mis-signed deliveries never reached the audit log
+    const details = status.body.events.map((e: { details: string | null }) => e.details);
+    expect(details).not.toContain(`unsigned.event.${RUN}`);
+    expect(details).not.toContain(`badsig.event.${RUN}`);
     expect(types).toContain("connection_authorized");
     expect(types).toContain("connection_initiated");
     assertNoCredentialLeak(status.body);
@@ -207,12 +255,15 @@ describe("partner connection lifecycle", () => {
       scoped.body.events.some((e: { details: string | null }) => e.details === `spoofed.event.${RUN}`)
     ).toBe(false);
 
-    // Header-scoped webhook with a mismatched body tenantId still lands on
-    // the header-derived connection — the body value is ignored, not honored.
-    const hook = await request(app)
-      .post(`/api/v1/partners/${PARTNER_ID}/webhook`)
-      .set("x-tenant-id", String(tenantId))
-      .send({ event: `real.event.${RUN}`, tenantId: 99999999 });
+    // Header-scoped, properly signed webhook with a mismatched body tenantId
+    // still lands on the header-derived connection — the body value is
+    // ignored, not honored.
+    const secret = await webhookSecretFor(tenantId);
+    const hook = await signedHook(
+      { event: `real.event.${RUN}`, tenantId: 99999999 },
+      secret,
+      String(tenantId)
+    );
     expect(hook.status).toBe(200);
     const after = await agent
       .get(`/api/v1/partners/${PARTNER_ID}/status`)

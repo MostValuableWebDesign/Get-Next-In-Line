@@ -29,6 +29,10 @@ export const partnerConnectionsTable = pgTable(
     // ── Encrypted credentials — server-side only, never exposed to clients ──
     accessTokenEncrypted: text("access_token_encrypted"),
     refreshTokenEncrypted: text("refresh_token_encrypted"),
+    // Webhook signing secret (HMAC-SHA256 over the raw request body), issued
+    // at authorization time. Encrypted at rest; NEVER returned by any API
+    // response — the sandbox gateway hands it to the partner out-of-band.
+    webhookSecretEncrypted: text("webhook_secret_encrypted"),
     lastSyncAt: timestamp("last_sync_at"),
     connectedAt: timestamp("connected_at"),
     // Human-readable reason when status is "error".

@@ -161,6 +161,33 @@ app.post(
   },
 );
 
+// Partner-Direct webhooks also need the raw body: each connection's HMAC
+// signature (issued at authorization time) is verified over the exact bytes
+// sent. Signature is the only authentication — no session involved.
+app.post(
+  "/api/v1/partners/:partnerId/webhook",
+  express.raw({ type: "*/*" }),
+  async (req, res) => {
+    try {
+      const { handlePartnerWebhook, PARTNER_WEBHOOK_SIGNATURE_HEADER } = await import(
+        "./routes/partners"
+      );
+      const sig = req.headers[PARTNER_WEBHOOK_SIGNATURE_HEADER];
+      const tenantHeader = req.headers["x-tenant-id"];
+      const out = await handlePartnerWebhook(
+        req.params.partnerId,
+        Array.isArray(tenantHeader) ? tenantHeader[0] : tenantHeader,
+        Buffer.isBuffer(req.body) ? req.body : Buffer.from(""),
+        Array.isArray(sig) ? sig[0] : sig,
+      );
+      res.status(out.http).json(out.body);
+    } catch (err) {
+      logger.error({ err }, "Partner webhook processing failed");
+      res.status(500).json({ error: "Webhook processing error" });
+    }
+  },
+);
+
 // Global rate limit. Mounted AFTER the raw-body webhook routes above, so
 // vendor-signed webhook deliveries (Stripe, POS) are never throttled, and it
 // internally skips /api/healthz. Everything else gets a generous per-IP
