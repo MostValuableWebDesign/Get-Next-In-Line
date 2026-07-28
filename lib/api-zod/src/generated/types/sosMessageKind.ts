@@ -30,4 +30,5 @@ export const SosMessageKind = {
   passport_reward: 'passport_reward',
   emergency_broadcast: 'emergency_broadcast',
   coop_event_broadcast: 'coop_event_broadcast',
+  retail_low_stock: 'retail_low_stock',
 } as const;

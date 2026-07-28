@@ -1455,6 +1455,152 @@ paths:
           description: Invite expired
         "429":
           description: Too many registration attempts
+  /coop/retail/items:
+    get:
+      operationId: listCoopRetailItems
+      tags: [coop]
+      summary: Merchant-facing — consigned retail items this business hosts and its own items on partners' shelves; tenant scope via x-tenant-id
+      responses:
+        "200":
+          description: Hosted and placed items for the scoped tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopRetailItemsResponse"
+        "400":
+          description: Missing x-tenant-id header
+    post:
+      operationId: createCoopRetailItem
+      tags: [coop]
+      summary: Merchant-facing — add a consigned retail item to one of this business's accepted partnerships (this business is the host)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopRetailItemCreate"
+      responses:
+        "201":
+          description: Item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopRetailItem"
+        "400":
+          description: Missing x-tenant-id header or invalid body
+        "403":
+          description: The scoped tenant is not a party of the partnership
+        "404":
+          description: Partnership not found
+        "409":
+          description: Partnership is not accepted/active
+
+  /coop/retail/items/{id}:
+    patch:
+      operationId: updateCoopRetailItem
+      tags: [coop]
+      summary: Merchant-facing — edit or deactivate a hosted retail item (host only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopRetailItemUpdate"
+      responses:
+        "200":
+          description: Updated item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopRetailItem"
+        "400":
+          description: Missing x-tenant-id header or invalid body
+        "404":
+          description: Item not found for this host tenant
+
+  /coop/retail/items/{id}/adjust:
+    post:
+      operationId: adjustCoopRetailStock
+      tags: [coop]
+      summary: Merchant-facing — restock or adjust (shrinkage/removal) a hosted item's shelf stock, with an audited movement (host only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopRetailStockAdjustment"
+      responses:
+        "200":
+          description: Updated item after the adjustment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopRetailItem"
+        "400":
+          description: Missing x-tenant-id header or invalid body
+        "404":
+          description: Item not found for this host tenant
+        "409":
+          description: Adjustment would take stock below zero
+
+  /coop/retail/items/{id}/sale:
+    post:
+      operationId: recordCoopRetailSale
+      tags: [coop]
+      summary: Merchant-facing — record a POS retail sale of a hosted item; decrements stock atomically and writes attributed ledger entries for both tenants
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopRetailSaleRequest"
+      responses:
+        "201":
+          description: Sale recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopRetailSaleResult"
+        "400":
+          description: Missing x-tenant-id header or invalid body
+        "404":
+          description: Item not found for this host tenant
+        "409":
+          description: Not enough stock on the shelf, or the item is inactive
+
+  /coop/retail/ledger:
+    get:
+      operationId: getCoopRetailLedger
+      tags: [coop]
+      summary: Merchant-facing — cross-sale ledger for the scoped tenant, with per-partner totals of units sold, gross revenue, and this business's share
+      responses:
+        "200":
+          description: Per-partner totals and recent ledger entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopRetailLedgerResponse"
+        "400":
+          description: Missing x-tenant-id header
+
   /coop/stats:
     get:
       operationId: getCoopStats
@@ -6223,6 +6369,196 @@ components:
         createdAt:
           type: string
 
+    CoopRetailItem:
+      type: object
+      required:
+        [id, partnershipId, hostTenantId, hostTenantName, ownerTenantId, ownerTenantName, name, quantityOnShelf, unitPrice, ownerSharePercent, lowStockThreshold, lowStock, isActive, createdAt]
+      properties:
+        id:
+          type: integer
+        partnershipId:
+          type: integer
+        hostTenantId:
+          type: integer
+        hostTenantName:
+          type: string
+        ownerTenantId:
+          type: integer
+        ownerTenantName:
+          type: string
+        name:
+          type: string
+        quantityOnShelf:
+          type: integer
+        unitPrice:
+          type: number
+        ownerSharePercent:
+          type: integer
+          description: Percent of gross revenue owed to the originating partner; the host keeps the rest.
+        lowStockThreshold:
+          type: integer
+        lowStock:
+          type: boolean
+          description: True when quantityOnShelf is at or below the threshold.
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+
+    CoopRetailItemsResponse:
+      type: object
+      required: [hosted, placed]
+      properties:
+        hosted:
+          type: array
+          description: Items this business physically hosts on its shelves.
+          items:
+            $ref: "#/components/schemas/CoopRetailItem"
+        placed:
+          type: array
+          description: This business's own items on partners' shelves.
+          items:
+            $ref: "#/components/schemas/CoopRetailItem"
+
+    CoopRetailItemCreate:
+      type: object
+      required: [partnershipId, name, quantityOnShelf, unitPrice, ownerSharePercent]
+      properties:
+        partnershipId:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+        quantityOnShelf:
+          type: integer
+          minimum: 0
+        unitPrice:
+          type: number
+          minimum: 0
+        ownerSharePercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        lowStockThreshold:
+          type: integer
+          minimum: 0
+          default: 3
+
+    CoopRetailItemUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        unitPrice:
+          type: number
+          minimum: 0
+        ownerSharePercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        lowStockThreshold:
+          type: integer
+          minimum: 0
+        isActive:
+          type: boolean
+
+    CoopRetailStockAdjustment:
+      type: object
+      required: [quantityDelta, reason]
+      properties:
+        quantityDelta:
+          type: integer
+          description: Signed change; positive for restock, negative for shrinkage/removal. Never zero.
+        reason:
+          type: string
+          enum: [restock, shrinkage, correction]
+        note:
+          type: string
+
+    CoopRetailSaleRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+
+    CoopRetailSaleResult:
+      type: object
+      required: [item, unitsSold, grossAmount, hostShareAmount, ownerShareAmount, lowStockAlertSent]
+      properties:
+        item:
+          $ref: "#/components/schemas/CoopRetailItem"
+        unitsSold:
+          type: integer
+        grossAmount:
+          type: number
+        hostShareAmount:
+          type: number
+        ownerShareAmount:
+          type: number
+        lowStockAlertSent:
+          type: boolean
+          description: True when this sale started a low-stock episode and both businesses were alerted.
+
+    CoopRetailPartnerTotals:
+      type: object
+      required: [partnerTenantId, partnerName, unitsSold, grossRevenue, myShare]
+      properties:
+        partnerTenantId:
+          type: integer
+        partnerName:
+          type: string
+        unitsSold:
+          type: integer
+        grossRevenue:
+          type: number
+        myShare:
+          type: number
+
+    CoopRetailLedgerEntry:
+      type: object
+      required: [id, itemId, itemName, partnershipId, counterpartyTenantId, counterpartyName, role, unitsSold, grossAmount, shareAmount, createdAt]
+      properties:
+        id:
+          type: integer
+        itemId:
+          type: integer
+        itemName:
+          type: string
+        partnershipId:
+          type: integer
+        counterpartyTenantId:
+          type: integer
+        counterpartyName:
+          type: string
+        role:
+          type: string
+          enum: [host, owner]
+        unitsSold:
+          type: integer
+        grossAmount:
+          type: number
+        shareAmount:
+          type: number
+        createdAt:
+          type: string
+
+    CoopRetailLedgerResponse:
+      type: object
+      required: [partners, entries]
+      properties:
+        partners:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoopRetailPartnerTotals"
+        entries:
+          type: array
+          description: Most recent ledger entries for the scoped tenant (newest first).
+          items:
+            $ref: "#/components/schemas/CoopRetailLedgerEntry"
+
     CoopPartnershipStats:
       type: object
       required: [partnershipId, partnerName, perkTitle, isActive, sent, received]
@@ -7909,7 +8245,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]

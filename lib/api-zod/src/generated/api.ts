@@ -1865,6 +1865,228 @@ export const RegisterViaPlatformInviteResponse = zod.object({
 
 
 /**
+ * @summary Merchant-facing — consigned retail items this business hosts and its own items on partners' shelves; tenant scope via x-tenant-id
+ */
+export const ListCoopRetailItemsResponse = zod.object({
+  "hosted": zod.array(zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "ownerTenantId": zod.number(),
+  "ownerTenantName": zod.string(),
+  "name": zod.string(),
+  "quantityOnShelf": zod.number(),
+  "unitPrice": zod.number(),
+  "ownerSharePercent": zod.number().describe('Percent of gross revenue owed to the originating partner; the host keeps the rest.'),
+  "lowStockThreshold": zod.number(),
+  "lowStock": zod.boolean().describe('True when quantityOnShelf is at or below the threshold.'),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})).describe('Items this business physically hosts on its shelves.'),
+  "placed": zod.array(zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "ownerTenantId": zod.number(),
+  "ownerTenantName": zod.string(),
+  "name": zod.string(),
+  "quantityOnShelf": zod.number(),
+  "unitPrice": zod.number(),
+  "ownerSharePercent": zod.number().describe('Percent of gross revenue owed to the originating partner; the host keeps the rest.'),
+  "lowStockThreshold": zod.number(),
+  "lowStock": zod.boolean().describe('True when quantityOnShelf is at or below the threshold.'),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})).describe('This business\'s own items on partners\' shelves.')
+})
+
+
+/**
+ * @summary Merchant-facing — add a consigned retail item to one of this business's accepted partnerships (this business is the host)
+ */
+
+export const createCoopRetailItemBodyQuantityOnShelfMin = 0;
+
+export const createCoopRetailItemBodyUnitPriceMin = 0;
+
+export const createCoopRetailItemBodyOwnerSharePercentMin = 0;
+export const createCoopRetailItemBodyOwnerSharePercentMax = 100;
+
+export const createCoopRetailItemBodyLowStockThresholdDefault = 3;
+export const createCoopRetailItemBodyLowStockThresholdMin = 0;
+
+
+
+export const CreateCoopRetailItemBody = zod.object({
+  "partnershipId": zod.number(),
+  "name": zod.string().min(1),
+  "quantityOnShelf": zod.number().min(createCoopRetailItemBodyQuantityOnShelfMin),
+  "unitPrice": zod.number().min(createCoopRetailItemBodyUnitPriceMin),
+  "ownerSharePercent": zod.number().min(createCoopRetailItemBodyOwnerSharePercentMin).max(createCoopRetailItemBodyOwnerSharePercentMax),
+  "lowStockThreshold": zod.number().min(createCoopRetailItemBodyLowStockThresholdMin).default(createCoopRetailItemBodyLowStockThresholdDefault)
+})
+
+export const CreateCoopRetailItemResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "ownerTenantId": zod.number(),
+  "ownerTenantName": zod.string(),
+  "name": zod.string(),
+  "quantityOnShelf": zod.number(),
+  "unitPrice": zod.number(),
+  "ownerSharePercent": zod.number().describe('Percent of gross revenue owed to the originating partner; the host keeps the rest.'),
+  "lowStockThreshold": zod.number(),
+  "lowStock": zod.boolean().describe('True when quantityOnShelf is at or below the threshold.'),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — edit or deactivate a hosted retail item (host only)
+ */
+export const UpdateCoopRetailItemParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const updateCoopRetailItemBodyUnitPriceMin = 0;
+
+export const updateCoopRetailItemBodyOwnerSharePercentMin = 0;
+export const updateCoopRetailItemBodyOwnerSharePercentMax = 100;
+
+export const updateCoopRetailItemBodyLowStockThresholdMin = 0;
+
+
+
+export const UpdateCoopRetailItemBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "unitPrice": zod.number().min(updateCoopRetailItemBodyUnitPriceMin).optional(),
+  "ownerSharePercent": zod.number().min(updateCoopRetailItemBodyOwnerSharePercentMin).max(updateCoopRetailItemBodyOwnerSharePercentMax).optional(),
+  "lowStockThreshold": zod.number().min(updateCoopRetailItemBodyLowStockThresholdMin).optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateCoopRetailItemResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "ownerTenantId": zod.number(),
+  "ownerTenantName": zod.string(),
+  "name": zod.string(),
+  "quantityOnShelf": zod.number(),
+  "unitPrice": zod.number(),
+  "ownerSharePercent": zod.number().describe('Percent of gross revenue owed to the originating partner; the host keeps the rest.'),
+  "lowStockThreshold": zod.number(),
+  "lowStock": zod.boolean().describe('True when quantityOnShelf is at or below the threshold.'),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — restock or adjust (shrinkage/removal) a hosted item's shelf stock, with an audited movement (host only)
+ */
+export const AdjustCoopRetailStockParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AdjustCoopRetailStockBody = zod.object({
+  "quantityDelta": zod.number().describe('Signed change; positive for restock, negative for shrinkage\/removal. Never zero.'),
+  "reason": zod.enum(['restock', 'shrinkage', 'correction']),
+  "note": zod.string().optional()
+})
+
+export const AdjustCoopRetailStockResponse = zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "ownerTenantId": zod.number(),
+  "ownerTenantName": zod.string(),
+  "name": zod.string(),
+  "quantityOnShelf": zod.number(),
+  "unitPrice": zod.number(),
+  "ownerSharePercent": zod.number().describe('Percent of gross revenue owed to the originating partner; the host keeps the rest.'),
+  "lowStockThreshold": zod.number(),
+  "lowStock": zod.boolean().describe('True when quantityOnShelf is at or below the threshold.'),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Merchant-facing — record a POS retail sale of a hosted item; decrements stock atomically and writes attributed ledger entries for both tenants
+ */
+export const RecordCoopRetailSaleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const RecordCoopRetailSaleBody = zod.object({
+  "quantity": zod.number().min(1)
+})
+
+export const RecordCoopRetailSaleResponse = zod.object({
+  "item": zod.object({
+  "id": zod.number(),
+  "partnershipId": zod.number(),
+  "hostTenantId": zod.number(),
+  "hostTenantName": zod.string(),
+  "ownerTenantId": zod.number(),
+  "ownerTenantName": zod.string(),
+  "name": zod.string(),
+  "quantityOnShelf": zod.number(),
+  "unitPrice": zod.number(),
+  "ownerSharePercent": zod.number().describe('Percent of gross revenue owed to the originating partner; the host keeps the rest.'),
+  "lowStockThreshold": zod.number(),
+  "lowStock": zod.boolean().describe('True when quantityOnShelf is at or below the threshold.'),
+  "isActive": zod.boolean(),
+  "createdAt": zod.string()
+}),
+  "unitsSold": zod.number(),
+  "grossAmount": zod.number(),
+  "hostShareAmount": zod.number(),
+  "ownerShareAmount": zod.number(),
+  "lowStockAlertSent": zod.boolean().describe('True when this sale started a low-stock episode and both businesses were alerted.')
+})
+
+
+/**
+ * @summary Merchant-facing — cross-sale ledger for the scoped tenant, with per-partner totals of units sold, gross revenue, and this business's share
+ */
+export const GetCoopRetailLedgerResponse = zod.object({
+  "partners": zod.array(zod.object({
+  "partnerTenantId": zod.number(),
+  "partnerName": zod.string(),
+  "unitsSold": zod.number(),
+  "grossRevenue": zod.number(),
+  "myShare": zod.number()
+})),
+  "entries": zod.array(zod.object({
+  "id": zod.number(),
+  "itemId": zod.number(),
+  "itemName": zod.string(),
+  "partnershipId": zod.number(),
+  "counterpartyTenantId": zod.number(),
+  "counterpartyName": zod.string(),
+  "role": zod.enum(['host', 'owner']),
+  "unitsSold": zod.number(),
+  "grossAmount": zod.number(),
+  "shareAmount": zod.number(),
+  "createdAt": zod.string()
+})).describe('Most recent ledger entries for the scoped tenant (newest first).')
+})
+
+
+/**
  * @summary Merchant-facing — cross-promotion traffic per partnership and in aggregate (sent vs. received) over a rolling window; tenant scope via x-tenant-id
  */
 export const getCoopStatsQueryWindowDaysDefault = 30;
@@ -3502,7 +3724,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -3531,7 +3753,7 @@ export const SendSosMessageResponse = zod.object({
   "toNumber": zod.string().nullish(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),

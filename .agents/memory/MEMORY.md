@@ -12,7 +12,7 @@
 - [Drizzle silent migrate failures](drizzle-migrations.md) — fixed: db:push uses a custom loud migrator; recover out-of-band/mixed-state DDL via `pnpm run db:reconcile`, never hand-stamp hashes.
 - api-zod schemas come from a different zod instance than api-server's; `instanceof ZodError` fails across them — duck-type on `err.name === "ZodError"` in error middleware.
 - [Validation gates](validation-gates.md) — api-server-test now runs the full suite (exclude removed); fix red suites at root cause (often DB drift) instead of excluding.
-- orval: an operation with both path and query params generates a zod `<Op>Params` and a TS type `<Op>Params` that collide on re-export; avoid query params on parameterized paths or rename.
+- orval: an operation with both path and query params generates a zod `<Op>Params` and a TS type `<Op>Params` that collide on re-export; avoid query params on parameterized paths or rename. Same for request bodies: never name a component schema `<OperationId>Body` — orval already emits that name; use a distinct component name.
 - [Artifact path shadowing](artifact-path-shadowing.md) — an artifact's registered path prefix shadows same-prefix routes in the root app; re-path retired artifacts to free the prefix.
 - Artifact-managed workflows can't be removed via removeWorkflow; deleting the artifact directory auto-deregisters both the artifact and its workflow.
 - Concierge worker tick runs under pg_try_advisory_xact_lock (tx-scoped, auto-released on crash) and reaps stale "pending" messages to failed so retries aren't suppressed; keep new schedulers on runConciergeTick.

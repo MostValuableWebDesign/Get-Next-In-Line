@@ -1041,3 +1041,113 @@ export const insertTenantModuleSchema = createInsertSchema(tenantModulesTable).o
 });
 export type InsertTenantModule = z.infer<typeof insertTenantModuleSchema>;
 export type TenantModule = typeof tenantModulesTable.$inferSelect;
+
+// ── Co-op shelf-space retail inventory ───────────────────────────────────────
+// Consigned/cross-promotional retail items a HOST business physically stocks
+// on behalf of the ORIGINATING (owner) partner in an accepted co-op
+// partnership. Stock levels, price, and the consignment split are recorded at
+// item level; every stock change goes through coop_retail_stock_movements so
+// the history stays auditable, and each sale writes matching ledger rows for
+// both tenants in coop_retail_ledger_entries.
+export const coopRetailItemsTable = pgTable(
+  "coop_retail_items",
+  {
+    id: serial("id").primaryKey(),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    // The business physically displaying/selling the item.
+    hostTenantId: integer("host_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // The partner whose product it is (receives the consignment share).
+    ownerTenantId: integer("owner_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    quantityOnShelf: integer("quantity_on_shelf").notNull().default(0),
+    unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
+    // Whole-number percent of gross sale revenue owed to the OWNER partner;
+    // the host keeps the remainder.
+    ownerSharePercent: integer("owner_share_percent").notNull(),
+    // At or below this quantity the item is "low stock".
+    lowStockThreshold: integer("low_stock_threshold").notNull().default(3),
+    // Set when the once-per-episode low-stock alert fired; cleared when a
+    // restock brings the quantity back above the threshold. While set, no
+    // further alerts are sent for this item.
+    lowStockAlertedAt: timestamp("low_stock_alerted_at"),
+    // Deactivated items stop selling but keep their movement/ledger history.
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_retail_items_host_idx").on(t.hostTenantId),
+    index("coop_retail_items_owner_idx").on(t.ownerTenantId),
+    index("coop_retail_items_partnership_idx").on(t.partnershipId),
+  ]
+);
+
+export type CoopRetailItem = typeof coopRetailItemsTable.$inferSelect;
+
+// Auditable stock history: one row per sale, restock, or shrinkage/manual
+// adjustment, with the signed quantity change and who recorded it.
+export const coopRetailStockMovementsTable = pgTable(
+  "coop_retail_stock_movements",
+  {
+    id: serial("id").primaryKey(),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => coopRetailItemsTable.id, { onDelete: "cascade" }),
+    // sale | restock | adjustment
+    movementType: text("movement_type").notNull(),
+    // Signed change applied to quantity_on_shelf (negative for sales/shrinkage).
+    quantityDelta: integer("quantity_delta").notNull(),
+    note: text("note"),
+    recordedByTenantId: integer("recorded_by_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_retail_stock_movements_item_idx").on(t.itemId, t.createdAt.desc())]
+);
+
+export type CoopRetailStockMovement = typeof coopRetailStockMovementsTable.$inferSelect;
+
+// Attributed cross-sale ledger: every recorded retail sale writes TWO rows —
+// one for the host (role "host", their kept share) and one for the owner
+// partner (role "owner", their consignment share). tenantId is the
+// beneficiary the row belongs to; amounts are records only (no settlement).
+export const coopRetailLedgerEntriesTable = pgTable(
+  "coop_retail_ledger_entries",
+  {
+    id: serial("id").primaryKey(),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => coopRetailItemsTable.id, { onDelete: "cascade" }),
+    partnershipId: integer("partnership_id")
+      .notNull()
+      .references(() => merchantCoopPartnershipsTable.id, { onDelete: "cascade" }),
+    movementId: integer("movement_id")
+      .notNull()
+      .references(() => coopRetailStockMovementsTable.id, { onDelete: "cascade" }),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    counterpartyTenantId: integer("counterparty_tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    // host | owner — this row's beneficiary role in the sale.
+    role: text("role").notNull(),
+    unitsSold: integer("units_sold").notNull(),
+    grossAmount: numeric("gross_amount", { precision: 12, scale: 2 }).notNull(),
+    shareAmount: numeric("share_amount", { precision: 12, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("coop_retail_ledger_tenant_idx").on(t.tenantId, t.createdAt.desc()),
+    index("coop_retail_ledger_item_idx").on(t.itemId),
+  ]
+);
+
+export type CoopRetailLedgerEntry = typeof coopRetailLedgerEntriesTable.$inferSelect;

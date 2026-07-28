@@ -1370,6 +1370,131 @@ export interface CoopMonthlyReport {
   createdAt: string;
 }
 
+export interface CoopRetailItem {
+  id: number;
+  partnershipId: number;
+  hostTenantId: number;
+  hostTenantName: string;
+  ownerTenantId: number;
+  ownerTenantName: string;
+  name: string;
+  quantityOnShelf: number;
+  unitPrice: number;
+  /** Percent of gross revenue owed to the originating partner; the host keeps the rest. */
+  ownerSharePercent: number;
+  lowStockThreshold: number;
+  /** True when quantityOnShelf is at or below the threshold. */
+  lowStock: boolean;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CoopRetailItemsResponse {
+  /** Items this business physically hosts on its shelves. */
+  hosted: CoopRetailItem[];
+  /** This business's own items on partners' shelves. */
+  placed: CoopRetailItem[];
+}
+
+export interface CoopRetailItemCreate {
+  partnershipId: number;
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 0 */
+  quantityOnShelf: number;
+  /** @minimum 0 */
+  unitPrice: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  ownerSharePercent: number;
+  /** @minimum 0 */
+  lowStockThreshold?: number;
+}
+
+export interface CoopRetailItemUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @minimum 0 */
+  unitPrice?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  ownerSharePercent?: number;
+  /** @minimum 0 */
+  lowStockThreshold?: number;
+  isActive?: boolean;
+}
+
+export type CoopRetailStockAdjustmentReason = typeof CoopRetailStockAdjustmentReason[keyof typeof CoopRetailStockAdjustmentReason];
+
+
+export const CoopRetailStockAdjustmentReason = {
+  restock: 'restock',
+  shrinkage: 'shrinkage',
+  correction: 'correction',
+} as const;
+
+export interface CoopRetailStockAdjustment {
+  /** Signed change; positive for restock, negative for shrinkage/removal. Never zero. */
+  quantityDelta: number;
+  reason: CoopRetailStockAdjustmentReason;
+  note?: string;
+}
+
+export interface CoopRetailSaleRequest {
+  /** @minimum 1 */
+  quantity: number;
+}
+
+export interface CoopRetailSaleResult {
+  item: CoopRetailItem;
+  unitsSold: number;
+  grossAmount: number;
+  hostShareAmount: number;
+  ownerShareAmount: number;
+  /** True when this sale started a low-stock episode and both businesses were alerted. */
+  lowStockAlertSent: boolean;
+}
+
+export interface CoopRetailPartnerTotals {
+  partnerTenantId: number;
+  partnerName: string;
+  unitsSold: number;
+  grossRevenue: number;
+  myShare: number;
+}
+
+export type CoopRetailLedgerEntryRole = typeof CoopRetailLedgerEntryRole[keyof typeof CoopRetailLedgerEntryRole];
+
+
+export const CoopRetailLedgerEntryRole = {
+  host: 'host',
+  owner: 'owner',
+} as const;
+
+export interface CoopRetailLedgerEntry {
+  id: number;
+  itemId: number;
+  itemName: string;
+  partnershipId: number;
+  counterpartyTenantId: number;
+  counterpartyName: string;
+  role: CoopRetailLedgerEntryRole;
+  unitsSold: number;
+  grossAmount: number;
+  shareAmount: number;
+  createdAt: string;
+}
+
+export interface CoopRetailLedgerResponse {
+  partners: CoopRetailPartnerTotals[];
+  /** Most recent ledger entries for the scoped tenant (newest first). */
+  entries: CoopRetailLedgerEntry[];
+}
+
 export interface CoopPartnershipStats {
   partnershipId: number;
   partnerName: string;
@@ -2883,6 +3008,7 @@ export const SosMessageKind = {
   passport_reward: 'passport_reward',
   emergency_broadcast: 'emergency_broadcast',
   coop_event_broadcast: 'coop_event_broadcast',
+  retail_low_stock: 'retail_low_stock',
 } as const;
 
 export type SosMessageDeliveryStatus = typeof SosMessageDeliveryStatus[keyof typeof SosMessageDeliveryStatus];

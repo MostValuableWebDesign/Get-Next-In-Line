@@ -18,6 +18,7 @@ import {
   PLAN_ICONS, SellPlanDialog, isUsablePlan, planBenefitLabel,
 } from '@/components/sos/plan-benefits';
 import { usePartnerPerks, PartnerPerksBlock } from '@/components/sos/partner-perks';
+import { RetailSalePOSCard } from '@/components/sos/coop-retail-content';
 import type { CoopActivePerk, CoopFlashPerk } from '@workspace/api-client-react';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -45,16 +46,22 @@ export function OpenTicketsPanel() {
 
   if (openTickets.length === 0) {
     return (
-      <Card className="border-dashed bg-muted/20">
-        <CardContent className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
-          No open tickets waiting for payment.
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        {/* Consigned partner products can be sold even with no open service tickets. */}
+        <RetailSalePOSCard />
+        <Card className="border-dashed bg-muted/20">
+          <CardContent className="flex flex-col items-center justify-center h-32 text-muted-foreground text-sm">
+            No open tickets waiting for payment.
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {/* Partner retail sales at the POS — attributed to the originating co-op partner. */}
+      <RetailSalePOSCard />
       {openTickets.map(ticket => (
         <TicketCard
           key={ticket.id}

@@ -76,6 +76,14 @@ import type {
   CoopPlazaNotification,
   CoopRedemptionValidation,
   CoopRenegotiationPropose,
+  CoopRetailItem,
+  CoopRetailItemCreate,
+  CoopRetailItemUpdate,
+  CoopRetailItemsResponse,
+  CoopRetailLedgerResponse,
+  CoopRetailSaleRequest,
+  CoopRetailSaleResult,
+  CoopRetailStockAdjustment,
   CoopStatsResponse,
   CoopSuggestion,
   CoopSuggestionDismissResult,
@@ -5031,6 +5039,447 @@ export const useRegisterViaPlatformInvite = <TError = ErrorType<void>,
       > => {
       return useMutation(getRegisterViaPlatformInviteMutationOptions(options));
     }
+
+export const getListCoopRetailItemsUrl = () => {
+
+
+
+
+  return `/api/coop/retail/items`
+}
+
+/**
+ * @summary Merchant-facing — consigned retail items this business hosts and its own items on partners' shelves; tenant scope via x-tenant-id
+ */
+export const listCoopRetailItems = async ( options?: RequestInit): Promise<CoopRetailItemsResponse> => {
+
+  return customFetch<CoopRetailItemsResponse>(getListCoopRetailItemsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopRetailItemsQueryKey = () => {
+    return [
+    `/api/coop/retail/items`
+    ] as const;
+    }
+
+
+export const getListCoopRetailItemsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopRetailItems>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopRetailItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopRetailItemsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopRetailItems>>> = ({ signal }) => listCoopRetailItems({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopRetailItems>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopRetailItemsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopRetailItems>>>
+export type ListCoopRetailItemsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — consigned retail items this business hosts and its own items on partners' shelves; tenant scope via x-tenant-id
+ */
+
+export function useListCoopRetailItems<TData = Awaited<ReturnType<typeof listCoopRetailItems>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopRetailItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopRetailItemsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCoopRetailItemUrl = () => {
+
+
+
+
+  return `/api/coop/retail/items`
+}
+
+/**
+ * @summary Merchant-facing — add a consigned retail item to one of this business's accepted partnerships (this business is the host)
+ */
+export const createCoopRetailItem = async (coopRetailItemCreate: CoopRetailItemCreate, options?: RequestInit): Promise<CoopRetailItem> => {
+
+  return customFetch<CoopRetailItem>(getCreateCoopRetailItemUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopRetailItemCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateCoopRetailItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopRetailItem>>, TError,{data: BodyType<CoopRetailItemCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCoopRetailItem>>, TError,{data: BodyType<CoopRetailItemCreate>}, TContext> => {
+
+const mutationKey = ['createCoopRetailItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCoopRetailItem>>, {data: BodyType<CoopRetailItemCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCoopRetailItem(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCoopRetailItemMutationResult = NonNullable<Awaited<ReturnType<typeof createCoopRetailItem>>>
+    export type CreateCoopRetailItemMutationBody = BodyType<CoopRetailItemCreate>
+    export type CreateCoopRetailItemMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — add a consigned retail item to one of this business's accepted partnerships (this business is the host)
+ */
+export const useCreateCoopRetailItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCoopRetailItem>>, TError,{data: BodyType<CoopRetailItemCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCoopRetailItem>>,
+        TError,
+        {data: BodyType<CoopRetailItemCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateCoopRetailItemMutationOptions(options));
+    }
+
+export const getUpdateCoopRetailItemUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/retail/items/${id}`
+}
+
+/**
+ * @summary Merchant-facing — edit or deactivate a hosted retail item (host only)
+ */
+export const updateCoopRetailItem = async (id: number,
+    coopRetailItemUpdate: CoopRetailItemUpdate, options?: RequestInit): Promise<CoopRetailItem> => {
+
+  return customFetch<CoopRetailItem>(getUpdateCoopRetailItemUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopRetailItemUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCoopRetailItemMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopRetailItem>>, TError,{id: number;data: BodyType<CoopRetailItemUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCoopRetailItem>>, TError,{id: number;data: BodyType<CoopRetailItemUpdate>}, TContext> => {
+
+const mutationKey = ['updateCoopRetailItem'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCoopRetailItem>>, {id: number;data: BodyType<CoopRetailItemUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCoopRetailItem(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCoopRetailItemMutationResult = NonNullable<Awaited<ReturnType<typeof updateCoopRetailItem>>>
+    export type UpdateCoopRetailItemMutationBody = BodyType<CoopRetailItemUpdate>
+    export type UpdateCoopRetailItemMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — edit or deactivate a hosted retail item (host only)
+ */
+export const useUpdateCoopRetailItem = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCoopRetailItem>>, TError,{id: number;data: BodyType<CoopRetailItemUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCoopRetailItem>>,
+        TError,
+        {id: number;data: BodyType<CoopRetailItemUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCoopRetailItemMutationOptions(options));
+    }
+
+export const getAdjustCoopRetailStockUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/retail/items/${id}/adjust`
+}
+
+/**
+ * @summary Merchant-facing — restock or adjust (shrinkage/removal) a hosted item's shelf stock, with an audited movement (host only)
+ */
+export const adjustCoopRetailStock = async (id: number,
+    coopRetailStockAdjustment: CoopRetailStockAdjustment, options?: RequestInit): Promise<CoopRetailItem> => {
+
+  return customFetch<CoopRetailItem>(getAdjustCoopRetailStockUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopRetailStockAdjustment)
+  }
+);}
+
+
+
+
+
+export const getAdjustCoopRetailStockMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adjustCoopRetailStock>>, TError,{id: number;data: BodyType<CoopRetailStockAdjustment>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof adjustCoopRetailStock>>, TError,{id: number;data: BodyType<CoopRetailStockAdjustment>}, TContext> => {
+
+const mutationKey = ['adjustCoopRetailStock'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof adjustCoopRetailStock>>, {id: number;data: BodyType<CoopRetailStockAdjustment>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  adjustCoopRetailStock(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdjustCoopRetailStockMutationResult = NonNullable<Awaited<ReturnType<typeof adjustCoopRetailStock>>>
+    export type AdjustCoopRetailStockMutationBody = BodyType<CoopRetailStockAdjustment>
+    export type AdjustCoopRetailStockMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — restock or adjust (shrinkage/removal) a hosted item's shelf stock, with an audited movement (host only)
+ */
+export const useAdjustCoopRetailStock = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof adjustCoopRetailStock>>, TError,{id: number;data: BodyType<CoopRetailStockAdjustment>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof adjustCoopRetailStock>>,
+        TError,
+        {id: number;data: BodyType<CoopRetailStockAdjustment>},
+        TContext
+      > => {
+      return useMutation(getAdjustCoopRetailStockMutationOptions(options));
+    }
+
+export const getRecordCoopRetailSaleUrl = (id: number,) => {
+
+
+
+
+  return `/api/coop/retail/items/${id}/sale`
+}
+
+/**
+ * @summary Merchant-facing — record a POS retail sale of a hosted item; decrements stock atomically and writes attributed ledger entries for both tenants
+ */
+export const recordCoopRetailSale = async (id: number,
+    coopRetailSaleRequest: CoopRetailSaleRequest, options?: RequestInit): Promise<CoopRetailSaleResult> => {
+
+  return customFetch<CoopRetailSaleResult>(getRecordCoopRetailSaleUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopRetailSaleRequest)
+  }
+);}
+
+
+
+
+
+export const getRecordCoopRetailSaleMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordCoopRetailSale>>, TError,{id: number;data: BodyType<CoopRetailSaleRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordCoopRetailSale>>, TError,{id: number;data: BodyType<CoopRetailSaleRequest>}, TContext> => {
+
+const mutationKey = ['recordCoopRetailSale'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordCoopRetailSale>>, {id: number;data: BodyType<CoopRetailSaleRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  recordCoopRetailSale(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordCoopRetailSaleMutationResult = NonNullable<Awaited<ReturnType<typeof recordCoopRetailSale>>>
+    export type RecordCoopRetailSaleMutationBody = BodyType<CoopRetailSaleRequest>
+    export type RecordCoopRetailSaleMutationError = ErrorType<void>
+
+    /**
+ * @summary Merchant-facing — record a POS retail sale of a hosted item; decrements stock atomically and writes attributed ledger entries for both tenants
+ */
+export const useRecordCoopRetailSale = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordCoopRetailSale>>, TError,{id: number;data: BodyType<CoopRetailSaleRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordCoopRetailSale>>,
+        TError,
+        {id: number;data: BodyType<CoopRetailSaleRequest>},
+        TContext
+      > => {
+      return useMutation(getRecordCoopRetailSaleMutationOptions(options));
+    }
+
+export const getGetCoopRetailLedgerUrl = () => {
+
+
+
+
+  return `/api/coop/retail/ledger`
+}
+
+/**
+ * @summary Merchant-facing — cross-sale ledger for the scoped tenant, with per-partner totals of units sold, gross revenue, and this business's share
+ */
+export const getCoopRetailLedger = async ( options?: RequestInit): Promise<CoopRetailLedgerResponse> => {
+
+  return customFetch<CoopRetailLedgerResponse>(getGetCoopRetailLedgerUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCoopRetailLedgerQueryKey = () => {
+    return [
+    `/api/coop/retail/ledger`
+    ] as const;
+    }
+
+
+export const getGetCoopRetailLedgerQueryOptions = <TData = Awaited<ReturnType<typeof getCoopRetailLedger>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopRetailLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCoopRetailLedgerQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCoopRetailLedger>>> = ({ signal }) => getCoopRetailLedger({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCoopRetailLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCoopRetailLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof getCoopRetailLedger>>>
+export type GetCoopRetailLedgerQueryError = ErrorType<void>
+
+
+/**
+ * @summary Merchant-facing — cross-sale ledger for the scoped tenant, with per-partner totals of units sold, gross revenue, and this business's share
+ */
+
+export function useGetCoopRetailLedger<TData = Awaited<ReturnType<typeof getCoopRetailLedger>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCoopRetailLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCoopRetailLedgerQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetCoopStatsUrl = (params?: GetCoopStatsParams,) => {
   const normalizedParams = new URLSearchParams();

@@ -28,6 +28,7 @@ import {
   type CoopLedgerEntry, type CoopLedgerResponse,
 } from '@workspace/api-client-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ShelfSpaceTrackerSection } from '@/components/sos/coop-retail-content';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -200,6 +201,9 @@ function CoopNetworkInner({ tenantId }: { tenantId: number }) {
           <Directory tenantId={tenantId} partneredTenantIds={partneredTenantIds} />
         </div>
       )}
+
+      {/* Shelf-space tracker — consigned retail inventory & cross-sale ledger */}
+      <ShelfSpaceTrackerSection tenantId={tenantId} />
 
       <PartnerPerformanceTable />
       <MonthlyImpactReport />
