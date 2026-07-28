@@ -69,7 +69,13 @@ export function SosTenantSync() {
   const search = useSearch();
   const queryClient = useQueryClient();
 
-  const next = location.startsWith('/sos') ? parseTenantParam(search) : null;
+  // Live Operations is embedded on the Command Center landing page ("/"), so
+  // the ?tenant= scope applies there too — keeping tenant-context handling
+  // consistent across every surface that renders SOS data.
+  const next =
+    location.startsWith('/sos') || location === '/'
+      ? parseTenantParam(search)
+      : null;
 
   // Update synchronously during render so queries mounted by sibling pages
   // in this same render pass already fetch under the right scope.

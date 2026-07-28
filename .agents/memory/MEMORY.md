@@ -1,5 +1,8 @@
 # Memory index
 
+- SOS tenant scope applies on /sos pages AND the Command Center root "/" (Live Operations is embedded there); SosTenantSync + operations page selector both encode this — new SOS surfaces must keep ?tenant= handling consistent.
+- Visit-advance "notify" returns an optional `notification` {attempted,status,error} on the SosVisit response so staff see failed/skipped "you're next" texts; keep populating it on any new notify path.
+
 - [Module checkout payment modes](module-checkout.md) — live Stripe path provisions only via webhook (snapshot + pending→completed claim); simulated path is test default; all provisioning through provisionModuleItems.
 
 - Sessions are Postgres-backed (connect-pg-simple, "session" table owned by Drizzle); api-server rate limiters (global + login guard) are disabled under NODE_ENV=test — tests force-enable via `__configure*ForTests` hooks. Any test mocking @workspace/db must export `pool` (even undefined) or app.ts import fails.

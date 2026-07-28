@@ -1901,16 +1901,34 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     updates.resourceId = body.resourceId;
   }
 
-  if (body.action === "notify" && customer.smsOptIn && customer.phone) {
-    // Safe send: a Twilio/infra failure is recorded on the message row but
-    // must never block the visit's queue transition below.
-    await sendMessageSafe({
-      tenantId: customer.tenantId,
-      customerId: customer.id,
-      toNumber: customer.phone,
-      kind: "you_are_next",
-      body: `${customer.name}, you're up next! Please make your way over — we're ready for you.`,
-    });
+  // Outcome of the "you're next" SMS for a notify transition, surfaced on
+  // the response so staff can see when the customer was NOT reached instead
+  // of the failure being invisible. Never blocks the queue transition.
+  let notification: { attempted: boolean; status: string | null; error: string | null } | null =
+    null;
+  if (body.action === "notify") {
+    if (customer.smsOptIn && customer.phone) {
+      // Safe send: a Twilio/infra failure is recorded on the message row but
+      // must never block the visit's queue transition below.
+      const msg = await sendMessageSafe({
+        tenantId: customer.tenantId,
+        customerId: customer.id,
+        toNumber: customer.phone,
+        kind: "you_are_next",
+        body: `${customer.name}, you're up next! Please make your way over — we're ready for you.`,
+      });
+      notification = msg
+        ? { attempted: true, status: msg.status, error: msg.errorMessage ?? null }
+        : { attempted: true, status: "failed", error: "Message could not be recorded or sent" };
+    } else {
+      notification = {
+        attempted: false,
+        status: "skipped",
+        error: customer.phone
+          ? "Customer has opted out of SMS"
+          : "Customer has no phone number",
+      };
+    }
   }
 
   if (body.action === "start_service") {
@@ -2240,9 +2258,10 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     : null;
 
   res.json(
-    AdvanceSosVisitResponse.parse(
-      serializeVisit(updated, customer.name, resourceName, staffName),
-    ),
+    AdvanceSosVisitResponse.parse({
+      ...serializeVisit(updated, customer.name, resourceName, staffName),
+      notification,
+    }),
   );
 });
 

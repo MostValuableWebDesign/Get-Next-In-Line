@@ -612,6 +612,7 @@ export * from './sosVisitAdvanceAction';
 export * from './sosVisitAdvanceBenefitType';
 export * from './sosVisitAdvanceTipSplitRule';
 export * from './sosVisitInput';
+export * from './sosVisitNotification';
 export * from './sosVisitStatus';
 export * from './sosWaitlistEntry';
 export * from './sosWaitlistEntryInput';

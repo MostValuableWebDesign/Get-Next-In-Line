@@ -4092,6 +4092,17 @@ export const SosVisitStatus = {
   checked_out: 'checked_out',
 } as const;
 
+/**
+ * @nullable
+ */
+export type SosVisitNotification = {
+  attempted: boolean;
+  /** @nullable */
+  status: string | null;
+  /** @nullable */
+  error?: string | null;
+} | null;
+
 export interface SosVisit {
   id: number;
   customerId: number;
@@ -4120,6 +4131,8 @@ export interface SosVisit {
   serviceStartedAt?: string | null;
   /** @nullable */
   checkedOutAt?: string | null;
+  /** @nullable */
+  notification?: SosVisitNotification;
 }
 
 export interface SosVisitInput {

@@ -12043,6 +12043,19 @@ components:
           type: ["string", "null"]
         checkedOutAt:
           type: ["string", "null"]
+        # Outcome of the customer SMS dispatched by this transition (only set
+        # on the response to a "notify" advance). Lets staff see immediately
+        # when the "you're next" text could not be delivered.
+        notification:
+          type: ["object", "null"]
+          required: [attempted, status]
+          properties:
+            attempted:
+              type: boolean
+            status:
+              type: ["string", "null"]
+            error:
+              type: ["string", "null"]
 
     SosVisitInput:
       type: object

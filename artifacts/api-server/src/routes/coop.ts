@@ -4020,7 +4020,10 @@ async function attachEvidence(
   evidence: {
     redemptionIds?: number[];
     receipts?: { referenceNumber: string; amount: number; entryDate: string; description?: string }[];
-  }
+  },
+  // Optional transaction executor so the initial filing can attach evidence
+  // atomically with the dispute insert; defaults to the shared pool.
+  executor: Pick<typeof db, "select" | "insert"> = db
 ): Promise<string | null> {
   const redemptionIds = evidence.redemptionIds ?? [];
   const receipts = evidence.receipts ?? [];
@@ -4030,7 +4033,7 @@ async function attachEvidence(
   if (redemptionIds.length > 0) {
     // Linked redemptions must belong to THIS partnership — otherwise a filer
     // could pad a ticket with another partnership's activity.
-    const rows = await db
+    const rows = await executor
       .select({ id: coopPerkRedemptionsTable.id })
       .from(coopPerkRedemptionsTable)
       .where(
@@ -4064,7 +4067,7 @@ async function attachEvidence(
       description: r.description?.trim() || null,
     })),
   ];
-  await db.insert(coopFinancialDisputeEvidenceTable).values(values);
+  await executor.insert(coopFinancialDisputeEvidenceTable).values(values);
   return null;
 }
 
@@ -4196,36 +4199,51 @@ router.post("/coop/financial-disputes", async (req, res): Promise<void> => {
     windowEndAt,
   });
   const now = new Date();
-  const [created] = await db
-    .insert(coopFinancialDisputesTable)
-    .values({
-      partnershipId: body.partnershipId,
-      filedByTenantId: tenantId,
-      respondentTenantId,
-      disputeType: body.disputeType,
-      claimedCount: body.claimedCount ?? null,
-      expectedCount: body.expectedCount ?? null,
-      claimedAmount: body.claimedAmount != null ? body.claimedAmount.toFixed(2) : null,
-      expectedAmount: body.expectedAmount != null ? body.expectedAmount.toFixed(2) : null,
-      windowStartAt,
-      windowEndAt,
-      details: body.details?.trim() || null,
-      status: outcome.resolved ? "auto_resolved" : "escalated",
-      reconciliationSummary: outcome.summary,
-      reconciliationSystemCount: systemCount,
-      escalatedAt: outcome.resolved ? null : now,
-      resolvedAt: outcome.resolved ? now : null,
-    })
-    .returning();
+  // Dispute + initial evidence are one atomic filing: if the evidence is
+  // invalid (or its insert fails), the transaction rolls back and no partial
+  // dispute row can ever be left behind — no manual compensating delete.
+  class EvidenceRejectedError extends Error {}
+  let created: typeof coopFinancialDisputesTable.$inferSelect;
+  try {
+    created = await db.transaction(async (tx) => {
+      const [row] = await tx
+      .insert(coopFinancialDisputesTable)
+      .values({
+        partnershipId: body.partnershipId,
+        filedByTenantId: tenantId,
+        respondentTenantId,
+        disputeType: body.disputeType,
+        claimedCount: body.claimedCount ?? null,
+        expectedCount: body.expectedCount ?? null,
+        claimedAmount: body.claimedAmount != null ? body.claimedAmount.toFixed(2) : null,
+        expectedAmount: body.expectedAmount != null ? body.expectedAmount.toFixed(2) : null,
+        windowStartAt,
+        windowEndAt,
+        details: body.details?.trim() || null,
+        status: outcome.resolved ? "auto_resolved" : "escalated",
+        reconciliationSummary: outcome.summary,
+        reconciliationSystemCount: systemCount,
+        escalatedAt: outcome.resolved ? null : now,
+        resolvedAt: outcome.resolved ? now : null,
+      })
+      .returning();
 
-  if (body.evidence && ((body.evidence.redemptionIds?.length ?? 0) > 0 || (body.evidence.receipts?.length ?? 0) > 0)) {
-    const err = await attachEvidence(created.id, body.partnershipId, tenantId, body.evidence);
-    if (err) {
-      // Evidence is invalid — the whole filing is rejected, not half-saved.
-      await db.delete(coopFinancialDisputesTable).where(eq(coopFinancialDisputesTable.id, created.id));
-      res.status(409).json({ message: err });
+      if (body.evidence && ((body.evidence.redemptionIds?.length ?? 0) > 0 || (body.evidence.receipts?.length ?? 0) > 0)) {
+        const err = await attachEvidence(row.id, body.partnershipId, tenantId, body.evidence, tx);
+        if (err) {
+          // Evidence is invalid — throwing aborts the transaction, so the
+          // whole filing is rejected atomically, never half-saved.
+          throw new EvidenceRejectedError(err);
+        }
+      }
+      return row;
+    });
+  } catch (err) {
+    if (err instanceof EvidenceRejectedError) {
+      res.status(409).json({ message: err.message });
       return;
     }
+    throw err;
   }
 
   await recordDisputeEvent({

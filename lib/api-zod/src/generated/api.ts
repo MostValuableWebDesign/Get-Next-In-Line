@@ -5707,7 +5707,12 @@ export const ListSosVisitsResponseItem = zod.object({
   "bundleId": zod.number().nullish(),
   "checkedInAt": zod.string(),
   "serviceStartedAt": zod.string().nullish(),
-  "checkedOutAt": zod.string().nullish()
+  "checkedOutAt": zod.string().nullish(),
+  "notification": zod.object({
+  "attempted": zod.boolean(),
+  "status": zod.string().nullable(),
+  "error": zod.string().nullish()
+}).nullish()
 })
 export const ListSosVisitsResponse = zod.array(ListSosVisitsResponseItem)
 
@@ -5742,7 +5747,12 @@ export const CheckInSosVisitResponse = zod.object({
   "bundleId": zod.number().nullish(),
   "checkedInAt": zod.string(),
   "serviceStartedAt": zod.string().nullish(),
-  "checkedOutAt": zod.string().nullish()
+  "checkedOutAt": zod.string().nullish(),
+  "notification": zod.object({
+  "attempted": zod.boolean(),
+  "status": zod.string().nullable(),
+  "error": zod.string().nullish()
+}).nullish()
 })
 
 
@@ -5785,7 +5795,12 @@ export const AdvanceSosVisitResponse = zod.object({
   "bundleId": zod.number().nullish(),
   "checkedInAt": zod.string(),
   "serviceStartedAt": zod.string().nullish(),
-  "checkedOutAt": zod.string().nullish()
+  "checkedOutAt": zod.string().nullish(),
+  "notification": zod.object({
+  "attempted": zod.boolean(),
+  "status": zod.string().nullable(),
+  "error": zod.string().nullish()
+}).nullish()
 })
 
 

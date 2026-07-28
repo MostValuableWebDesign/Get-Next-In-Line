@@ -71,8 +71,14 @@ function TipPoolingInner({ tenantId }: { tenantId: number }) {
 
   const deleteRule = useDeleteTipPoolRule();
   const updateRule = useUpdateTipPoolRule();
-  const invalidateRules = () =>
+  // A rule edit changes how future checkouts split tips, and reviewers
+  // often check the ledger/shift report right after saving — refresh those
+  // read surfaces too so they can never show stale data after an edit.
+  const invalidateRules = () => {
     queryClient.invalidateQueries({ queryKey: getListTipPoolRulesQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListGratuityLedgerQueryKey(undefined) });
+    queryClient.invalidateQueries({ queryKey: getGetGratuityShiftReportQueryKey({ date: reportDate }) });
+  };
 
   return (
     <div className="space-y-6">

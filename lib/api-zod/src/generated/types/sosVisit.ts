@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { SosVisitNotification } from './sosVisitNotification';
 import type { SosVisitStatus } from './sosVisitStatus';
 
 export interface SosVisit {
@@ -35,4 +36,6 @@ export interface SosVisit {
   serviceStartedAt?: string | null;
   /** @nullable */
   checkedOutAt?: string | null;
+  /** @nullable */
+  notification?: SosVisitNotification;
 }

@@ -5,12 +5,14 @@ import {
   useUpdateSosResource, useCreateSosResource, useDeleteSosResource,
   getListSosVisitsQueryKey, getListSosResourcesQueryKey, getListSosWaitlistQueryKey,
   useGetSosSettings, getGetSosSettingsQueryKey,
+  useListTenants,
   SosVisitStatus,
   type SosCustomer
 } from '@workspace/api-client-react';
 import { CustomerPicker } from '@/components/sos/customer-picker';
 import { ServiceTypeInput } from '@/components/sos/service-type-input';
-import { Link } from 'wouter';
+import { parseTenantParam } from '@/lib/sos-tenant';
+import { Link, useLocation, useSearch } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +31,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const searchString = useSearch();
+  const [location, setLocation] = useLocation();
+
+  // Selected business scope — same ?tenant=<id> URL contract as the other
+  // SOS pages, so staff always see which business's live queue is on screen.
+  const selectedTenant = parseTenantParam(searchString);
+  const { data: tenants } = useListTenants();
+  const selectedTenantName = tenants?.find(t => t.id === selectedTenant)?.brandName ?? null;
+  const changeTenant = (v: string) => {
+    const tenant = v === 'all' ? null : Number(v);
+    setLocation(tenant == null ? location : `${location}?tenant=${tenant}`, { replace: true });
+  };
   
   // Live polling
   const { data: visits } = useListSosVisits(
@@ -78,11 +92,29 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
     advanceVisit.mutate(
       { id, data: { action, ...extraData } },
       {
-        onSuccess: () => {
+        onSuccess: (updated) => {
           queryClient.invalidateQueries({ queryKey: getListSosVisitsQueryKey({ active: true }) });
           queryClient.invalidateQueries({ queryKey: getListSosResourcesQueryKey() });
-          toast({ title: 'Visit advanced', description: `Action ${action} successful.` });
-        }
+          // Surface a failed/skipped "you're next" text — the visit still
+          // advanced, but staff must know the customer was NOT reached.
+          const notification = (updated as any)?.notification;
+          if (action === 'notify' && notification && notification.status !== 'sent' && notification.status !== 'simulated' && notification.status !== 'delivered') {
+            toast({
+              title: 'Customer was not notified',
+              description: notification.error || `The notification SMS was ${notification.status ?? 'not sent'}. Reach out to the customer directly.`,
+              variant: 'destructive',
+            });
+          } else {
+            toast({ title: 'Visit advanced', description: `Action ${action} successful.` });
+          }
+        },
+        onError: (err: any) => {
+          toast({
+            title: 'Could not advance visit',
+            description: err?.response?.data?.message || err?.message || 'The action failed. Please try again.',
+            variant: 'destructive',
+          });
+        },
       }
     );
   };
@@ -94,7 +126,40 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListSosWaitlistQueryKey() });
           toast({ title: 'Slot claimed', description: 'Waitlist entry converted to appointment.' });
-        }
+        },
+        onError: (err: any) => {
+          toast({
+            title: 'Could not claim slot',
+            description: err?.response?.data?.message || err?.message || 'Claiming the slot failed. Please try again.',
+            variant: 'destructive',
+          });
+        },
+      }
+    );
+  };
+
+  // Resource status changes: track the row being saved so the Select can
+  // show a pending state, and pause the 5s poll from overwriting the
+  // optimistic outcome (cancel in-flight fetches before mutating).
+  const [savingResourceId, setSavingResourceId] = useState<number | null>(null);
+  const handleResourceStatusChange = async (id: number, status: string) => {
+    setSavingResourceId(id);
+    await queryClient.cancelQueries({ queryKey: getListSosResourcesQueryKey() });
+    updateResource.mutate(
+      { id, data: { status: status as any } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSosResourcesQueryKey() });
+        },
+        onError: (err: any) => {
+          queryClient.invalidateQueries({ queryKey: getListSosResourcesQueryKey() });
+          toast({
+            title: 'Could not update resource',
+            description: err?.response?.data?.message || err?.message || 'The status change failed. Please try again.',
+            variant: 'destructive',
+          });
+        },
+        onSettled: () => setSavingResourceId(null),
       }
     );
   };
@@ -106,16 +171,58 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
           {embedded ? (
             <>
               <h2 className="text-xl font-semibold tracking-tight">Live Operations</h2>
-              <p className="text-muted-foreground text-sm mt-1">Active visits, resources, and the smart waitlist.</p>
+              <p className="text-muted-foreground text-sm mt-1">
+                {selectedTenant != null ? (
+                  <>
+                    Showing{' '}
+                    <span className="font-medium" data-testid="text-operations-business-scope">
+                      {selectedTenantName ?? `business #${selectedTenant}`}
+                    </span>{' '}
+                    only.
+                  </>
+                ) : (
+                  'Active visits, resources, and the smart waitlist — all businesses (legacy).'
+                )}
+              </p>
             </>
           ) : (
             <>
               <h1 className="text-3xl font-bold tracking-tight">Operations Center</h1>
-              <p className="text-muted-foreground text-sm mt-1">Live command center for active visits and resources.</p>
+              <p className="text-muted-foreground text-sm mt-1">
+                {selectedTenant != null ? (
+                  <>
+                    Showing{' '}
+                    <span className="font-medium" data-testid="text-operations-business-scope">
+                      {selectedTenantName ?? `business #${selectedTenant}`}
+                    </span>{' '}
+                    only.
+                  </>
+                ) : (
+                  'Live command center for active visits and resources — all businesses (legacy).'
+                )}
+              </p>
             </>
           )}
         </div>
-        <CheckInDialog />
+        <div className="flex items-center gap-3">
+          <Select
+            value={selectedTenant != null ? String(selectedTenant) : 'all'}
+            onValueChange={changeTenant}
+          >
+            <SelectTrigger className="w-[220px]" data-testid="select-operations-business">
+              <SelectValue placeholder="All businesses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All businesses (legacy)</SelectItem>
+              {tenants?.map(t => (
+                <SelectItem key={t.id} value={String(t.id)} data-testid={`option-operations-business-${t.id}`}>
+                  {t.brandName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <CheckInDialog />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
@@ -164,14 +271,15 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
                   <div className="mt-auto pt-2 flex justify-between items-center border-t border-border/50">
                     <Select 
                       value={res.status} 
-                      onValueChange={(val) => {
-                        updateResource.mutate({ id: res.id, data: { status: val as any } }, {
-                          onSuccess: () => queryClient.invalidateQueries({ queryKey: getListSosResourcesQueryKey() })
-                        });
-                      }}
+                      disabled={savingResourceId === res.id}
+                      onValueChange={(val) => handleResourceStatusChange(res.id, val)}
                     >
-                      <SelectTrigger className="h-7 text-xs w-[110px]">
-                        <SelectValue />
+                      <SelectTrigger
+                        className="h-7 text-xs w-[110px]"
+                        data-testid={`select-resource-status-${res.id}`}
+                        aria-busy={savingResourceId === res.id}
+                      >
+                        <SelectValue>{savingResourceId === res.id ? 'Saving…' : undefined}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="available">Available</SelectItem>
@@ -393,7 +501,14 @@ function CheckInDialog() {
           setOpen(false);
           setCustomer(null);
           toast({ title: 'Checked in' });
-        }
+        },
+        onError: (err: any) => {
+          toast({
+            title: 'Check-in failed',
+            description: err?.response?.data?.message || err?.message || 'Could not check the customer in. Please try again.',
+            variant: 'destructive',
+          });
+        },
       }
     );
   };
@@ -436,6 +551,7 @@ function AddResourceDialog() {
   const [type, setType] = useState("");
   const create = useCreateSosResource();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -464,10 +580,17 @@ function AddResourceDialog() {
                 onSuccess: () => {
                   queryClient.invalidateQueries({ queryKey: getListSosResourcesQueryKey() });
                   setOpen(false);
-                }
+                },
+                onError: (err: any) => {
+                  toast({
+                    title: 'Could not add resource',
+                    description: err?.response?.data?.message || err?.message || 'Adding the resource failed. Please try again.',
+                    variant: 'destructive',
+                  });
+                },
               });
             }} 
-            disabled={!name || !type}
+            disabled={!name || !type || create.isPending}
           >
             Add Resource
           </Button>
