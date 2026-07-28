@@ -8,6 +8,7 @@ import {
   sosVisitsTable,
   perkPassesTable,
   walletLoginCodesTable,
+  walletSessionsTable,
 } from "@workspace/db";
 import { and, desc, eq, inArray } from "drizzle-orm";
 
@@ -79,6 +80,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.delete(walletLoginCodesTable).where(eq(walletLoginCodesTable.phone, PHONE));
+  await db.delete(walletSessionsTable).where(eq(walletSessionsTable.phone, PHONE));
   const tenantIds = [hostId, partnerId].filter((n) => Number.isInteger(n));
   if (tenantIds.length) {
     // Cascades clean up customers, visits, partnerships, and perk passes.
@@ -144,6 +146,10 @@ describe("perk pass granting at checkout", () => {
 });
 
 describe("wallet SMS login", () => {
+  // The wallet session travels ONLY in an HttpOnly cookie — never in the
+  // JSON body. Tests carry it as a raw Cookie header, exactly as a browser
+  // would after a reload.
+  let sessionCookie: string;
   let sessionToken: string;
 
   it("issues a code, rejects wrong codes, and verifies the right one once", async () => {
@@ -170,20 +176,79 @@ describe("wallet SMS login", () => {
       .post("/api/wallet/login/verify")
       .send({ phone: PHONE, code: row.code })
       .expect(200);
-    expect(typeof verify.body.token).toBe("string");
-    expect(verify.body.token.length).toBeGreaterThan(20);
-    sessionToken = verify.body.token;
+    // The token must never appear in the JSON body — only in the cookie.
+    expect(verify.body.token).toBeUndefined();
+    expect(verify.body.phone).toBe(PHONE);
+    const setCookie = ([] as string[]).concat(verify.headers["set-cookie"] ?? []);
+    const walletSet = setCookie.find((c) => c.startsWith("gnil_wallet="));
+    expect(walletSet).toBeTruthy();
+    expect(walletSet).toMatch(/HttpOnly/i);
+    expect(walletSet).toMatch(/Path=\/api\/wallet/i);
+    sessionCookie = walletSet!.split(";")[0];
+    sessionToken = sessionCookie.slice("gnil_wallet=".length);
+    expect(sessionToken.length).toBeGreaterThan(20);
 
     // The code is single-use: replaying it fails.
     await anon.post("/api/wallet/login/verify").send({ phone: PHONE, code: row.code }).expect(400);
   });
 
-  it("gates wallet reads on the session token", async () => {
+  it("restores state across reloads via the who-am-I endpoint", async () => {
+    // No cookie → signed out.
+    await anon.get("/api/wallet/session").expect(401);
+    // Cookie alone (as a fresh page load would send) → signed in.
+    const me = await anon.get("/api/wallet/session").set("Cookie", sessionCookie).expect(200);
+    expect(me.body.phone).toBe(PHONE);
+    expect(typeof me.body.expiresAt).toBe("string");
+  });
+
+  it("rejects cross-origin wallet mutations (CSRF origin guard)", async () => {
+    // A browser-initiated POST from a foreign site carries its Origin — the
+    // guard rejects it before any handler runs, cookie or not.
+    await anon
+      .post("/api/wallet/logout")
+      .set("Origin", "https://evil.example")
+      .set("Cookie", sessionCookie)
+      .expect(403);
+    await anon
+      .post("/api/wallet/ambassador/referral")
+      .set("Origin", "https://evil.example")
+      .set("Cookie", sessionCookie)
+      .send({ code: "X" })
+      .expect(403);
+    await anon
+      .post("/api/wallet/login/request")
+      .set("Origin", "https://evil.example")
+      .send({ phone: PHONE })
+      .expect(403);
+
+    // The app's own origin passes the guard (localhost variants are
+    // allowlisted outside production) and reaches the real handler.
+    const me = await anon
+      .get("/api/wallet/session")
+      .set("Origin", "http://localhost:5173")
+      .set("Cookie", sessionCookie)
+      .expect(200);
+    expect(me.body.phone).toBe(PHONE);
+    const out = await anon
+      .post("/api/wallet/ambassador/referral")
+      .set("Origin", "http://localhost:5173")
+      .set("Cookie", sessionCookie)
+      .send({ code: `NOPE-${RUN}` })
+      .expect(409); // guard passed; unknown referral code is the handler's 409
+    expect(out.body.message).toBeTruthy();
+  });
+
+  it("rejects the legacy x-wallet-session header path", async () => {
+    await anon.get("/api/wallet/passes").set("x-wallet-session", sessionToken).expect(401);
+    await anon.get("/api/wallet/session").set("x-wallet-session", sessionToken).expect(401);
+  });
+
+  it("gates wallet reads on the session cookie", async () => {
     await anon.get("/api/wallet/passes").expect(401);
 
     const list = await anon
       .get("/api/wallet/passes")
-      .set("x-wallet-session", sessionToken)
+      .set("Cookie", sessionCookie)
       .expect(200);
     expect(list.body.phone).toBe(PHONE);
     const mine = list.body.passes.filter(
@@ -196,9 +261,43 @@ describe("wallet SMS login", () => {
 
     const detail = await anon
       .get(`/api/wallet/passes/${mine[0].id}`)
-      .set("x-wallet-session", sessionToken)
+      .set("Cookie", sessionCookie)
       .expect(200);
     expect(detail.body.qrPayload).toBe(mine[0].token);
+  });
+
+  it("rejects an expired session cookie", async () => {
+    const [expired] = await db
+      .insert(walletSessionsTable)
+      .values({
+        token: `expired-${RUN}`,
+        phone: PHONE,
+        expiresAt: new Date(Date.now() - 60_000),
+      })
+      .returning();
+    await anon
+      .get("/api/wallet/session")
+      .set("Cookie", `gnil_wallet=${expired.token}`)
+      .expect(401);
+  });
+
+  it("logout invalidates the session server-side and clears the cookie", async () => {
+    const out = await anon.post("/api/wallet/logout").set("Cookie", sessionCookie).expect(200);
+    expect(out.body.ok).toBe(true);
+    const cleared = ([] as string[]).concat(out.headers["set-cookie"] ?? []);
+    expect(cleared.some((c) => c.startsWith("gnil_wallet=") && /Expires=/i.test(c))).toBe(true);
+
+    // Session row is gone — replaying the old cookie is a 401.
+    const rows = await db
+      .select()
+      .from(walletSessionsTable)
+      .where(eq(walletSessionsTable.token, sessionToken));
+    expect(rows).toHaveLength(0);
+    await anon.get("/api/wallet/session").set("Cookie", sessionCookie).expect(401);
+    await anon.get("/api/wallet/passes").set("Cookie", sessionCookie).expect(401);
+
+    // Logout is idempotent: no session → still 200.
+    await anon.post("/api/wallet/logout").expect(200);
   });
 });
 

@@ -649,6 +649,7 @@ export * from './walletAmbassadorViewTier';
 export * from './walletLoginRequest';
 export * from './walletLoginRequestResult';
 export * from './walletLoginVerify';
+export * from './walletLogoutResult';
 export * from './walletPass';
 export * from './walletPassDetail';
 export * from './walletPassList';

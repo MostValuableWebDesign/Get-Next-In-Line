@@ -54,6 +54,7 @@
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.
 - [Tip pooling & gratuity ledger](gratuity-tips.md) — ledger rows scoped to the STAFF's tenant; tips never touch revenue/commission/margin; new checkout paths must reuse the split engine.
 - Checkout tip fallback: bundled visits or tenants with a live co-op partnership + servicing staff → tip-pool ledger (whole tip to staff); otherwise legacy gratuity-pool split — both test suites rely on this split.
+- Customer wallet auth: session token lives ONLY in the HttpOnly gnil_wallet cookie (path /api/wallet, SameSite=None on HTTPS) — never in JSON bodies or localStorage; cookie-authed wallet writes need the CSRF origin guard, and disallowed CORS origins map to 403 in app.ts (tests assert this).
 - SMS bodies must carry fully-qualified public URLs (APP_BASE_URL → REPLIT_DOMAINS fallback), never relative paths — recipients are outside the app.
 - [Co-op tip pooling](tip-pooling.md) — checkout-time partnership gating, cents math with remainder to servicing staff, immutable snapshot ledger; origin derived at read. Coexists with the per-tenant gratuity pool: a resolved tip-pool rule wins, else the checkout-tip-fallback rule above decides which ledger records the tip.
 - [Network governance roles](network-governance.md) — 4-tier roles on users.role + memberships as scope; staff read-only via tenantAccess; join-application approval provisions tenants under a conditional status claim.

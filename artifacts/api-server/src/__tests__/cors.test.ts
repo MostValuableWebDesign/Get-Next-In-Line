@@ -29,7 +29,8 @@ describe("CORS allowlist", () => {
       .get("/api/healthz")
       .set("Origin", "https://evil.example.com");
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
-    expect(res.status).toBeGreaterThanOrEqual(500);
+    // The CORS allowlist error is mapped to a deliberate 403 in app.ts.
+    expect(res.status).toBe(403);
   });
 
   it("allows requests without an Origin header", async () => {

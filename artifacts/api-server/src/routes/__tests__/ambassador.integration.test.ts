@@ -170,7 +170,7 @@ async function setPoolBalance(target: number) {
   });
 }
 
-/** Mint a wallet session directly (SMS login is covered by wallet tests). */
+/** Mint a wallet session directly (SMS login & cookie flow covered by wallet tests); returned token is sent as the gnil_wallet cookie value. */
 async function walletSession(p: string): Promise<string> {
   const token = `ambtest-${RUN}-${p.slice(-4)}-${Math.random().toString(36).slice(2)}`;
   await db.insert(walletSessionsTable).values({
@@ -249,14 +249,14 @@ describe("referral loop", () => {
     const session = await walletSession(phone(1));
     const res = await agent
       .get("/api/wallet/ambassador")
-      .set("x-wallet-session", session)
+      .set("Cookie", `gnil_wallet=${session}`)
       .expect(200);
     referrerCode = res.body.referralCode;
     expect(referrerCode).toMatch(/^FRIEND-/);
     // Stable across reads.
     const res2 = await agent
       .get("/api/wallet/ambassador")
-      .set("x-wallet-session", session)
+      .set("Cookie", `gnil_wallet=${session}`)
       .expect(200);
     expect(res2.body.referralCode).toBe(referrerCode);
   });
@@ -265,7 +265,7 @@ describe("referral loop", () => {
     const session = await walletSession(phone(1));
     const res = await agent
       .post("/api/wallet/ambassador/referral")
-      .set("x-wallet-session", session)
+      .set("Cookie", `gnil_wallet=${session}`)
       .send({ code: referrerCode })
       .expect(409);
     expect(res.body.message).toMatch(/yourself/i);
@@ -275,7 +275,7 @@ describe("referral loop", () => {
     friendSession = await walletSession(phone(2));
     await agent
       .post("/api/wallet/ambassador/referral")
-      .set("x-wallet-session", friendSession)
+      .set("Cookie", `gnil_wallet=${friendSession}`)
       .send({ code: `FRIEND-NOPE${RUN.slice(-4).toUpperCase()}` })
       .expect(409);
   });
@@ -288,11 +288,11 @@ describe("referral loop", () => {
     const otherSession = await walletSession(phone(3));
     const other = await agent
       .get("/api/wallet/ambassador")
-      .set("x-wallet-session", otherSession)
+      .set("Cookie", `gnil_wallet=${otherSession}`)
       .expect(200);
     const res = await agent
       .post("/api/wallet/ambassador/referral")
-      .set("x-wallet-session", activeSession)
+      .set("Cookie", `gnil_wallet=${activeSession}`)
       .send({ code: other.body.referralCode })
       .expect(409);
     expect(res.body.message).toMatch(/already active/i);
@@ -301,7 +301,7 @@ describe("referral loop", () => {
   it("attaches a fresh friend as pending, and only once", async () => {
     const res = await agent
       .post("/api/wallet/ambassador/referral")
-      .set("x-wallet-session", friendSession)
+      .set("Cookie", `gnil_wallet=${friendSession}`)
       .send({ code: referrerCode })
       .expect(200);
     expect(res.body.referredByStatus).toBe("pending");
@@ -309,11 +309,11 @@ describe("referral loop", () => {
     const otherSession = await walletSession(phone(3));
     const other = await agent
       .get("/api/wallet/ambassador")
-      .set("x-wallet-session", otherSession)
+      .set("Cookie", `gnil_wallet=${otherSession}`)
       .expect(200);
     await agent
       .post("/api/wallet/ambassador/referral")
-      .set("x-wallet-session", friendSession)
+      .set("Cookie", `gnil_wallet=${friendSession}`)
       .send({ code: other.body.referralCode })
       .expect(409);
   });
@@ -443,12 +443,12 @@ describe("reward redemption", () => {
     const referrerSession = await walletSession(phone(1));
     const codeRes = await agent
       .get("/api/wallet/ambassador")
-      .set("x-wallet-session", referrerSession)
+      .set("Cookie", `gnil_wallet=${referrerSession}`)
       .expect(200);
     const friend2Session = await walletSession(phone(5));
     await agent
       .post("/api/wallet/ambassador/referral")
-      .set("x-wallet-session", friend2Session)
+      .set("Cookie", `gnil_wallet=${friend2Session}`)
       .send({ code: codeRes.body.referralCode })
       .expect(200);
 
@@ -545,7 +545,7 @@ describe("merchant program & ledger views", () => {
     const session = await walletSession(phone(2));
     const res = await agent
       .get("/api/wallet/ambassador")
-      .set("x-wallet-session", session)
+      .set("Cookie", `gnil_wallet=${session}`)
       .expect(200);
     expect(res.body.referredByStatus).toBe("converted");
     expect(res.body.rewards.some((r: { source: string }) => r.source === "referral_friend")).toBe(
@@ -622,13 +622,13 @@ describe("concurrent conversion funding race", () => {
     const referrerSession = await walletSession(phone(1));
     const codeRes = await agent
       .get("/api/wallet/ambassador")
-      .set("x-wallet-session", referrerSession)
+      .set("Cookie", `gnil_wallet=${referrerSession}`)
       .expect(200);
     for (const p of [phone(6), phone(7)]) {
       const s = await walletSession(p);
       await agent
         .post("/api/wallet/ambassador/referral")
-        .set("x-wallet-session", s)
+        .set("Cookie", `gnil_wallet=${s}`)
         .send({ code: codeRes.body.referralCode })
         .expect(200);
     }

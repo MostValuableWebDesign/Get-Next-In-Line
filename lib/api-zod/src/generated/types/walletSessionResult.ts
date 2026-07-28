@@ -6,9 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * The wallet session itself travels in an HttpOnly Secure cookie set by the server — the token is never exposed to JavaScript.
+ */
 export interface WalletSessionResult {
-  /** Bearer token for the x-wallet-session header on wallet reads. */
-  token: string;
   phone: string;
   expiresAt: string;
 }

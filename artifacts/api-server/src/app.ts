@@ -18,59 +18,9 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { globalRateLimit, webhookRateLimit } from "./middlewares/rateLimit";
 
-// ---------------------------------------------------------------------------
-// Allowed CORS origins
-// REPLIT_DOMAINS is a comma-separated list of all active domains for this repl
-// (dev preview + any custom/production domains).
-// ---------------------------------------------------------------------------
-const rawDomains = process.env.REPLIT_DOMAINS ?? "";
-const allowedOrigins = new Set<string>(
-  rawDomains
-    .split(",")
-    .map((d) => d.trim())
-    .filter(Boolean)
-    .map((d) => `https://${d}`),
-);
-
-// Production origins. Overridable via ALLOWED_ORIGINS (comma-separated full
-// origins, e.g. "https://www.getnextinline.com,https://getnextinline.com").
-// NOTE: setting ALLOWED_ORIGINS *replaces* these defaults. If it is set
-// without the getnextinline.com origins, marketing-site logins break with a
-// CORS error — warn loudly at startup so the misconfiguration isn't silent.
-const DEFAULT_PRODUCTION_ORIGINS = [
-  "https://www.getnextinline.com",
-  "https://getnextinline.com",
-];
-const extraOrigins = (
-  process.env.ALLOWED_ORIGINS ?? DEFAULT_PRODUCTION_ORIGINS.join(",")
-)
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
-for (const origin of extraOrigins) {
-  allowedOrigins.add(origin);
-}
-
-if (process.env.ALLOWED_ORIGINS) {
-  const missingDefaults = DEFAULT_PRODUCTION_ORIGINS.filter(
-    (o) => !allowedOrigins.has(o),
-  );
-  if (missingDefaults.length > 0) {
-    logger.warn(
-      { missingOrigins: missingDefaults },
-      `ALLOWED_ORIGINS is set but does not include the getnextinline.com defaults (${missingDefaults.join(
-        ", ",
-      )}). ALLOWED_ORIGINS *replaces* the built-in defaults, so logins from the marketing site will fail with a CORS error. Include these origins in ALLOWED_ORIGINS if that is not intended.`,
-    );
-  }
-}
-
-// Allow localhost variants in non-production for local development
-if (process.env.NODE_ENV !== "production") {
-  allowedOrigins.add("http://localhost:3000");
-  allowedOrigins.add("http://localhost:5173");
-  allowedOrigins.add("http://localhost:25576");
-}
+// Allowed browser origins — built in lib/allowedOrigins so the wallet CSRF
+// origin guard shares exactly the same allowlist as this CORS layer.
+import { allowedOrigins } from "./lib/allowedOrigins";
 
 const app: Express = express();
 
@@ -270,6 +220,14 @@ app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
   }
   if (res.headersSent) {
     next(err);
+    return;
+  }
+  // Disallowed-origin browser requests (rejected by the CORS allowlist above)
+  // are a deliberate refusal, not a server fault: 403, not 500. This also
+  // stops cross-site form POSTs (which skip preflight) from ever reaching a
+  // cookie-authenticated handler such as the wallet routes.
+  if (err instanceof Error && err.message.startsWith("CORS:")) {
+    res.status(403).json({ message: "Cross-origin request rejected" });
     return;
   }
   if (isZodError(err)) {

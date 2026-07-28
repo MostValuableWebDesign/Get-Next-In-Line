@@ -89,10 +89,11 @@ describe("CORS allowlist for cross-site logins", () => {
       .set("Origin", "https://evil.example.com")
       .send({ password: process.env.ADMIN_PASSWORD });
 
-    // The cors middleware calls back with an error, which Express surfaces
-    // as a 500 — and crucially, no CORS headers are emitted, so the browser
-    // blocks the response.
-    expect(res.status).toBeGreaterThanOrEqual(500);
+    // The cors middleware calls back with an error, which app.ts maps to a
+    // deliberate 403 — and crucially, no CORS headers are emitted, so the
+    // browser blocks the response. This also stops cross-site form POSTs
+    // (which skip preflight) from reaching cookie-authenticated handlers.
+    expect(res.status).toBe(403);
     expect(res.headers["access-control-allow-origin"]).toBeUndefined();
     expect(res.headers["access-control-allow-credentials"]).toBeUndefined();
   });

@@ -3,10 +3,11 @@ import { QRCodeSVG } from 'qrcode.react';
 import {
   useRequestWalletLoginCode,
   useVerifyWalletLoginCode,
+  useGetWalletSession,
+  getGetWalletSessionQueryKey,
+  useLogoutWallet,
   useListWalletPasses,
-  getListWalletPassesQueryKey,
   useGetWalletPassport,
-  getGetWalletPassportQueryKey,
   useGetWalletAmbassador,
   getGetWalletAmbassadorQueryKey,
   useEnterWalletReferralCode,
@@ -29,29 +30,55 @@ import {
  * Customers sign in with their phone number (SMS code) and see the perk
  * passes deposited by local co-op businesses; tapping a pass shows the QR
  * staff scan at the partner storefront. Lives OUTSIDE the staff shell.
+ *
+ * The wallet session travels in an HttpOnly cookie set by the server — never
+ * stored in localStorage, so an injected script cannot steal it. Signed-in
+ * state is restored on reload via the lightweight GET /wallet/session check.
  */
 
-const SESSION_KEY = 'gnil-wallet-session';
-
-function loadSession(): string | null {
-  try {
-    return localStorage.getItem(SESSION_KEY);
-  } catch {
-    return null;
-  }
-}
+// Legacy localStorage token key from the pre-cookie flow. Cleared on load so
+// no stale token lingers; those sessions are simply invalid now and the
+// customer signs in again with an SMS code.
+const LEGACY_SESSION_KEY = 'gnil-wallet-session';
 
 export default function WalletPage() {
-  const [session, setSession] = useState<string | null>(loadSession);
+  useEffect(() => {
+    try { localStorage.removeItem(LEGACY_SESSION_KEY); } catch { /* ignore */ }
+  }, []);
+
+  const queryClient = useQueryClient();
+  // Who-am-I: the browser sends the HttpOnly cookie; 401 means signed out.
+  const whoami = useGetWalletSession({
+    query: { queryKey: getGetWalletSessionQueryKey(), retry: false, staleTime: 60_000 },
+  });
+  const session = whoami.isSuccess;
   const [selected, setSelected] = useState<WalletPass | null>(null);
   const [view, setView] = useState<'passes' | 'passport' | 'ambassador'>('passes');
+  const logout = useLogoutWallet();
 
-  const signOut = () => {
-    try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
-    setSession(null);
+  const resetToLogin = () => {
     setSelected(null);
     setView('passes');
+    // Drop cached wallet data and re-run the who-am-I check (now a 401).
+    queryClient.removeQueries();
+    queryClient.invalidateQueries({ queryKey: getGetWalletSessionQueryKey() });
   };
+
+  const signOut = () => {
+    // Server-side logout deletes the session row and clears the cookie.
+    logout.mutate(undefined, { onSettled: resetToLogin });
+  };
+
+  if (whoami.isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-50">
+        <div className="max-w-md mx-auto px-4 py-6 space-y-3">
+          <Skeleton className="h-8 w-40 bg-slate-800" />
+          <Skeleton className="h-40 w-full bg-slate-800" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50">
@@ -68,9 +95,9 @@ export default function WalletPage() {
           )}
         </header>
         {!session ? (
-          <PhoneLogin onSession={(t) => {
-            try { localStorage.setItem(SESSION_KEY, t); } catch { /* ignore */ }
-            setSession(t);
+          <PhoneLogin onSession={() => {
+            // Cookie is already set by the server; refresh the who-am-I check.
+            queryClient.invalidateQueries({ queryKey: getGetWalletSessionQueryKey() });
           }} />
         ) : selected ? (
           <PassDetail pass={selected} onBack={() => setSelected(null)} />
@@ -109,11 +136,11 @@ export default function WalletPage() {
               </Button>
             </div>
             {view === 'passport' ? (
-              <PassportView session={session} onUnauthorized={signOut} />
+              <PassportView onUnauthorized={resetToLogin} />
             ) : view === 'ambassador' ? (
-              <AmbassadorView session={session} onUnauthorized={signOut} />
+              <AmbassadorView onUnauthorized={resetToLogin} />
             ) : (
-              <PassList session={session} onSelect={setSelected} onUnauthorized={signOut} />
+              <PassList onSelect={setSelected} onUnauthorized={resetToLogin} />
             )}
           </div>
         )}
@@ -124,7 +151,7 @@ export default function WalletPage() {
 
 // ── Phone login (request code → verify) ──────────────────────────────────────
 
-function PhoneLogin({ onSession }: { onSession: (token: string) => void }) {
+function PhoneLogin({ onSession }: { onSession: () => void }) {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
@@ -203,7 +230,7 @@ function PhoneLogin({ onSession }: { onSession: (token: string) => void }) {
                 verify.mutate(
                   { data: { phone: phone.trim(), code } },
                   {
-                    onSuccess: (res) => onSession(res.token),
+                    onSuccess: () => onSession(),
                     onError: (err) => setError(errMsg(err, "That code didn't work — try again.")),
                   },
                 );
@@ -236,16 +263,13 @@ const STATUS_META: Record<WalletPass['status'], { label: string; icon: React.Ele
 };
 
 function PassList({
-  session, onSelect, onUnauthorized,
+  onSelect, onUnauthorized,
 }: {
-  session: string;
   onSelect: (p: WalletPass) => void;
   onUnauthorized: () => void;
 }) {
-  const { data, isLoading, isError, error } = useListWalletPasses({
-    query: { queryKey: [...getListWalletPassesQueryKey(), session] },
-    request: { headers: { 'x-wallet-session': session } },
-  });
+  // Session travels in the HttpOnly cookie — no header needed.
+  const { data, isLoading, isError, error } = useListWalletPasses();
 
   // Expired/invalid session → back to login.
   useEffect(() => {
@@ -331,11 +355,8 @@ const REWARD_LABELS: Record<string, string> = {
   free_upgrade: 'Free upgrade',
 };
 
-function PassportView({ session, onUnauthorized }: { session: string; onUnauthorized: () => void }) {
-  const { data, isLoading, isError, error } = useGetWalletPassport({
-    query: { queryKey: [...getGetWalletPassportQueryKey(), session] },
-    request: { headers: { 'x-wallet-session': session } },
-  });
+function PassportView({ onUnauthorized }: { onUnauthorized: () => void }) {
+  const { data, isLoading, isError, error } = useGetWalletPassport();
 
   useEffect(() => {
     if (isError && (error as { status?: number })?.status === 401) onUnauthorized();
@@ -506,16 +527,12 @@ const AMBASSADOR_SOURCE_LABELS: Record<string, string> = {
   referral_friend: 'Welcome reward',
 };
 
-function AmbassadorView({ session, onUnauthorized }: { session: string; onUnauthorized: () => void }) {
+function AmbassadorView({ onUnauthorized }: { onUnauthorized: () => void }) {
   const queryClient = useQueryClient();
-  const { data, isLoading, isError, error } = useGetWalletAmbassador({
-    query: { queryKey: [...getGetWalletAmbassadorQueryKey(), session] },
-    request: { headers: { 'x-wallet-session': session } },
-  });
+  const { data, isLoading, isError, error } = useGetWalletAmbassador();
   const [refCode, setRefCode] = useState('');
   const [refError, setRefError] = useState<string | null>(null);
   const enterCode = useEnterWalletReferralCode({
-    request: { headers: { 'x-wallet-session': session } },
     mutation: {
       onSuccess: () => {
         setRefCode('');

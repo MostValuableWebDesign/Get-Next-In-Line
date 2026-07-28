@@ -8284,7 +8284,7 @@ export const RequestWalletLoginCodeResponse = zod.object({
 
 
 /**
- * @summary Exchange a received SMS code for a wallet session token (public)
+ * @summary Exchange a received SMS code for a wallet session — issued as an HttpOnly cookie (public)
  */
 export const verifyWalletLoginCodeBodyPhoneMin = 7;
 
@@ -8298,14 +8298,30 @@ export const VerifyWalletLoginCodeBody = zod.object({
 })
 
 export const VerifyWalletLoginCodeResponse = zod.object({
-  "token": zod.string().describe('Bearer token for the x-wallet-session header on wallet reads.'),
   "phone": zod.string(),
   "expiresAt": zod.string()
+}).describe('The wallet session itself travels in an HttpOnly Secure cookie set by the server — the token is never exposed to JavaScript.')
+
+
+/**
+ * @summary Who-am-I for the wallet — returns the signed-in phone when the wallet session cookie is valid (public)
+ */
+export const GetWalletSessionResponse = zod.object({
+  "phone": zod.string(),
+  "expiresAt": zod.string()
+}).describe('The wallet session itself travels in an HttpOnly Secure cookie set by the server — the token is never exposed to JavaScript.')
+
+
+/**
+ * @summary Sign out of the wallet — invalidates the session row server-side and clears the HttpOnly cookie (public, idempotent)
+ */
+export const LogoutWalletResponse = zod.object({
+  "ok": zod.boolean()
 })
 
 
 /**
- * @summary List all of the signed-in customer's perk passes across businesses (x-wallet-session header)
+ * @summary List all of the signed-in customer's perk passes across businesses (wallet session cookie)
  */
 export const ListWalletPassesResponse = zod.object({
   "phone": zod.string(),
@@ -8325,7 +8341,7 @@ export const ListWalletPassesResponse = zod.object({
 
 
 /**
- * @summary One perk pass with its QR payload (x-wallet-session header)
+ * @summary One perk pass with its QR payload (wallet session cookie)
  */
 export const GetWalletPassParams = zod.object({
   "id": zod.coerce.number()
@@ -8348,7 +8364,7 @@ export const GetWalletPassResponse = zod.object({
 
 
 /**
- * @summary The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (x-wallet-session header)
+ * @summary The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (wallet session cookie)
  */
 export const GetWalletPassportResponse = zod.object({
   "phone": zod.string(),
@@ -8387,7 +8403,7 @@ export const GetWalletPassportResponse = zod.object({
 
 
 /**
- * @summary The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (x-wallet-session header)
+ * @summary The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (wallet session cookie)
  */
 export const GetWalletAmbassadorResponse = zod.object({
   "tier": zod.object({
@@ -8430,7 +8446,7 @@ export const GetWalletAmbassadorResponse = zod.object({
 
 
 /**
- * @summary Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (x-wallet-session header)
+ * @summary Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (wallet session cookie)
  */
 
 

@@ -340,6 +340,7 @@ import type {
   WalletLoginRequest,
   WalletLoginRequestResult,
   WalletLoginVerify,
+  WalletLogoutResult,
   WalletPassDetail,
   WalletPassList,
   WalletPassportView,
@@ -20396,7 +20397,7 @@ export const getVerifyWalletLoginCodeUrl = () => {
 }
 
 /**
- * @summary Exchange a received SMS code for a wallet session token (public)
+ * @summary Exchange a received SMS code for a wallet session — issued as an HttpOnly cookie (public)
  */
 export const verifyWalletLoginCode = async (walletLoginVerify: WalletLoginVerify, options?: RequestInit): Promise<WalletSessionResult> => {
 
@@ -20445,7 +20446,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type VerifyWalletLoginCodeMutationError = ErrorType<void>
 
     /**
- * @summary Exchange a received SMS code for a wallet session token (public)
+ * @summary Exchange a received SMS code for a wallet session — issued as an HttpOnly cookie (public)
  */
 export const useVerifyWalletLoginCode = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyWalletLoginCode>>, TError,{data: BodyType<WalletLoginVerify>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -20458,6 +20459,154 @@ export const useVerifyWalletLoginCode = <TError = ErrorType<void>,
       return useMutation(getVerifyWalletLoginCodeMutationOptions(options));
     }
 
+export const getGetWalletSessionUrl = () => {
+
+
+
+
+  return `/api/wallet/session`
+}
+
+/**
+ * @summary Who-am-I for the wallet — returns the signed-in phone when the wallet session cookie is valid (public)
+ */
+export const getWalletSession = async ( options?: RequestInit): Promise<WalletSessionResult> => {
+
+  return customFetch<WalletSessionResult>(getGetWalletSessionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWalletSessionQueryKey = () => {
+    return [
+    `/api/wallet/session`
+    ] as const;
+    }
+
+
+export const getGetWalletSessionQueryOptions = <TData = Awaited<ReturnType<typeof getWalletSession>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalletSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWalletSessionQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWalletSession>>> = ({ signal }) => getWalletSession({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWalletSession>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWalletSessionQueryResult = NonNullable<Awaited<ReturnType<typeof getWalletSession>>>
+export type GetWalletSessionQueryError = ErrorType<void>
+
+
+/**
+ * @summary Who-am-I for the wallet — returns the signed-in phone when the wallet session cookie is valid (public)
+ */
+
+export function useGetWalletSession<TData = Awaited<ReturnType<typeof getWalletSession>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWalletSession>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWalletSessionQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getLogoutWalletUrl = () => {
+
+
+
+
+  return `/api/wallet/logout`
+}
+
+/**
+ * @summary Sign out of the wallet — invalidates the session row server-side and clears the HttpOnly cookie (public, idempotent)
+ */
+export const logoutWallet = async ( options?: RequestInit): Promise<WalletLogoutResult> => {
+
+  return customFetch<WalletLogoutResult>(getLogoutWalletUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getLogoutWalletMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutWallet>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof logoutWallet>>, TError,void, TContext> => {
+
+const mutationKey = ['logoutWallet'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof logoutWallet>>, void> = () => {
+
+
+          return  logoutWallet(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LogoutWalletMutationResult = NonNullable<Awaited<ReturnType<typeof logoutWallet>>>
+
+    export type LogoutWalletMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Sign out of the wallet — invalidates the session row server-side and clears the HttpOnly cookie (public, idempotent)
+ */
+export const useLogoutWallet = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof logoutWallet>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof logoutWallet>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getLogoutWalletMutationOptions(options));
+    }
+
 export const getListWalletPassesUrl = () => {
 
 
@@ -20467,7 +20616,7 @@ export const getListWalletPassesUrl = () => {
 }
 
 /**
- * @summary List all of the signed-in customer's perk passes across businesses (x-wallet-session header)
+ * @summary List all of the signed-in customer's perk passes across businesses (wallet session cookie)
  */
 export const listWalletPasses = async ( options?: RequestInit): Promise<WalletPassList> => {
 
@@ -20514,7 +20663,7 @@ export type ListWalletPassesQueryError = ErrorType<void>
 
 
 /**
- * @summary List all of the signed-in customer's perk passes across businesses (x-wallet-session header)
+ * @summary List all of the signed-in customer's perk passes across businesses (wallet session cookie)
  */
 
 export function useListWalletPasses<TData = Awaited<ReturnType<typeof listWalletPasses>>, TError = ErrorType<void>>(
@@ -20544,7 +20693,7 @@ export const getGetWalletPassUrl = (id: number,) => {
 }
 
 /**
- * @summary One perk pass with its QR payload (x-wallet-session header)
+ * @summary One perk pass with its QR payload (wallet session cookie)
  */
 export const getWalletPass = async (id: number, options?: RequestInit): Promise<WalletPassDetail> => {
 
@@ -20591,7 +20740,7 @@ export type GetWalletPassQueryError = ErrorType<void>
 
 
 /**
- * @summary One perk pass with its QR payload (x-wallet-session header)
+ * @summary One perk pass with its QR payload (wallet session cookie)
  */
 
 export function useGetWalletPass<TData = Awaited<ReturnType<typeof getWalletPass>>, TError = ErrorType<void>>(
@@ -20621,7 +20770,7 @@ export const getGetWalletPassportUrl = () => {
 }
 
 /**
- * @summary The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (x-wallet-session header)
+ * @summary The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (wallet session cookie)
  */
 export const getWalletPassport = async ( options?: RequestInit): Promise<WalletPassportView> => {
 
@@ -20668,7 +20817,7 @@ export type GetWalletPassportQueryError = ErrorType<void>
 
 
 /**
- * @summary The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (x-wallet-session header)
+ * @summary The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (wallet session cookie)
  */
 
 export function useGetWalletPassport<TData = Awaited<ReturnType<typeof getWalletPassport>>, TError = ErrorType<void>>(
@@ -20698,7 +20847,7 @@ export const getGetWalletAmbassadorUrl = () => {
 }
 
 /**
- * @summary The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (x-wallet-session header)
+ * @summary The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (wallet session cookie)
  */
 export const getWalletAmbassador = async ( options?: RequestInit): Promise<WalletAmbassadorView> => {
 
@@ -20745,7 +20894,7 @@ export type GetWalletAmbassadorQueryError = ErrorType<void>
 
 
 /**
- * @summary The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (x-wallet-session header)
+ * @summary The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (wallet session cookie)
  */
 
 export function useGetWalletAmbassador<TData = Awaited<ReturnType<typeof getWalletAmbassador>>, TError = ErrorType<void>>(
@@ -20775,7 +20924,7 @@ export const getEnterWalletReferralCodeUrl = () => {
 }
 
 /**
- * @summary Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (x-wallet-session header)
+ * @summary Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (wallet session cookie)
  */
 export const enterWalletReferralCode = async (walletReferralEnterBody: WalletReferralEnterBody, options?: RequestInit): Promise<WalletAmbassadorView> => {
 
@@ -20824,7 +20973,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type EnterWalletReferralCodeMutationError = ErrorType<void>
 
     /**
- * @summary Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (x-wallet-session header)
+ * @summary Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (wallet session cookie)
  */
 export const useEnterWalletReferralCode = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof enterWalletReferralCode>>, TError,{data: BodyType<WalletReferralEnterBody>}, TContext>, request?: SecondParameter<typeof customFetch>}

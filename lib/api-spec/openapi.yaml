@@ -5901,7 +5901,7 @@ paths:
     post:
       operationId: verifyWalletLoginCode
       tags: [wallet]
-      summary: Exchange a received SMS code for a wallet session token (public)
+      summary: Exchange a received SMS code for a wallet session — issued as an HttpOnly cookie (public)
       requestBody:
         required: true
         content:
@@ -5920,11 +5920,39 @@ paths:
         "429":
           description: Too many verification attempts
 
+  /wallet/session:
+    get:
+      operationId: getWalletSession
+      tags: [wallet]
+      summary: Who-am-I for the wallet — returns the signed-in phone when the wallet session cookie is valid (public)
+      responses:
+        "200":
+          description: A wallet session is active
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletSessionResult"
+        "401":
+          description: Missing or expired wallet session
+
+  /wallet/logout:
+    post:
+      operationId: logoutWallet
+      tags: [wallet]
+      summary: Sign out of the wallet — invalidates the session row server-side and clears the HttpOnly cookie (public, idempotent)
+      responses:
+        "200":
+          description: Signed out (idempotent — succeeds even without a session)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletLogoutResult"
+
   /wallet/passes:
     get:
       operationId: listWalletPasses
       tags: [wallet]
-      summary: List all of the signed-in customer's perk passes across businesses (x-wallet-session header)
+      summary: List all of the signed-in customer's perk passes across businesses (wallet session cookie)
       responses:
         "200":
           description: The customer's passes, newest first
@@ -5939,7 +5967,7 @@ paths:
     get:
       operationId: getWalletPass
       tags: [wallet]
-      summary: One perk pass with its QR payload (x-wallet-session header)
+      summary: One perk pass with its QR payload (wallet session cookie)
       parameters:
         - name: id
           in: path
@@ -5962,7 +5990,7 @@ paths:
     get:
       operationId: getWalletPassport
       tags: [wallet]
-      summary: The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (x-wallet-session header)
+      summary: The signed-in customer's Neighborhood Passport — stamps, tier badges, milestone challenge progress, and earned rewards (wallet session cookie)
       responses:
         "200":
           description: The passport view
@@ -5977,7 +6005,7 @@ paths:
     get:
       operationId: getWalletAmbassador
       tags: [wallet]
-      summary: The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (x-wallet-session header)
+      summary: The signed-in customer's Ambassador Program view — tier, progress, referral code, and network-wide rewards (wallet session cookie)
       responses:
         "200":
           description: The ambassador view
@@ -5992,7 +6020,7 @@ paths:
     post:
       operationId: enterWalletReferralCode
       tags: [wallet]
-      summary: Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (x-wallet-session header)
+      summary: Enter a friend's referral code as the signed-in customer; both parties earn network-wide rewards once a qualifying visit converts the referral (wallet session cookie)
       requestBody:
         required: true
         content:
@@ -9479,15 +9507,22 @@ components:
 
     WalletSessionResult:
       type: object
-      required: [token, phone, expiresAt]
+      required: [phone, expiresAt]
       properties:
-        token:
-          type: string
-          description: Bearer token for the x-wallet-session header on wallet reads.
         phone:
           type: string
         expiresAt:
           type: string
+      description: >-
+        The wallet session itself travels in an HttpOnly Secure cookie set by
+        the server — the token is never exposed to JavaScript.
+
+    WalletLogoutResult:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
 
     WalletPass:
       type: object

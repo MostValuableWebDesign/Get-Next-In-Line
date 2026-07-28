@@ -1,4 +1,4 @@
-import { Router, type Request, type IRouter } from "express";
+import { Router, type Request, type Response, type IRouter } from "express";
 import { randomBytes, randomInt } from "crypto";
 import {
   db,
@@ -18,6 +18,8 @@ import {
   RequestWalletLoginCodeResponse,
   VerifyWalletLoginCodeBody,
   VerifyWalletLoginCodeResponse,
+  GetWalletSessionResponse,
+  LogoutWalletResponse,
   ListWalletPassesResponse,
   GetWalletPassResponse,
   GetWalletPassportResponse,
@@ -36,12 +38,35 @@ import { sendMessageSafe } from "../lib/messaging";
 import { redeemAtSide } from "../lib/perkPasses";
 
 // ── Local Perks wallet — public (customer-facing) API ────────────────────────
-// Deliberately unauthenticated at the session level: customers sign in with
-// their phone number via an SMS code. Registered BEFORE the staff session
-// middleware. Wallet reads are gated by an unguessable bearer session token
-// (x-wallet-session header) minted only after SMS verification.
+// Deliberately unauthenticated at the staff session level: customers sign in
+// with their phone number via an SMS code. Registered BEFORE the staff
+// session middleware. Wallet reads are gated by an unguessable session token
+// minted only after SMS verification, carried in an HttpOnly cookie so an
+// injected script can never read it (the legacy x-wallet-session header /
+// localStorage path is removed — old clients simply sign in again).
 
 const router: IRouter = Router();
+
+// ── CSRF origin guard for wallet mutations ───────────────────────────────────
+// The wallet cookie is SameSite=None on HTTPS (the marketing site is a
+// different site), so browsers attach it to requests started by ANY website —
+// e.g. a hidden cross-site form POST. Browsers always send an Origin header
+// on POST, so: a browser Origin outside our allowlist is rejected before any
+// handler runs. Requests without an Origin (curl, server-to-server, tests)
+// pass — they carry no ambient browser cookie, so CSRF doesn't apply.
+import { allowedOrigins } from "../lib/allowedOrigins";
+router.use((req, res, next) => {
+  if (!req.path.startsWith("/wallet") || req.method === "GET") {
+    next();
+    return;
+  }
+  const origin = req.headers.origin;
+  if (!origin || allowedOrigins.has(origin)) {
+    next();
+    return;
+  }
+  res.status(403).json({ message: "Cross-origin request rejected" });
+});
 
 const CODE_TTL_MS = 10 * 60 * 1000; // login code lifetime
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // wallet session lifetime
@@ -74,9 +99,56 @@ export function __resetWalletRateLimit(): void {
   codeRequests.clear();
 }
 
-/** Resolve the wallet session from the x-wallet-session bearer header. */
+// ── Wallet session cookie ────────────────────────────────────────────────────
+// HttpOnly so injected scripts can't steal it; Secure + SameSite=None on
+// Replit/production (HTTPS, mirrors the staff session cookie in app.ts) and
+// Lax over plain-HTTP local dev where Secure/None would be rejected. Scoped
+// to the wallet API path so it is never sent to other routes.
+export const WALLET_SESSION_COOKIE = "gnil_wallet";
+const WALLET_COOKIE_PATH = "/api/wallet";
+const cookieIsSecure = () =>
+  Boolean(process.env.REPLIT_DEV_DOMAIN) || process.env.NODE_ENV === "production";
+
+function setWalletCookie(res: Response, token: string, expiresAt: Date): void {
+  const secure = cookieIsSecure();
+  res.cookie(WALLET_SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure,
+    sameSite: secure ? "none" : "lax",
+    path: WALLET_COOKIE_PATH,
+    expires: expiresAt,
+  });
+}
+
+function clearWalletCookie(res: Response): void {
+  const secure = cookieIsSecure();
+  res.clearCookie(WALLET_SESSION_COOKIE, {
+    httpOnly: true,
+    secure,
+    sameSite: secure ? "none" : "lax",
+    path: WALLET_COOKIE_PATH,
+  });
+}
+
+/** Read the wallet session token from the HttpOnly cookie (no body/JS path). */
+function walletTokenFrom(req: Request): string | null {
+  // Parse the raw Cookie header directly — app.ts doesn't mount a global
+  // cookie parser, and the token is base64url so no decoding is needed.
+  const raw = req.headers.cookie;
+  if (!raw) return null;
+  for (const part of raw.split(";")) {
+    const eqIdx = part.indexOf("=");
+    if (eqIdx === -1) continue;
+    if (part.slice(0, eqIdx).trim() !== WALLET_SESSION_COOKIE) continue;
+    const value = part.slice(eqIdx + 1).trim();
+    if (value) return value;
+  }
+  return null;
+}
+
+/** Resolve the wallet session from the HttpOnly session cookie. */
 async function sessionFrom(req: Request): Promise<WalletSession | null> {
-  const token = req.header("x-wallet-session")?.trim();
+  const token = walletTokenFrom(req);
   if (!token) return null;
   const [session] = await db
     .select()
@@ -183,13 +255,43 @@ router.post("/wallet/login/verify", async (req, res): Promise<void> => {
     .insert(walletSessionsTable)
     .values({ token: randomBytes(32).toString("base64url"), phone, expiresAt })
     .returning();
+  // The token travels ONLY in the HttpOnly cookie — never in the JSON body,
+  // so an injected script has nothing to steal.
+  setWalletCookie(res, session.token, expiresAt);
   res.json(
     VerifyWalletLoginCodeResponse.parse({
-      token: session.token,
       phone,
       expiresAt: expiresAt.toISOString(),
     })
   );
+});
+
+// ── GET /wallet/session — who-am-I check for reload persistence ─────────────
+// Lets the frontend restore signed-in state after a page reload without any
+// JavaScript-readable token: the browser sends the HttpOnly cookie itself.
+router.get("/wallet/session", async (req, res): Promise<void> => {
+  const session = await sessionFrom(req);
+  if (!session) {
+    res.status(401).json({ message: "Wallet session required" });
+    return;
+  }
+  res.json(
+    GetWalletSessionResponse.parse({
+      phone: session.phone,
+      expiresAt: session.expiresAt.toISOString(),
+    })
+  );
+});
+
+// ── POST /wallet/logout — invalidate server-side and clear the cookie ───────
+// Idempotent: succeeds even with no/expired session so sign-out never fails.
+router.post("/wallet/logout", async (req, res): Promise<void> => {
+  const token = walletTokenFrom(req);
+  if (token) {
+    await db.delete(walletSessionsTable).where(eq(walletSessionsTable.token, token));
+  }
+  clearWalletCookie(res);
+  res.json(LogoutWalletResponse.parse({ ok: true }));
 });
 
 // ── pass serialization ───────────────────────────────────────────────────────

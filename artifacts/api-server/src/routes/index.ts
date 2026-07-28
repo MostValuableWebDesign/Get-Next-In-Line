@@ -59,7 +59,8 @@ router.use(campaignRedirectRouter);
 router.use(platformInviteJoinRouter);
 // Local Perks wallet (/wallet/*) — deliberately unauthenticated at the staff
 // session level: customers sign in with an SMS code. Code requests are rate
-// limited and wallet reads require the unguessable x-wallet-session token.
+// limited and wallet reads require an unguessable session token carried in
+// an HttpOnly cookie (never readable from JavaScript).
 router.use(walletRouter);
 // Public co-op join application flow (/public/coop/applications) —
 // deliberately unauthenticated: the applying business has no account yet.
