@@ -4,7 +4,7 @@
 - [Frontend test auto-cleanup](frontend-test-cleanup.md) — with vitest `globals: false`, RTL auto-cleanup is off; setup must `afterEach(cleanup)`.
 - [Drizzle migrations](drizzle-migrations.md) — schema changes go through `pnpm run db:push` (generate+migrate); avoid `drizzle-kit push`, it prompts even with --force in non-TTY shells.
 - drizzle-kit v0.31 mishandles absolute `schema`/`out` paths in drizzle.config.ts (double-slash `.//abs/...` ENOENT on snapshots); keep config paths relative — scripts always run with cwd=lib/db.
-- Stale `lib/*/dist` .d.ts (db, api-zod) causes phantom "no exported member" typecheck errors in api-server; fixed durably — api-server's typecheck script now runs `tsc -b` on the lib refs first.
+- Stale `lib/*/dist` .d.ts causes phantom "no exported member" typecheck errors in consumers; artifact typecheck scripts must `tsc -b` their lib refs first (api-server and gnil-os both do now).
 - [SOS platform decisions](sos-platform.md) — SOS routes intentionally public (no auth yet), simulated-SMS fallback, AI parse fallback, conditional-update concurrency guards.
 - [Dev DB drift behind Drizzle schema](dev-db-drift.md) — on missing-column query errors, diff information_schema vs schema and push additive DDL.
 - [SOS tenant scoping](sos-tenant-scoping.md) — `x-tenant-id` is now mandatory on /api/sos: numeric id or the explicit `"legacy"` sentinel (NULL scope); missing/malformed → 400. coop/safety still treat non-numeric as null. Campaign codes unique per (tenant, code); coop redemption codes per (host, code) — lookups must stay caller-scoped.
@@ -55,3 +55,4 @@
 - [Co-op settlement clearinghouse](coop-settlement.md) — new cross-business money events must write (kind, sourceRef)-idempotent obligations; cycle immutability = no mutation routes, keep it that way.
 - [Co-op surge boosts](coop-surge.md) — capacity status has a 30s in-process cache (tests must clear it); surge activation lock = partial unique index on live activations; firewall backstop re-checked at sweep time.
 - Co-op feedback SMS replies: inbound texts starting with a standalone 1-5 rating are consumed as post-redemption feedback (matched by phone to the newest open request, 7-day window) BEFORE customer-scoped keyword handling; new redemption write paths must also call requestCoopFeedbackSafe.
+- Checkout tip precedence: tip-pool engine owns a tip when a rule resolves OR (servicing staff set AND visit bundled or tenant has live co-op partnership); otherwise tenant gratuity pool config engine — both integration suites encode this contract.

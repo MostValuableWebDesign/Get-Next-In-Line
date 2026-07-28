@@ -10,7 +10,7 @@ import {
   type SosTipPoolRule,
   type SosTipPoolRuleParticipant,
 } from "@workspace/db";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Co-op tip pooling — rule resolution + deterministic allocation engine.
@@ -112,6 +112,38 @@ export async function resolveTipRuleForVisit(
   if (rule) return { rule, participants: await loadParticipants(dbx, rule.id) };
 
   return null;
+}
+
+/**
+ * True when the tenant participates (as host or partner) in at least one
+ * live co-op partnership: accepted, active, not dispute-suspended, not
+ * banned. Used at checkout to decide which gratuity engine owns a tip when
+ * no explicit tip-pool rule resolves: co-op-connected businesses default to
+ * the tip-pool fallback (servicing staff keeps the tip), standalone
+ * businesses use their gratuity pool configuration.
+ */
+export async function tenantHasLivePartnership(
+  tenantId: number | null,
+  dbx: Dbish = db,
+): Promise<boolean> {
+  if (tenantId == null) return false;
+  const [row] = await dbx
+    .select({ id: merchantCoopPartnershipsTable.id })
+    .from(merchantCoopPartnershipsTable)
+    .where(
+      and(
+        or(
+          eq(merchantCoopPartnershipsTable.hostTenantId, tenantId),
+          eq(merchantCoopPartnershipsTable.partnerTenantId, tenantId),
+        ),
+        eq(merchantCoopPartnershipsTable.status, "accepted"),
+        eq(merchantCoopPartnershipsTable.isActive, true),
+        eq(merchantCoopPartnershipsTable.disputeSuspended, false),
+        isNull(merchantCoopPartnershipsTable.bannedAt),
+      ),
+    )
+    .limit(1);
+  return row != null;
 }
 
 export type TipAllocation = {

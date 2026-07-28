@@ -116,8 +116,11 @@ import {
 } from "../lib/customerLink";
 import { logger } from "../lib/logger";
 import { attachRevenueToRecentCrossoverSafe } from "../lib/coopEvents";
-import { resolveTipRuleForVisit, writeGratuityLedger } from "../lib/tipPooling";
-import { merchantCoopPartnershipsTable } from "@workspace/db";
+import {
+  resolveTipRuleForVisit,
+  tenantHasLivePartnership,
+  writeGratuityLedger,
+} from "../lib/tipPooling";
 import {
   addressFieldsTouched,
   resolveSettings,
@@ -1917,40 +1920,20 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     | null = null;
   if (checkoutTip != null && checkoutTip > 0) {
     if (body.tipAmount != null) updates.tipAmount = body.tipAmount.toFixed(2);
-    usesTipPoolRule =
+    const ruleResolves =
       (await resolveTipRuleForVisit({
         bundleId: visit.bundleId,
         tenantId: visit.tenantId,
       })) != null;
-    // Tenants in a live co-op partnership are on the tip-pooling system:
-    // with a servicing staff member on the checkout, an unruled tip defaults
-    // to that staff member in the tip-pool ledger (rule-less fallback) rather
-    // than the legacy tenant-wide gratuity pool split.
-    // A bundled visit is always on the tip-pooling system — even when its
-    // partnership rule is no longer live, the fallback pays the servicing
-    // staff member via the tip-pool ledger.
-    if (!usesTipPoolRule && visit.bundleId != null && body.staffId != null) {
-      usesTipPoolRule = true;
-    }
-    if (!usesTipPoolRule && body.staffId != null && visit.tenantId != null) {
-      const [live] = await db
-        .select({ id: merchantCoopPartnershipsTable.id })
-        .from(merchantCoopPartnershipsTable)
-        .where(
-          and(
-            or(
-              eq(merchantCoopPartnershipsTable.hostTenantId, visit.tenantId),
-              eq(merchantCoopPartnershipsTable.partnerTenantId, visit.tenantId),
-            ),
-            eq(merchantCoopPartnershipsTable.status, "accepted"),
-            eq(merchantCoopPartnershipsTable.isActive, true),
-            eq(merchantCoopPartnershipsTable.disputeSuspended, false),
-            isNull(merchantCoopPartnershipsTable.bannedAt),
-          ),
-        )
-        .limit(1);
-      if (live) usesTipPoolRule = true;
-    }
+    // The tip-pool engine also owns the no-rule fallback (whole tip to the
+    // servicing staff member) for businesses in a live co-op partnership —
+    // their staff expect the tip-pool ledger to be the single source of
+    // truth. Standalone businesses keep the tenant gratuity pool config.
+    const servicingStaffId = (body.staffId ?? visit.staffId) as number | null;
+    usesTipPoolRule =
+      ruleResolves ||
+      (servicingStaffId != null &&
+        (visit.bundleId != null || (await tenantHasLivePartnership(visit.tenantId))));
     if (!usesTipPoolRule) {
       // No explicit rule. Two engines could claim this tip:
       //  - the rule-based tip-pool engine's default (whole tip to the

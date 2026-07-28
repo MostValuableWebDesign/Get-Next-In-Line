@@ -101,25 +101,37 @@ export default function CommandCenter() {
           <MasterOverview />
         </TabsContent>
         <TabsContent value="tenants" className="mt-4">
-          <Tenants />
+          <DashboardErrorBoundary>
+            <Tenants />
+          </DashboardErrorBoundary>
         </TabsContent>
         <TabsContent value="billing" className="mt-4">
-          <Billing />
+          <DashboardErrorBoundary>
+            <Billing />
+          </DashboardErrorBoundary>
         </TabsContent>
         <TabsContent value="compliance" className="mt-4">
-          <Compliance />
+          <DashboardErrorBoundary>
+            <Compliance />
+          </DashboardErrorBoundary>
         </TabsContent>
         <TabsContent value="partnerships" className="mt-4">
-          <CoopPartnerships />
+          <DashboardErrorBoundary>
+            <CoopPartnerships />
+          </DashboardErrorBoundary>
         </TabsContent>
         <TabsContent value="franchise" className="mt-4">
-          <FranchiseController />
+          <DashboardErrorBoundary>
+            <FranchiseController />
+          </DashboardErrorBoundary>
         </TabsContent>
         <TabsContent value="governance" className="mt-4">
           <Governance />
         </TabsContent>
         <TabsContent value="settings" className="mt-4">
-          <Settings />
+          <DashboardErrorBoundary>
+            <Settings />
+          </DashboardErrorBoundary>
         </TabsContent>
       </Tabs>
     </div>
