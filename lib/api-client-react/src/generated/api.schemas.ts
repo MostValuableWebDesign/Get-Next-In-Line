@@ -3007,6 +3007,8 @@ export interface SosVisit {
   estimatedWaitMinutes?: number | null;
   /** @nullable */
   paymentAmount?: number | null;
+  /** @nullable */
+  tipAmount?: number | null;
   checkedInAt: string;
   /** @nullable */
   serviceStartedAt?: string | null;
@@ -3034,6 +3036,15 @@ export const SosVisitAdvanceAction = {
   check_out: 'check_out',
 } as const;
 
+export type SosVisitAdvanceTipSplitRule = typeof SosVisitAdvanceTipSplitRule[keyof typeof SosVisitAdvanceTipSplitRule];
+
+
+export const SosVisitAdvanceTipSplitRule = {
+  equal: 'equal',
+  percentage: 'percentage',
+  role_weighted: 'role_weighted',
+} as const;
+
 export type SosVisitAdvanceBenefitType = typeof SosVisitAdvanceBenefitType[keyof typeof SosVisitAdvanceBenefitType];
 
 
@@ -3046,6 +3057,9 @@ export interface SosVisitAdvance {
   action: SosVisitAdvanceAction;
   resourceId?: number;
   paymentAmount?: number;
+  /** @minimum 0 */
+  tipAmount?: number;
+  tipSplitRule?: SosVisitAdvanceTipSplitRule;
   staffId?: number;
   benefitCustomerPlanId?: number;
   benefitType?: SosVisitAdvanceBenefitType;
@@ -3086,6 +3100,10 @@ export interface SosStaffMember {
   amount: number | null;
   /** @nullable */
   cadence: SosStaffMemberCadence;
+  /** @nullable */
+  tipPercent: number | null;
+  /** @nullable */
+  tipRoleWeight: number | null;
   createdAt: string;
 }
 
@@ -3185,6 +3203,88 @@ export interface SosStaffEarningsRow {
   commissionEarned: number | null;
   /** @nullable */
   amountDue: number | null;
+  tipsEarned: number;
+}
+
+export type SosGratuityConfigTipSplitRule = typeof SosGratuityConfigTipSplitRule[keyof typeof SosGratuityConfigTipSplitRule];
+
+
+export const SosGratuityConfigTipSplitRule = {
+  equal: 'equal',
+  percentage: 'percentage',
+  role_weighted: 'role_weighted',
+} as const;
+
+export interface SosGratuityStaffShare {
+  staffId: number;
+  name: string;
+  isActive: boolean;
+  /** @nullable */
+  tipPercent: number | null;
+  /** @nullable */
+  tipRoleWeight: number | null;
+}
+
+/**
+ * Tenant-scoped tip-pooling configuration: the default split rule plus each staff member's percentage share and role weight.
+ */
+export interface SosGratuityConfig {
+  tipSplitRule: SosGratuityConfigTipSplitRule;
+  staff: SosGratuityStaffShare[];
+}
+
+export type SosGratuityConfigUpdateTipSplitRule = typeof SosGratuityConfigUpdateTipSplitRule[keyof typeof SosGratuityConfigUpdateTipSplitRule];
+
+
+export const SosGratuityConfigUpdateTipSplitRule = {
+  equal: 'equal',
+  percentage: 'percentage',
+  role_weighted: 'role_weighted',
+} as const;
+
+export type SosGratuityConfigUpdateStaffSharesItem = {
+  staffId: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  tipPercent?: number | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  tipRoleWeight?: number | null;
+};
+
+export interface SosGratuityConfigUpdate {
+  tipSplitRule?: SosGratuityConfigUpdateTipSplitRule;
+  staffShares?: SosGratuityConfigUpdateStaffSharesItem[];
+}
+
+export type SosGratuityLedgerSummaryTotalsByStaffItem = {
+  staffId: number;
+  name: string;
+  total: number;
+};
+
+export interface SosGratuityLedgerEntry {
+  id: number;
+  visitId: number;
+  staffId: number;
+  staffName: string;
+  ruleApplied: string;
+  amount: number;
+  createdAt: string;
+}
+
+/**
+ * Auditable gratuity ledger for a period: every allocation row (visit, staff, rule, amount, timestamp) plus per-staff totals suitable for tax/end-of-shift reporting.
+ */
+export interface SosGratuityLedgerSummary {
+  entries: SosGratuityLedgerEntry[];
+  totalsByStaff: SosGratuityLedgerSummaryTotalsByStaffItem[];
+  totalDistributed: number;
 }
 
 export type SosPlanPlanType = typeof SosPlanPlanType[keyof typeof SosPlanPlanType];
@@ -3731,6 +3831,21 @@ export interface SosOutcomeCount {
   count: number;
 }
 
+export type SosTipsSummaryByStaffItem = {
+  staffId: number;
+  name: string;
+  total: number;
+};
+
+/**
+ * Tip-pooling figures over the report window — collected at checkout vs. distributed to staff via the gratuity ledger. Kept strictly separate from totalRevenue.
+ */
+export interface SosTipsSummary {
+  collected: number;
+  distributed: number;
+  byStaff: SosTipsSummaryByStaffItem[];
+}
+
 export interface SosAutomationJobTypeStats {
   jobType: string;
   delivered: number;
@@ -3760,6 +3875,7 @@ export interface SosReportsSummary {
   fillRate: number;
   callOutcomes: SosOutcomeCount[];
   totalRevenue: number;
+  tips: SosTipsSummary;
   automation: SosAutomationSummary;
 }
 
@@ -5166,6 +5282,17 @@ limit?: number;
 };
 
 export type GetSosStaffEarningsParams = {
+/**
+ * Period start (ISO date/datetime, inclusive)
+ */
+from: string;
+/**
+ * Period end (ISO date/datetime, exclusive)
+ */
+to: string;
+};
+
+export type GetSosGratuityLedgerParams = {
 /**
  * Period start (ISO date/datetime, inclusive)
  */

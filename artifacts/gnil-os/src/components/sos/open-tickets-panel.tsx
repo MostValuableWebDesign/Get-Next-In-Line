@@ -70,13 +70,16 @@ export function OpenTicketsPanel() {
           flashPerks={flashPerks}
           disclaimer={disclaimer}
           isPending={advance.isPending}
-          onCheckout={(amount, benefit, staffId) => {
+          onCheckout={(amount, benefit, staffId, tipAmount) => {
             advance.mutate(
               {
                 id: ticket.id,
                 data: {
                   action: 'check_out',
                   paymentAmount: amount,
+                  // Tip is recorded separately from service revenue and
+                  // split into the gratuity ledger server-side.
+                  ...(tipAmount != null && tipAmount > 0 ? { tipAmount } : {}),
                   ...(staffId != null ? { staffId } : {}),
                   ...(benefit
                     ? { benefitCustomerPlanId: benefit.customerPlanId, benefitType: benefit.type }
@@ -91,6 +94,7 @@ export function OpenTicketsPanel() {
                     customerName: ticket.customerName,
                     serviceType: ticket.serviceType,
                     amount,
+                    tipAmount: tipAmount != null && tipAmount > 0 ? tipAmount : null,
                   });
                   toast({
                     title: 'Payment completed',
@@ -118,7 +122,7 @@ export function OpenTicketsPanel() {
   );
 }
 
-type ReceiptData = { customerName: string; serviceType: string; amount: number };
+type ReceiptData = { customerName: string; serviceType: string; amount: number; tipAmount?: number | null };
 
 /**
  * Post-checkout receipt (printable). Partner perks from active co-op
@@ -154,6 +158,12 @@ function ReceiptDialog({
               <span className="text-muted-foreground">Total paid</span>
               <span className="font-bold">${receipt.amount.toFixed(2)}</span>
             </div>
+            {receipt.tipAmount != null && (
+              <div className="flex justify-between" data-testid="receipt-tip">
+                <span className="text-muted-foreground">Tip (pooled for staff)</span>
+                <span className="font-medium">${receipt.tipAmount.toFixed(2)}</span>
+              </div>
+            )}
             <PartnerPerksBlock perks={perks} flashPerks={flashPerks} disclaimer={disclaimer} staffFacing title="Your Partner Perks" />
           </div>
         )}
@@ -175,10 +185,11 @@ function TicketCard({
   perks: CoopActivePerk[];
   flashPerks: CoopFlashPerk[];
   disclaimer: string | null;
-  onCheckout: (amt: number, benefit: Benefit | null, staffId: number | null) => void;
+  onCheckout: (amt: number, benefit: Benefit | null, staffId: number | null, tipAmount: number | null) => void;
   isPending: boolean;
 }) {
   const [amount, setAmount] = useState(ticket.paymentAmount?.toString() || "");
+  const [tip, setTip] = useState('');
   const [benefit, setBenefit] = useState<Benefit | null>(null);
   const [sellOpen, setSellOpen] = useState(false);
   // Optional staff attribution — drives per-staff earnings reporting.
@@ -301,11 +312,26 @@ function TicketCard({
               />
             </div>
           </div>
+          <div className="space-y-1.5 w-32">
+            <Label>Tip (optional)</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-2.5 text-muted-foreground">$</span>
+              <Input
+                type="number"
+                min="0"
+                className="pl-7"
+                value={tip}
+                onChange={e => setTip(e.target.value)}
+                placeholder="0.00"
+                data-testid={`input-tip-${ticket.id}`}
+              />
+            </div>
+          </div>
           <Button
             size="lg"
             className="w-1/2"
             disabled={isPending || (benefit?.type === 'redeem_credit' ? false : (!amount || base <= 0))}
-            onClick={() => onCheckout(due, benefit, staffId ? Number(staffId) : null)}
+            onClick={() => onCheckout(due, benefit, staffId ? Number(staffId) : null, tip ? Math.max(0, parseFloat(tip)) : null)}
           >
             <CheckCircle className="mr-2 h-4 w-4" />
             {benefit?.type === 'redeem_credit' ? 'Redeem Credit & Complete' : 'Charge & Complete'}

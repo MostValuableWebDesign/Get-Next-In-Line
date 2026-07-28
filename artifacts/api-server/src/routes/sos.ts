@@ -15,6 +15,7 @@ import {
   sosPlansTable,
   sosCustomerPlansTable,
   sosPlanTransactionsTable,
+  sosGratuityLedgerTable,
   clientProfilesTable,
   tenantsTable,
   type ClientProfile,
@@ -80,6 +81,10 @@ import {
   UpdateSosStaffMemberBody,
   UpdateSosStaffMemberResponse,
   GetSosStaffEarningsResponse,
+  GetSosGratuityConfigResponse,
+  UpdateSosGratuityConfigBody,
+  UpdateSosGratuityConfigResponse,
+  GetSosGratuityLedgerResponse,
 } from "@workspace/api-zod";
 import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import twilio from "twilio";
@@ -118,6 +123,12 @@ import { scheduleDensityDetection } from "../lib/geoDensity";
 import type { Request } from "express";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { grantPerkPassesSafe } from "../lib/perkPasses";
+import {
+  computeTipAllocations,
+  isTipSplitRule,
+  resolveTipParticipants,
+  type TipSplitRule,
+} from "../lib/gratuity";
 import {
   placeDepositHoldIfActive,
   settleHoldOnCancellation,
@@ -183,6 +194,7 @@ function serializeVisit(
     staffName,
     estimatedWaitMinutes: v.estimatedWaitMinutes,
     paymentAmount: v.paymentAmount == null ? null : parseFloat(v.paymentAmount),
+    tipAmount: v.tipAmount == null ? null : parseFloat(v.tipAmount),
     checkedInAt: v.checkedInAt.toISOString(),
     serviceStartedAt: iso(v.serviceStartedAt),
     checkedOutAt: iso(v.checkedOutAt),
@@ -1189,6 +1201,8 @@ function serializeStaffMember(s: StaffRow) {
     commissionPercent: s.commissionPercent,
     amount: s.amount == null ? null : parseFloat(s.amount),
     cadence: s.cadence,
+    tipPercent: s.tipPercent,
+    tipRoleWeight: s.tipRoleWeight,
     createdAt: s.createdAt.toISOString(),
   };
 }
@@ -1354,6 +1368,24 @@ router.get("/sos/staff-earnings", async (req, res): Promise<void> => {
     .groupBy(sosVisitsTable.staffId);
   const byStaff = new Map(revenue.map((r) => [r.staffId, r]));
 
+  // Pooled tips allocated in the period, itemized separately — tips are
+  // NEVER part of attributedRevenue or the commission base.
+  const tips = await db
+    .select({
+      staffId: sosGratuityLedgerTable.staffId,
+      total: sql<string>`coalesce(sum(${sosGratuityLedgerTable.amount}), 0)`,
+    })
+    .from(sosGratuityLedgerTable)
+    .where(
+      and(
+        tenantMatch(sosGratuityLedgerTable.tenantId, tenantId),
+        gte(sosGratuityLedgerTable.createdAt, from),
+        sql`${sosGratuityLedgerTable.createdAt} < ${to}`,
+      ),
+    )
+    .groupBy(sosGratuityLedgerTable.staffId);
+  const tipsByStaff = new Map(tips.map((t) => [t.staffId, parseFloat(t.total)]));
+
   // Cadence periods due inside [from, to): whole weeks/months, minimum 1 —
   // a shorter selection still owes one cadence period.
   const periodsDue = (cadence: string | null): number => {
@@ -1385,9 +1417,130 @@ router.get("/sos/staff-earnings", async (req, res): Promise<void> => {
           amountDue: !isCommission && amount != null
             ? Math.round(amount * periodsDue(s.cadence) * 100) / 100
             : null,
+          tipsEarned: tipsByStaff.get(s.id) ?? 0,
         };
       }),
     ),
+  );
+});
+
+// ── gratuity / tip pooling ───────────────────────────────────────────────────
+
+async function serializeGratuityConfig(tenantId: number | null) {
+  const settings = await resolveSettings(tenantId);
+  const staff = await db
+    .select()
+    .from(sosStaffMembersTable)
+    .where(tenantMatch(sosStaffMembersTable.tenantId, tenantId))
+    .orderBy(sosStaffMembersTable.id);
+  return {
+    tipSplitRule: isTipSplitRule(settings.tipSplitRule) ? settings.tipSplitRule : "equal",
+    staff: staff.map((s) => ({
+      staffId: s.id,
+      name: s.name,
+      isActive: s.isActive,
+      tipPercent: s.tipPercent,
+      tipRoleWeight: s.tipRoleWeight,
+    })),
+  };
+}
+
+router.get("/sos/gratuity-config", async (req, res): Promise<void> => {
+  res.json(
+    GetSosGratuityConfigResponse.parse(await serializeGratuityConfig(tenantIdFrom(req))),
+  );
+});
+
+router.patch("/sos/gratuity-config", async (req, res): Promise<void> => {
+  const body = UpdateSosGratuityConfigBody.parse(req.body);
+  const tenantId = tenantIdFrom(req);
+
+  if (body.tipSplitRule != null) {
+    const settings = await resolveSettings(tenantId);
+    await db
+      .update(sosSettingsTable)
+      .set({ tipSplitRule: body.tipSplitRule, updatedAt: new Date() })
+      .where(eq(sosSettingsTable.id, settings.id));
+  }
+
+  for (const share of body.staffShares ?? []) {
+    const [row] = await db
+      .update(sosStaffMembersTable)
+      .set({
+        ...(share.tipPercent !== undefined ? { tipPercent: share.tipPercent } : {}),
+        ...(share.tipRoleWeight !== undefined ? { tipRoleWeight: share.tipRoleWeight } : {}),
+      })
+      .where(
+        and(
+          eq(sosStaffMembersTable.id, share.staffId),
+          tenantMatch(sosStaffMembersTable.tenantId, tenantId),
+        ),
+      )
+      .returning({ id: sosStaffMembersTable.id });
+    if (!row) {
+      res.status(404).json({ message: `Staff member ${share.staffId} not found` });
+      return;
+    }
+  }
+
+  res.json(
+    UpdateSosGratuityConfigResponse.parse(await serializeGratuityConfig(tenantId)),
+  );
+});
+
+// Auditable per-period gratuity ledger + per-staff totals (tax/end-of-shift).
+router.get("/sos/gratuity-ledger", async (req, res): Promise<void> => {
+  const from = typeof req.query.from === "string" ? new Date(req.query.from) : null;
+  const to = typeof req.query.to === "string" ? new Date(req.query.to) : null;
+  if (!from || !to || isNaN(from.getTime()) || isNaN(to.getTime()) || from >= to) {
+    res.status(400).json({ message: "Valid from/to period is required (from < to)" });
+    return;
+  }
+  const tenantId = tenantIdFrom(req);
+
+  const rows = await db
+    .select({ entry: sosGratuityLedgerTable, staffName: sosStaffMembersTable.name })
+    .from(sosGratuityLedgerTable)
+    .innerJoin(
+      sosStaffMembersTable,
+      eq(sosGratuityLedgerTable.staffId, sosStaffMembersTable.id),
+    )
+    .where(
+      and(
+        tenantMatch(sosGratuityLedgerTable.tenantId, tenantId),
+        gte(sosGratuityLedgerTable.createdAt, from),
+        sql`${sosGratuityLedgerTable.createdAt} < ${to}`,
+      ),
+    )
+    .orderBy(desc(sosGratuityLedgerTable.createdAt), desc(sosGratuityLedgerTable.id));
+
+  const totals = new Map<number, { staffId: number; name: string; total: number }>();
+  let totalDistributed = 0;
+  for (const { entry, staffName } of rows) {
+    const amount = parseFloat(entry.amount);
+    totalDistributed += amount;
+    const t = totals.get(entry.staffId) ?? { staffId: entry.staffId, name: staffName, total: 0 };
+    t.total += amount;
+    totals.set(entry.staffId, t);
+  }
+
+  res.json(
+    GetSosGratuityLedgerResponse.parse({
+      entries: rows.map(({ entry, staffName }) => ({
+        id: entry.id,
+        visitId: entry.visitId,
+        staffId: entry.staffId,
+        staffName,
+        ruleApplied: entry.ruleApplied,
+        amount: parseFloat(entry.amount),
+        createdAt: entry.createdAt.toISOString(),
+      })),
+      totalsByStaff: [...totals.values()].map((t) => ({
+        ...t,
+        total: Math.round(t.total * 100) / 100,
+      })),
+      totalDistributed: Math.round(totalDistributed * 100) / 100,
+    }),
   );
 });
 
@@ -1618,6 +1771,42 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     }
   }
 
+  // Gratuity capture at checkout: validate the tip and pre-compute the
+  // per-staff allocations from the applicable split rule (per-visit override
+  // wins over the tenant default). Ledger rows are written atomically with
+  // the checkout below.
+  let tipLedgerRows:
+    | { tenantId: number | null; staffId: number; ruleApplied: string; amount: string }[]
+    | null = null;
+  if (body.action === "check_out" && body.tipAmount != null && body.tipAmount > 0) {
+    const settings = await resolveSettings(tenantIdFrom(req));
+    const rule: TipSplitRule =
+      body.tipSplitRule != null && isTipSplitRule(body.tipSplitRule)
+        ? body.tipSplitRule
+        : isTipSplitRule(settings.tipSplitRule)
+          ? settings.tipSplitRule
+          : "equal";
+    const participants = await resolveTipParticipants(tenantIdFrom(req));
+    if (participants.length === 0) {
+      res.status(409).json({
+        message: "Cannot record a tip: no active staff members to allocate it to",
+      });
+      return;
+    }
+    const { rule: appliedRule, allocations } = computeTipAllocations(
+      rule,
+      body.tipAmount,
+      participants,
+    );
+    updates.tipAmount = body.tipAmount.toFixed(2);
+    tipLedgerRows = allocations.map((a) => ({
+      tenantId: a.tenantId,
+      staffId: a.staffId,
+      ruleApplied: appliedRule,
+      amount: a.amount,
+    }));
+  }
+
   if (body.action === "check_out") {
     updates.checkedOutAt = new Date();
     // Co-op analytics: if a partner's customer recently scanned a perk pass
@@ -1638,11 +1827,21 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     }
   }
 
-  const [updated] = await db
-    .update(sosVisitsTable)
-    .set(updates)
-    .where(eq(sosVisitsTable.id, id))
-    .returning();
+  // The visit transition and its gratuity ledger rows commit atomically: a
+  // checkout can never record a tip without its allocations (or vice versa).
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(sosVisitsTable)
+      .set(updates)
+      .where(eq(sosVisitsTable.id, id))
+      .returning();
+    if (row && tipLedgerRows && tipLedgerRows.length > 0) {
+      await tx
+        .insert(sosGratuityLedgerTable)
+        .values(tipLedgerRows.map((r) => ({ ...r, visitId: row.id })));
+    }
+    return row;
+  });
 
   if (body.action === "check_out") {
     // Compliance ledger: record the checkout payment (idempotent on the
@@ -2499,6 +2698,8 @@ router.get("/sos/reports/summary", async (req, res): Promise<void> => {
     cancelledCount,
     callOutcomes,
     revenue,
+    tipsCollectedRows,
+    tipsByStaffRows,
     automationByJobStatus,
     automationByDay,
   ] = await Promise.all([
@@ -2539,6 +2740,38 @@ router.get("/sos/reports/summary", async (req, res): Promise<void> => {
         })
         .from(sosVisitsTable)
         .where(scope(sosVisitsTable.tenantId)),
+      // Tips collected at checkout over the window — kept strictly separate
+      // from totalRevenue (tips never inflate service revenue).
+      db
+        .select({
+          total: sql<string>`coalesce(sum(${sosVisitsTable.tipAmount}), 0)`,
+        })
+        .from(sosVisitsTable)
+        .where(
+          and(
+            gte(sosVisitsTable.checkedOutAt, since),
+            scope(sosVisitsTable.tenantId),
+          ),
+        ),
+      // Tips distributed to this scope's staff via the gratuity ledger.
+      db
+        .select({
+          staffId: sosGratuityLedgerTable.staffId,
+          name: sosStaffMembersTable.name,
+          total: sql<string>`coalesce(sum(${sosGratuityLedgerTable.amount}), 0)`,
+        })
+        .from(sosGratuityLedgerTable)
+        .innerJoin(
+          sosStaffMembersTable,
+          eq(sosGratuityLedgerTable.staffId, sosStaffMembersTable.id),
+        )
+        .where(
+          and(
+            gte(sosGratuityLedgerTable.createdAt, since),
+            scope(sosGratuityLedgerTable.tenantId),
+          ),
+        )
+        .groupBy(sosGratuityLedgerTable.staffId, sosStaffMembersTable.name),
       db
         .select({
           jobType: messagesTable.kind,
@@ -2590,10 +2823,22 @@ router.get("/sos/reports/summary", async (req, res): Promise<void> => {
     messagesByDay: automationByDay,
   };
 
+  const tipsByStaff = tipsByStaffRows.map((r) => ({
+    staffId: r.staffId,
+    name: r.name,
+    total: parseFloat(r.total),
+  }));
+  const tips = {
+    collected: parseFloat(tipsCollectedRows[0].total),
+    distributed: Math.round(tipsByStaff.reduce((n, t) => n + t.total, 0) * 100) / 100,
+    byStaff: tipsByStaff,
+  };
+
   const slotsFilled = filled[0].n;
   const cancelled = cancelledCount[0].n;
   res.json(
     GetSosReportsSummaryResponse.parse({
+      tips,
       visitsByDay,
       avgWaitMinutes: Math.round(parseFloat(waitRows[0].avg) * 10) / 10,
       slotsFilled,

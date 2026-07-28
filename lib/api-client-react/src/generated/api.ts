@@ -146,6 +146,7 @@ import type {
   GetCoopComplianceSummaryParams,
   GetCoopLedgerParams,
   GetCoopStatsParams,
+  GetSosGratuityLedgerParams,
   GetSosStaffEarningsParams,
   GetTenantActivityParams,
   HealthStatus,
@@ -225,6 +226,9 @@ import type {
   SosCustomerPlansSummary,
   SosCustomerUpdate,
   SosDashboard,
+  SosGratuityConfig,
+  SosGratuityConfigUpdate,
+  SosGratuityLedgerSummary,
   SosMessage,
   SosMessageInput,
   SosPlan,
@@ -12834,6 +12838,238 @@ export function useGetSosStaffEarnings<TData = Awaited<ReturnType<typeof getSosS
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetSosStaffEarningsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSosGratuityConfigUrl = () => {
+
+
+
+
+  return `/api/sos/gratuity-config`
+}
+
+/**
+ * @summary Tenant's tip-pooling configuration — default split rule and per-staff shares/weights
+ */
+export const getSosGratuityConfig = async ( options?: RequestInit): Promise<SosGratuityConfig> => {
+
+  return customFetch<SosGratuityConfig>(getGetSosGratuityConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSosGratuityConfigQueryKey = () => {
+    return [
+    `/api/sos/gratuity-config`
+    ] as const;
+    }
+
+
+export const getGetSosGratuityConfigQueryOptions = <TData = Awaited<ReturnType<typeof getSosGratuityConfig>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosGratuityConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSosGratuityConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSosGratuityConfig>>> = ({ signal }) => getSosGratuityConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSosGratuityConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSosGratuityConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getSosGratuityConfig>>>
+export type GetSosGratuityConfigQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Tenant's tip-pooling configuration — default split rule and per-staff shares/weights
+ */
+
+export function useGetSosGratuityConfig<TData = Awaited<ReturnType<typeof getSosGratuityConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosGratuityConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSosGratuityConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateSosGratuityConfigUrl = () => {
+
+
+
+
+  return `/api/sos/gratuity-config`
+}
+
+/**
+ * @summary Update the tip-split rule and/or per-staff percentage shares and role weights
+ */
+export const updateSosGratuityConfig = async (sosGratuityConfigUpdate: SosGratuityConfigUpdate, options?: RequestInit): Promise<SosGratuityConfig> => {
+
+  return customFetch<SosGratuityConfig>(getUpdateSosGratuityConfigUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosGratuityConfigUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateSosGratuityConfigMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosGratuityConfig>>, TError,{data: BodyType<SosGratuityConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSosGratuityConfig>>, TError,{data: BodyType<SosGratuityConfigUpdate>}, TContext> => {
+
+const mutationKey = ['updateSosGratuityConfig'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSosGratuityConfig>>, {data: BodyType<SosGratuityConfigUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateSosGratuityConfig(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSosGratuityConfigMutationResult = NonNullable<Awaited<ReturnType<typeof updateSosGratuityConfig>>>
+    export type UpdateSosGratuityConfigMutationBody = BodyType<SosGratuityConfigUpdate>
+    export type UpdateSosGratuityConfigMutationError = ErrorType<void>
+
+    /**
+ * @summary Update the tip-split rule and/or per-staff percentage shares and role weights
+ */
+export const useUpdateSosGratuityConfig = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSosGratuityConfig>>, TError,{data: BodyType<SosGratuityConfigUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSosGratuityConfig>>,
+        TError,
+        {data: BodyType<SosGratuityConfigUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateSosGratuityConfigMutationOptions(options));
+    }
+
+export const getGetSosGratuityLedgerUrl = (params: GetSosGratuityLedgerParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/sos/gratuity-ledger?${stringifiedParams}` : `/api/sos/gratuity-ledger`
+}
+
+/**
+ * @summary Auditable gratuity ledger for a period — every allocation plus per-staff tip totals (tax/end-of-shift export)
+ */
+export const getSosGratuityLedger = async (params: GetSosGratuityLedgerParams, options?: RequestInit): Promise<SosGratuityLedgerSummary> => {
+
+  return customFetch<SosGratuityLedgerSummary>(getGetSosGratuityLedgerUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSosGratuityLedgerQueryKey = (params?: GetSosGratuityLedgerParams,) => {
+    return [
+    `/api/sos/gratuity-ledger`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSosGratuityLedgerQueryOptions = <TData = Awaited<ReturnType<typeof getSosGratuityLedger>>, TError = ErrorType<void>>(params: GetSosGratuityLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosGratuityLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSosGratuityLedgerQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSosGratuityLedger>>> = ({ signal }) => getSosGratuityLedger(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSosGratuityLedger>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSosGratuityLedgerQueryResult = NonNullable<Awaited<ReturnType<typeof getSosGratuityLedger>>>
+export type GetSosGratuityLedgerQueryError = ErrorType<void>
+
+
+/**
+ * @summary Auditable gratuity ledger for a period — every allocation plus per-staff tip totals (tax/end-of-shift export)
+ */
+
+export function useGetSosGratuityLedger<TData = Awaited<ReturnType<typeof getSosGratuityLedger>>, TError = ErrorType<void>>(
+ params: GetSosGratuityLedgerParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSosGratuityLedger>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSosGratuityLedgerQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

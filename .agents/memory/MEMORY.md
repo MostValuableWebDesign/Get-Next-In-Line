@@ -44,4 +44,5 @@
 - Co-op tax compliance ledger: entries snapshot the tenant's rates at write time (never recompute); 1099 payout accumulation must only run for rows the idempotent insert actually created; export CSVs are raw routes (not zod-parsed).
 - [Co-op sponsorship hub](coop-sponsorship.md) — boost auction lifecycle, real-time rendering vs injected resolve clock, shared global fee row, wallet/payout invariants.
 - Vite configs (gnil-os, mockup-sandbox) require PORT/BASE_PATH only when serving; builds default them so root `pnpm run build` works — keep new vite configs build-safe the same way.
+- [Tip pooling & gratuity ledger](gratuity-tips.md) — ledger rows scoped to the STAFF's tenant; tips never touch revenue/commission/margin; new checkout paths must reuse the split engine.
 - [Co-op surge boosts](coop-surge.md) — capacity status has a 30s in-process cache (tests must clear it); surge activation lock = partial unique index on live activations; firewall backstop re-checked at sweep time.

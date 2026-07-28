@@ -7,11 +7,15 @@
  */
 import type { SosVisitAdvanceAction } from './sosVisitAdvanceAction';
 import type { SosVisitAdvanceBenefitType } from './sosVisitAdvanceBenefitType';
+import type { SosVisitAdvanceTipSplitRule } from './sosVisitAdvanceTipSplitRule';
 
 export interface SosVisitAdvance {
   action: SosVisitAdvanceAction;
   resourceId?: number;
   paymentAmount?: number;
+  /** @minimum 0 */
+  tipAmount?: number;
+  tipSplitRule?: SosVisitAdvanceTipSplitRule;
   staffId?: number;
   benefitCustomerPlanId?: number;
   benefitType?: SosVisitAdvanceBenefitType;

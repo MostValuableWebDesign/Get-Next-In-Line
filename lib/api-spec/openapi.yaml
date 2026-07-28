@@ -3634,6 +3634,66 @@ paths:
         "400":
           description: Invalid period
 
+  /sos/gratuity-config:
+    get:
+      operationId: getSosGratuityConfig
+      tags: [sos]
+      summary: Tenant's tip-pooling configuration — default split rule and per-staff shares/weights
+      responses:
+        "200":
+          description: Gratuity configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosGratuityConfig"
+    patch:
+      operationId: updateSosGratuityConfig
+      tags: [sos]
+      summary: Update the tip-split rule and/or per-staff percentage shares and role weights
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosGratuityConfigUpdate"
+      responses:
+        "200":
+          description: Updated gratuity configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosGratuityConfig"
+        "404":
+          description: A referenced staff member was not found in this scope
+
+  /sos/gratuity-ledger:
+    get:
+      operationId: getSosGratuityLedger
+      tags: [sos]
+      summary: Auditable gratuity ledger for a period — every allocation plus per-staff tip totals (tax/end-of-shift export)
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Period start (ISO date/datetime, inclusive)
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: true
+          description: Period end (ISO date/datetime, exclusive)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Ledger entries and per-staff totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosGratuityLedgerSummary"
+        "400":
+          description: Invalid period
+
   /tenants/{id}/settings:
     get:
       operationId: getTenantSettings
@@ -9157,6 +9217,9 @@ components:
           type: ["integer", "null"]
         paymentAmount:
           type: ["number", "null"]
+        # Gratuity captured at checkout — separate from service revenue.
+        tipAmount:
+          type: ["number", "null"]
         checkedInAt:
           type: string
         serviceStartedAt:
@@ -9189,6 +9252,15 @@ components:
           type: integer
         paymentAmount:
           type: number
+        # Optional gratuity captured at check_out — recorded separately from
+        # service revenue and pooled/split via the gratuity ledger.
+        tipAmount:
+          type: number
+          minimum: 0
+        # Optional per-visit override of the tenant's default tip-split rule.
+        tipSplitRule:
+          type: string
+          enum: [equal, percentage, role_weighted]
         # Optional staff attribution captured at payment/checkout.
         staffId:
           type: integer
@@ -9202,7 +9274,7 @@ components:
 
     SosStaffMember:
       type: object
-      required: [id, name, phone, email, isActive, compensationType, commissionPercent, amount, cadence, createdAt]
+      required: [id, name, phone, email, isActive, compensationType, commissionPercent, amount, cadence, tipPercent, tipRoleWeight, createdAt]
       properties:
         id:
           type: integer
@@ -9227,6 +9299,13 @@ components:
         cadence:
           type: ["string", "null"]
           enum: [weekly, monthly, null]
+        # Tip pooling: percentage-rule share (whole-number %). NULL = excluded
+        # from percentage splits.
+        tipPercent:
+          type: ["integer", "null"]
+        # Tip pooling: role weight for the role_weighted rule. NULL = weight 1.
+        tipRoleWeight:
+          type: ["integer", "null"]
         createdAt:
           type: string
 
@@ -9290,7 +9369,7 @@ components:
         Flat-fee staff: amountDue is what the shop owes them for the period
         cadence. Booth-rent staff: amountDue is what they owe the shop.
       required:
-        [staffId, name, isActive, compensationType, commissionPercent, amount, cadence, attributedVisits, attributedRevenue, commissionEarned, amountDue]
+        [staffId, name, isActive, compensationType, commissionPercent, amount, cadence, attributedVisits, attributedRevenue, commissionEarned, amountDue, tipsEarned]
       properties:
         staffId:
           type: integer
@@ -9319,6 +9398,108 @@ components:
         # flat_fee / booth_rent only: rent or fee for the period cadence.
         amountDue:
           type: ["number", "null"]
+        # Pooled tips allocated to this staff member in the period (gratuity
+        # ledger). Itemized separately — NEVER included in commission math.
+        tipsEarned:
+          type: number
+
+    SosGratuityConfig:
+      type: object
+      description: >
+        Tenant-scoped tip-pooling configuration: the default split rule plus
+        each staff member's percentage share and role weight.
+      required: [tipSplitRule, staff]
+      properties:
+        tipSplitRule:
+          type: string
+          enum: [equal, percentage, role_weighted]
+        staff:
+          type: array
+          items:
+            $ref: "#/components/schemas/SosGratuityStaffShare"
+
+    SosGratuityStaffShare:
+      type: object
+      required: [staffId, name, isActive, tipPercent, tipRoleWeight]
+      properties:
+        staffId:
+          type: integer
+        name:
+          type: string
+        isActive:
+          type: boolean
+        tipPercent:
+          type: ["integer", "null"]
+        tipRoleWeight:
+          type: ["integer", "null"]
+
+    SosGratuityConfigUpdate:
+      type: object
+      properties:
+        tipSplitRule:
+          type: string
+          enum: [equal, percentage, role_weighted]
+        staffShares:
+          type: array
+          items:
+            type: object
+            required: [staffId]
+            properties:
+              staffId:
+                type: integer
+              tipPercent:
+                type: ["integer", "null"]
+                minimum: 0
+                maximum: 100
+              tipRoleWeight:
+                type: ["integer", "null"]
+                minimum: 0
+
+    SosGratuityLedgerSummary:
+      type: object
+      description: >
+        Auditable gratuity ledger for a period: every allocation row (visit,
+        staff, rule, amount, timestamp) plus per-staff totals suitable for
+        tax/end-of-shift reporting.
+      required: [entries, totalsByStaff, totalDistributed]
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/SosGratuityLedgerEntry"
+        totalsByStaff:
+          type: array
+          items:
+            type: object
+            required: [staffId, name, total]
+            properties:
+              staffId:
+                type: integer
+              name:
+                type: string
+              total:
+                type: number
+        totalDistributed:
+          type: number
+
+    SosGratuityLedgerEntry:
+      type: object
+      required: [id, visitId, staffId, staffName, ruleApplied, amount, createdAt]
+      properties:
+        id:
+          type: integer
+        visitId:
+          type: integer
+        staffId:
+          type: integer
+        staffName:
+          type: string
+        ruleApplied:
+          type: string
+        amount:
+          type: number
+        createdAt:
+          type: string
 
     SosPlan:
       type: object
@@ -9812,7 +9993,7 @@ components:
 
     SosReportsSummary:
       type: object
-      required: [visitsByDay, avgWaitMinutes, slotsFilled, fillRate, callOutcomes, totalRevenue, automation]
+      required: [visitsByDay, avgWaitMinutes, slotsFilled, fillRate, callOutcomes, totalRevenue, tips, automation]
       properties:
         visitsByDay:
           type: array
@@ -9830,8 +10011,35 @@ components:
             $ref: "#/components/schemas/SosOutcomeCount"
         totalRevenue:
           type: number
+        tips:
+          $ref: "#/components/schemas/SosTipsSummary"
         automation:
           $ref: "#/components/schemas/SosAutomationSummary"
+
+    SosTipsSummary:
+      type: object
+      description: >
+        Tip-pooling figures over the report window — collected at checkout
+        vs. distributed to staff via the gratuity ledger. Kept strictly
+        separate from totalRevenue.
+      required: [collected, distributed, byStaff]
+      properties:
+        collected:
+          type: number
+        distributed:
+          type: number
+        byStaff:
+          type: array
+          items:
+            type: object
+            required: [staffId, name, total]
+            properties:
+              staffId:
+                type: integer
+              name:
+                type: string
+              total:
+                type: number
 
     SosAutomationSummary:
       type: object

@@ -26,6 +26,8 @@ export interface SosVisit {
   estimatedWaitMinutes?: number | null;
   /** @nullable */
   paymentAmount?: number | null;
+  /** @nullable */
+  tipAmount?: number | null;
   checkedInAt: string;
   /** @nullable */
   serviceStartedAt?: string | null;

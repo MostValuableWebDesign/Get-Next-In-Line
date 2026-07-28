@@ -33,6 +33,37 @@ export function ReportsContent() {
         <StatCard title="Total Revenue" value={summary?.totalRevenue ? `$${summary.totalRevenue.toFixed(2)}` : '-'} loading={isLoading} />
       </div>
 
+      {/* Tip pooling — collected at checkout vs distributed via the gratuity
+          ledger. Kept separate from revenue: tips never inflate revenue. */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-4 md:col-span-1 content-start">
+          <StatCard title="Tips Collected" value={summary?.tips ? `$${summary.tips.collected.toFixed(2)}` : '-'} loading={isLoading} />
+          <StatCard title="Tips Distributed" value={summary?.tips ? `$${summary.tips.distributed.toFixed(2)}` : '-'} loading={isLoading} />
+        </div>
+        <Card className="md:col-span-2" data-testid="card-tips-by-staff">
+          <CardHeader>
+            <CardTitle>Tips by Staff Member</CardTitle>
+            <CardDescription>Pooled gratuities distributed this period — separate from commissions and service revenue.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="w-full h-24" />
+            ) : !summary?.tips || summary.tips.byStaff.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-6">No tips distributed in this period.</div>
+            ) : (
+              <div className="space-y-2">
+                {summary.tips.byStaff.map(s => (
+                  <div key={s.staffId} className="flex items-center justify-between border-b last:border-0 pb-2 text-sm" data-testid={`tips-row-${s.staffId}`}>
+                    <span className="font-medium">{s.name}</span>
+                    <span className="font-semibold">${s.total.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="col-span-1">
           <CardHeader>

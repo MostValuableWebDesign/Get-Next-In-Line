@@ -23,5 +23,9 @@ export interface SosStaffMember {
   amount: number | null;
   /** @nullable */
   cadence: SosStaffMemberCadence;
+  /** @nullable */
+  tipPercent: number | null;
+  /** @nullable */
+  tipRoleWeight: number | null;
   createdAt: string;
 }

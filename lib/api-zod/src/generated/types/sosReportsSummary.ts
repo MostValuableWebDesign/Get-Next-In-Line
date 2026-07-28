@@ -8,6 +8,7 @@
 import type { SosAutomationSummary } from './sosAutomationSummary';
 import type { SosDayCount } from './sosDayCount';
 import type { SosOutcomeCount } from './sosOutcomeCount';
+import type { SosTipsSummary } from './sosTipsSummary';
 
 export interface SosReportsSummary {
   visitsByDay: SosDayCount[];
@@ -16,5 +17,6 @@ export interface SosReportsSummary {
   fillRate: number;
   callOutcomes: SosOutcomeCount[];
   totalRevenue: number;
+  tips: SosTipsSummary;
   automation: SosAutomationSummary;
 }

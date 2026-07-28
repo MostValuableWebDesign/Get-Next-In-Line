@@ -110,6 +110,13 @@ export const sosSettingsTable = pgTable("sos_settings", {
   // Optional expiry for the manual override; past this instant the status
   // reverts to automatic derivation. NULL = override holds until cleared.
   capacityOverrideExpiresAt: timestamp("capacity_override_expires_at"),
+  // ── Tip pooling / gratuity splitting ──────────────────────────────────────
+  // Default tip-split rule applied at checkout when a tip is captured:
+  //   equal         — split evenly across the tenant's active staff pool
+  //   percentage    — split by each staff member's tipPercent share
+  //   role_weighted — split by each staff member's tipRoleWeight
+  // A per-visit override can be passed at checkout.
+  tipSplitRule: text("tip_split_rule").notNull().default("equal"),
   // Business-specific service names the AI receptionist should recognize,
   // in addition to the generic industry-neutral terms.
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -188,6 +195,14 @@ export const sosStaffMembersTable = pgTable(
     amount: numeric("amount", { precision: 10, scale: 2 }),
     // flat_fee / booth_rent only: weekly | monthly
     cadence: text("cadence"),
+    // ── Tip pooling shares ────────────────────────────────────────────────────
+    // percentage rule: this member's share of pooled tips (whole-number %).
+    // Members with NULL/0 receive nothing under the percentage rule; shares
+    // are normalized by the pool's total so they needn't sum to 100.
+    tipPercent: integer("tip_percent"),
+    // role_weighted rule: relative weight (e.g. senior=2, junior=1).
+    // NULL = default weight 1.
+    tipRoleWeight: integer("tip_role_weight"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("sos_staff_members_tenant_id_idx").on(t.tenantId)],
@@ -214,6 +229,10 @@ export const sosVisitsTable = pgTable(
   staffId: integer("staff_id").references(() => sosStaffMembersTable.id),
   estimatedWaitMinutes: integer("estimated_wait_minutes"),
   paymentAmount: numeric("payment_amount", { precision: 10, scale: 2 }),
+  // Gratuity captured at checkout, recorded SEPARATELY from service revenue.
+  // Tips must never be folded into paymentAmount, revenue, commission bases,
+  // or margin figures — they are pooled and split via the gratuity ledger.
+  tipAmount: numeric("tip_amount", { precision: 10, scale: 2 }),
   checkedInAt: timestamp("checked_in_at").notNull().defaultNow(),
   serviceStartedAt: timestamp("service_started_at"),
   checkedOutAt: timestamp("checked_out_at"),
@@ -302,6 +321,42 @@ export const sosDepositHoldsTable = pgTable("sos_deposit_holds", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at"),
 });
+
+// ── gratuity ledger ──────────────────────────────────────────────────────────
+// One row per staff allocation of a pooled tip, written atomically with the
+// checkout that captured the tip. tenantId is the STAFF MEMBER'S tenant (not
+// necessarily the visit's tenant): on shared co-op visits the partner
+// business's staff allocations land on the partner tenant's ledger. The
+// ledger is append-only in practice — it is the auditable record for tax
+// reporting, and tips here are never counted as service revenue.
+export const sosGratuityLedgerTable = pgTable(
+  "sos_gratuity_ledger",
+  {
+    id: serial("id").primaryKey(),
+    // Tenant scope of the ALLOCATION (the staff member's tenant). NULL
+    // identifies legacy single-tenant rows.
+    tenantId: integer("tenant_id").references(() => tenantsTable.id, {
+      onDelete: "cascade",
+    }),
+    visitId: integer("visit_id")
+      .notNull()
+      .references(() => sosVisitsTable.id, { onDelete: "cascade" }),
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => sosStaffMembersTable.id, { onDelete: "cascade" }),
+    // Split rule that produced this allocation: equal | percentage | role_weighted
+    ruleApplied: text("rule_applied").notNull(),
+    amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("sos_gratuity_ledger_tenant_id_idx").on(t.tenantId),
+    index("sos_gratuity_ledger_staff_created_idx").on(t.staffId, t.createdAt.desc()),
+    index("sos_gratuity_ledger_visit_id_idx").on(t.visitId),
+  ],
+);
+
+export type SosGratuityLedgerEntry = typeof sosGratuityLedgerTable.$inferSelect;
 
 // ── memberships, packages & credit passes ───────────────────────────────────
 

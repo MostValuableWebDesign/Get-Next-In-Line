@@ -421,6 +421,13 @@
       "when": 1785240979356,
       "tag": "0059_fixed_drax",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1785241735325,
+      "tag": "0060_bizarre_skreet",
+      "breakpoints": true
     }
   ]
 }

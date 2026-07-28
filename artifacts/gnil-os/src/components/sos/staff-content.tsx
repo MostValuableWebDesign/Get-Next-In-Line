@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   useListSosStaff, useCreateSosStaffMember, useUpdateSosStaffMember,
   useGetSosStaffEarnings, getListSosStaffQueryKey, getGetSosStaffEarningsQueryKey,
+  useGetSosGratuityConfig, useUpdateSosGratuityConfig, getGetSosGratuityConfigQueryKey,
   type SosStaffMember,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -15,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Users, DollarSign, Percent, Home } from 'lucide-react';
+import { Plus, Pencil, Users, DollarSign, Percent, Home, HandCoins } from 'lucide-react';
 
 type CompType = 'commission' | 'flat_fee' | 'booth_rent';
 
@@ -168,11 +169,21 @@ export function StaffContent() {
                     <div className="text-[11px] text-muted-foreground">rent due from staff</div>
                   </>
                 )}
+                {/* Pooled tips — itemized separately, never part of commission */}
+                <div className="text-[11px] mt-0.5" data-testid={`tips-earned-${row.staffId}`}>
+                  <span className="font-medium text-emerald-700">+${(row.tipsEarned ?? 0).toFixed(2)}</span>
+                  <span className="text-muted-foreground"> tips</span>
+                </div>
               </div>
             </div>
           ))}
         </CardContent>
       </Card>
+
+      {/* Tip pooling rules — default split rule + per-staff shares/weights */}
+      <div className="lg:col-span-2">
+        <TipPoolingCard />
+      </div>
 
       <StaffDialog
         key={editing?.id ?? 'new'}
@@ -181,6 +192,134 @@ export function StaffContent() {
         onOpenChange={setDialogOpen}
       />
     </div>
+  );
+}
+
+// ── tip pooling rules ────────────────────────────────────────────────────────
+
+const TIP_RULES = [
+  { value: 'equal', label: 'Equal split — everyone in the pool gets the same share' },
+  { value: 'percentage', label: 'Percentage — split by each member\'s tip %' },
+  { value: 'role_weighted', label: 'Role-weighted — split by role weight (e.g. senior 2×)' },
+] as const;
+
+function TipPoolingCard() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: config } = useGetSosGratuityConfig();
+  const update = useUpdateSosGratuityConfig();
+  // Local edits keyed by staffId; empty string = unset (NULL).
+  const [edits, setEdits] = useState<Record<number, { tipPercent?: string; tipRoleWeight?: string }>>({});
+
+  const save = (body: Parameters<typeof update.mutate>[0]['data']) => {
+    update.mutate(
+      { data: body },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetSosGratuityConfigQueryKey() });
+          setEdits({});
+          toast({ title: 'Tip pooling settings saved' });
+        },
+        onError: (err: any) => {
+          toast({
+            title: 'Could not save tip settings',
+            description: err?.response?.data?.message || err?.message,
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
+  const saveShares = () => {
+    const staffShares = Object.entries(edits).map(([staffId, e]) => ({
+      staffId: Number(staffId),
+      ...(e.tipPercent !== undefined
+        ? { tipPercent: e.tipPercent === '' ? null : Math.round(Number(e.tipPercent)) }
+        : {}),
+      ...(e.tipRoleWeight !== undefined
+        ? { tipRoleWeight: e.tipRoleWeight === '' ? null : Math.round(Number(e.tipRoleWeight)) }
+        : {}),
+    }));
+    if (staffShares.length > 0) save({ staffShares });
+  };
+
+  const staff = config?.staff ?? [];
+
+  return (
+    <Card data-testid="card-tip-pooling">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <HandCoins className="h-4 w-4 text-primary" /> Tip Pooling
+        </CardTitle>
+        <Select
+          value={config?.tipSplitRule ?? 'equal'}
+          onValueChange={(v) => save({ tipSplitRule: v as any })}
+        >
+          <SelectTrigger className="w-[340px] h-8 text-xs" data-testid="select-tip-split-rule">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TIP_RULES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Tips entered at checkout are pooled and split across active staff by this rule —
+          on shared co-op visits, across both businesses' staff. Every allocation lands on the
+          gratuity ledger, separate from commissions and service revenue.
+        </p>
+        {staff.length === 0 ? (
+          <div className="text-sm text-muted-foreground text-center py-4">No staff members yet.</div>
+        ) : (
+          <div className="space-y-2">
+            {staff.map(s => {
+              const e = edits[s.staffId] ?? {};
+              return (
+                <div key={s.staffId} className="flex items-center gap-3 border rounded-md p-2.5" data-testid={`tip-share-row-${s.staffId}`}>
+                  <div className="flex-1 text-sm font-medium">
+                    {s.name}
+                    {!s.isActive && <Badge variant="secondary" className="ml-2 text-[10px]">Inactive</Badge>}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs text-muted-foreground">Tip %</Label>
+                    <Input
+                      type="number" min="0" max="100"
+                      className="w-20 h-8"
+                      value={e.tipPercent ?? (s.tipPercent?.toString() ?? '')}
+                      onChange={ev => setEdits(prev => ({ ...prev, [s.staffId]: { ...prev[s.staffId], tipPercent: ev.target.value } }))}
+                      data-testid={`input-tip-percent-${s.staffId}`}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs text-muted-foreground">Weight</Label>
+                    <Input
+                      type="number" min="0"
+                      className="w-16 h-8"
+                      placeholder="1"
+                      value={e.tipRoleWeight ?? (s.tipRoleWeight?.toString() ?? '')}
+                      onChange={ev => setEdits(prev => ({ ...prev, [s.staffId]: { ...prev[s.staffId], tipRoleWeight: ev.target.value } }))}
+                      data-testid={`input-tip-weight-${s.staffId}`}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={saveShares}
+                disabled={update.isPending || Object.keys(edits).length === 0}
+                data-testid="btn-save-tip-shares"
+              >
+                Save Shares
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

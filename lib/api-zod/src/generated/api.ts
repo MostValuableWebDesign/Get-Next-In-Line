@@ -3952,6 +3952,7 @@ export const ListSosVisitsResponseItem = zod.object({
   "staffName": zod.string().nullish(),
   "estimatedWaitMinutes": zod.number().nullish(),
   "paymentAmount": zod.number().nullish(),
+  "tipAmount": zod.number().nullish(),
   "checkedInAt": zod.string(),
   "serviceStartedAt": zod.string().nullish(),
   "checkedOutAt": zod.string().nullish()
@@ -3985,6 +3986,7 @@ export const CheckInSosVisitResponse = zod.object({
   "staffName": zod.string().nullish(),
   "estimatedWaitMinutes": zod.number().nullish(),
   "paymentAmount": zod.number().nullish(),
+  "tipAmount": zod.number().nullish(),
   "checkedInAt": zod.string(),
   "serviceStartedAt": zod.string().nullish(),
   "checkedOutAt": zod.string().nullish()
@@ -3998,10 +4000,16 @@ export const AdvanceSosVisitParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const advanceSosVisitBodyTipAmountMin = 0;
+
+
+
 export const AdvanceSosVisitBody = zod.object({
   "action": zod.enum(['queue', 'assign', 'notify', 'start_service', 'request_payment', 'check_out']),
   "resourceId": zod.number().optional(),
   "paymentAmount": zod.number().optional(),
+  "tipAmount": zod.number().min(advanceSosVisitBodyTipAmountMin).optional(),
+  "tipSplitRule": zod.enum(['equal', 'percentage', 'role_weighted']).optional(),
   "staffId": zod.number().optional(),
   "benefitCustomerPlanId": zod.number().optional(),
   "benefitType": zod.enum(['redeem_credit', 'membership_discount']).optional()
@@ -4020,6 +4028,7 @@ export const AdvanceSosVisitResponse = zod.object({
   "staffName": zod.string().nullish(),
   "estimatedWaitMinutes": zod.number().nullish(),
   "paymentAmount": zod.number().nullish(),
+  "tipAmount": zod.number().nullish(),
   "checkedInAt": zod.string(),
   "serviceStartedAt": zod.string().nullish(),
   "checkedOutAt": zod.string().nullish()
@@ -4360,6 +4369,15 @@ export const GetSosReportsSummaryResponse = zod.object({
   "count": zod.number()
 })),
   "totalRevenue": zod.number(),
+  "tips": zod.object({
+  "collected": zod.number(),
+  "distributed": zod.number(),
+  "byStaff": zod.array(zod.object({
+  "staffId": zod.number(),
+  "name": zod.string(),
+  "total": zod.number()
+}))
+}).describe('Tip-pooling figures over the report window — collected at checkout vs. distributed to staff via the gratuity ledger. Kept strictly separate from totalRevenue.\n'),
   "automation": zod.object({
   "remindersSent": zod.number(),
   "nudgesSent": zod.number(),
@@ -4714,6 +4732,8 @@ export const ListSosStaffResponseItem = zod.object({
   "commissionPercent": zod.number().nullable(),
   "amount": zod.number().nullable(),
   "cadence": zod.union([zod.literal('weekly'),zod.literal('monthly'),zod.literal(null)]).nullable(),
+  "tipPercent": zod.number().nullable(),
+  "tipRoleWeight": zod.number().nullable(),
   "createdAt": zod.string()
 })
 export const ListSosStaffResponse = zod.array(ListSosStaffResponseItem)
@@ -4750,6 +4770,8 @@ export const CreateSosStaffMemberResponse = zod.object({
   "commissionPercent": zod.number().nullable(),
   "amount": zod.number().nullable(),
   "cadence": zod.union([zod.literal('weekly'),zod.literal('monthly'),zod.literal(null)]).nullable(),
+  "tipPercent": zod.number().nullable(),
+  "tipRoleWeight": zod.number().nullable(),
   "createdAt": zod.string()
 })
 
@@ -4790,6 +4812,8 @@ export const UpdateSosStaffMemberResponse = zod.object({
   "commissionPercent": zod.number().nullable(),
   "amount": zod.number().nullable(),
   "cadence": zod.union([zod.literal('weekly'),zod.literal('monthly'),zod.literal(null)]).nullable(),
+  "tipPercent": zod.number().nullable(),
+  "tipRoleWeight": zod.number().nullable(),
   "createdAt": zod.string()
 })
 
@@ -4813,9 +4837,83 @@ export const GetSosStaffEarningsResponseItem = zod.object({
   "attributedVisits": zod.number(),
   "attributedRevenue": zod.number(),
   "commissionEarned": zod.number().nullable(),
-  "amountDue": zod.number().nullable()
+  "amountDue": zod.number().nullable(),
+  "tipsEarned": zod.number()
 }).describe('One staff member\'s summary for the requested period. Commission staff: attributedRevenue sums the payment amounts persisted at checkout on attributed visits, and commissionEarned is their split of that. Flat-fee staff: amountDue is what the shop owes them for the period cadence. Booth-rent staff: amountDue is what they owe the shop.\n')
 export const GetSosStaffEarningsResponse = zod.array(GetSosStaffEarningsResponseItem)
+
+
+/**
+ * @summary Tenant's tip-pooling configuration — default split rule and per-staff shares/weights
+ */
+export const GetSosGratuityConfigResponse = zod.object({
+  "tipSplitRule": zod.enum(['equal', 'percentage', 'role_weighted']),
+  "staff": zod.array(zod.object({
+  "staffId": zod.number(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "tipPercent": zod.number().nullable(),
+  "tipRoleWeight": zod.number().nullable()
+}))
+}).describe('Tenant-scoped tip-pooling configuration: the default split rule plus each staff member\'s percentage share and role weight.\n')
+
+
+/**
+ * @summary Update the tip-split rule and/or per-staff percentage shares and role weights
+ */
+export const updateSosGratuityConfigBodyStaffSharesItemTipPercentMin = 0;
+export const updateSosGratuityConfigBodyStaffSharesItemTipPercentMax = 100;
+
+export const updateSosGratuityConfigBodyStaffSharesItemTipRoleWeightMin = 0;
+
+
+
+export const UpdateSosGratuityConfigBody = zod.object({
+  "tipSplitRule": zod.enum(['equal', 'percentage', 'role_weighted']).optional(),
+  "staffShares": zod.array(zod.object({
+  "staffId": zod.number(),
+  "tipPercent": zod.number().min(updateSosGratuityConfigBodyStaffSharesItemTipPercentMin).max(updateSosGratuityConfigBodyStaffSharesItemTipPercentMax).nullish(),
+  "tipRoleWeight": zod.number().min(updateSosGratuityConfigBodyStaffSharesItemTipRoleWeightMin).nullish()
+})).optional()
+})
+
+export const UpdateSosGratuityConfigResponse = zod.object({
+  "tipSplitRule": zod.enum(['equal', 'percentage', 'role_weighted']),
+  "staff": zod.array(zod.object({
+  "staffId": zod.number(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "tipPercent": zod.number().nullable(),
+  "tipRoleWeight": zod.number().nullable()
+}))
+}).describe('Tenant-scoped tip-pooling configuration: the default split rule plus each staff member\'s percentage share and role weight.\n')
+
+
+/**
+ * @summary Auditable gratuity ledger for a period — every allocation plus per-staff tip totals (tax/end-of-shift export)
+ */
+export const GetSosGratuityLedgerQueryParams = zod.object({
+  "from": zod.coerce.string().describe('Period start (ISO date\/datetime, inclusive)'),
+  "to": zod.coerce.string().describe('Period end (ISO date\/datetime, exclusive)')
+})
+
+export const GetSosGratuityLedgerResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "id": zod.number(),
+  "visitId": zod.number(),
+  "staffId": zod.number(),
+  "staffName": zod.string(),
+  "ruleApplied": zod.string(),
+  "amount": zod.number(),
+  "createdAt": zod.string()
+})),
+  "totalsByStaff": zod.array(zod.object({
+  "staffId": zod.number(),
+  "name": zod.string(),
+  "total": zod.number()
+})),
+  "totalDistributed": zod.number()
+}).describe('Auditable gratuity ledger for a period: every allocation row (visit, staff, rule, amount, timestamp) plus per-staff totals suitable for tax\/end-of-shift reporting.\n')
 
 
 /**
