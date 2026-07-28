@@ -31,6 +31,7 @@ import { sweepEmergencyBroadcastFanout } from "../lib/emergencyBroadcasts";
 import { runSurgeSweep } from "../lib/surgeEngine";
 import { runReputationEnforcement } from "../lib/coopReputation";
 import { sweepSupplyReorders } from "../lib/procurement";
+import { expireStaleNotifiedWaitlistEntries } from "../lib/waitlistClaim";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -411,6 +412,8 @@ export interface ConciergeTickResult {
   boostsExpired: number;
   /** Co-op sentiment insight reports (weekly + monthly) created this tick. */
   sentimentReports: number;
+  /** Stale notified waitlist entries reverted to "waiting" this tick. */
+  staleWaitlistReverted: number;
 }
 
 /**
@@ -428,9 +431,14 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, marketingDispatches: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0, supplyReminders: 0, supplyAutoRequests: 0, boostAuctionsSettled: 0, boostsExpired: 0, sentimentReports: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, marketingDispatches: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0, supplyReminders: 0, supplyAutoRequests: 0, boostAuctionsSettled: 0, boostsExpired: 0, sentimentReports: 0, staleWaitlistReverted: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
+    // Waitlist offer timeout: notified entries whose "Reply YES" window
+    // lapsed go back to "waiting" so the open slot can be re-offered instead
+    // of stalling forever on a customer who never replied. Idempotent (status
+    // guard) and can't race a claim — claims flip status to "booked" first.
+    const staleWaitlistReverted = await expireStaleNotifiedWaitlistEntries(now);
     const expiredPerks = await sweepExpiredCoopPerks(now);
     const perkReminders = await sweepPerkExpiryReminders(now);
     // Sponsorship Hub: settle due featured-slot auctions (highest bid wins),
@@ -485,6 +493,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
       boostAuctionsSettled: boostResolution.auctionsSettled,
       boostsExpired: boostResolution.boostsExpired,
       sentimentReports,
+      staleWaitlistReverted,
     };
   });
 }
@@ -521,6 +530,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       }
       // Crash-mid-send recovery and the perk-expiry sweep apply on this path too.
       await reapStalePendingMessages();
+      await expireStaleNotifiedWaitlistEntries();
       await sweepExpiredCoopPerks();
       await sweepPerkExpiryReminders();
       await generateCoopMonthlyReports();
@@ -560,10 +570,10 @@ function startIntervalWorker(): ConciergeWorkerHandle {
     if (running) return; // don't overlap slow ticks
     running = true;
     try {
-      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests, boostAuctionsSettled, boostsExpired, sentimentReports } = await runConciergeTick();
-      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts + emergencyFanouts + surgeActivated + surgeEnded + reputationActions + supplyReminders + supplyAutoRequests + boostAuctionsSettled + boostsExpired + sentimentReports > 0) {
+      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests, boostAuctionsSettled, boostsExpired, sentimentReports, staleWaitlistReverted } = await runConciergeTick();
+      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts + emergencyFanouts + surgeActivated + surgeEnded + reputationActions + supplyReminders + supplyAutoRequests + boostAuctionsSettled + boostsExpired + sentimentReports + staleWaitlistReverted > 0) {
         logger.info(
-          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests, boostAuctionsSettled, boostsExpired, sentimentReports },
+          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests, boostAuctionsSettled, boostsExpired, sentimentReports, staleWaitlistReverted },
           "Concierge interval tick dispatched messages",
         );
       }

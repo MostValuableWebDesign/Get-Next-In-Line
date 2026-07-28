@@ -4,8 +4,55 @@ import {
   sosCustomersTable,
   sosAppointmentsTable,
 } from "@workspace/db";
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lte, ne } from "drizzle-orm";
 import { placeDepositHoldIfActive } from "./noShowShield";
+
+// ── notified-entry timeout ───────────────────────────────────────────────────
+
+/**
+ * How long a "Reply YES to claim" offer stays open. After this window a
+ * notified entry reverts to "waiting" so the queue can't silently stall on a
+ * customer who never replies. Configurable via the
+ * WAITLIST_NOTIFY_TIMEOUT_MINUTES env var (read per call so tests and
+ * operators can tune it without a restart); defaults to 30 minutes.
+ */
+const DEFAULT_NOTIFY_TIMEOUT_MINUTES = 30;
+
+export function waitlistNotifyTimeoutMs(): number {
+  const raw = Number(process.env.WAITLIST_NOTIFY_TIMEOUT_MINUTES);
+  const minutes = Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_NOTIFY_TIMEOUT_MINUTES;
+  return minutes * 60_000;
+}
+
+/**
+ * Background sweep: revert every notified entry whose offer window has
+ * lapsed back to "waiting" (clearing the held slot), across all tenant
+ * scopes. Safe to run on every tick — the status guard makes it idempotent
+ * and it can never race a successful claim (a claim flips status to
+ * "booked" first). Returns the number of entries reverted.
+ */
+export async function expireStaleNotifiedWaitlistEntries(
+  now: Date = new Date(),
+): Promise<number> {
+  const cutoff = new Date(now.getTime() - waitlistNotifyTimeoutMs());
+  const reverted = await db
+    .update(sosWaitlistTable)
+    .set({
+      status: "waiting",
+      notifiedAt: null,
+      openSlotStartsAt: null,
+      openSlotEndsAt: null,
+    })
+    .where(
+      and(
+        eq(sosWaitlistTable.status, "notified"),
+        isNotNull(sosWaitlistTable.notifiedAt),
+        lte(sosWaitlistTable.notifiedAt, cutoff),
+      ),
+    )
+    .returning({ id: sosWaitlistTable.id });
+  return reverted.length;
+}
 
 type AppointmentRow = typeof sosAppointmentsTable.$inferSelect;
 type CustomerRow = typeof sosCustomersTable.$inferSelect;
@@ -58,6 +105,30 @@ export async function claimWaitlistSlot(
       ? { outcome: "already_claimed" }
       : { outcome: "no_slot_held" };
   }
+  // Lazy expiry: a notified offer older than the timeout window is stale —
+  // revert it to "waiting" instead of booking a slot the business has likely
+  // re-filled by now. The conditional update mirrors the claim's own race
+  // guard, so a concurrent successful claim can't be undone here.
+  if (
+    entry.notifiedAt != null &&
+    entry.notifiedAt.getTime() <= Date.now() - waitlistNotifyTimeoutMs()
+  ) {
+    await db
+      .update(sosWaitlistTable)
+      .set({
+        status: "waiting",
+        notifiedAt: null,
+        openSlotStartsAt: null,
+        openSlotEndsAt: null,
+      })
+      .where(
+        and(eq(sosWaitlistTable.id, entryId), eq(sosWaitlistTable.status, "notified")),
+      );
+    // Same outcome a late "YES" would see after the sweep: the slot is gone,
+    // the customer stays on the waitlist.
+    return { outcome: "already_claimed" };
+  }
+
   const slotStart = entry.openSlotStartsAt;
   const slotEnd = entry.openSlotEndsAt;
 
