@@ -320,6 +320,18 @@ export const CoopPartnershipRevenueShareKind = {
   percent: 'percent',
 } as const;
 
+/**
+ * How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.
+ */
+export type CoopPartnershipUsageLimitKind = typeof CoopPartnershipUsageLimitKind[keyof typeof CoopPartnershipUsageLimitKind];
+
+
+export const CoopPartnershipUsageLimitKind = {
+  unlimited: 'unlimited',
+  per_customer: 'per_customer',
+  total_cap: 'total_cap',
+} as const;
+
 export interface CoopPartnership {
   id: number;
   hostTenantId: number;
@@ -424,6 +436,13 @@ export interface CoopPartnership {
      * @nullable
      */
   revenueShareBaseAmount: number | null;
+  /** How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap. */
+  usageLimitKind: CoopPartnershipUsageLimitKind;
+  /**
+     * Total redemption cap; set only when usageLimitKind=total_cap.
+     * @nullable
+     */
+  usageCap: number | null;
   createdAt: string;
 }
 
@@ -1412,6 +1431,18 @@ export interface CoopPlazaNotification {
   createdAt: string;
 }
 
+/**
+ * Perk usage limit; defaults to unlimited.
+ */
+export type CoopInviteCreateUsageLimitKind = typeof CoopInviteCreateUsageLimitKind[keyof typeof CoopInviteCreateUsageLimitKind];
+
+
+export const CoopInviteCreateUsageLimitKind = {
+  unlimited: 'unlimited',
+  per_customer: 'per_customer',
+  total_cap: 'total_cap',
+} as const;
+
 export interface CoopInviteCreate {
   partnerTenantId: number;
   /** @minLength 1 */
@@ -1420,6 +1451,14 @@ export interface CoopInviteCreate {
   mutualRewardTerms?: string;
   perkStartsAt?: string;
   perkEndsAt?: string;
+  /** Perk usage limit; defaults to unlimited. */
+  usageLimitKind?: CoopInviteCreateUsageLimitKind;
+  /**
+     * Required when usageLimitKind=total_cap; ignored otherwise.
+     * @minimum 1
+     * @maximum 1000000
+     */
+  usageCap?: number;
 }
 
 export type CoopInviteRespondAction = typeof CoopInviteRespondAction[keyof typeof CoopInviteRespondAction];
@@ -1657,6 +1696,9 @@ export interface CoopActivePerksResponse {
   flashPerks: CoopFlashPerk[];
 }
 
+/**
+ * Customer-facing perk card — deliberately excludes the raw redemption code (customers redeem via issued passes, never the shared code).
+ */
 export interface PublicBookingPerk {
   id: number;
   perkTitle: string;
@@ -1665,7 +1707,6 @@ export interface PublicBookingPerk {
   /** @nullable */
   mutualRewardTerms: string | null;
   partnerName: string;
-  redemptionCode: string;
   /** @nullable */
   perkEndsAt: string | null;
   /** True while this perk's partnership holds an active paid boost for the booking-confirmation surface; featured perks sort first. */
@@ -2801,6 +2842,18 @@ export interface CoopStatsResponse {
   partnerships: CoopPartnershipStats[];
 }
 
+/**
+ * Perk usage limit; defaults to unlimited.
+ */
+export type CoopPartnershipCreateUsageLimitKind = typeof CoopPartnershipCreateUsageLimitKind[keyof typeof CoopPartnershipCreateUsageLimitKind];
+
+
+export const CoopPartnershipCreateUsageLimitKind = {
+  unlimited: 'unlimited',
+  per_customer: 'per_customer',
+  total_cap: 'total_cap',
+} as const;
+
 export interface CoopPartnershipCreate {
   hostTenantId: number;
   partnerTenantId: number;
@@ -2822,6 +2875,14 @@ export interface CoopPartnershipCreate {
   overrideIndustryBarrier?: boolean;
   perkStartsAt?: string;
   perkEndsAt?: string;
+  /** Perk usage limit; defaults to unlimited. */
+  usageLimitKind?: CoopPartnershipCreateUsageLimitKind;
+  /**
+     * Required when usageLimitKind=total_cap; ignored otherwise.
+     * @minimum 1
+     * @maximum 1000000
+     */
+  usageCap?: number;
 }
 
 /**
@@ -2833,6 +2894,15 @@ export type CoopPartnershipUpdateRevenueShareKind = typeof CoopPartnershipUpdate
 export const CoopPartnershipUpdateRevenueShareKind = {
   bounty: 'bounty',
   percent: 'percent',
+} as const;
+
+export type CoopPartnershipUpdateUsageLimitKind = typeof CoopPartnershipUpdateUsageLimitKind[keyof typeof CoopPartnershipUpdateUsageLimitKind];
+
+
+export const CoopPartnershipUpdateUsageLimitKind = {
+  unlimited: 'unlimited',
+  per_customer: 'per_customer',
+  total_cap: 'total_cap',
 } as const;
 
 export interface CoopPartnershipUpdate {
@@ -2873,6 +2943,14 @@ export interface CoopPartnershipUpdate {
   revenueShareValue?: number | null;
   /** @nullable */
   revenueShareBaseAmount?: number | null;
+  usageLimitKind?: CoopPartnershipUpdateUsageLimitKind;
+  /**
+     * Required when usageLimitKind=total_cap; cleared otherwise.
+     * @minimum 1
+     * @maximum 1000000
+     * @nullable
+     */
+  usageCap?: number | null;
 }
 
 export type PlatformInviteStatus = typeof PlatformInviteStatus[keyof typeof PlatformInviteStatus];

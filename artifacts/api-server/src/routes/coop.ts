@@ -38,6 +38,11 @@ import {
 } from "../lib/coopPerks";
 import { recordAmbassadorActivitySafe } from "../lib/ambassador";
 import {
+  usageLimitViolation,
+  validateUsageLimit,
+  lockPartnershipForRedemption,
+} from "../lib/coopUsageLimits";
+import {
   recordPassportStampSafe,
   personFromClassicPassCode,
   challengeCompletionCounts,
@@ -305,6 +310,8 @@ function serialize(
     revenueShareValue: p.revenueShareValue != null ? parseFloat(p.revenueShareValue) : null,
     revenueShareBaseAmount:
       p.revenueShareBaseAmount != null ? parseFloat(p.revenueShareBaseAmount) : null,
+    usageLimitKind: p.usageLimitKind,
+    usageCap: p.usageCap,
     createdAt: p.createdAt.toISOString(),
   };
 }
@@ -686,6 +693,11 @@ router.post("/coop/partnerships", async (req, res): Promise<void> => {
     res.status(400).json({ message: windowError });
     return;
   }
+  const limit = validateUsageLimit(parsed.data.usageLimitKind, parsed.data.usageCap ?? null);
+  if (limit.error !== null) {
+    res.status(400).json({ message: limit.error });
+    return;
+  }
 
   const tenants = await db
     .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
@@ -737,6 +749,8 @@ router.post("/coop/partnerships", async (req, res): Promise<void> => {
             parsed.data.perkValueAmount != null ? parsed.data.perkValueAmount.toFixed(2) : null,
           perkStartsAt: parsed.data.perkStartsAt ? new Date(parsed.data.perkStartsAt) : null,
           perkEndsAt: parsed.data.perkEndsAt ? new Date(parsed.data.perkEndsAt) : null,
+          usageLimitKind: limit.usageLimitKind,
+          usageCap: limit.usageCap,
           hostTrackingCode: generateTrackingCode(),
           partnerTrackingCode: generateTrackingCode(),
         })
@@ -790,6 +804,15 @@ router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
     updates.perkStartsAt = parsed.data.perkStartsAt ? new Date(parsed.data.perkStartsAt) : null;
   if (parsed.data.perkEndsAt !== undefined)
     updates.perkEndsAt = parsed.data.perkEndsAt ? new Date(parsed.data.perkEndsAt) : null;
+  if (parsed.data.usageLimitKind !== undefined) {
+    const limit = validateUsageLimit(parsed.data.usageLimitKind, parsed.data.usageCap ?? null);
+    if (limit.error !== null) {
+      res.status(400).json({ message: limit.error });
+      return;
+    }
+    updates.usageLimitKind = limit.usageLimitKind;
+    updates.usageCap = limit.usageCap;
+  }
   if (parsed.data.hostReciprocityThreshold !== undefined)
     updates.hostReciprocityThreshold = parsed.data.hostReciprocityThreshold;
   if (parsed.data.partnerReciprocityThreshold !== undefined)
@@ -1382,6 +1405,11 @@ router.post("/coop/invites", async (req, res): Promise<void> => {
     res.status(400).json({ message: inviteWindowError });
     return;
   }
+  const inviteLimit = validateUsageLimit(parsed.data.usageLimitKind, parsed.data.usageCap ?? null);
+  if (inviteLimit.error !== null) {
+    res.status(400).json({ message: inviteLimit.error });
+    return;
+  }
   const tenants = await db
     .select({ id: tenantsTable.id, brandName: tenantsTable.brandName })
     .from(tenantsTable)
@@ -1487,6 +1515,8 @@ router.post("/coop/invites", async (req, res): Promise<void> => {
           mutualRewardTerms: parsed.data.mutualRewardTerms?.trim() || null,
           perkStartsAt: parsed.data.perkStartsAt ? new Date(parsed.data.perkStartsAt) : null,
           perkEndsAt: parsed.data.perkEndsAt ? new Date(parsed.data.perkEndsAt) : null,
+          usageLimitKind: inviteLimit.usageLimitKind,
+          usageCap: inviteLimit.usageCap,
           redemptionCode: generateCode(),
           hostTrackingCode: generateTrackingCode(),
           partnerTrackingCode: generateTrackingCode(),
@@ -2775,10 +2805,18 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
   if (isWalletPassToken(code)) {
     const walletRow = await findWalletPass(code);
     const outcome = await walletPassState(walletRow);
+    // Usage limit: enforced against recorded redemption rows. The wallet
+    // pass carries the customer's phone, so per-customer limits check here.
+    const limitReason =
+      outcome.reason == null && walletRow
+        ? await usageLimitViolation(walletRow.partnership, {
+            customerPhone: walletRow.pass.customerPhone,
+          })
+        : null;
     res.json(
       ValidateCoopRedemptionCodeResponse.parse({
-        valid: outcome.reason == null,
-        reason: outcome.reason,
+        valid: outcome.reason == null && limitReason == null,
+        reason: outcome.reason ?? limitReason,
         partnership: walletRow
           ? serialize(walletRow.partnership, walletRow.hostTenantName, walletRow.partnerTenantName)
           : null,
@@ -2858,6 +2896,20 @@ router.get("/coop/redemptions/:code", async (req, res): Promise<void> => {
           windowState === "expired"
             ? "This perk has expired"
             : "This perk is not active yet",
+        partnership: serialize(row.partnership, row.hostTenantName, row.partnerTenantName),
+      })
+    );
+    return;
+  }
+  // Usage limit: a bare code check has no customer identity, so only the
+  // total cap can be enforced here; per-customer limits are re-checked with
+  // the pass identity at redemption time.
+  const validateLimitReason = await usageLimitViolation(row.partnership);
+  if (validateLimitReason != null) {
+    res.json(
+      ValidateCoopRedemptionCodeResponse.parse({
+        valid: false,
+        reason: validateLimitReason,
         partnership: serialize(row.partnership, row.hostTenantName, row.partnerTenantName),
       })
     );
@@ -2967,13 +3019,52 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
       );
       return;
     }
-    // Conditional update is the single-use lock: of two concurrent scans of
-    // the same pass, exactly one flips redeemed_at from NULL.
-    const [redeemedPass] = await db
-      .update(perkPassesTable)
-      .set({ redeemedAt: new Date(), redeemedByTenantId: tenantId })
-      .where(and(eq(perkPassesTable.token, code), isNull(perkPassesTable.redeemedAt)))
-      .returning();
+    // One transaction makes the redemption race-safe: the partnership row
+    // lock serializes limit checks against the redemption insert (a total
+    // cap can never be oversubscribed by parallel scans), and the
+    // conditional pass update remains the single-use lock — of two
+    // concurrent scans of the same pass, exactly one flips redeemed_at.
+    // An over-limit rejection rolls back the pass flip, so the pass is not
+    // burned by a failed attempt.
+    const walletTx = await db.transaction(async (tx) => {
+      await lockPartnershipForRedemption(tx, walletRow!.partnership.id);
+      const limitReason = await usageLimitViolation(
+        walletRow!.partnership,
+        { customerPhone: walletRow!.pass.customerPhone },
+        tx
+      );
+      if (limitReason != null) return { limitReason, redeemedPass: null, walletRedemption: null };
+      const [redeemedPass] = await tx
+        .update(perkPassesTable)
+        .set({ redeemedAt: new Date(), redeemedByTenantId: tenantId })
+        .where(and(eq(perkPassesTable.token, code), isNull(perkPassesTable.redeemedAt)))
+        .returning();
+      if (!redeemedPass) return { limitReason: null, redeemedPass: null, walletRedemption: null };
+      // Mirror the redemption into the shared ledger so partner-side
+      // reporting sees wallet redemptions alongside classic ones.
+      const [walletRedemption] = await tx
+        .insert(coopPerkRedemptionsTable)
+        .values({
+          partnershipId: walletRow!.partnership.id,
+          passCode: code,
+          redeemedByTenantId: tenantId,
+        })
+        .onConflictDoNothing()
+        .returning();
+      return { limitReason: null, redeemedPass, walletRedemption: walletRedemption ?? null };
+    });
+    if (walletTx.limitReason != null) {
+      res.json(
+        RedeemCoopPerkResponse.parse({
+          valid: false,
+          reason: walletTx.limitReason,
+          partnership: partnershipJson,
+          redeemedAt: null,
+        })
+      );
+      return;
+    }
+    const redeemedPass = walletTx.redeemedPass;
     if (!redeemedPass) {
       const again = await findWalletPass(code);
       res.json(
@@ -2986,17 +3077,7 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
       );
       return;
     }
-    // Mirror the redemption into the shared ledger so partner-side reporting
-    // sees wallet redemptions alongside classic pass-code redemptions.
-    const [walletRedemption] = await db
-      .insert(coopPerkRedemptionsTable)
-      .values({
-        partnershipId: walletRow!.partnership.id,
-        passCode: code,
-        redeemedByTenantId: tenantId,
-      })
-      .onConflictDoNothing()
-      .returning();
+    const walletRedemption = walletTx.walletRedemption;
     // Attribution: wallet passes are server-issued single-use tokens — the
     // strongest redemption instance we have. The scanning tenant is the
     // receiver; the other side of the partnership sent the customer.
@@ -3159,17 +3240,34 @@ router.post("/coop/redemptions", async (req, res): Promise<void> => {
     return;
   }
 
-  // onConflictDoNothing + returning(): exactly one of two concurrent scans
-  // gets a row back; the loser sees the existing redemption instead.
-  const [redemption] = await db
-    .insert(coopPerkRedemptionsTable)
-    .values({
-      partnershipId: row.partnership.id,
-      passCode,
-      redeemedByTenantId: tenantId,
-    })
-    .onConflictDoNothing()
-    .returning();
+  // Usage limit: enforced against recorded redemption rows, atomically with
+  // the redemption insert — the partnership row lock serializes concurrent
+  // redemptions so a total cap can never be oversubscribed. The classic
+  // passCode ("C<id>") IS the customer identity, so per-customer limits
+  // reject a second redemption by the same customer with a distinct,
+  // customer-safe reason; total caps count all recorded redemptions.
+  const classicTx = await db.transaction(async (tx) => {
+    await lockPartnershipForRedemption(tx, row.partnership.id);
+    const limitReason = await usageLimitViolation(row.partnership, { passCode }, tx);
+    if (limitReason != null) return { limitReason, redemption: null };
+    // onConflictDoNothing + returning(): exactly one of two concurrent scans
+    // gets a row back; the loser sees the existing redemption instead.
+    const [redemption] = await tx
+      .insert(coopPerkRedemptionsTable)
+      .values({
+        partnershipId: row.partnership.id,
+        passCode,
+        redeemedByTenantId: tenantId,
+      })
+      .onConflictDoNothing()
+      .returning();
+    return { limitReason: null, redemption: redemption ?? null };
+  });
+  if (classicTx.limitReason != null) {
+    fail(classicTx.limitReason, row);
+    return;
+  }
+  const redemption = classicTx.redemption;
   if (!redemption) {
     const [existing] = await db
       .select({ redeemedAt: coopPerkRedemptionsTable.redeemedAt })

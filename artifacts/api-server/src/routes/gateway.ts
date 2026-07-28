@@ -22,6 +22,7 @@ import {
 import { perkWindowOpen } from "../lib/coopPerks";
 import { findWalletPass, isWalletPassToken } from "../lib/perkPasses";
 import { redeemWalletPassAsTenant, coopRedemptionBlockReason } from "../lib/walletRedemption";
+import { usageLimitViolation } from "../lib/coopUsageLimits";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -420,6 +421,13 @@ router.post("/v1/gateway/vouchers/validate", async (req, res): Promise<void> => 
   let reason: string | null = await coopRedemptionBlockReason(row.partnership);
   if (reason == null && row.pass.redeemedAt != null) reason = "This pass was already redeemed";
   else if (reason == null && row.pass.expiresAt <= new Date()) reason = "This pass has expired";
+  // Usage limits mirror redeem behavior: a capped or one-per-customer perk
+  // that would be rejected at redemption also fails validation here.
+  if (reason == null) {
+    reason = await usageLimitViolation(row.partnership, {
+      customerPhone: row.pass.customerPhone,
+    });
+  }
   await logCall(req, auth, 200, "ok", `Validate ${code}: ${reason ?? "valid"}`);
   res.json({
     sandbox: false,

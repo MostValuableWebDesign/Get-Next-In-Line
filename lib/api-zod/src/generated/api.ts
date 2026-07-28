@@ -816,6 +816,8 @@ export const ListCoopPartnershipsResponseItem = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 })
 export const ListCoopPartnershipsResponse = zod.array(ListCoopPartnershipsResponseItem)
@@ -828,6 +830,8 @@ export const ListCoopPartnershipsResponse = zod.array(ListCoopPartnershipsRespon
 export const createCoopPartnershipBodyRedemptionCodeRegExp = new RegExp('^[A-Za-z0-9][A-Za-z0-9-]{2,30}[A-Za-z0-9]$');
 export const createCoopPartnershipBodyPerkValueAmountMin = 0;
 
+export const createCoopPartnershipBodyUsageCapMax = 1000000;
+
 
 
 export const CreateCoopPartnershipBody = zod.object({
@@ -839,7 +843,9 @@ export const CreateCoopPartnershipBody = zod.object({
   "perkValueAmount": zod.number().min(createCoopPartnershipBodyPerkValueAmountMin).nullish().describe('Estimated monetary value of the perk in dollars (compliance-ledger trigger); null\/omitted = no monetary terms.'),
   "overrideIndustryBarrier": zod.boolean().optional().describe('Explicitly bypass the same-category (competitor) block.'),
   "perkStartsAt": zod.coerce.date().optional(),
-  "perkEndsAt": zod.coerce.date().optional()
+  "perkEndsAt": zod.coerce.date().optional(),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).optional().describe('Perk usage limit; defaults to unlimited.'),
+  "usageCap": zod.number().min(1).max(createCoopPartnershipBodyUsageCapMax).optional().describe('Required when usageLimitKind=total_cap; ignored otherwise.')
 })
 
 export const CreateCoopPartnershipResponse = zod.object({
@@ -875,6 +881,8 @@ export const CreateCoopPartnershipResponse = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 })
 
@@ -894,6 +902,8 @@ export const updateCoopPartnershipBodyHostReciprocityThresholdMax = 1000;
 
 export const updateCoopPartnershipBodyPartnerReciprocityThresholdMax = 1000;
 
+export const updateCoopPartnershipBodyUsageCapMax = 1000000;
+
 
 
 export const UpdateCoopPartnershipBody = zod.object({
@@ -908,7 +918,9 @@ export const UpdateCoopPartnershipBody = zod.object({
   "partnerReciprocityThreshold": zod.number().min(1).max(updateCoopPartnershipBodyPartnerReciprocityThresholdMax).nullish().describe('Only the partner may set this; null restores the platform default.'),
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullish(),
   "revenueShareValue": zod.number().nullish(),
-  "revenueShareBaseAmount": zod.number().nullish()
+  "revenueShareBaseAmount": zod.number().nullish(),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).optional(),
+  "usageCap": zod.number().min(1).max(updateCoopPartnershipBodyUsageCapMax).nullish().describe('Required when usageLimitKind=total_cap; cleared otherwise.')
 })
 
 export const UpdateCoopPartnershipResponse = zod.object({
@@ -944,6 +956,8 @@ export const UpdateCoopPartnershipResponse = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 })
 
@@ -988,6 +1002,8 @@ export const ReactivateCoopPartnershipResponse = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 })
 
@@ -1092,6 +1108,8 @@ export const ProposeCoopRenegotiationResponse = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 })
 
@@ -1140,6 +1158,8 @@ export const RespondToCoopRenegotiationResponse = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 })
 
@@ -1184,6 +1204,8 @@ export const PauseCoopPartnershipResponse = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 })
 
@@ -1228,6 +1250,8 @@ export const ResumeCoopPartnershipResponse = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 })
 
@@ -1294,6 +1318,8 @@ export const DismissCoopSuggestionResponse = zod.object({
  * @summary Merchant-facing — send a partnership invite (strict same-industry guardrail, no override); tenant scope via x-tenant-id
  */
 
+export const createCoopInviteBodyUsageCapMax = 1000000;
+
 
 
 export const CreateCoopInviteBody = zod.object({
@@ -1302,7 +1328,9 @@ export const CreateCoopInviteBody = zod.object({
   "perkDescription": zod.string().optional(),
   "mutualRewardTerms": zod.string().optional(),
   "perkStartsAt": zod.coerce.date().optional(),
-  "perkEndsAt": zod.coerce.date().optional()
+  "perkEndsAt": zod.coerce.date().optional(),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).optional().describe('Perk usage limit; defaults to unlimited.'),
+  "usageCap": zod.number().min(1).max(createCoopInviteBodyUsageCapMax).optional().describe('Required when usageLimitKind=total_cap; ignored otherwise.')
 })
 
 export const CreateCoopInviteResponse = zod.object({
@@ -1338,6 +1366,8 @@ export const CreateCoopInviteResponse = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 })
 
@@ -1442,6 +1472,8 @@ export const RespondToCoopInviteResponse = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 })
 
@@ -1820,10 +1852,9 @@ export const ListPublicBookingPerksResponse = zod.object({
   "perkDescription": zod.string().nullable(),
   "mutualRewardTerms": zod.string().nullable(),
   "partnerName": zod.string(),
-  "redemptionCode": zod.string(),
   "perkEndsAt": zod.coerce.date().nullable(),
   "featured": zod.boolean().describe('True while this perk\'s partnership holds an active paid boost for the booking-confirmation surface; featured perks sort first.')
-}))
+}).describe('Customer-facing perk card — deliberately excludes the raw redemption code (customers redeem via issued passes, never the shared code).'))
 }).describe('Public booking-confirmation perk feed — like CoopActivePerksResponse but without merchant-only fields (tracking codes never leak publicly).')
 
 
@@ -1875,6 +1906,8 @@ export const RedeemCoopPerkResponse = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 }),zod.null()]),
   "redeemedAt": zod.string().nullable().describe('When this pass instance was redeemed; set on success and on already-redeemed rejections.')
@@ -3221,6 +3254,8 @@ export const ValidateCoopRedemptionCodeResponse = zod.object({
   "revenueShareKind": zod.union([zod.literal('bounty'),zod.literal('percent'),zod.literal(null)]).nullable().describe('Optional revenue-share terms — flat referral bounty or percentage split; null = classic mutual-perk pact with no money movement.'),
   "revenueShareValue": zod.number().nullable().describe('Bounty dollars (kind=bounty) or split percent (kind=percent).'),
   "revenueShareBaseAmount": zod.number().nullable().describe('Agreed nominal transaction value a percentage split applies to; null unless kind=percent.'),
+  "usageLimitKind": zod.enum(['unlimited', 'per_customer', 'total_cap']).describe('How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.'),
+  "usageCap": zod.number().nullable().describe('Total redemption cap; set only when usageLimitKind=total_cap.'),
   "createdAt": zod.string()
 }),zod.null()])
 })

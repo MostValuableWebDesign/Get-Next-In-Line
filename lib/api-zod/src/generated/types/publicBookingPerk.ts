@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Customer-facing perk card — deliberately excludes the raw redemption code (customers redeem via issued passes, never the shared code).
+ */
 export interface PublicBookingPerk {
   id: number;
   perkTitle: string;
@@ -14,7 +17,6 @@ export interface PublicBookingPerk {
   /** @nullable */
   mutualRewardTerms: string | null;
   partnerName: string;
-  redemptionCode: string;
   /** @nullable */
   perkEndsAt: Date | null;
   /** True while this perk's partnership holds an active paid boost for the booking-confirmation surface; featured perks sort first. */

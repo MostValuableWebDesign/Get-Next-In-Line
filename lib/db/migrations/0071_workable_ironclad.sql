@@ -1,0 +1,2 @@
+ALTER TABLE "merchant_coop_partnerships" ADD COLUMN "usage_limit_kind" text DEFAULT 'unlimited' NOT NULL;--> statement-breakpoint
+ALTER TABLE "merchant_coop_partnerships" ADD COLUMN "usage_cap" integer;

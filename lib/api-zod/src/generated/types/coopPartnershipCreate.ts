@@ -5,6 +5,7 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+import type { CoopPartnershipCreateUsageLimitKind } from './coopPartnershipCreateUsageLimitKind';
 
 export interface CoopPartnershipCreate {
   hostTenantId: number;
@@ -27,4 +28,12 @@ export interface CoopPartnershipCreate {
   overrideIndustryBarrier?: boolean;
   perkStartsAt?: Date;
   perkEndsAt?: Date;
+  /** Perk usage limit; defaults to unlimited. */
+  usageLimitKind?: CoopPartnershipCreateUsageLimitKind;
+  /**
+     * Required when usageLimitKind=total_cap; ignored otherwise.
+     * @minimum 1
+     * @maximum 1000000
+     */
+  usageCap?: number;
 }

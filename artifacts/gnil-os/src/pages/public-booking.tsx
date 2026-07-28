@@ -429,6 +429,11 @@ function ConfirmationPerks({ slug }: { slug: string }) {
                 </span>
               )}
               <div className="font-medium">{perk.perkTitle}</div>
+              {perk.perkDescription && (
+                <div className="text-muted-foreground text-xs mt-0.5" data-testid={`text-confirmation-perk-description-${perk.id}`}>
+                  {perk.perkDescription}
+                </div>
+              )}
               <div className="text-muted-foreground text-xs mt-0.5">
                 Courtesy of {perk.partnerName}
                 {perk.perkEndsAt && ` · through ${new Date(perk.perkEndsAt).toLocaleDateString()}`}

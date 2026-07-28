@@ -7479,6 +7479,8 @@ components:
           revenueShareKind,
           revenueShareValue,
           revenueShareBaseAmount,
+          usageLimitKind,
+          usageCap,
           createdAt,
         ]
       properties:
@@ -7568,6 +7570,13 @@ components:
         revenueShareBaseAmount:
           type: ["number", "null"]
           description: Agreed nominal transaction value a percentage split applies to; null unless kind=percent.
+        usageLimitKind:
+          type: string
+          enum: [unlimited, per_customer, total_cap]
+          description: How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap.
+        usageCap:
+          type: ["integer", "null"]
+          description: Total redemption cap; set only when usageLimitKind=total_cap.
         createdAt:
           type: string
 
@@ -8798,6 +8807,15 @@ components:
         perkEndsAt:
           type: string
           format: date-time
+        usageLimitKind:
+          type: string
+          enum: [unlimited, per_customer, total_cap]
+          description: Perk usage limit; defaults to unlimited.
+        usageCap:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: Required when usageLimitKind=total_cap; ignored otherwise.
 
     CoopInviteRespond:
       type: object
@@ -9068,7 +9086,8 @@ components:
 
     PublicBookingPerk:
       type: object
-      required: [id, perkTitle, perkDescription, mutualRewardTerms, partnerName, redemptionCode, perkEndsAt, featured]
+      required: [id, perkTitle, perkDescription, mutualRewardTerms, partnerName, perkEndsAt, featured]
+      description: Customer-facing perk card — deliberately excludes the raw redemption code (customers redeem via issued passes, never the shared code).
       properties:
         id:
           type: integer
@@ -9079,8 +9098,6 @@ components:
         mutualRewardTerms:
           type: ["string", "null"]
         partnerName:
-          type: string
-        redemptionCode:
           type: string
         perkEndsAt:
           type: ["string", "null"]
@@ -10634,6 +10651,15 @@ components:
         perkEndsAt:
           type: string
           format: date-time
+        usageLimitKind:
+          type: string
+          enum: [unlimited, per_customer, total_cap]
+          description: Perk usage limit; defaults to unlimited.
+        usageCap:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: Required when usageLimitKind=total_cap; ignored otherwise.
 
     CoopPartnershipUpdate:
       type: object
@@ -10675,6 +10701,14 @@ components:
           type: ["number", "null"]
         revenueShareBaseAmount:
           type: ["number", "null"]
+        usageLimitKind:
+          type: string
+          enum: [unlimited, per_customer, total_cap]
+        usageCap:
+          type: ["integer", "null"]
+          minimum: 1
+          maximum: 1000000
+          description: Required when usageLimitKind=total_cap; cleared otherwise.
 
     PlatformInvite:
       type: object

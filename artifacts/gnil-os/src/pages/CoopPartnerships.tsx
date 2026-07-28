@@ -677,11 +677,15 @@ function CreatePartnershipDialog() {
   const [redemptionCode, setRedemptionCode] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
+  const [usageLimitKind, setUsageLimitKind] = useState<'unlimited' | 'per_customer' | 'total_cap'>('unlimited');
+  const [usageCap, setUsageCap] = useState('');
   // Set when the server rejects with the industry barrier; the admin must
   // confirm the override explicitly before we retry.
   const [barrierMessage, setBarrierMessage] = useState<string | null>(null);
 
   const windowInvalid = startsAt !== '' && endsAt !== '' && new Date(endsAt) <= new Date(startsAt);
+  const capInvalid =
+    usageLimitKind === 'total_cap' && !(Number.isInteger(Number(usageCap)) && Number(usageCap) >= 1);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -698,6 +702,8 @@ function CreatePartnershipDialog() {
     setRedemptionCode('');
     setStartsAt('');
     setEndsAt('');
+    setUsageLimitKind('unlimited');
+    setUsageCap('');
     setBarrierMessage(null);
   };
 
@@ -712,6 +718,8 @@ function CreatePartnershipDialog() {
           ...(redemptionCode.trim() ? { redemptionCode: redemptionCode.trim() } : {}),
           ...(startsAt ? { perkStartsAt: new Date(startsAt).toISOString() } : {}),
           ...(endsAt ? { perkEndsAt: new Date(endsAt).toISOString() } : {}),
+          usageLimitKind,
+          ...(usageLimitKind === 'total_cap' ? { usageCap: Number(usageCap) } : {}),
           ...(override ? { overrideIndustryBarrier: true } : {}),
         },
       },
@@ -740,7 +748,7 @@ function CreatePartnershipDialog() {
 
   const canSubmit =
     hostTenantId !== '' && partnerTenantId !== '' && hostTenantId !== partnerTenantId &&
-    perkTitle.trim() !== '' && !windowInvalid;
+    perkTitle.trim() !== '' && !windowInvalid && !capInvalid;
 
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
@@ -841,6 +849,43 @@ function CreatePartnershipDialog() {
           {windowInvalid && (
             <p className="text-sm text-destructive" data-testid="text-perk-window-error">
               The end date must be after the start date.
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Usage limit</Label>
+              <Select
+                value={usageLimitKind}
+                onValueChange={(v) => setUsageLimitKind(v as 'unlimited' | 'per_customer' | 'total_cap')}
+              >
+                <SelectTrigger data-testid="select-usage-limit-kind">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unlimited">Unlimited</SelectItem>
+                  <SelectItem value="per_customer">One per customer</SelectItem>
+                  <SelectItem value="total_cap">Total redemption cap</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {usageLimitKind === 'total_cap' && (
+              <div className="space-y-2">
+                <Label htmlFor="coop-usage-cap">Max redemptions</Label>
+                <Input
+                  id="coop-usage-cap"
+                  type="number"
+                  min={1}
+                  placeholder="e.g. 100"
+                  value={usageCap}
+                  onChange={(e) => setUsageCap(e.target.value)}
+                  data-testid="input-usage-cap"
+                />
+              </div>
+            )}
+          </div>
+          {capInvalid && usageCap !== '' && (
+            <p className="text-sm text-destructive" data-testid="text-usage-cap-error">
+              The redemption cap must be a whole number of at least 1.
             </p>
           )}
           {barrierMessage && (

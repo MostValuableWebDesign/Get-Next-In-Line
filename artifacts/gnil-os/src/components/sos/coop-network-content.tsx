@@ -2333,6 +2333,8 @@ function PerkBuilderDialog({
   const [mutualRewardTerms, setMutualRewardTerms] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
+  const [usageLimitKind, setUsageLimitKind] = useState<'unlimited' | 'per_customer' | 'total_cap'>('unlimited');
+  const [usageCap, setUsageCap] = useState('');
 
   // Seed the form with the auto-generated proposal whenever a new target opens.
   const targetId = target?.id ?? null;
@@ -2350,6 +2352,8 @@ function PerkBuilderDialog({
 
   const windowInvalid =
     startsAt !== '' && endsAt !== '' && new Date(endsAt) <= new Date(startsAt);
+  const capInvalid =
+    usageLimitKind === 'total_cap' && !(Number.isInteger(Number(usageCap)) && Number(usageCap) >= 1);
 
   const close = () => {
     setPerkTitle('');
@@ -2357,6 +2361,8 @@ function PerkBuilderDialog({
     setMutualRewardTerms('');
     setStartsAt('');
     setEndsAt('');
+    setUsageLimitKind('unlimited');
+    setUsageCap('');
     onClose();
   };
 
@@ -2371,6 +2377,8 @@ function PerkBuilderDialog({
           ...(mutualRewardTerms.trim() ? { mutualRewardTerms: mutualRewardTerms.trim() } : {}),
           ...(startsAt ? { perkStartsAt: new Date(startsAt).toISOString() } : {}),
           ...(endsAt ? { perkEndsAt: new Date(endsAt).toISOString() } : {}),
+          usageLimitKind,
+          ...(usageLimitKind === 'total_cap' ? { usageCap: Number(usageCap) } : {}),
         },
       },
       {
@@ -2480,11 +2488,48 @@ function PerkBuilderDialog({
               The end date must be after the start date.
             </p>
           )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Usage limit</Label>
+              <Select
+                value={usageLimitKind}
+                onValueChange={v => setUsageLimitKind(v as 'unlimited' | 'per_customer' | 'total_cap')}
+              >
+                <SelectTrigger data-testid="select-invite-usage-limit-kind">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unlimited">Unlimited</SelectItem>
+                  <SelectItem value="per_customer">One per customer</SelectItem>
+                  <SelectItem value="total_cap">Total redemption cap</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {usageLimitKind === 'total_cap' && (
+              <div className="space-y-2">
+                <Label htmlFor="coop-invite-usage-cap">Max redemptions</Label>
+                <Input
+                  id="coop-invite-usage-cap"
+                  type="number"
+                  min={1}
+                  placeholder="e.g. 100"
+                  value={usageCap}
+                  onChange={e => setUsageCap(e.target.value)}
+                  data-testid="input-invite-usage-cap"
+                />
+              </div>
+            )}
+          </div>
+          {capInvalid && usageCap !== '' && (
+            <p className="text-sm text-destructive" data-testid="text-invite-usage-cap-error">
+              The redemption cap must be a whole number of at least 1.
+            </p>
+          )}
         </div>
         <DialogFooter>
           <Button
             onClick={send}
-            disabled={perkTitle.trim() === '' || windowInvalid || createInvite.isPending}
+            disabled={perkTitle.trim() === '' || windowInvalid || capInvalid || createInvite.isPending}
             className="gap-2"
             data-testid="button-send-partnership-invite"
           >

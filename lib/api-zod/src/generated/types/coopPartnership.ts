@@ -8,6 +8,7 @@
 import type { CoopPartnershipRevenueShareKind } from './coopPartnershipRevenueShareKind';
 import type { CoopPartnershipStatus } from './coopPartnershipStatus';
 import type { CoopPartnershipTier } from './coopPartnershipTier';
+import type { CoopPartnershipUsageLimitKind } from './coopPartnershipUsageLimitKind';
 
 export interface CoopPartnership {
   id: number;
@@ -113,5 +114,12 @@ export interface CoopPartnership {
      * @nullable
      */
   revenueShareBaseAmount: number | null;
+  /** How often the redemption code may be redeemed — unlimited (default), one counted redemption per customer, or a total redemption cap. */
+  usageLimitKind: CoopPartnershipUsageLimitKind;
+  /**
+     * Total redemption cap; set only when usageLimitKind=total_cap.
+     * @nullable
+     */
+  usageCap: number | null;
   createdAt: string;
 }

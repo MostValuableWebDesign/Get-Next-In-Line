@@ -278,6 +278,17 @@ export const merchantCoopPartnershipsTable = pgTable(
     revenueShareKind: text("revenue_share_kind"), // bounty | percent | NULL
     revenueShareValue: numeric("revenue_share_value", { precision: 10, scale: 2 }),
     revenueShareBaseAmount: numeric("revenue_share_base_amount", { precision: 10, scale: 2 }),
+    // ── Perk usage limit ─────────────────────────────────────────────────────
+    // How often the perk's redemption code may be redeemed, enforced against
+    // recorded rows in coop_perk_redemptions at validation/redemption time:
+    //   unlimited    — no limit (default; pre-existing behavior)
+    //   per_customer — one counted redemption per customer identity (pass
+    //                  instance / wallet phone) per partnership
+    //   total_cap    — at most usageCap counted redemptions overall
+    usageLimitKind: text("usage_limit_kind").notNull().default("unlimited"),
+    // Total redemption cap; only meaningful (and required) when
+    // usageLimitKind = "total_cap", NULL otherwise.
+    usageCap: integer("usage_cap"),
   },
   (t) => [
     index("merchant_coop_partnerships_host_idx").on(t.hostTenantId),

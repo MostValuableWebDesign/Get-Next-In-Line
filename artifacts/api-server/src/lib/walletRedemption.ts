@@ -6,6 +6,7 @@ import {
   coopAttributionEventsTable,
 } from "@workspace/db";
 import { findWalletPass, isWalletPassToken } from "./perkPasses";
+import { usageLimitViolation, lockPartnershipForRedemption } from "./coopUsageLimits";
 import { decoupledTenantIdSet } from "./coopReputation";
 import { activeSuspensionTenantIds } from "./coopFinancialDisputes";
 import { recordPassportStampSafe } from "./passport";
@@ -111,26 +112,45 @@ export async function redeemWalletPassAsTenant(
       detail: "Only a business in this partnership can redeem this perk pass",
     };
   }
-  // Conditional update is the single-use lock: exactly one redeemer flips
-  // redeemed_at.
-  const [redeemed] = await db
-    .update(perkPassesTable)
-    .set({ redeemedAt: new Date(), redeemedByTenantId: tenantId })
-    .where(and(eq(perkPassesTable.token, token), isNull(perkPassesTable.redeemedAt)))
-    .returning();
-  if (!redeemed) {
+  // One transaction makes the redemption race-safe across machine channels:
+  // the partnership row lock serializes usage-limit checks (total cap / one
+  // per customer, wallet phone as the customer identity) against the
+  // redemption insert, so a cap can never be oversubscribed by parallel
+  // requests. The conditional pass update remains the single-use lock, and
+  // an over-limit rejection rolls back the pass flip.
+  const txResult = await db.transaction(async (tx) => {
+    await lockPartnershipForRedemption(tx, row.partnership.id);
+    const limitReason = await usageLimitViolation(
+      row.partnership,
+      { customerPhone: row.pass.customerPhone },
+      tx
+    );
+    if (limitReason != null) return { limitReason, redeemed: null, redemption: null };
+    const [redeemed] = await tx
+      .update(perkPassesTable)
+      .set({ redeemedAt: new Date(), redeemedByTenantId: tenantId })
+      .where(and(eq(perkPassesTable.token, token), isNull(perkPassesTable.redeemedAt)))
+      .returning();
+    if (!redeemed) return { limitReason: null, redeemed: null, redemption: null };
+    // Mirror into the shared redemption ledger for partner-side reporting.
+    const [redemption] = await tx
+      .insert(coopPerkRedemptionsTable)
+      .values({
+        partnershipId: row.partnership.id,
+        passCode: token,
+        redeemedByTenantId: tenantId,
+      })
+      .onConflictDoNothing()
+      .returning();
+    return { limitReason: null, redeemed, redemption: redemption ?? null };
+  });
+  if (txResult.limitReason != null) {
+    return { status: "error", detail: txResult.limitReason };
+  }
+  if (!txResult.redeemed) {
     return { status: "ignored", detail: "Pass was already redeemed" };
   }
-  // Mirror into the shared redemption ledger for partner-side reporting.
-  const [redemption] = await db
-    .insert(coopPerkRedemptionsTable)
-    .values({
-      partnershipId: row.partnership.id,
-      passCode: token,
-      redeemedByTenantId: tenantId,
-    })
-    .onConflictDoNothing()
-    .returning();
+  const redemption = txResult.redemption;
   // Attribution: the redeeming tenant is the receiver; the other side of the
   // partnership sent the customer.
   if (redemption) {

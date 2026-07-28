@@ -535,7 +535,8 @@ router.get("/public/booking/:slug/perks", async (req, res): Promise<void> => {
           partnerName:
             partnerNames.get(p.hostTenantId === hostTenant.id ? p.partnerTenantId : p.hostTenantId) ??
             "Partner",
-          redemptionCode: p.redemptionCode,
+          // Deliberately NO redemptionCode: the raw shared code never renders
+          // on a customer-facing confirmation (customers redeem via passes).
           perkEndsAt: p.perkEndsAt ? p.perkEndsAt.toISOString() : null,
           featured: boostedPartnershipIds.has(p.id),
         }))

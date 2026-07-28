@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CoopPartnershipUpdateRevenueShareKind } from './coopPartnershipUpdateRevenueShareKind';
+import type { CoopPartnershipUpdateUsageLimitKind } from './coopPartnershipUpdateUsageLimitKind';
 
 export interface CoopPartnershipUpdate {
   /** @minLength 1 */
@@ -45,4 +46,12 @@ export interface CoopPartnershipUpdate {
   revenueShareValue?: number | null;
   /** @nullable */
   revenueShareBaseAmount?: number | null;
+  usageLimitKind?: CoopPartnershipUpdateUsageLimitKind;
+  /**
+     * Required when usageLimitKind=total_cap; cleared otherwise.
+     * @minimum 1
+     * @maximum 1000000
+     * @nullable
+     */
+  usageCap?: number | null;
 }
