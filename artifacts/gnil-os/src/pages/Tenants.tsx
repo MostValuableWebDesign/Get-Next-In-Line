@@ -37,7 +37,7 @@ export default function Tenants() {
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
-                <Plus className="w-4 h-4" /> Provision Tenant
+                <Plus className="w-4 h-4" aria-hidden="true" /> Provision Tenant
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -77,8 +77,17 @@ export default function Tenants() {
                 {tenants.map(tenant => (
                   <TableRow
                     key={tenant.id}
-                    className="cursor-pointer"
+                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     onClick={() => navigate(`/tenants/${tenant.id}`)}
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`View tenant ${tenant.brandName}`}
+                    onKeyDown={(e) => {
+                      if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        navigate(`/tenants/${tenant.id}`);
+                      }
+                    }}
                     data-testid={`row-tenant-${tenant.id}`}
                   >
                     <TableCell>
@@ -149,22 +158,22 @@ function TenantActions({ tenant, canDelete }: { tenant: any; canDelete: boolean 
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <MoreHorizontal className="h-4 w-4" />
+          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions for ${tenant.brandName}`}>
+            <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setIsEditOpen(true)} className="gap-2 cursor-pointer">
-            <Edit2 className="h-4 w-4" /> Edit Tenant
+            <Edit2 className="h-4 w-4" aria-hidden="true" /> Edit Tenant
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleToggleStatus} className="gap-2 cursor-pointer">
-            <Power className="h-4 w-4" /> {tenant.status === 'active' ? 'Suspend' : 'Activate'}
+            <Power className="h-4 w-4" aria-hidden="true" /> {tenant.status === 'active' ? 'Suspend' : 'Activate'}
           </DropdownMenuItem>
           {canDelete && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive gap-2 cursor-pointer">
-                <Trash2 className="h-4 w-4" /> Terminate
+                <Trash2 className="h-4 w-4" aria-hidden="true" /> Terminate
               </DropdownMenuItem>
             </>
           )}

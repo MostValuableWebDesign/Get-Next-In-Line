@@ -301,7 +301,7 @@ export default function OperationsHub() {
               data-testid="link-module-configuration"
             >
               <Link href="/settings">
-                <Settings className="w-4 h-4" /> Module setup in Configuration
+                <Settings className="w-4 h-4" aria-hidden="true" /> Module setup in Configuration
               </Link>
             </Button>
           </div>

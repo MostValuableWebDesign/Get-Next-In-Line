@@ -66,7 +66,7 @@ export default function MasterOverview() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Globe2 className="w-7 h-7 text-primary" /> Master Overview
+            <Globe2 className="w-7 h-7 text-primary" aria-hidden="true" /> Master Overview
           </h1>
           <p className="text-muted-foreground mt-1">
             Network-wide executive indicators and the co-op settlement clearinghouse.
@@ -180,7 +180,7 @@ function SettlementConsole() {
     <Card className="border-none shadow-md" data-testid="card-settlement-console">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Landmark className="w-5 h-5 text-primary" /> Settlement Clearinghouse
+          <Landmark className="w-5 h-5 text-primary" aria-hidden="true" /> Settlement Clearinghouse
         </CardTitle>
         <CardDescription>
           Preview unsettled inter-business obligations in a window, then execute the end-of-cycle
@@ -294,7 +294,7 @@ function CycleHistory() {
     <Card className="border-none shadow-md" data-testid="card-cycle-history">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <History className="w-5 h-5 text-primary" /> Past Settlement Cycles
+          <History className="w-5 h-5 text-primary" aria-hidden="true" /> Past Settlement Cycles
         </CardTitle>
         <CardDescription>
           Closed cycles are auditable and read-only — drill into any cycle's per-business statements.
@@ -437,7 +437,7 @@ function CycleDetailDialog({ cycle, onClose }: { cycle: SettlementCycle; onClose
                   onClick={() => runPayouts.mutate({ cycleId: cycle.id })}
                   data-testid="button-run-payouts"
                 >
-                  <Banknote className="w-4 h-4 mr-1" />
+                  <Banknote className="w-4 h-4 mr-1" aria-hidden="true" />
                   {creditorStatements.some((s) => s.payout?.status === 'failed') ? 'Retry Payouts' : 'Pay Out Businesses'}
                 </Button>
               </div>

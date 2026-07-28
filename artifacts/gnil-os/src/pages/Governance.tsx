@@ -300,6 +300,7 @@ function CreateUserForm({ onClose }: { onClose: () => void }) {
           <Button
             variant="outline"
             size="icon"
+            aria-label="Copy login token"
             onClick={() => {
               navigator.clipboard?.writeText(issuedToken).catch(() => {});
               toast({ title: 'Copied' });
@@ -576,6 +577,7 @@ function ReviewApplicationForm({ app, onClose }: { app: CoopApplicationRecord; o
           <Button
             variant="outline"
             size="icon"
+            aria-label="Copy login token"
             onClick={() => {
               navigator.clipboard?.writeText(issuedLogin.loginToken).catch(() => {});
               toast({ title: 'Copied' });

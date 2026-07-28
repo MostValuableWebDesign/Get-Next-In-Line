@@ -184,6 +184,7 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      aria-label={`Delete ${res.name}`}
                       data-testid={`btn-delete-resource-${res.id}`}
                       onClick={() => {
                         if (res.status === 'occupied' || res.currentCustomerName) {

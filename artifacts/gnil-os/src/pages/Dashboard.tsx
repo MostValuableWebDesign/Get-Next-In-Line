@@ -156,13 +156,13 @@ function SectionErrorCard({
   return (
     <Card className={`border-dashed border-destructive/40 shadow-none ${className ?? ''}`} data-testid={testId}>
       <CardContent className="p-6 flex flex-col items-center justify-center text-center gap-3">
-        <AlertTriangle className="w-6 h-6 text-destructive" />
+        <AlertTriangle className="w-6 h-6 text-destructive" aria-hidden="true" />
         <div>
           <div className="font-medium">{title}</div>
           <p className="text-sm text-muted-foreground mt-1">This section couldn't load. The rest of the dashboard is unaffected.</p>
         </div>
         <Button variant="outline" size="sm" onClick={onRetry} data-testid={`${testId}-retry`}>
-          <RefreshCw className="w-4 h-4 mr-2" />
+          <RefreshCw className="w-4 h-4 mr-2" aria-hidden="true" />
           Retry
         </Button>
       </CardContent>
@@ -187,7 +187,7 @@ class DashboardErrorBoundary extends Component<{ children: ReactNode }, { hasErr
       return (
         <Card className="border-dashed border-destructive/40 shadow-none" data-testid="dashboard-error-boundary">
           <CardContent className="p-10 flex flex-col items-center justify-center text-center gap-4">
-            <AlertTriangle className="w-8 h-8 text-destructive" />
+            <AlertTriangle className="w-8 h-8 text-destructive" aria-hidden="true" />
             <div>
               <div className="text-lg font-semibold">Something went wrong</div>
               <p className="text-sm text-muted-foreground mt-1">
@@ -199,7 +199,7 @@ class DashboardErrorBoundary extends Component<{ children: ReactNode }, { hasErr
               onClick={() => this.setState({ hasError: false })}
               data-testid="dashboard-error-boundary-retry"
             >
-              <RefreshCw className="w-4 h-4 mr-2" />
+              <RefreshCw className="w-4 h-4 mr-2" aria-hidden="true" />
               Try again
             </Button>
           </CardContent>
@@ -240,7 +240,7 @@ function DashboardTab() {
     return (
       <Card className="border-dashed border-destructive/40 shadow-none" data-testid="dashboard-full-error">
         <CardContent className="p-12 flex flex-col items-center justify-center text-center gap-4">
-          <AlertTriangle className="w-10 h-10 text-destructive" />
+          <AlertTriangle className="w-10 h-10 text-destructive" aria-hidden="true" />
           <div>
             <div className="text-xl font-semibold">Couldn't load the dashboard</div>
             <p className="text-sm text-muted-foreground mt-1">
@@ -254,7 +254,7 @@ function DashboardTab() {
             }}
             data-testid="dashboard-full-error-retry"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="w-4 h-4 mr-2" aria-hidden="true" />
             Retry
           </Button>
         </CardContent>
@@ -287,7 +287,7 @@ function DashboardTab() {
           <Card className="border-none shadow-md bg-emerald-600 text-white" data-testid="card-revenue-summary">
             <CardContent className="p-6 flex flex-col md:flex-row md:items-center gap-6">
               <div className="p-3 bg-white/15 rounded-xl self-start">
-                <TrendingUp className="w-8 h-8" />
+                <TrendingUp className="w-8 h-8" aria-hidden="true" />
               </div>
               <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
@@ -460,7 +460,7 @@ function GlobalActivityFeed() {
     <Card className="border-none shadow-md col-span-1 lg:col-span-3">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Clock className="w-5 h-5 text-muted-foreground" />
+          <Clock className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
           Recent Activity Feed
         </CardTitle>
       </CardHeader>
@@ -469,10 +469,10 @@ function GlobalActivityFeed() {
           <Skeleton className="h-32 w-full" />
         ) : !activityPage ? (
           <div className="flex flex-col items-center justify-center text-center gap-3 py-8" data-testid="error-activity-feed">
-            <AlertTriangle className="w-6 h-6 text-destructive" />
+            <AlertTriangle className="w-6 h-6 text-destructive" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">Couldn't load recent activity.</p>
             <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="error-activity-feed-retry">
-              <RefreshCw className="w-4 h-4 mr-2" />
+              <RefreshCw className="w-4 h-4 mr-2" aria-hidden="true" />
               Retry
             </Button>
           </div>

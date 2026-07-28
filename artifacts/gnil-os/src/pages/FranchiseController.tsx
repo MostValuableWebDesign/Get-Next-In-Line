@@ -318,6 +318,7 @@ function HierarchyCard({ org, isSuperAdmin }: { org: FranchiseOrgDetail; isSuper
                   <Button
                     size="icon"
                     variant="ghost"
+                    aria-label={`Detach ${sf.tenantName ?? 'storefront'}`}
                     data-testid={`button-detach-${sf.tenantId}`}
                     onClick={() => detach.mutate({ orgId: org.id, tenantId: sf.tenantId })}
                   >
@@ -450,6 +451,7 @@ function RolesCard({ org }: { org: FranchiseOrgDetail }) {
             <Button
               size="icon"
               variant="ghost"
+              aria-label="Remove role"
               data-testid={`button-remove-role-${r.id}`}
               onClick={() => remove.mutate({ orgId: org.id, roleId: r.id })}
             >

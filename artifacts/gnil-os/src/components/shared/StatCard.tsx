@@ -36,7 +36,7 @@ export function StatCard({ title, value, icon: Icon, trend, subtitle, loading }:
 
   return (
     <Card className="border-none shadow-md overflow-hidden relative group">
-      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity" aria-hidden="true">
         <Icon className="w-16 h-16" />
       </div>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
