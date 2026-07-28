@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Bot, MessageSquare, Phone, Play, Send } from 'lucide-react';
@@ -212,7 +213,6 @@ export function AiReceptionistPage({
           </div>
           <ServiceVocabularyCard
             tenantId={tenantId}
-            reliableScope={!isTenantScoped || tenantIdProp != null}
             legacyServiceNames={settings?.serviceNames}
           />
           <div className="flex justify-end">
@@ -293,28 +293,34 @@ export function AiReceptionistPage({
  * scopes not yet backfilled). Editing happens on the Services tab of
  * Business Bookings; this card just shows what the receptionist recognizes.
  *
- * `reliableScope` is false on the tenant-detail embed (no ?tenant= URL param,
- * so the catalog fetch can't be scoped) — there we only link to the editor.
+ * Works with any known tenant scope: when a tenant id is available (from the
+ * ?tenant= URL param or from route/props, e.g. the Tenant Detail embed) the
+ * catalog is fetched with an explicit x-tenant-id header, so the list is
+ * correct even off the /sos pages where the automatic header getter would
+ * fall back to the legacy scope.
  */
 function ServiceVocabularyCard({
   tenantId,
-  reliableScope,
   legacyServiceNames,
 }: {
   tenantId: number | null;
-  reliableScope: boolean;
   legacyServiceNames: string | null | undefined;
 }) {
-  const { data: catalog } = useListSosServices({
-    query: { queryKey: getListSosServicesQueryKey(), enabled: reliableScope },
+  const { data: catalog, isLoading } = useListSosServices({
+    // Include the tenant in the query key so caches never mix scopes, and
+    // pass the header explicitly — explicit headers win over the URL-derived
+    // getter, which only knows about ?tenant= on /sos pages.
+    query: { queryKey: [...getListSosServicesQueryKey(), { tenantId }] },
+    request:
+      tenantId != null ? { headers: { 'x-tenant-id': String(tenantId) } } : undefined,
   });
   const activeNames = (catalog ?? []).filter((s) => s.isActive).map((s) => s.name);
   const legacyNames = (legacyServiceNames ?? '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  const usingLegacy = reliableScope && catalog != null && catalog.length === 0;
-  const names = !reliableScope ? [] : usingLegacy ? legacyNames : activeNames;
+  const usingLegacy = catalog != null && catalog.length === 0;
+  const names = usingLegacy ? legacyNames : activeNames;
   const servicesUrl = tenantId != null ? `/sos/bookings?tab=services&tenant=${tenantId}` : '/sos/bookings?tab=services';
 
   return (
@@ -325,10 +331,12 @@ function ServiceVocabularyCard({
           <Link href={servicesUrl}>Manage Service Menu</Link>
         </Button>
       </div>
-      {!reliableScope ? (
-        <p className="text-sm text-muted-foreground">
-          This business's service menu is managed in Business Bookings → Services.
-        </p>
+      {isLoading ? (
+        <div className="flex flex-wrap gap-1.5" data-testid="skeleton-service-vocabulary">
+          <Skeleton className="h-6 w-20 rounded-full" />
+          <Skeleton className="h-6 w-24 rounded-full" />
+          <Skeleton className="h-6 w-16 rounded-full" />
+        </div>
       ) : names.length === 0 ? (
         <p className="text-sm text-muted-foreground" data-testid="text-no-services">
           No services configured yet — add them to the Service Menu so callers can book by name.

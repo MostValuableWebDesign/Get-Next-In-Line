@@ -32,6 +32,11 @@ const tenantSettings: Record<number, any> = {
 
 const updateTenantMutate = vi.fn();
 
+// Controllable service catalog + capture of the options the card fetches with
+// (query key + explicit x-tenant-id header).
+let servicesState: { data: unknown; isLoading: boolean } = { data: [], isLoading: false };
+const listSosServicesOptions = vi.fn();
+
 vi.mock('@workspace/api-client-react', () => ({
   useGetSosSettings: () => ({ data: undefined, isLoading: false }),
   getGetSosSettingsQueryKey: () => ['/api/sos/settings'],
@@ -54,7 +59,10 @@ vi.mock('@workspace/api-client-react', () => ({
     data: id ? { id, brandName: `Brand ${id}` } : undefined,
   }),
   getGetTenantQueryKey: (id: number) => ['/api/tenants', id],
-  useListSosServices: () => ({ data: [], isLoading: false }),
+  useListSosServices: (options?: unknown) => {
+    listSosServicesOptions(options);
+    return servicesState;
+  },
   getListSosServicesQueryKey: () => ['/api/sos/services'],
 }));
 
@@ -72,13 +80,15 @@ function renderPage() {
 describe('Tenant-scoped AI Receptionist view', () => {
   beforeEach(() => {
     updateTenantMutate.mockClear();
+    listSosServicesOptions.mockClear();
+    servicesState = { data: [], isLoading: false };
     routeParams = { id: '1' };
   });
 
   it('hydrates the form from the tenant settings record', () => {
     renderPage();
-    // Route-scoped tenant embed: the service vocabulary links to the Service
-    // Menu editor rather than fetching an unreliable scope.
+    // Route-scoped tenant embed: the service vocabulary card renders with a
+    // manage link and fetches the tenant's own catalog.
     expect(screen.getByTestId('card-service-vocabulary')).toBeInTheDocument();
     expect(screen.getByTestId('link-manage-service-menu')).toBeInTheDocument();
     expect(screen.getByTestId('switch-ai-receptionist')).toBeChecked();
@@ -113,5 +123,49 @@ describe('Tenant-scoped AI Receptionist view', () => {
       id: 2,
       data: { aiReceptionistEnabled: false },
     });
+  });
+
+  it('lists the tenant catalog services when the tenant id comes from the route (embed)', () => {
+    servicesState = {
+      data: [
+        { name: 'Balayage', isActive: true },
+        { name: 'Old Perm', isActive: false },
+      ],
+      isLoading: false,
+    };
+    renderPage();
+
+    const list = screen.getByTestId('list-recognized-services');
+    expect(list.textContent).toContain('Balayage');
+    expect(list.textContent).not.toContain('Old Perm');
+    // The generic "no services" message must not show when the catalog has rows.
+    expect(screen.queryByTestId('text-no-services')).not.toBeInTheDocument();
+
+    // The catalog fetch is scoped explicitly to the tenant: x-tenant-id
+    // header plus a tenant-qualified query key so caches never mix scopes.
+    expect(listSosServicesOptions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: { headers: { 'x-tenant-id': '1' } },
+        query: expect.objectContaining({
+          queryKey: ['/api/sos/services', { tenantId: 1 }],
+        }),
+      }),
+    );
+  });
+
+  it('shows a loading skeleton while the catalog is fetching', () => {
+    servicesState = { data: undefined, isLoading: true };
+    renderPage();
+
+    expect(screen.getByTestId('skeleton-service-vocabulary')).toBeInTheDocument();
+    expect(screen.queryByTestId('text-no-services')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('list-recognized-services')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the tenant legacy serviceNames when the catalog is empty', () => {
+    renderPage();
+    const list = screen.getByTestId('list-recognized-services');
+    expect(list.textContent).toContain('haircut');
+    expect(list.textContent).toContain('color');
   });
 });

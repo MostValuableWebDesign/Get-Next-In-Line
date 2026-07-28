@@ -134,8 +134,14 @@ const PARTNER_ORDER = [
 function PartnerSections() {
   const { data: modules, isLoading, isError, refetch } = useListModules();
   // Live per-partner connection state (not connected / pending / active /
-  // error). Non-blocking: cards render even while this loads or if it fails.
-  const { data: connections } = useListPartnerConnections({
+  // error). Non-blocking: cards render even while this loads or if it fails —
+  // but a failure surfaces as a visible indicator so missing connection
+  // status is never mistaken for "not connected".
+  const {
+    data: connections,
+    isError: isConnectionsError,
+    refetch: refetchConnections,
+  } = useListPartnerConnections({
     query: { queryKey: getListPartnerConnectionsQueryKey() },
   });
 
@@ -182,6 +188,26 @@ function PartnerSections() {
           HR, payroll, insurance, benefits, and accounting offerings from our partners.
         </p>
       </div>
+      {isConnectionsError && (
+        <div
+          className="max-w-4xl mx-auto flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-400"
+          data-testid="partner-connections-error"
+        >
+          <span>
+            Couldn't load connection status — partner cards are shown without their live
+            connection state.
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => refetchConnections()}
+            data-testid="button-retry-partner-connections"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
       {partners.map((module) => {
         const brand = module.partnerBrand ?? 'Partner';
         const content = PARTNER_OFFERINGS[brand];

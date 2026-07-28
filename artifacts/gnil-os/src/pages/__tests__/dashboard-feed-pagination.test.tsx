@@ -222,4 +222,36 @@ describe('Dashboard activity feed pagination', () => {
     await waitFor(() => expect(renderedFeedCount()).toBe(PAGE_SIZE * 2));
     expect(screen.queryByTestId('text-feed-load-more-error')).not.toBeInTheDocument();
   });
+
+  it('discards a Load more response that resolves after the feed context changed', async () => {
+    // Hold the page-2 response until after the feed is unmounted (rapid
+    // navigation away and back), then resolve it — the stale result must be
+    // discarded, not applied, so remounting shows exactly one clean page.
+    let resolvePage!: (page: ReturnType<typeof pageFor>) => void;
+    getTenantActivityMock.mockImplementationOnce(
+      () => new Promise((resolve) => { resolvePage = resolve; }),
+    );
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      const view = renderDashboard();
+      fireEvent.click(screen.getByTestId('button-feed-load-more'));
+
+      // Navigate away mid-flight: the feed unmounts, superseding the request.
+      view.unmount();
+      resolvePage(pageFor({ limit: PAGE_SIZE, before_timestamp: sortedDesc(allActivities)[PAGE_SIZE - 1].timestamp, before_id: sortedDesc(allActivities)[PAGE_SIZE - 1].id }));
+      await Promise.resolve();
+
+      // The stale resolution produced no React errors/warnings.
+      expect(errorSpy).not.toHaveBeenCalled();
+
+      // Coming back renders one clean first page — nothing appended, no error.
+      renderDashboard();
+      expect(renderedFeedCount()).toBe(PAGE_SIZE);
+      expect(screen.queryByTestId('text-feed-load-more-error')).not.toBeInTheDocument();
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
 });

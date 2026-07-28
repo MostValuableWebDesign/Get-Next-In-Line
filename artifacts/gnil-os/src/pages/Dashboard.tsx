@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StatCard } from '@/components/shared/StatCard';
 import { ActivityFeed } from '@/components/shared/ActivityFeed';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { useRef, useState, Component, type ReactNode } from 'react';
+import { useEffect, useRef, useState, Component, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -398,6 +398,20 @@ function GlobalActivityFeed() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState(false);
 
+  // Stale-pagination guard (mirrors Tenant Detail's feed): each mount of the
+  // feed is one pagination "context". A "Load more" response that resolves
+  // after the context changed (e.g. rapid tab navigation unmounted and
+  // remounted the dashboard) is discarded instead of applied, so results
+  // from a superseded query can never mix into the current feed.
+  const feedContextRef = useRef(0);
+  useEffect(() => {
+    const context = ++feedContextRef.current;
+    return () => {
+      // Invalidate any in-flight load-more from this mount.
+      if (feedContextRef.current === context) feedContextRef.current++;
+    };
+  }, []);
+
   const firstPageItems = activityPage?.items ?? [];
   const activities = [...firstPageItems, ...extraActivity];
   const hasMore = extraHasMore ?? activityPage?.hasMore ?? false;
@@ -409,6 +423,7 @@ function GlobalActivityFeed() {
         ? extraActivity[extraActivity.length - 1]
         : firstPageItems[firstPageItems.length - 1];
     if (!lastItem) return;
+    const requestContext = feedContextRef.current;
     setIsLoadingMore(true);
     setLoadMoreError(false);
     try {
@@ -417,10 +432,13 @@ function GlobalActivityFeed() {
         before_timestamp: lastItem.timestamp,
         before_id: lastItem.id,
       });
+      // Ignore stale responses from a superseded pagination context.
+      if (feedContextRef.current !== requestContext) return;
       setExtraActivity((prev) => [...prev, ...page.items]);
       setExtraHasMore(page.hasMore);
       setIsLoadingMore(false);
     } catch {
+      if (feedContextRef.current !== requestContext) return;
       setLoadMoreError(true);
       setIsLoadingMore(false);
     }

@@ -9,6 +9,7 @@ import { Router } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
 
 const refetch = vi.fn();
+const refetchConnections = vi.fn();
 
 let modulesState: {
   data: unknown;
@@ -16,6 +17,13 @@ let modulesState: {
   isError: boolean;
   refetch: typeof refetch;
 } = { data: undefined, isLoading: false, isError: true, refetch };
+
+let connectionsState: {
+  data: unknown;
+  isLoading: boolean;
+  isError: boolean;
+  refetch: typeof refetchConnections;
+} = { data: undefined, isLoading: false, isError: false, refetch: refetchConnections };
 
 vi.mock('@workspace/api-client-react', () => ({
   useListModules: () => modulesState,
@@ -28,7 +36,7 @@ vi.mock('@workspace/api-client-react', () => ({
   getGetBillingSummaryQueryKey: () => ['billing'],
   getGetAgencyDashboardQueryKey: () => ['dashboard'],
   getGetTenantActivityQueryKey: () => ['activity'],
-  useListPartnerConnections: () => ({ data: undefined, isLoading: false }),
+  useListPartnerConnections: () => connectionsState,
   getListPartnerConnectionsQueryKey: () => ['partner-connections'],
 }));
 
@@ -37,20 +45,31 @@ vi.mock('@/hooks/use-online', () => ({
   useOnlineStatus: () => ({ isOnline: true, settled: true }),
 }));
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import OperationsHub from '@/pages/OperationsHub';
 
 function renderPartnersTab() {
   const { hook } = memoryLocation({ path: '/partners' });
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <Router hook={hook}>
-      <OperationsHub />
-    </Router>,
+    <QueryClientProvider client={qc}>
+      <Router hook={hook}>
+        <OperationsHub />
+      </Router>
+    </QueryClientProvider>,
   );
 }
 
 beforeEach(() => {
   refetch.mockClear();
+  refetchConnections.mockClear();
   modulesState = { data: undefined, isLoading: false, isError: true, refetch };
+  connectionsState = {
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: refetchConnections,
+  };
 });
 
 describe('Partners tab — modules query failure', () => {
@@ -71,5 +90,52 @@ describe('Partners tab — modules query failure', () => {
 
     expect(screen.getByTestId('partner-services')).toBeInTheDocument();
     expect(screen.queryByTestId('partner-services-error')).not.toBeInTheDocument();
+  });
+});
+
+describe('Partners tab — partner-connections query failure', () => {
+  const partnerModules = [
+    {
+      id: 1,
+      name: 'Team HQ',
+      description: 'HR tooling',
+      categorySlug: 'partners',
+      partnerBrand: 'Deel',
+      isActive: true,
+    },
+  ];
+
+  it('shows a non-blocking error indicator while the partner cards still render', () => {
+    modulesState = { data: partnerModules, isLoading: false, isError: false, refetch };
+    connectionsState = {
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: refetchConnections,
+    };
+    renderPartnersTab();
+
+    // Cards render (non-blocking) …
+    expect(screen.getByTestId('partner-services')).toBeInTheDocument();
+    // … with a visible indicator that connection status failed to load.
+    expect(screen.getByTestId('partner-connections-error')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('button-retry-partner-connections'));
+    expect(refetchConnections).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no indicator when connections load fine or are still loading', () => {
+    modulesState = { data: partnerModules, isLoading: false, isError: false, refetch };
+    renderPartnersTab();
+    expect(screen.queryByTestId('partner-connections-error')).not.toBeInTheDocument();
+
+    connectionsState = {
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      refetch: refetchConnections,
+    };
+    renderPartnersTab();
+    expect(screen.queryByTestId('partner-connections-error')).not.toBeInTheDocument();
   });
 });
