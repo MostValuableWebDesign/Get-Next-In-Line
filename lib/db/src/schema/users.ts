@@ -13,12 +13,27 @@ export const usersTable = pgTable("users", {
   // platform operator that password login maps to.
   username: text("username").notNull().unique(),
   isPlatformAdmin: boolean("is_platform_admin").notNull().default(false),
-  // Optional programmatic login credential (random, unguessable). There is
-  // no user-management UI yet — memberships and tokens are seeded
-  // programmatically (tests, scripts). Null = user cannot log in by token.
+  // Optional programmatic login credential (random, unguessable). Issued by
+  // the Network Governance console when a user account is created (shown
+  // once) and rotatable there. Null = user cannot log in by token.
   loginToken: text("login_token").unique(),
+  // Hierarchical network-governance role:
+  //   super_admin      — manages everything (equivalent to isPlatformAdmin)
+  //   district_manager — manages an assigned subset of tenants (memberships)
+  //   merchant         — manages exactly one tenant (their business)
+  //   staff            — read/operational access within one tenant
+  // Scope (which tenants) lives in user_tenant_memberships.
+  role: text("role").notNull().default("staff"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const NETWORK_ROLES = [
+  "super_admin",
+  "district_manager",
+  "merchant",
+  "staff",
+] as const;
+export type NetworkRole = (typeof NETWORK_ROLES)[number];
 
 export type User = typeof usersTable.$inferSelect;
 export type InsertUser = typeof usersTable.$inferInsert;

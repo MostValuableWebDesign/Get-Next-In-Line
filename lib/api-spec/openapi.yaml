@@ -28,8 +28,189 @@ tags:
     description: Co-Op API & Third-Party POS Integration Gateway — bearer-token management and API call log (public /v1/gateway endpoints are server-to-server, outside this spec)
   - name: public-booking
     description: Public (no-login) direct-booking flow — service menu, availability, and booking keyed by tenant slug
+  - name: governance
+    description: Network Governance — hierarchical roles, user accounts, and the co-op join-application review queue
 
 paths:
+  /governance/users:
+    get:
+      operationId: listGovernanceUsers
+      tags: [governance]
+      summary: List network user accounts with roles and tenant scopes (super-admin only)
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceUserList"
+    post:
+      operationId: createGovernanceUser
+      tags: [governance]
+      summary: Create a network user account with a role and tenant scope (super-admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GovernanceUserCreate"
+      responses:
+        "201":
+          description: Created user — includes the one-time login token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceUserCreated"
+        "409":
+          description: Username already taken
+
+  /governance/users/{id}:
+    patch:
+      operationId: updateGovernanceUser
+      tags: [governance]
+      summary: Update a user's role and/or assigned tenant scope (super-admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GovernanceUserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceUser"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteGovernanceUser
+      tags: [governance]
+      summary: Delete a network user account (super-admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /governance/users/{id}/rotate-token:
+    post:
+      operationId: rotateGovernanceUserToken
+      tags: [governance]
+      summary: Issue a fresh one-time login token for a user (super-admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: New login token (shown once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceTokenRotation"
+        "404":
+          description: Not found
+
+  /governance/applications:
+    get:
+      operationId: listCoopApplications
+      tags: [governance]
+      summary: Co-op join application review queue (super-admin and district managers)
+      responses:
+        "200":
+          description: Applications, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopApplicationList"
+
+  /governance/applications/{id}:
+    patch:
+      operationId: reviewCoopApplication
+      tags: [governance]
+      summary: Move an application through its lifecycle and record vetting notes; approving provisions the tenant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopApplicationReview"
+      responses:
+        "200":
+          description: Updated application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopApplicationRecord"
+        "404":
+          description: Not found
+        "409":
+          description: Illegal status transition or subdomain conflict
+
+  /public/coop/applications:
+    post:
+      operationId: submitCoopApplication
+      tags: [governance]
+      summary: Public application form — a business applies to join the co-op network
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoopApplicationSubmission"
+      responses:
+        "201":
+          description: Application received — statusToken drives the status page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoopApplicationSubmitted"
+        "409":
+          description: Requested web address already taken
+
+  /public/coop/applications/{token}:
+    get:
+      operationId: getPublicCoopApplicationStatus
+      tags: [governance]
+      summary: Applicant-facing application status
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Application status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicCoopApplicationStatus"
+        "404":
+          description: Not found
+
   /healthz:
     get:
       operationId: healthCheck
@@ -6337,6 +6518,207 @@ paths:
 
 components:
   schemas:
+    NetworkRole:
+      type: string
+      enum: [super_admin, district_manager, merchant, staff]
+      description: Hierarchical network-governance role
+
+    GovernanceUserTenant:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    GovernanceUser:
+      type: object
+      required: [id, username, role, isPlatformAdmin, hasLoginToken, tenants, createdAt]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        role:
+          $ref: "#/components/schemas/NetworkRole"
+        isPlatformAdmin:
+          type: boolean
+        hasLoginToken:
+          type: boolean
+        tenants:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceUserTenant"
+        createdAt:
+          type: string
+          format: date-time
+
+    GovernanceUserList:
+      type: array
+      items:
+        $ref: "#/components/schemas/GovernanceUser"
+
+    GovernanceUserCreate:
+      type: object
+      required: [username, role]
+      properties:
+        username:
+          type: string
+          minLength: 2
+          maxLength: 64
+        role:
+          $ref: "#/components/schemas/NetworkRole"
+        tenantIds:
+          type: array
+          items:
+            type: integer
+          description: Tenant scope — district managers ≥ 1; merchant/staff exactly 1; ignored for super-admins
+
+    GovernanceUserCreated:
+      allOf:
+        - $ref: "#/components/schemas/GovernanceUser"
+        - type: object
+          required: [loginToken]
+          properties:
+            loginToken:
+              type: string
+              description: One-time-displayed login credential for the new user
+
+    GovernanceUserUpdate:
+      type: object
+      properties:
+        role:
+          $ref: "#/components/schemas/NetworkRole"
+        tenantIds:
+          type: array
+          items:
+            type: integer
+
+    GovernanceTokenRotation:
+      type: object
+      required: [id, loginToken]
+      properties:
+        id:
+          type: integer
+        loginToken:
+          type: string
+
+    CoopApplicationStatus:
+      type: string
+      enum: [submitted, under_review, approved, rejected]
+
+    CoopApplicationRecord:
+      type: object
+      required: [id, businessName, subdomain, contactName, contactEmail, category, pitch, status, reviewNotes, rejectionReason, resultingTenantId, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        businessName:
+          type: string
+        subdomain:
+          type: string
+        contactName:
+          type: string
+          nullable: true
+        contactEmail:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        pitch:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/CoopApplicationStatus"
+        reviewNotes:
+          type: string
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
+        resultingTenantId:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CoopApplicationList:
+      type: array
+      items:
+        $ref: "#/components/schemas/CoopApplicationRecord"
+
+    CoopApplicationReview:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [under_review, approved, rejected]
+        reviewNotes:
+          type: string
+          maxLength: 4000
+          description: Reviewer-only verification/vetting notes
+        rejectionReason:
+          type: string
+          maxLength: 1000
+          description: Shown to the applicant when rejected
+
+    CoopApplicationSubmission:
+      type: object
+      required: [businessName, subdomain]
+      properties:
+        businessName:
+          type: string
+          minLength: 2
+          maxLength: 120
+        subdomain:
+          type: string
+          minLength: 2
+          maxLength: 63
+        contactName:
+          type: string
+          maxLength: 120
+        contactEmail:
+          type: string
+          maxLength: 254
+        category:
+          type: string
+          maxLength: 120
+        pitch:
+          type: string
+          maxLength: 2000
+
+    CoopApplicationSubmitted:
+      type: object
+      required: [id, statusToken, status]
+      properties:
+        id:
+          type: integer
+        statusToken:
+          type: string
+        status:
+          $ref: "#/components/schemas/CoopApplicationStatus"
+
+    PublicCoopApplicationStatus:
+      type: object
+      required: [businessName, status, rejectionReason, submittedAt]
+      properties:
+        businessName:
+          type: string
+        status:
+          $ref: "#/components/schemas/CoopApplicationStatus"
+        rejectionReason:
+          type: string
+          nullable: true
+        submittedAt:
+          type: string
+          format: date-time
+
     PosIntegration:
       type: object
       required:

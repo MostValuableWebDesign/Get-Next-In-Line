@@ -121,10 +121,35 @@ export async function authorizeTenantAccess(
     return;
   }
 
+  const role = req.session?.role ?? "staff";
+
   if (isPlatformAdminOnly(req)) {
+    // Every signed-in role may READ the tenant list — the route filters it
+    // to the session user's memberships (district managers see their
+    // district, merchants/staff their own business, nobody else's).
+    // Everything else on the admin-only surface stays super-admin.
+    const scopedListRead =
+      (req.method === "GET" || req.method === "HEAD") &&
+      (req.path === "/tenants" || req.path === "/tenants/");
+    if (!scopedListRead) {
+      res.status(403).json({
+        error: "Forbidden",
+        message: "This operation requires platform administrator access",
+      });
+      return;
+    }
+  }
+
+  // Staff have read/operational access: on the governed management surfaces
+  // (tenant management and co-op routes) they may look but not change.
+  if (
+    role === "staff" &&
+    !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
+    (req.path.startsWith("/tenants") || req.path.startsWith("/coop"))
+  ) {
     res.status(403).json({
       error: "Forbidden",
-      message: "This operation requires platform administrator access",
+      message: "Staff accounts have read-only access to this area",
     });
     return;
   }

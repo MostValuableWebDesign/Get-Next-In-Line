@@ -22,6 +22,8 @@ import Settings from '@/pages/Settings';
 import CoopPartnerships from '@/pages/CoopPartnerships';
 import FranchiseController from '@/pages/FranchiseController';
 import Compliance from '@/pages/Compliance';
+import Governance from '@/pages/Governance';
+import { useSessionRole, type NetworkRole } from '@/hooks/useAuth';
 
 /**
  * Command Center hub.
@@ -41,7 +43,17 @@ const TAB_ROUTES: Record<string, string> = {
   compliance: '/compliance',
   partnerships: '/partnerships',
   franchise: '/franchise',
+  governance: '/governance',
   settings: '/settings',
+};
+
+// Which Command Center tabs each governance role can use. Anything not
+// listed is hidden — the role's API access wouldn't allow it anyway.
+const TABS_FOR_ROLE: Record<NetworkRole, string[]> = {
+  super_admin: ['dashboard', 'tenants', 'billing', 'compliance', 'partnerships', 'franchise', 'governance', 'settings'],
+  district_manager: ['tenants', 'governance'],
+  merchant: ['tenants'],
+  staff: ['tenants'],
 };
 
 function tabForLocation(location: string): string {
@@ -53,7 +65,10 @@ function tabForLocation(location: string): string {
 
 export default function CommandCenter() {
   const [location, setLocation] = useLocation();
-  const activeTab = tabForLocation(location);
+  const role = useSessionRole();
+  const visibleTabs = TABS_FOR_ROLE[role ?? 'super_admin'];
+  let activeTab = tabForLocation(location);
+  if (!visibleTabs.includes(activeTab)) activeTab = visibleTabs[0];
 
   return (
     <div className="space-y-4" data-testid="command-center-hub">
@@ -65,13 +80,14 @@ export default function CommandCenter() {
         }}
       >
         <TabsList data-testid="command-center-tabs" className="flex-wrap h-auto">
-          <TabsTrigger value="dashboard" data-testid="tab-dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="tenants" data-testid="tab-tenants">Tenants</TabsTrigger>
-          <TabsTrigger value="billing" data-testid="tab-billing">Billing</TabsTrigger>
-          <TabsTrigger value="compliance" data-testid="tab-compliance">Compliance</TabsTrigger>
-          <TabsTrigger value="partnerships" data-testid="tab-partnerships">Partnerships</TabsTrigger>
-          <TabsTrigger value="franchise" data-testid="tab-franchise">Franchise</TabsTrigger>
-          <TabsTrigger value="settings" data-testid="tab-agency-settings">Agency Settings</TabsTrigger>
+          {visibleTabs.includes('dashboard') && <TabsTrigger value="dashboard" data-testid="tab-dashboard">Dashboard</TabsTrigger>}
+          {visibleTabs.includes('tenants') && <TabsTrigger value="tenants" data-testid="tab-tenants">Tenants</TabsTrigger>}
+          {visibleTabs.includes('billing') && <TabsTrigger value="billing" data-testid="tab-billing">Billing</TabsTrigger>}
+          {visibleTabs.includes('compliance') && <TabsTrigger value="compliance" data-testid="tab-compliance">Compliance</TabsTrigger>}
+          {visibleTabs.includes('partnerships') && <TabsTrigger value="partnerships" data-testid="tab-partnerships">Partnerships</TabsTrigger>}
+          {visibleTabs.includes('franchise') && <TabsTrigger value="franchise" data-testid="tab-franchise">Franchise</TabsTrigger>}
+          {visibleTabs.includes('governance') && <TabsTrigger value="governance" data-testid="tab-governance">Governance</TabsTrigger>}
+          {visibleTabs.includes('settings') && <TabsTrigger value="settings" data-testid="tab-agency-settings">Agency Settings</TabsTrigger>}
         </TabsList>
         <TabsContent value="dashboard" className="mt-4">
           <DashboardErrorBoundary>
@@ -92,6 +108,9 @@ export default function CommandCenter() {
         </TabsContent>
         <TabsContent value="franchise" className="mt-4">
           <FranchiseController />
+        </TabsContent>
+        <TabsContent value="governance" className="mt-4">
+          <Governance />
         </TabsContent>
         <TabsContent value="settings" className="mt-4">
           <Settings />

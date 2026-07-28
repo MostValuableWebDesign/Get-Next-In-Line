@@ -15,11 +15,16 @@ import { formatCurrency } from '@/lib/format';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/shared/StatusBadge';
+import { useSessionRole } from '@/hooks/useAuth';
 
 export default function Tenants() {
   const { data: tenants, isLoading } = useListTenants();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [, navigate] = useLocation();
+  const role = useSessionRole();
+  // Only super-admins provision new tenants; staff are read-only.
+  const canProvision = role === 'super_admin';
+  const canManage = role !== 'staff';
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -28,20 +33,22 @@ export default function Tenants() {
           <h1 className="text-3xl font-bold tracking-tight">Tenant Operations</h1>
           <p className="text-muted-foreground mt-1">Manage client environments and subscription status.</p>
         </div>
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" /> Provision Tenant
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Provision New Tenant</DialogTitle>
-              <DialogDescription>Setup a new client environment and configure basic details.</DialogDescription>
-            </DialogHeader>
-            <CreateTenantForm onSuccess={() => setIsCreateOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        {canProvision && (
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="w-4 h-4" /> Provision Tenant
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Provision New Tenant</DialogTitle>
+                <DialogDescription>Setup a new client environment and configure basic details.</DialogDescription>
+              </DialogHeader>
+              <CreateTenantForm onSuccess={() => setIsCreateOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Card className="border-none shadow-md">
@@ -92,7 +99,7 @@ export default function Tenants() {
                       <Badge variant="outline" className="font-mono">{tenant.modulesEnabled}</Badge>
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <TenantActions tenant={tenant} />
+                      {canManage && <TenantActions tenant={tenant} canDelete={role === 'super_admin'} />}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -105,7 +112,7 @@ export default function Tenants() {
   );
 }
 
-function TenantActions({ tenant }: { tenant: any }) {
+function TenantActions({ tenant, canDelete }: { tenant: any; canDelete: boolean }) {
   const updateTenant = useUpdateTenant();
   const deleteTenant = useDeleteTenant();
   const queryClient = useQueryClient();
@@ -153,10 +160,14 @@ function TenantActions({ tenant }: { tenant: any }) {
           <DropdownMenuItem onClick={handleToggleStatus} className="gap-2 cursor-pointer">
             <Power className="h-4 w-4" /> {tenant.status === 'active' ? 'Suspend' : 'Activate'}
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive gap-2 cursor-pointer">
-            <Trash2 className="h-4 w-4" /> Terminate
-          </DropdownMenuItem>
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive gap-2 cursor-pointer">
+                <Trash2 className="h-4 w-4" /> Terminate
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 

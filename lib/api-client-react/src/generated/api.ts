@@ -45,6 +45,11 @@ import type {
   ConnectorRegistryEntry,
   ConnectorRegistryEntryUpdate,
   CoopActivePerksResponse,
+  CoopApplicationList,
+  CoopApplicationRecord,
+  CoopApplicationReview,
+  CoopApplicationSubmission,
+  CoopApplicationSubmitted,
   CoopBoostCreate,
   CoopCampaign,
   CoopCampaignBlastResult,
@@ -169,6 +174,12 @@ import type {
   GetSosStaffEarningsParams,
   GetTenantActivityParams,
   GetTipSplitPreviewParams,
+  GovernanceTokenRotation,
+  GovernanceUser,
+  GovernanceUserCreate,
+  GovernanceUserCreated,
+  GovernanceUserList,
+  GovernanceUserUpdate,
   GratuityLedgerEntry,
   GratuityShiftReportRow,
   HealthStatus,
@@ -226,6 +237,7 @@ import type {
   PublicBookingConfirmation,
   PublicBookingInput,
   PublicBookingPerksResponse,
+  PublicCoopApplicationStatus,
   PublicPlatformInvite,
   SafetyBroadcastTemplate,
   SafetyBroadcastTemplateCreate,
@@ -331,6 +343,665 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListGovernanceUsersUrl = () => {
+
+
+
+
+  return `/api/governance/users`
+}
+
+/**
+ * @summary List network user accounts with roles and tenant scopes (super-admin only)
+ */
+export const listGovernanceUsers = async ( options?: RequestInit): Promise<GovernanceUserList> => {
+
+  return customFetch<GovernanceUserList>(getListGovernanceUsersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGovernanceUsersQueryKey = () => {
+    return [
+    `/api/governance/users`
+    ] as const;
+    }
+
+
+export const getListGovernanceUsersQueryOptions = <TData = Awaited<ReturnType<typeof listGovernanceUsers>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGovernanceUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGovernanceUsersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGovernanceUsers>>> = ({ signal }) => listGovernanceUsers({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGovernanceUsers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListGovernanceUsersQueryResult = NonNullable<Awaited<ReturnType<typeof listGovernanceUsers>>>
+export type ListGovernanceUsersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List network user accounts with roles and tenant scopes (super-admin only)
+ */
+
+export function useListGovernanceUsers<TData = Awaited<ReturnType<typeof listGovernanceUsers>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listGovernanceUsers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListGovernanceUsersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateGovernanceUserUrl = () => {
+
+
+
+
+  return `/api/governance/users`
+}
+
+/**
+ * @summary Create a network user account with a role and tenant scope (super-admin only)
+ */
+export const createGovernanceUser = async (governanceUserCreate: GovernanceUserCreate, options?: RequestInit): Promise<GovernanceUserCreated> => {
+
+  return customFetch<GovernanceUserCreated>(getCreateGovernanceUserUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(governanceUserCreate)
+  }
+);}
+
+
+
+
+
+export const getCreateGovernanceUserMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGovernanceUser>>, TError,{data: BodyType<GovernanceUserCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createGovernanceUser>>, TError,{data: BodyType<GovernanceUserCreate>}, TContext> => {
+
+const mutationKey = ['createGovernanceUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createGovernanceUser>>, {data: BodyType<GovernanceUserCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createGovernanceUser(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateGovernanceUserMutationResult = NonNullable<Awaited<ReturnType<typeof createGovernanceUser>>>
+    export type CreateGovernanceUserMutationBody = BodyType<GovernanceUserCreate>
+    export type CreateGovernanceUserMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a network user account with a role and tenant scope (super-admin only)
+ */
+export const useCreateGovernanceUser = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createGovernanceUser>>, TError,{data: BodyType<GovernanceUserCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createGovernanceUser>>,
+        TError,
+        {data: BodyType<GovernanceUserCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateGovernanceUserMutationOptions(options));
+    }
+
+export const getUpdateGovernanceUserUrl = (id: number,) => {
+
+
+
+
+  return `/api/governance/users/${id}`
+}
+
+/**
+ * @summary Update a user's role and/or assigned tenant scope (super-admin only)
+ */
+export const updateGovernanceUser = async (id: number,
+    governanceUserUpdate: GovernanceUserUpdate, options?: RequestInit): Promise<GovernanceUser> => {
+
+  return customFetch<GovernanceUser>(getUpdateGovernanceUserUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(governanceUserUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateGovernanceUserMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateGovernanceUser>>, TError,{id: number;data: BodyType<GovernanceUserUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateGovernanceUser>>, TError,{id: number;data: BodyType<GovernanceUserUpdate>}, TContext> => {
+
+const mutationKey = ['updateGovernanceUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateGovernanceUser>>, {id: number;data: BodyType<GovernanceUserUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateGovernanceUser(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateGovernanceUserMutationResult = NonNullable<Awaited<ReturnType<typeof updateGovernanceUser>>>
+    export type UpdateGovernanceUserMutationBody = BodyType<GovernanceUserUpdate>
+    export type UpdateGovernanceUserMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a user's role and/or assigned tenant scope (super-admin only)
+ */
+export const useUpdateGovernanceUser = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateGovernanceUser>>, TError,{id: number;data: BodyType<GovernanceUserUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateGovernanceUser>>,
+        TError,
+        {id: number;data: BodyType<GovernanceUserUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateGovernanceUserMutationOptions(options));
+    }
+
+export const getDeleteGovernanceUserUrl = (id: number,) => {
+
+
+
+
+  return `/api/governance/users/${id}`
+}
+
+/**
+ * @summary Delete a network user account (super-admin only)
+ */
+export const deleteGovernanceUser = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteGovernanceUserUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteGovernanceUserMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGovernanceUser>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteGovernanceUser>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteGovernanceUser'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteGovernanceUser>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteGovernanceUser(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteGovernanceUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteGovernanceUser>>>
+
+    export type DeleteGovernanceUserMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a network user account (super-admin only)
+ */
+export const useDeleteGovernanceUser = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGovernanceUser>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteGovernanceUser>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteGovernanceUserMutationOptions(options));
+    }
+
+export const getRotateGovernanceUserTokenUrl = (id: number,) => {
+
+
+
+
+  return `/api/governance/users/${id}/rotate-token`
+}
+
+/**
+ * @summary Issue a fresh one-time login token for a user (super-admin only)
+ */
+export const rotateGovernanceUserToken = async (id: number, options?: RequestInit): Promise<GovernanceTokenRotation> => {
+
+  return customFetch<GovernanceTokenRotation>(getRotateGovernanceUserTokenUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRotateGovernanceUserTokenMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateGovernanceUserToken>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rotateGovernanceUserToken>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['rotateGovernanceUserToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rotateGovernanceUserToken>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  rotateGovernanceUserToken(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RotateGovernanceUserTokenMutationResult = NonNullable<Awaited<ReturnType<typeof rotateGovernanceUserToken>>>
+
+    export type RotateGovernanceUserTokenMutationError = ErrorType<void>
+
+    /**
+ * @summary Issue a fresh one-time login token for a user (super-admin only)
+ */
+export const useRotateGovernanceUserToken = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateGovernanceUserToken>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rotateGovernanceUserToken>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRotateGovernanceUserTokenMutationOptions(options));
+    }
+
+export const getListCoopApplicationsUrl = () => {
+
+
+
+
+  return `/api/governance/applications`
+}
+
+/**
+ * @summary Co-op join application review queue (super-admin and district managers)
+ */
+export const listCoopApplications = async ( options?: RequestInit): Promise<CoopApplicationList> => {
+
+  return customFetch<CoopApplicationList>(getListCoopApplicationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListCoopApplicationsQueryKey = () => {
+    return [
+    `/api/governance/applications`
+    ] as const;
+    }
+
+
+export const getListCoopApplicationsQueryOptions = <TData = Awaited<ReturnType<typeof listCoopApplications>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopApplications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListCoopApplicationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoopApplications>>> = ({ signal }) => listCoopApplications({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listCoopApplications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListCoopApplicationsQueryResult = NonNullable<Awaited<ReturnType<typeof listCoopApplications>>>
+export type ListCoopApplicationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Co-op join application review queue (super-admin and district managers)
+ */
+
+export function useListCoopApplications<TData = Awaited<ReturnType<typeof listCoopApplications>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listCoopApplications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListCoopApplicationsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReviewCoopApplicationUrl = (id: number,) => {
+
+
+
+
+  return `/api/governance/applications/${id}`
+}
+
+/**
+ * @summary Move an application through its lifecycle and record vetting notes; approving provisions the tenant
+ */
+export const reviewCoopApplication = async (id: number,
+    coopApplicationReview: CoopApplicationReview, options?: RequestInit): Promise<CoopApplicationRecord> => {
+
+  return customFetch<CoopApplicationRecord>(getReviewCoopApplicationUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopApplicationReview)
+  }
+);}
+
+
+
+
+
+export const getReviewCoopApplicationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewCoopApplication>>, TError,{id: number;data: BodyType<CoopApplicationReview>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewCoopApplication>>, TError,{id: number;data: BodyType<CoopApplicationReview>}, TContext> => {
+
+const mutationKey = ['reviewCoopApplication'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewCoopApplication>>, {id: number;data: BodyType<CoopApplicationReview>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reviewCoopApplication(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewCoopApplicationMutationResult = NonNullable<Awaited<ReturnType<typeof reviewCoopApplication>>>
+    export type ReviewCoopApplicationMutationBody = BodyType<CoopApplicationReview>
+    export type ReviewCoopApplicationMutationError = ErrorType<void>
+
+    /**
+ * @summary Move an application through its lifecycle and record vetting notes; approving provisions the tenant
+ */
+export const useReviewCoopApplication = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewCoopApplication>>, TError,{id: number;data: BodyType<CoopApplicationReview>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reviewCoopApplication>>,
+        TError,
+        {id: number;data: BodyType<CoopApplicationReview>},
+        TContext
+      > => {
+      return useMutation(getReviewCoopApplicationMutationOptions(options));
+    }
+
+export const getSubmitCoopApplicationUrl = () => {
+
+
+
+
+  return `/api/public/coop/applications`
+}
+
+/**
+ * @summary Public application form — a business applies to join the co-op network
+ */
+export const submitCoopApplication = async (coopApplicationSubmission: CoopApplicationSubmission, options?: RequestInit): Promise<CoopApplicationSubmitted> => {
+
+  return customFetch<CoopApplicationSubmitted>(getSubmitCoopApplicationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(coopApplicationSubmission)
+  }
+);}
+
+
+
+
+
+export const getSubmitCoopApplicationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitCoopApplication>>, TError,{data: BodyType<CoopApplicationSubmission>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitCoopApplication>>, TError,{data: BodyType<CoopApplicationSubmission>}, TContext> => {
+
+const mutationKey = ['submitCoopApplication'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitCoopApplication>>, {data: BodyType<CoopApplicationSubmission>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitCoopApplication(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitCoopApplicationMutationResult = NonNullable<Awaited<ReturnType<typeof submitCoopApplication>>>
+    export type SubmitCoopApplicationMutationBody = BodyType<CoopApplicationSubmission>
+    export type SubmitCoopApplicationMutationError = ErrorType<void>
+
+    /**
+ * @summary Public application form — a business applies to join the co-op network
+ */
+export const useSubmitCoopApplication = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitCoopApplication>>, TError,{data: BodyType<CoopApplicationSubmission>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitCoopApplication>>,
+        TError,
+        {data: BodyType<CoopApplicationSubmission>},
+        TContext
+      > => {
+      return useMutation(getSubmitCoopApplicationMutationOptions(options));
+    }
+
+export const getGetPublicCoopApplicationStatusUrl = (token: string,) => {
+
+
+
+
+  return `/api/public/coop/applications/${token}`
+}
+
+/**
+ * @summary Applicant-facing application status
+ */
+export const getPublicCoopApplicationStatus = async (token: string, options?: RequestInit): Promise<PublicCoopApplicationStatus> => {
+
+  return customFetch<PublicCoopApplicationStatus>(getGetPublicCoopApplicationStatusUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicCoopApplicationStatusQueryKey = (token: string,) => {
+    return [
+    `/api/public/coop/applications/${token}`
+    ] as const;
+    }
+
+
+export const getGetPublicCoopApplicationStatusQueryOptions = <TData = Awaited<ReturnType<typeof getPublicCoopApplicationStatus>>, TError = ErrorType<void>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicCoopApplicationStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicCoopApplicationStatusQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicCoopApplicationStatus>>> = ({ signal }) => getPublicCoopApplicationStatus(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicCoopApplicationStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicCoopApplicationStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicCoopApplicationStatus>>>
+export type GetPublicCoopApplicationStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Applicant-facing application status
+ */
+
+export function useGetPublicCoopApplicationStatus<TData = Awaited<ReturnType<typeof getPublicCoopApplicationStatus>>, TError = ErrorType<void>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicCoopApplicationStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicCoopApplicationStatusQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getHealthCheckUrl = () => {
 

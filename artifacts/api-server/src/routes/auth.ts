@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
+import { sessionRole } from "../middlewares/roles";
 
 const router: IRouter = Router();
 
@@ -19,10 +20,15 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     loginToken?: string;
   };
 
-  const finishLogin = (userId: number | null, isPlatformAdmin: boolean) => {
+  const finishLogin = (
+    userId: number | null,
+    isPlatformAdmin: boolean,
+    role?: string,
+  ) => {
     req.session.authenticated = true;
     if (userId != null) req.session.userId = userId;
     req.session.isPlatformAdmin = isPlatformAdmin;
+    if (role) req.session.role = role;
     req.session.save((err) => {
       if (err) {
         res.status(500).json({ error: "Session error" });
@@ -41,7 +47,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
-    finishLogin(user.id, user.isPlatformAdmin);
+    finishLogin(user.id, user.isPlatformAdmin, user.isPlatformAdmin ? "super_admin" : user.role);
     return;
   }
 
@@ -63,7 +69,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   // Password login is the platform operator: a platform admin with no
   // per-user row (deliberately DB-free so login works even when the users
   // table is unavailable, and legacy sessions behave identically).
-  finishLogin(null, true);
+  finishLogin(null, true, "super_admin");
 });
 
 /**
@@ -79,11 +85,11 @@ router.post("/auth/logout", (req, res) => {
 
 /**
  * GET /api/auth/me
- * Returns 200 when the session is authenticated, 401 otherwise.
- * Used by the frontend to check auth state on load.
+ * Returns 200 (with the session's governance role) when authenticated,
+ * 401 otherwise. Used by the frontend to check auth state and gate UI.
  */
-router.get("/auth/me", requireAuth, (_req, res) => {
-  res.json({ authenticated: true });
+router.get("/auth/me", requireAuth, (req, res) => {
+  res.json({ authenticated: true, role: sessionRole(req) });
 });
 
 export default router;

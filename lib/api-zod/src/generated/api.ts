@@ -9,6 +9,210 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary List network user accounts with roles and tenant scopes (super-admin only)
+ */
+export const ListGovernanceUsersResponseItem = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "role": zod.enum(['super_admin', 'district_manager', 'merchant', 'staff']).describe('Hierarchical network-governance role'),
+  "isPlatformAdmin": zod.boolean(),
+  "hasLoginToken": zod.boolean(),
+  "tenants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+})),
+  "createdAt": zod.coerce.date()
+})
+export const ListGovernanceUsersResponse = zod.array(ListGovernanceUsersResponseItem)
+
+
+/**
+ * @summary Create a network user account with a role and tenant scope (super-admin only)
+ */
+export const createGovernanceUserBodyUsernameMin = 2;
+export const createGovernanceUserBodyUsernameMax = 64;
+
+
+
+export const CreateGovernanceUserBody = zod.object({
+  "username": zod.string().min(createGovernanceUserBodyUsernameMin).max(createGovernanceUserBodyUsernameMax),
+  "role": zod.enum(['super_admin', 'district_manager', 'merchant', 'staff']).describe('Hierarchical network-governance role'),
+  "tenantIds": zod.array(zod.number()).optional().describe('Tenant scope — district managers ≥ 1; merchant\/staff exactly 1; ignored for super-admins')
+})
+
+export const CreateGovernanceUserResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "role": zod.enum(['super_admin', 'district_manager', 'merchant', 'staff']).describe('Hierarchical network-governance role'),
+  "isPlatformAdmin": zod.boolean(),
+  "hasLoginToken": zod.boolean(),
+  "tenants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+})),
+  "createdAt": zod.coerce.date()
+}).and(zod.object({
+  "loginToken": zod.string().describe('One-time-displayed login credential for the new user')
+}))
+
+
+/**
+ * @summary Update a user's role and/or assigned tenant scope (super-admin only)
+ */
+export const UpdateGovernanceUserParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateGovernanceUserBody = zod.object({
+  "role": zod.enum(['super_admin', 'district_manager', 'merchant', 'staff']).optional().describe('Hierarchical network-governance role'),
+  "tenantIds": zod.array(zod.number()).optional()
+})
+
+export const UpdateGovernanceUserResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "role": zod.enum(['super_admin', 'district_manager', 'merchant', 'staff']).describe('Hierarchical network-governance role'),
+  "isPlatformAdmin": zod.boolean(),
+  "hasLoginToken": zod.boolean(),
+  "tenants": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+})),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a network user account (super-admin only)
+ */
+export const DeleteGovernanceUserParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteGovernanceUserResponse = zod.void()
+
+
+/**
+ * @summary Issue a fresh one-time login token for a user (super-admin only)
+ */
+export const RotateGovernanceUserTokenParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RotateGovernanceUserTokenResponse = zod.object({
+  "id": zod.number(),
+  "loginToken": zod.string()
+})
+
+
+/**
+ * @summary Co-op join application review queue (super-admin and district managers)
+ */
+export const ListCoopApplicationsResponseItem = zod.object({
+  "id": zod.number(),
+  "businessName": zod.string(),
+  "subdomain": zod.string(),
+  "contactName": zod.string().nullable(),
+  "contactEmail": zod.string().nullable(),
+  "category": zod.string().nullable(),
+  "pitch": zod.string().nullable(),
+  "status": zod.enum(['submitted', 'under_review', 'approved', 'rejected']),
+  "reviewNotes": zod.string().nullable(),
+  "rejectionReason": zod.string().nullable(),
+  "resultingTenantId": zod.number().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListCoopApplicationsResponse = zod.array(ListCoopApplicationsResponseItem)
+
+
+/**
+ * @summary Move an application through its lifecycle and record vetting notes; approving provisions the tenant
+ */
+export const ReviewCoopApplicationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const reviewCoopApplicationBodyReviewNotesMax = 4000;
+
+export const reviewCoopApplicationBodyRejectionReasonMax = 1000;
+
+
+
+export const ReviewCoopApplicationBody = zod.object({
+  "status": zod.enum(['under_review', 'approved', 'rejected']).optional(),
+  "reviewNotes": zod.string().max(reviewCoopApplicationBodyReviewNotesMax).optional().describe('Reviewer-only verification\/vetting notes'),
+  "rejectionReason": zod.string().max(reviewCoopApplicationBodyRejectionReasonMax).optional().describe('Shown to the applicant when rejected')
+})
+
+export const ReviewCoopApplicationResponse = zod.object({
+  "id": zod.number(),
+  "businessName": zod.string(),
+  "subdomain": zod.string(),
+  "contactName": zod.string().nullable(),
+  "contactEmail": zod.string().nullable(),
+  "category": zod.string().nullable(),
+  "pitch": zod.string().nullable(),
+  "status": zod.enum(['submitted', 'under_review', 'approved', 'rejected']),
+  "reviewNotes": zod.string().nullable(),
+  "rejectionReason": zod.string().nullable(),
+  "resultingTenantId": zod.number().nullable(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Public application form — a business applies to join the co-op network
+ */
+export const submitCoopApplicationBodyBusinessNameMin = 2;
+export const submitCoopApplicationBodyBusinessNameMax = 120;
+
+export const submitCoopApplicationBodySubdomainMin = 2;
+export const submitCoopApplicationBodySubdomainMax = 63;
+
+export const submitCoopApplicationBodyContactNameMax = 120;
+
+export const submitCoopApplicationBodyContactEmailMax = 254;
+
+export const submitCoopApplicationBodyCategoryMax = 120;
+
+export const submitCoopApplicationBodyPitchMax = 2000;
+
+
+
+export const SubmitCoopApplicationBody = zod.object({
+  "businessName": zod.string().min(submitCoopApplicationBodyBusinessNameMin).max(submitCoopApplicationBodyBusinessNameMax),
+  "subdomain": zod.string().min(submitCoopApplicationBodySubdomainMin).max(submitCoopApplicationBodySubdomainMax),
+  "contactName": zod.string().max(submitCoopApplicationBodyContactNameMax).optional(),
+  "contactEmail": zod.string().max(submitCoopApplicationBodyContactEmailMax).optional(),
+  "category": zod.string().max(submitCoopApplicationBodyCategoryMax).optional(),
+  "pitch": zod.string().max(submitCoopApplicationBodyPitchMax).optional()
+})
+
+export const SubmitCoopApplicationResponse = zod.object({
+  "id": zod.number(),
+  "statusToken": zod.string(),
+  "status": zod.enum(['submitted', 'under_review', 'approved', 'rejected'])
+})
+
+
+/**
+ * @summary Applicant-facing application status
+ */
+export const GetPublicCoopApplicationStatusParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetPublicCoopApplicationStatusResponse = zod.object({
+  "businessName": zod.string(),
+  "status": zod.enum(['submitted', 'under_review', 'approved', 'rejected']),
+  "rejectionReason": zod.string().nullable(),
+  "submittedAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({

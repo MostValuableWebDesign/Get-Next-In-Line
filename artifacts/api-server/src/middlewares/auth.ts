@@ -9,6 +9,10 @@ declare module "express-session" {
     // operator and are treated as platform admin.
     userId?: number;
     isPlatformAdmin?: boolean;
+    // Network-governance role carried by the session (set at login).
+    // Absent on legacy password sessions — those are the platform operator
+    // and behave as super_admin.
+    role?: string;
   }
 }
 

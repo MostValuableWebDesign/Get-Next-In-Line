@@ -28,6 +28,8 @@ import landingRouter from "./landing";
 import campaignRedirectRouter from "./campaignRedirect";
 import platformInviteJoinRouter from "./platformInviteJoin";
 import walletRouter from "./wallet";
+import governanceRouter from "./governance";
+import coopApplicationsRouter from "./coopApplications";
 import franchiseRouter from "./franchise";
 import reviewsRouter from "./reviews";
 
@@ -57,6 +59,10 @@ router.use(platformInviteJoinRouter);
 // session level: customers sign in with an SMS code. Code requests are rate
 // limited and wallet reads require the unguessable x-wallet-session token.
 router.use(walletRouter);
+// Public co-op join application flow (/public/coop/applications) —
+// deliberately unauthenticated: the applying business has no account yet.
+// Rate limited; the review queue lives behind the governance console.
+router.use(coopApplicationsRouter);
 
 // ── Protected routes ─────────────────────────────────────────────────────────
 // All routes below this middleware require a valid session — except the
@@ -121,5 +127,6 @@ router.use(posRouter);      // External POS webhook connectors (/pos)
 router.use(gatewayRouter);  // Co-Op API gateway: token mgmt (/gateway) + public API (/v1/gateway)
 router.use(safetyRouter);   // Co-op emergency & safety alert network (/coop/safety)
 router.use(emergencyRouter); // Co-op emergency & crisis network broadcasts (/coop/emergency)
+router.use(governanceRouter); // Network Governance: users/roles + application review (/governance)
 
 export default router;

@@ -13,6 +13,7 @@ import Login from "@/pages/Login";
 import PublicBookingPage from "@/pages/public-booking";
 import JoinInvitePage from "@/pages/join-invite";
 import WalletPage from "@/pages/wallet";
+import { ApplyPage, ApplyStatusPage } from "@/pages/apply";
 import NotFound from "@/pages/not-found";
 
 // SOS Operations section (merged from the former standalone SOS app)
@@ -89,6 +90,7 @@ function ProtectedApp() {
             keeps its own URL so old links/bookmarks land on the right tab. */}
         <Route path="/" component={CommandCenter} />
         <Route path="/tenants" component={CommandCenter} />
+        <Route path="/governance" component={CommandCenter} />
         {/* Tenant Settings and AI Receptionist are now tabs inside Tenant
             Detail — old standalone URLs redirect to the matching tab. */}
         <Route path="/tenants/:id/settings">
@@ -216,6 +218,13 @@ function Router() {
       {/* Public customer "Local Perks" wallet — phone/SMS sign-in, no staff
           account. Must stay outside ProtectedApp. */}
       <Route path="/wallet" component={WalletPage} />
+      {/* Public co-op join application + applicant status page — the
+          applying business has no account yet, so these stay outside
+          ProtectedApp. */}
+      <Route path="/apply" component={ApplyPage} />
+      <Route path="/apply/:token">
+        {(params) => <ApplyStatusPage token={params.token} />}
+      </Route>
       <Route path="/join/:token">
         {(params) => <JoinInvitePage token={params.token} />}
       </Route>

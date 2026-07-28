@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
 import { tenantsTable, tenantActivitiesTable, tenantModulesTable, modulesTable } from "@workspace/db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
+import { userTenantMembershipsTable } from "@workspace/db";
+import { sessionIsPlatformAdmin } from "../middlewares/tenantAccess";
 import {
   GetTenantModulesParams,
   GetTenantModulesResponse,
@@ -85,10 +87,31 @@ router.patch("/tenants/:id/settings", async (req, res): Promise<void> => {
   res.json(UpdateTenantSettingsResponse.parse(await serializeSettings(updated)));
 });
 
-router.get("/tenants", async (_req, res): Promise<void> => {
+router.get("/tenants", async (req, res): Promise<void> => {
+  // Platform admins see every tenant; district managers (the only other role
+  // the authorization layer lets through here) see only their assigned set.
+  let scopedIds: number[] | null = null;
+  if (!sessionIsPlatformAdmin(req)) {
+    const userId = req.session.userId;
+    if (userId == null) {
+      res.json(ListTenantsResponse.parse([]));
+      return;
+    }
+    const memberships = await db
+      .select({ tenantId: userTenantMembershipsTable.tenantId })
+      .from(userTenantMembershipsTable)
+      .where(eq(userTenantMembershipsTable.userId, userId));
+    scopedIds = memberships.map((m) => m.tenantId);
+    if (scopedIds.length === 0) {
+      res.json(ListTenantsResponse.parse([]));
+      return;
+    }
+  }
+
   const tenants = await db
     .select()
     .from(tenantsTable)
+    .where(scopedIds ? inArray(tenantsTable.id, scopedIds) : undefined)
     .orderBy(desc(tenantsTable.createdAt));
 
   res.json(

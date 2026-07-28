@@ -5,6 +5,147 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * Hierarchical network-governance role
+ */
+export type NetworkRole = typeof NetworkRole[keyof typeof NetworkRole];
+
+
+export const NetworkRole = {
+  super_admin: 'super_admin',
+  district_manager: 'district_manager',
+  merchant: 'merchant',
+  staff: 'staff',
+} as const;
+
+export interface GovernanceUserTenant {
+  id: number;
+  name: string;
+}
+
+export interface GovernanceUser {
+  id: number;
+  username: string;
+  role: NetworkRole;
+  isPlatformAdmin: boolean;
+  hasLoginToken: boolean;
+  tenants: GovernanceUserTenant[];
+  createdAt: string;
+}
+
+export type GovernanceUserList = GovernanceUser[];
+
+export interface GovernanceUserCreate {
+  /**
+     * @minLength 2
+     * @maxLength 64
+     */
+  username: string;
+  role: NetworkRole;
+  /** Tenant scope — district managers ≥ 1; merchant/staff exactly 1; ignored for super-admins */
+  tenantIds?: number[];
+}
+
+export type GovernanceUserCreated = GovernanceUser & {
+  /** One-time-displayed login credential for the new user */
+  loginToken: string;
+};
+
+export interface GovernanceUserUpdate {
+  role?: NetworkRole;
+  tenantIds?: number[];
+}
+
+export interface GovernanceTokenRotation {
+  id: number;
+  loginToken: string;
+}
+
+export type CoopApplicationStatus = typeof CoopApplicationStatus[keyof typeof CoopApplicationStatus];
+
+
+export const CoopApplicationStatus = {
+  submitted: 'submitted',
+  under_review: 'under_review',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface CoopApplicationRecord {
+  id: number;
+  businessName: string;
+  subdomain: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  category: string | null;
+  pitch: string | null;
+  status: CoopApplicationStatus;
+  reviewNotes: string | null;
+  rejectionReason: string | null;
+  resultingTenantId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CoopApplicationList = CoopApplicationRecord[];
+
+export type CoopApplicationReviewStatus = typeof CoopApplicationReviewStatus[keyof typeof CoopApplicationReviewStatus];
+
+
+export const CoopApplicationReviewStatus = {
+  under_review: 'under_review',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface CoopApplicationReview {
+  status?: CoopApplicationReviewStatus;
+  /**
+     * Reviewer-only verification/vetting notes
+     * @maxLength 4000
+     */
+  reviewNotes?: string;
+  /**
+     * Shown to the applicant when rejected
+     * @maxLength 1000
+     */
+  rejectionReason?: string;
+}
+
+export interface CoopApplicationSubmission {
+  /**
+     * @minLength 2
+     * @maxLength 120
+     */
+  businessName: string;
+  /**
+     * @minLength 2
+     * @maxLength 63
+     */
+  subdomain: string;
+  /** @maxLength 120 */
+  contactName?: string;
+  /** @maxLength 254 */
+  contactEmail?: string;
+  /** @maxLength 120 */
+  category?: string;
+  /** @maxLength 2000 */
+  pitch?: string;
+}
+
+export interface CoopApplicationSubmitted {
+  id: number;
+  statusToken: string;
+  status: CoopApplicationStatus;
+}
+
+export interface PublicCoopApplicationStatus {
+  businessName: string;
+  status: CoopApplicationStatus;
+  rejectionReason: string | null;
+  submittedAt: string;
+}
+
 export type PosIntegrationVendor = typeof PosIntegrationVendor[keyof typeof PosIntegrationVendor];
 
 

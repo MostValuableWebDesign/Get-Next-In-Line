@@ -306,6 +306,53 @@ export const platformInvitesTable = pgTable(
   (t) => [index("platform_invites_inviter_idx").on(t.inviterTenantId)]
 );
 
+// ── Co-op join applications ──────────────────────────────────────────────────
+// Formal application/verification workflow for businesses applying to join
+// the co-op ecosystem via the public application form. Lifecycle:
+// submitted → under_review → approved | rejected. Approving one provisions
+// the tenant through the standard tenant-creation path and records the
+// resulting tenant id. The invite-token fast-track flow is unaffected.
+export const coopApplicationsTable = pgTable(
+  "coop_applications",
+  {
+    id: serial("id").primaryKey(),
+    businessName: text("business_name").notNull(),
+    // Requested web address; uniqueness is enforced against tenants at
+    // approval time (two applicants may request the same one — first
+    // approval wins).
+    subdomain: text("subdomain").notNull(),
+    contactName: text("contact_name"),
+    contactEmail: text("contact_email"),
+    category: text("category"),
+    // Applicant's free-form pitch: what the business does, why it wants in.
+    pitch: text("pitch"),
+    // Unguessable token for the applicant-facing status page.
+    statusToken: text("status_token").notNull().unique(),
+    // submitted | under_review | approved | rejected
+    status: text("status").notNull().default("submitted"),
+    // Reviewer-only verification/vetting notes (never shown to applicants).
+    reviewNotes: text("review_notes"),
+    // Shown to the applicant on the status page when rejected.
+    rejectionReason: text("rejection_reason"),
+    // Tenant provisioned from this application, once approved.
+    resultingTenantId: integer("resulting_tenant_id").references(() => tenantsTable.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [index("coop_applications_status_idx").on(t.status, t.createdAt.desc())]
+);
+
+export const COOP_APPLICATION_STATUSES = [
+  "submitted",
+  "under_review",
+  "approved",
+  "rejected",
+] as const;
+export type CoopApplicationStatus = (typeof COOP_APPLICATION_STATUSES)[number];
+export type CoopApplication = typeof coopApplicationsTable.$inferSelect;
+
 export const insertPlatformInviteSchema = createInsertSchema(platformInvitesTable).omit({
   id: true,
   createdAt: true,

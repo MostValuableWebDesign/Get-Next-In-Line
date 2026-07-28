@@ -62,6 +62,7 @@ vi.mock('@workspace/api-client-react', async (importOriginal) => {
 
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ authState: 'authenticated' }),
+  useSessionRole: () => 'super_admin',
 }));
 
 import App from '../App';

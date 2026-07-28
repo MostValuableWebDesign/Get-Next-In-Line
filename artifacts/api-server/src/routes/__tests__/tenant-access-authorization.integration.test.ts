@@ -53,7 +53,9 @@ beforeAll(async () => {
   const loginToken = `tok-${RUN}-${randomBytes(12).toString("hex")}`;
   const [user] = await db
     .insert(usersTable)
-    .values({ username: `member-${RUN}`, isPlatformAdmin: false, loginToken })
+    // "merchant" — the governance role for a business member managing their
+    // own tenant (the schema default "staff" is read-only on these surfaces).
+    .values({ username: `member-${RUN}`, isPlatformAdmin: false, role: "merchant", loginToken })
     .returning({ id: usersTable.id });
   userId = user.id;
   await db
@@ -152,7 +154,12 @@ describe("body- and query-based tenant scoping", () => {
 describe("platform-admin-only surfaces", () => {
   it("member is blocked from the agency console, tenant provisioning, and the global activity feed", async () => {
     expect((await memberAgent.get("/api/agency/settings")).status).toBe(403);
-    expect((await memberAgent.get("/api/tenants")).status).toBe(403);
+    // GET /tenants is allowed for members but scoped to their memberships
+    // (governance roles feature) — creation stays admin-only.
+    const list = await memberAgent.get("/api/tenants").expect(200);
+    const listedIds = (list.body as Array<{ id: number }>).map((t) => t.id);
+    expect(listedIds).toContain(tenantA);
+    expect(listedIds).not.toContain(tenantB);
     expect(
       (
         await memberAgent
