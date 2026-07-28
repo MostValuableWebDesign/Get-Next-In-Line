@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { requireRole } from "../middlewares/roles";
 import { db } from "@workspace/db";
 import {
   agencySettingsTable,
@@ -18,6 +19,11 @@ import {
 import { effectiveMarkupPercent } from "../lib/pricing";
 
 const router: IRouter = Router();
+
+// Route-level platform-role guard (see routes/admin.ts): the whole agency
+// console is platform-admin-only; the path-based check in tenantAccess.ts is
+// backstop only.
+router.use("/agency", requireRole("super_admin"));
 
 /**
  * Month-over-month MRR growth percent: (current − baseline) / baseline × 100,

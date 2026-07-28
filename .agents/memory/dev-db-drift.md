@@ -17,3 +17,6 @@ When pending migrations are *partially* applied out-of-band (e.g. DB rolled back
 
 ## Recovering a dev DB with partial out-of-band DDL and stale bookkeeping
 When many migrations fail with "already exists" (schema partly applied out of band), don't hand-run whole files: execute each pending migration statement-by-statement via psql, skipping only "already exists" errors, then `pnpm run migrate -- --mark-applied <file>` for each, and finish with `pnpm run db:push` + `db:check-drift` to confirm.
+
+## Triggers/functions are invisible to Drizzle reconcile
+Checkpoint DB restores can drop raw-SQL objects (e.g. the platform_ledger_entries append-only trigger + function) without any "unstamped migrations" signal — Drizzle only diffs tables/columns. On a trigger-behavior test failure, check `pg_trigger` and re-apply the DDL from the migration that created it.

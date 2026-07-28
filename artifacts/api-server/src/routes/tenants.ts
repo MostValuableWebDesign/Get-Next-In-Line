@@ -4,6 +4,7 @@ import { tenantsTable, tenantActivitiesTable, tenantModulesTable, modulesTable }
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import { userTenantMembershipsTable } from "@workspace/db";
 import { sessionIsPlatformAdmin } from "../middlewares/tenantAccess";
+import { requireRole } from "../middlewares/roles";
 import {
   GetTenantModulesParams,
   GetTenantModulesResponse,
@@ -125,7 +126,9 @@ router.get("/tenants", async (req, res): Promise<void> => {
   );
 });
 
-router.post("/tenants", async (req, res): Promise<void> => {
+// Tenant provisioning — platform-admin-only at route level (path-based check
+// in tenantAccess.ts is backstop only).
+router.post("/tenants", requireRole("super_admin"), async (req, res): Promise<void> => {
   const parsed = CreateTenantBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

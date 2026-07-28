@@ -1,4 +1,5 @@
 import { Router, type Request, type IRouter } from "express";
+import { requireRole } from "../middlewares/roles";
 import {
   db,
   procurementVendorsTable,
@@ -53,6 +54,10 @@ import {
 } from "../lib/procurement";
 
 const router: IRouter = Router();
+
+// Route-level platform-role guard (see routes/admin.ts): protection travels
+// with this router; the path-based check in tenantAccess.ts is backstop only.
+router.use("/admin/procurement", requireRole("super_admin"));
 
 // ---------------------------------------------------------------------------
 // Co-Op Supplier & Procurement Marketplace

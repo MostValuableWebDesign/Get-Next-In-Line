@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { requireRole } from "../middlewares/roles";
 import { db } from "@workspace/db";
 import {
   modulesTable,
@@ -31,7 +32,9 @@ function appBaseUrl(): string {
 
 const router: IRouter = Router();
 
-router.get("/billing/summary", async (_req, res): Promise<void> => {
+// Cross-tenant financial aggregates — platform-admin-only at route level
+// (path-based check in tenantAccess.ts is backstop only).
+router.get("/billing/summary", requireRole("super_admin"), async (_req, res): Promise<void> => {
   const tenants = await db.select().from(tenantsTable);
   const totalMrr = tenants.reduce((sum, t) => sum + parseFloat(t.mrr ?? "0"), 0);
 

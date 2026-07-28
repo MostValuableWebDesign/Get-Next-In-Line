@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { requireRole } from "../middlewares/roles";
 import { db } from "@workspace/db";
 import { modulesTable, agencySettingsTable, tenantModulesTable, tenantsTable } from "@workspace/db";
 import {
@@ -43,7 +44,9 @@ router.get("/modules", async (_req, res): Promise<void> => {
   );
 });
 
-router.get("/modules/tenant-counts", async (_req, res): Promise<void> => {
+// Cross-tenant module rosters — platform-admin-only at route level
+// (path-based check in tenantAccess.ts is backstop only).
+router.get("/modules/tenant-counts", requireRole("super_admin"), async (_req, res): Promise<void> => {
   let modules;
   let counts;
   try {
@@ -76,7 +79,7 @@ router.get("/modules/tenant-counts", async (_req, res): Promise<void> => {
   );
 });
 
-router.get("/modules/:id/tenants", async (req, res): Promise<void> => {
+router.get("/modules/:id/tenants", requireRole("super_admin"), async (req, res): Promise<void> => {
   const moduleId = Number(req.params.id);
   if (!Number.isInteger(moduleId)) {
     res.status(404).json({ error: "Module not found" });

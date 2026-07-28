@@ -26,6 +26,7 @@ import { sendMessageSafe } from "../lib/messaging";
 import { recordPerkRedemptionComplianceSafe } from "../lib/coopCompliance";
 import { requestCoopFeedbackSafe, sentimentSummaryForTenant } from "../lib/coopFeedback";
 import { sessionIsPlatformAdmin } from "../middlewares/tenantAccess";
+import { requireRole } from "../middlewares/roles";
 import {
   generateTrackingCode,
   type CoopDirection,
@@ -776,7 +777,9 @@ router.post("/coop/partnerships", async (req, res): Promise<void> => {
 // ── PATCH /coop/partnerships/:id — edit perk / activate / deactivate ────────
 // Tenant context is REQUIRED (x-tenant-id header) and only the two
 // participants (host or partner) may mutate the partnership.
-router.patch("/coop/partnerships/:id", async (req, res): Promise<void> => {
+// Platform-admin-only at route level (merchants use the invite/respond flow);
+// the path-based check in tenantAccess.ts is backstop only.
+router.patch("/coop/partnerships/:id", requireRole("super_admin"), async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id)) {
     res.status(404).json({ message: "Not found" });

@@ -67,8 +67,17 @@ import { inArray, ne } from "drizzle-orm";
 import { CAMPAIGN_CODE_RE } from "./campaignRedirect";
 
 import { effectiveMarkupPercent } from "../lib/pricing";
+import { requireRole } from "../middlewares/roles";
 
 const router: IRouter = Router();
+
+// Route-level platform-role guard: every /admin/* route in this router (and,
+// because this router sits early in the chain, any /admin/* route mounted
+// after it) requires the super_admin role. Protection travels with the
+// router — adding or renaming an admin route here cannot silently bypass
+// authorization. The path-based check in middlewares/tenantAccess.ts remains
+// as defense-in-depth only.
+router.use("/admin", requireRole("super_admin"));
 
 /**
  * Admin-only: full white-label proxy map — every module together with its

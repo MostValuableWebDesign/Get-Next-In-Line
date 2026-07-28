@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
+import { requireRole } from "../middlewares/roles";
 import {
   db,
   agencySettingsTable,
@@ -44,6 +45,10 @@ import {
 // ---------------------------------------------------------------------------
 
 const router: IRouter = Router();
+
+// Route-level platform-role guard (see routes/admin.ts): protection travels
+// with this router; the path-based check in tenantAccess.ts is backstop only.
+router.use("/admin/coop", requireRole("super_admin"));
 
 function tenantIdFrom(req: Request): number | null {
   const raw = req.header("x-tenant-id");

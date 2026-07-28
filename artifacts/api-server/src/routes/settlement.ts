@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { requireRole } from "../middlewares/roles";
 import {
   db,
   tenantsTable,
@@ -43,6 +44,11 @@ import { runCyclePayouts, payoutsForCycle } from "../lib/coopSettlementPayouts";
 // ---------------------------------------------------------------------------
 
 const router: IRouter = Router();
+
+// Route-level platform-role guard (see routes/admin.ts): master overview and
+// settlement clearinghouse are platform-admin-only; the path-based check in
+// tenantAccess.ts is backstop only.
+router.use("/agency", requireRole("super_admin"));
 
 const num = (v: string | null | undefined) => parseFloat(v ?? "0");
 const round2 = (n: number) => Math.round(n * 100) / 100;
