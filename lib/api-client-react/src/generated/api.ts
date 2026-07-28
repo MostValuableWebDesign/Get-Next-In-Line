@@ -182,6 +182,7 @@ import type {
   GetCoopMarketingBrandingParams,
   GetCoopStatsParams,
   GetGratuityShiftReportParams,
+  GetMasterOverviewParams,
   GetSosGratuityLedgerParams,
   GetSosStaffEarningsParams,
   GetTenantActivityParams,
@@ -209,6 +210,7 @@ import type {
   ListSosMessagesParams,
   ListSosVisitsParams,
   ListTipPoolPartnerStaffParams,
+  MasterOverview,
   Module,
   ModulePricing,
   ModuleTenantCount,
@@ -226,6 +228,7 @@ import type {
   PlatformInviteRegistrationResult,
   PosInboundEvent,
   PosIntegration,
+  PreviewSettlementCycleParams,
   ProcurementAdminOverview,
   ProcurementGroupBuy,
   ProcurementGroupBuyCreate,
@@ -261,6 +264,11 @@ import type {
   SafetyIncidentCreate,
   SafetyIncidentUpdateCreate,
   SafetyTimelineEntry,
+  SettlementCycle,
+  SettlementCycleDetail,
+  SettlementPreview,
+  SettlementRunRequest,
+  SettlementStatementDetail,
   SimulatePosEventRequest,
   SimulatePosEventResult,
   SosAppointment,
@@ -1316,6 +1324,481 @@ export const useUpdateAgencySettings = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getUpdateAgencySettingsMutationOptions(options));
     }
+
+export const getGetMasterOverviewUrl = (params?: GetMasterOverviewParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/agency/master-overview?${stringifiedParams}` : `/api/agency/master-overview`
+}
+
+/**
+ * @summary Network-wide executive KPIs and cross-business financial flows
+ */
+export const getMasterOverview = async (params?: GetMasterOverviewParams, options?: RequestInit): Promise<MasterOverview> => {
+
+  return customFetch<MasterOverview>(getGetMasterOverviewUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMasterOverviewQueryKey = (params?: GetMasterOverviewParams,) => {
+    return [
+    `/api/agency/master-overview`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMasterOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getMasterOverview>>, TError = ErrorType<unknown>>(params?: GetMasterOverviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMasterOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMasterOverviewQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMasterOverview>>> = ({ signal }) => getMasterOverview(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMasterOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMasterOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getMasterOverview>>>
+export type GetMasterOverviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Network-wide executive KPIs and cross-business financial flows
+ */
+
+export function useGetMasterOverview<TData = Awaited<ReturnType<typeof getMasterOverview>>, TError = ErrorType<unknown>>(
+ params?: GetMasterOverviewParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMasterOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMasterOverviewQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getPreviewSettlementCycleUrl = (params: PreviewSettlementCycleParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/agency/settlement/preview?${stringifiedParams}` : `/api/agency/settlement/preview`
+}
+
+/**
+ * @summary Preview unsettled inter-business obligations and their pairwise netting for a window
+ */
+export const previewSettlementCycle = async (params: PreviewSettlementCycleParams, options?: RequestInit): Promise<SettlementPreview> => {
+
+  return customFetch<SettlementPreview>(getPreviewSettlementCycleUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getPreviewSettlementCycleQueryKey = (params?: PreviewSettlementCycleParams,) => {
+    return [
+    `/api/agency/settlement/preview`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getPreviewSettlementCycleQueryOptions = <TData = Awaited<ReturnType<typeof previewSettlementCycle>>, TError = ErrorType<unknown>>(params: PreviewSettlementCycleParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewSettlementCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getPreviewSettlementCycleQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof previewSettlementCycle>>> = ({ signal }) => previewSettlementCycle(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof previewSettlementCycle>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type PreviewSettlementCycleQueryResult = NonNullable<Awaited<ReturnType<typeof previewSettlementCycle>>>
+export type PreviewSettlementCycleQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Preview unsettled inter-business obligations and their pairwise netting for a window
+ */
+
+export function usePreviewSettlementCycle<TData = Awaited<ReturnType<typeof previewSettlementCycle>>, TError = ErrorType<unknown>>(
+ params: PreviewSettlementCycleParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof previewSettlementCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getPreviewSettlementCycleQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRunSettlementUrl = () => {
+
+
+
+
+  return `/api/agency/settlement/run`
+}
+
+/**
+ * @summary Execute an end-of-cycle settlement run over a date window
+ */
+export const runSettlement = async (settlementRunRequest: SettlementRunRequest, options?: RequestInit): Promise<SettlementCycleDetail> => {
+
+  return customFetch<SettlementCycleDetail>(getRunSettlementUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(settlementRunRequest)
+  }
+);}
+
+
+
+
+
+export const getRunSettlementMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runSettlement>>, TError,{data: BodyType<SettlementRunRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runSettlement>>, TError,{data: BodyType<SettlementRunRequest>}, TContext> => {
+
+const mutationKey = ['runSettlement'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runSettlement>>, {data: BodyType<SettlementRunRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  runSettlement(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunSettlementMutationResult = NonNullable<Awaited<ReturnType<typeof runSettlement>>>
+    export type RunSettlementMutationBody = BodyType<SettlementRunRequest>
+    export type RunSettlementMutationError = ErrorType<void>
+
+    /**
+ * @summary Execute an end-of-cycle settlement run over a date window
+ */
+export const useRunSettlement = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runSettlement>>, TError,{data: BodyType<SettlementRunRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runSettlement>>,
+        TError,
+        {data: BodyType<SettlementRunRequest>},
+        TContext
+      > => {
+      return useMutation(getRunSettlementMutationOptions(options));
+    }
+
+export const getListSettlementCyclesUrl = () => {
+
+
+
+
+  return `/api/agency/settlement/cycles`
+}
+
+/**
+ * @summary List past settlement cycles, newest first
+ */
+export const listSettlementCycles = async ( options?: RequestInit): Promise<SettlementCycle[]> => {
+
+  return customFetch<SettlementCycle[]>(getListSettlementCyclesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSettlementCyclesQueryKey = () => {
+    return [
+    `/api/agency/settlement/cycles`
+    ] as const;
+    }
+
+
+export const getListSettlementCyclesQueryOptions = <TData = Awaited<ReturnType<typeof listSettlementCycles>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSettlementCycles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSettlementCyclesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSettlementCycles>>> = ({ signal }) => listSettlementCycles({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSettlementCycles>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSettlementCyclesQueryResult = NonNullable<Awaited<ReturnType<typeof listSettlementCycles>>>
+export type ListSettlementCyclesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List past settlement cycles, newest first
+ */
+
+export function useListSettlementCycles<TData = Awaited<ReturnType<typeof listSettlementCycles>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSettlementCycles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSettlementCyclesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSettlementCycleUrl = (cycleId: number,) => {
+
+
+
+
+  return `/api/agency/settlement/cycles/${cycleId}`
+}
+
+/**
+ * @summary A past settlement cycle with its per-tenant statements
+ */
+export const getSettlementCycle = async (cycleId: number, options?: RequestInit): Promise<SettlementCycleDetail> => {
+
+  return customFetch<SettlementCycleDetail>(getGetSettlementCycleUrl(cycleId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSettlementCycleQueryKey = (cycleId: number,) => {
+    return [
+    `/api/agency/settlement/cycles/${cycleId}`
+    ] as const;
+    }
+
+
+export const getGetSettlementCycleQueryOptions = <TData = Awaited<ReturnType<typeof getSettlementCycle>>, TError = ErrorType<void>>(cycleId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettlementCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSettlementCycleQueryKey(cycleId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSettlementCycle>>> = ({ signal }) => getSettlementCycle(cycleId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: cycleId !== null && cycleId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSettlementCycle>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSettlementCycleQueryResult = NonNullable<Awaited<ReturnType<typeof getSettlementCycle>>>
+export type GetSettlementCycleQueryError = ErrorType<void>
+
+
+/**
+ * @summary A past settlement cycle with its per-tenant statements
+ */
+
+export function useGetSettlementCycle<TData = Awaited<ReturnType<typeof getSettlementCycle>>, TError = ErrorType<void>>(
+ cycleId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettlementCycle>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSettlementCycleQueryOptions(cycleId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSettlementStatementUrl = (cycleId: number,
+    tenantId: number,) => {
+
+
+
+
+  return `/api/agency/settlement/cycles/${cycleId}/statements/${tenantId}`
+}
+
+/**
+ * @summary A tenant's settlement statement with its underlying ledger entries
+ */
+export const getSettlementStatement = async (cycleId: number,
+    tenantId: number, options?: RequestInit): Promise<SettlementStatementDetail> => {
+
+  return customFetch<SettlementStatementDetail>(getGetSettlementStatementUrl(cycleId,tenantId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSettlementStatementQueryKey = (cycleId: number,
+    tenantId: number,) => {
+    return [
+    `/api/agency/settlement/cycles/${cycleId}/statements/${tenantId}`
+    ] as const;
+    }
+
+
+export const getGetSettlementStatementQueryOptions = <TData = Awaited<ReturnType<typeof getSettlementStatement>>, TError = ErrorType<void>>(cycleId: number,
+    tenantId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettlementStatement>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSettlementStatementQueryKey(cycleId,tenantId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSettlementStatement>>> = ({ signal }) => getSettlementStatement(cycleId,tenantId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: cycleId !== null && cycleId !== undefined && tenantId !== null && tenantId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSettlementStatement>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSettlementStatementQueryResult = NonNullable<Awaited<ReturnType<typeof getSettlementStatement>>>
+export type GetSettlementStatementQueryError = ErrorType<void>
+
+
+/**
+ * @summary A tenant's settlement statement with its underlying ledger entries
+ */
+
+export function useGetSettlementStatement<TData = Awaited<ReturnType<typeof getSettlementStatement>>, TError = ErrorType<void>>(
+ cycleId: number,
+    tenantId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettlementStatement>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSettlementStatementQueryOptions(cycleId,tenantId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListTenantsUrl = () => {
 

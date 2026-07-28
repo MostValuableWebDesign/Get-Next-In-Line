@@ -10,6 +10,7 @@ import {
 import { and, eq, gt, inArray, lte, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { recordLedgerEventsSafe } from "./platformLedger";
+import { recordRedemptionObligationsSafe } from "./coopSettlement";
 
 // ---------------------------------------------------------------------------
 // Co-Op Sponsorship Hub — featured-slot boosts and revenue-share accounting.
@@ -252,6 +253,10 @@ export async function applyRedemptionSplitSafe(
   redeemingTenantId: number,
 ): Promise<void> {
   try {
+    // Settlement clearinghouse: record the inter-business obligation this
+    // redemption creates (referral fee or perk-value balance). This is the
+    // single choke point every redemption path already flows through.
+    await recordRedemptionObligationsSafe(partnership, redemptionId, redeemingTenantId);
     if (!partnership.revenueShareKind) return;
     if (
       redeemingTenantId !== partnership.hostTenantId &&

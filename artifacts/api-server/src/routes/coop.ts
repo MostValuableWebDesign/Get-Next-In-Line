@@ -144,7 +144,10 @@ import {
   newUnifiedEventCode,
   newStorefrontCode,
   runEventBroadcast,
+  acceptedShareholders,
+  splitExpenseCents,
 } from "../lib/coopCommunityEvents";
+import { recordObligationsSafe } from "../lib/coopSettlement";
 import {
   CAMPAIGN_TEMPLATES,
   CAMPAIGN_TEMPLATE_SLUGS,
@@ -2446,14 +2449,36 @@ router.post("/coop/events/:id/expenses", async (req, res): Promise<void> => {
     res.status(403).json({ message: "Only an accepted participant can log event expenses" });
     return;
   }
-  await db.insert(coopCommunityEventExpensesTable).values({
-    eventId: loaded.row.event.id,
-    paidByTenantId: tenantId,
-    description: parsed.data.description.trim(),
-    amount: (amountCents / 100).toFixed(2),
-    splitMethod: parsed.data.splitMethod ?? "even",
-  });
+  const [expense] = await db
+    .insert(coopCommunityEventExpensesTable)
+    .values({
+      eventId: loaded.row.event.id,
+      paidByTenantId: tenantId,
+      description: parsed.data.description.trim(),
+      amount: (amountCents / 100).toFixed(2),
+      splitMethod: parsed.data.splitMethod ?? "even",
+    })
+    .returning();
   const [fresh] = await loadEventRows([loaded.row.event.id]);
+  // Settlement clearinghouse: each other accepted participant owes the payer
+  // their share of this pooled cost (cooperative ad/event pool contribution).
+  {
+    const accepted = acceptedShareholders(fresh);
+    const shares = splitExpenseCents(amountCents, expense.splitMethod, accepted);
+    await recordObligationsSafe(
+      [...shares.entries()]
+        .filter(([participantTenantId]) => participantTenantId !== tenantId)
+        .map(([participantTenantId, cents]) => ({
+          debtorTenantId: participantTenantId,
+          creditorTenantId: tenantId,
+          kind: "ad_pool_contribution" as const,
+          amount: cents / 100,
+          sourceRef: `coop_community_event_expenses:${expense.id}:${participantTenantId}`,
+          description: `Pooled cost share — ${expense.description} (${fresh.event.name})`,
+          occurredAt: expense.createdAt,
+        })),
+    );
+  }
   res.status(201).json(CreateCoopEventExpenseResponse.parse(await serializeEventDetail(fresh, tenantId)));
 });
 

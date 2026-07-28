@@ -23,6 +23,7 @@ import CoopPartnerships from '@/pages/CoopPartnerships';
 import FranchiseController from '@/pages/FranchiseController';
 import Compliance from '@/pages/Compliance';
 import Governance from '@/pages/Governance';
+import MasterOverview from '@/pages/MasterOverview';
 import { useSessionRole, type NetworkRole } from '@/hooks/useAuth';
 
 /**
@@ -38,6 +39,7 @@ import { useSessionRole, type NetworkRole } from '@/hooks/useAuth';
  */
 const TAB_ROUTES: Record<string, string> = {
   dashboard: '/',
+  master: '/master',
   tenants: '/tenants',
   billing: '/billing',
   compliance: '/compliance',
@@ -50,7 +52,7 @@ const TAB_ROUTES: Record<string, string> = {
 // Which Command Center tabs each governance role can use. Anything not
 // listed is hidden — the role's API access wouldn't allow it anyway.
 const TABS_FOR_ROLE: Record<NetworkRole, string[]> = {
-  super_admin: ['dashboard', 'tenants', 'billing', 'compliance', 'partnerships', 'franchise', 'governance', 'settings'],
+  super_admin: ['dashboard', 'master', 'tenants', 'billing', 'compliance', 'partnerships', 'franchise', 'governance', 'settings'],
   district_manager: ['tenants', 'governance'],
   merchant: ['tenants'],
   staff: ['tenants'],
@@ -81,6 +83,7 @@ export default function CommandCenter() {
       >
         <TabsList data-testid="command-center-tabs" className="flex-wrap h-auto">
           {visibleTabs.includes('dashboard') && <TabsTrigger value="dashboard" data-testid="tab-dashboard">Dashboard</TabsTrigger>}
+          {visibleTabs.includes('master') && <TabsTrigger value="master" data-testid="tab-master-overview">Master Overview</TabsTrigger>}
           {visibleTabs.includes('tenants') && <TabsTrigger value="tenants" data-testid="tab-tenants">Tenants</TabsTrigger>}
           {visibleTabs.includes('billing') && <TabsTrigger value="billing" data-testid="tab-billing">Billing</TabsTrigger>}
           {visibleTabs.includes('compliance') && <TabsTrigger value="compliance" data-testid="tab-compliance">Compliance</TabsTrigger>}
@@ -93,6 +96,9 @@ export default function CommandCenter() {
           <DashboardErrorBoundary>
             <DashboardTab />
           </DashboardErrorBoundary>
+        </TabsContent>
+        <TabsContent value="master" className="mt-4">
+          <MasterOverview />
         </TabsContent>
         <TabsContent value="tenants" className="mt-4">
           <Tenants />

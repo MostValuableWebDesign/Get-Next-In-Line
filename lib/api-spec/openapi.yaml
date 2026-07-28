@@ -267,6 +267,135 @@ paths:
               schema:
                 $ref: "#/components/schemas/AgencySettings"
 
+  /agency/master-overview:
+    get:
+      operationId: getMasterOverview
+      tags: [agency]
+      summary: Network-wide executive KPIs and cross-business financial flows
+      parameters:
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [this_month, last_month]
+      responses:
+        "200":
+          description: Master overview KPIs for the selected period
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MasterOverview"
+
+  /agency/settlement/preview:
+    get:
+      operationId: previewSettlementCycle
+      tags: [agency]
+      summary: Preview unsettled inter-business obligations and their pairwise netting for a window
+      parameters:
+        - name: periodStart
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: periodEnd
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Unsettled entries and the statements a run would produce
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettlementPreview"
+
+  /agency/settlement/run:
+    post:
+      operationId: runSettlement
+      tags: [agency]
+      summary: Execute an end-of-cycle settlement run over a date window
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettlementRunRequest"
+      responses:
+        "201":
+          description: Settlement cycle executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettlementCycleDetail"
+        "400":
+          description: No unsettled entries in the window, or invalid window
+        "409":
+          description: Another settlement run is already in progress
+
+  /agency/settlement/cycles:
+    get:
+      operationId: listSettlementCycles
+      tags: [agency]
+      summary: List past settlement cycles, newest first
+      responses:
+        "200":
+          description: Past settlement cycles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SettlementCycle"
+
+  /agency/settlement/cycles/{cycleId}:
+    get:
+      operationId: getSettlementCycle
+      tags: [agency]
+      summary: A past settlement cycle with its per-tenant statements
+      parameters:
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cycle detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettlementCycleDetail"
+        "404":
+          description: Cycle not found
+
+  /agency/settlement/cycles/{cycleId}/statements/{tenantId}:
+    get:
+      operationId: getSettlementStatement
+      tags: [agency]
+      summary: A tenant's settlement statement with its underlying ledger entries
+      parameters:
+        - name: cycleId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Statement detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettlementStatementDetail"
+        "404":
+          description: Statement not found
+
   /tenants:
     get:
       operationId: listTenants
@@ -12815,6 +12944,202 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CategoryRevenue"
+
+    MasterOverview:
+      type: object
+      required: [periodLabel, periodStart, periodEnd, activeTenants, suspendedTenants, totalTenants, bookingsCount, transactionCount, transactionVolume, partnershipsActive, partnershipsTotal, newPartnerships, perkRedemptions, obligationVolume, unsettledBalance, flowsByKind]
+      properties:
+        periodLabel:
+          type: string
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        activeTenants:
+          type: integer
+        suspendedTenants:
+          type: integer
+        totalTenants:
+          type: integer
+        bookingsCount:
+          type: integer
+          description: Appointments created in the period, network-wide.
+        transactionCount:
+          type: integer
+          description: Money-relevant platform ledger events in the period.
+        transactionVolume:
+          type: number
+          description: Dollar volume of platform ledger events in the period (persisted per-transaction amounts).
+        partnershipsActive:
+          type: integer
+        partnershipsTotal:
+          type: integer
+        newPartnerships:
+          type: integer
+        perkRedemptions:
+          type: integer
+        obligationVolume:
+          type: number
+          description: Cross-business obligation dollars recorded in the period.
+        unsettledBalance:
+          type: number
+          description: All-time total of obligations not yet included in a settlement cycle.
+        flowsByKind:
+          type: array
+          items:
+            $ref: "#/components/schemas/ObligationFlow"
+
+    ObligationFlow:
+      type: object
+      required: [kind, total, count]
+      properties:
+        kind:
+          type: string
+        total:
+          type: number
+        count:
+          type: integer
+
+    ObligationLedgerEntry:
+      type: object
+      required: [id, debtorTenantId, debtorTenantName, creditorTenantId, creditorTenantName, kind, amount, sourceRef, partnershipId, description, occurredAt, settlementCycleId]
+      properties:
+        id:
+          type: integer
+        debtorTenantId:
+          type: integer
+        debtorTenantName:
+          type: string
+        creditorTenantId:
+          type: integer
+        creditorTenantName:
+          type: string
+        kind:
+          type: string
+          enum: [referral_fee, ad_pool_contribution, perk_obligation]
+        amount:
+          type: number
+        sourceRef:
+          type: string
+        partnershipId:
+          type: integer
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        occurredAt:
+          type: string
+        settlementCycleId:
+          type: integer
+          nullable: true
+
+    SettlementStatementLine:
+      type: object
+      required: [counterpartyTenantId, counterpartyName, owedToCounterparty, owedByCounterparty, net]
+      properties:
+        counterpartyTenantId:
+          type: integer
+        counterpartyName:
+          type: string
+        owedToCounterparty:
+          type: number
+        owedByCounterparty:
+          type: number
+        net:
+          type: number
+
+    SettlementStatement:
+      type: object
+      required: [tenantId, tenantName, totalOwedToOthers, totalOwedByOthers, netAmount, lines]
+      properties:
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        totalOwedToOthers:
+          type: number
+        totalOwedByOthers:
+          type: number
+        netAmount:
+          type: number
+          description: Positive = the tenant receives from the network this cycle.
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/SettlementStatementLine"
+
+    SettlementPreview:
+      type: object
+      required: [periodStart, periodEnd, entryCount, grossVolume, entries, statements]
+      properties:
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        entryCount:
+          type: integer
+        grossVolume:
+          type: number
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ObligationLedgerEntry"
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/SettlementStatement"
+
+    SettlementRunRequest:
+      type: object
+      required: [periodStart, periodEnd]
+      properties:
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+
+    SettlementCycle:
+      type: object
+      required: [id, periodStart, periodEnd, status, entryCount, grossVolume, executedAt]
+      properties:
+        id:
+          type: integer
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        status:
+          type: string
+        entryCount:
+          type: integer
+        grossVolume:
+          type: number
+        executedAt:
+          type: string
+
+    SettlementCycleDetail:
+      type: object
+      required: [cycle, statements]
+      properties:
+        cycle:
+          $ref: "#/components/schemas/SettlementCycle"
+        statements:
+          type: array
+          items:
+            $ref: "#/components/schemas/SettlementStatement"
+
+    SettlementStatementDetail:
+      type: object
+      required: [cycle, statement, entries]
+      properties:
+        cycle:
+          $ref: "#/components/schemas/SettlementCycle"
+        statement:
+          $ref: "#/components/schemas/SettlementStatement"
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/ObligationLedgerEntry"
 
     CategoryRevenue:
       type: object

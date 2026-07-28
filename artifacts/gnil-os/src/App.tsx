@@ -89,6 +89,7 @@ function ProtectedApp() {
             Billing (/billing), and Agency Settings (/settings). Each tab
             keeps its own URL so old links/bookmarks land on the right tab. */}
         <Route path="/" component={CommandCenter} />
+        <Route path="/master" component={CommandCenter} />
         <Route path="/tenants" component={CommandCenter} />
         <Route path="/governance" component={CommandCenter} />
         {/* Tenant Settings and AI Receptionist are now tabs inside Tenant

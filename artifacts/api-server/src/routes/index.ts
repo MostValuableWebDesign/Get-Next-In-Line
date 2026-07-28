@@ -32,6 +32,7 @@ import walletRouter from "./wallet";
 import governanceRouter from "./governance";
 import coopApplicationsRouter from "./coopApplications";
 import franchiseRouter from "./franchise";
+import settlementRouter from "./settlement";
 import reviewsRouter from "./reviews";
 
 const router: IRouter = Router();
@@ -109,6 +110,7 @@ router.use((req, res, next) => {
 router.use(sosRouter);    // SOS operations section of GNIL OS (behind the same session auth)
 router.use(tipPoolingRouter); // Co-op tip pooling & gratuity splitter (/sos/tip-pooling)
 router.use(agencyRouter);
+router.use(settlementRouter); // Master Overview & Settlement Clearinghouse (/agency/master-overview, /agency/settlement)
 router.use(tenantsRouter);
 router.use(reviewsRouter); // Tenant review management (public landing page reviews)
 router.use(modulesRouter);

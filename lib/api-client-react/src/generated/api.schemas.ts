@@ -5012,6 +5012,113 @@ export interface AgencyDashboard {
   revenueByCategory: CategoryRevenue[];
 }
 
+export interface ObligationFlow {
+  kind: string;
+  total: number;
+  count: number;
+}
+
+export interface MasterOverview {
+  periodLabel: string;
+  periodStart: string;
+  periodEnd: string;
+  activeTenants: number;
+  suspendedTenants: number;
+  totalTenants: number;
+  /** Appointments created in the period, network-wide. */
+  bookingsCount: number;
+  /** Money-relevant platform ledger events in the period. */
+  transactionCount: number;
+  /** Dollar volume of platform ledger events in the period (persisted per-transaction amounts). */
+  transactionVolume: number;
+  partnershipsActive: number;
+  partnershipsTotal: number;
+  newPartnerships: number;
+  perkRedemptions: number;
+  /** Cross-business obligation dollars recorded in the period. */
+  obligationVolume: number;
+  /** All-time total of obligations not yet included in a settlement cycle. */
+  unsettledBalance: number;
+  flowsByKind: ObligationFlow[];
+}
+
+export type ObligationLedgerEntryKind = typeof ObligationLedgerEntryKind[keyof typeof ObligationLedgerEntryKind];
+
+
+export const ObligationLedgerEntryKind = {
+  referral_fee: 'referral_fee',
+  ad_pool_contribution: 'ad_pool_contribution',
+  perk_obligation: 'perk_obligation',
+} as const;
+
+export interface ObligationLedgerEntry {
+  id: number;
+  debtorTenantId: number;
+  debtorTenantName: string;
+  creditorTenantId: number;
+  creditorTenantName: string;
+  kind: ObligationLedgerEntryKind;
+  amount: number;
+  sourceRef: string;
+  partnershipId: number | null;
+  description: string | null;
+  occurredAt: string;
+  settlementCycleId: number | null;
+}
+
+export interface SettlementStatementLine {
+  counterpartyTenantId: number;
+  counterpartyName: string;
+  owedToCounterparty: number;
+  owedByCounterparty: number;
+  net: number;
+}
+
+export interface SettlementStatement {
+  tenantId: number;
+  tenantName: string;
+  totalOwedToOthers: number;
+  totalOwedByOthers: number;
+  /** Positive = the tenant receives from the network this cycle. */
+  netAmount: number;
+  lines: SettlementStatementLine[];
+}
+
+export interface SettlementPreview {
+  periodStart: string;
+  periodEnd: string;
+  entryCount: number;
+  grossVolume: number;
+  entries: ObligationLedgerEntry[];
+  statements: SettlementStatement[];
+}
+
+export interface SettlementRunRequest {
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface SettlementCycle {
+  id: number;
+  periodStart: string;
+  periodEnd: string;
+  status: string;
+  entryCount: number;
+  grossVolume: number;
+  executedAt: string;
+}
+
+export interface SettlementCycleDetail {
+  cycle: SettlementCycle;
+  statements: SettlementStatement[];
+}
+
+export interface SettlementStatementDetail {
+  cycle: SettlementCycle;
+  statement: SettlementStatement;
+  entries: ObligationLedgerEntry[];
+}
+
 export interface AgencySettings {
   id: number;
   markupPercent: number;
@@ -6225,6 +6332,23 @@ export interface ProcurementAdminOverview {
   totalSavings: number;
   savingsByTenant: ProcurementAdminOverviewSavingsByTenantItem[];
 }
+
+export type GetMasterOverviewParams = {
+period?: GetMasterOverviewPeriod;
+};
+
+export type GetMasterOverviewPeriod = typeof GetMasterOverviewPeriod[keyof typeof GetMasterOverviewPeriod];
+
+
+export const GetMasterOverviewPeriod = {
+  this_month: 'this_month',
+  last_month: 'last_month',
+} as const;
+
+export type PreviewSettlementCycleParams = {
+periodStart: string;
+periodEnd: string;
+};
 
 export type GetTenantActivityParams = {
 /**

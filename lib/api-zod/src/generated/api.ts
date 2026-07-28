@@ -270,6 +270,214 @@ export const UpdateAgencySettingsResponse = zod.object({
 
 
 /**
+ * @summary Network-wide executive KPIs and cross-business financial flows
+ */
+export const GetMasterOverviewQueryParams = zod.object({
+  "period": zod.enum(['this_month', 'last_month']).optional()
+})
+
+export const GetMasterOverviewResponse = zod.object({
+  "periodLabel": zod.string(),
+  "periodStart": zod.string(),
+  "periodEnd": zod.string(),
+  "activeTenants": zod.number(),
+  "suspendedTenants": zod.number(),
+  "totalTenants": zod.number(),
+  "bookingsCount": zod.number().describe('Appointments created in the period, network-wide.'),
+  "transactionCount": zod.number().describe('Money-relevant platform ledger events in the period.'),
+  "transactionVolume": zod.number().describe('Dollar volume of platform ledger events in the period (persisted per-transaction amounts).'),
+  "partnershipsActive": zod.number(),
+  "partnershipsTotal": zod.number(),
+  "newPartnerships": zod.number(),
+  "perkRedemptions": zod.number(),
+  "obligationVolume": zod.number().describe('Cross-business obligation dollars recorded in the period.'),
+  "unsettledBalance": zod.number().describe('All-time total of obligations not yet included in a settlement cycle.'),
+  "flowsByKind": zod.array(zod.object({
+  "kind": zod.string(),
+  "total": zod.number(),
+  "count": zod.number()
+}))
+})
+
+
+/**
+ * @summary Preview unsettled inter-business obligations and their pairwise netting for a window
+ */
+export const PreviewSettlementCycleQueryParams = zod.object({
+  "periodStart": zod.coerce.string(),
+  "periodEnd": zod.coerce.string()
+})
+
+export const PreviewSettlementCycleResponse = zod.object({
+  "periodStart": zod.string(),
+  "periodEnd": zod.string(),
+  "entryCount": zod.number(),
+  "grossVolume": zod.number(),
+  "entries": zod.array(zod.object({
+  "id": zod.number(),
+  "debtorTenantId": zod.number(),
+  "debtorTenantName": zod.string(),
+  "creditorTenantId": zod.number(),
+  "creditorTenantName": zod.string(),
+  "kind": zod.enum(['referral_fee', 'ad_pool_contribution', 'perk_obligation']),
+  "amount": zod.number(),
+  "sourceRef": zod.string(),
+  "partnershipId": zod.number().nullable(),
+  "description": zod.string().nullable(),
+  "occurredAt": zod.string(),
+  "settlementCycleId": zod.number().nullable()
+})),
+  "statements": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "totalOwedToOthers": zod.number(),
+  "totalOwedByOthers": zod.number(),
+  "netAmount": zod.number().describe('Positive = the tenant receives from the network this cycle.'),
+  "lines": zod.array(zod.object({
+  "counterpartyTenantId": zod.number(),
+  "counterpartyName": zod.string(),
+  "owedToCounterparty": zod.number(),
+  "owedByCounterparty": zod.number(),
+  "net": zod.number()
+}))
+}))
+})
+
+
+/**
+ * @summary Execute an end-of-cycle settlement run over a date window
+ */
+export const RunSettlementBody = zod.object({
+  "periodStart": zod.string(),
+  "periodEnd": zod.string()
+})
+
+export const RunSettlementResponse = zod.object({
+  "cycle": zod.object({
+  "id": zod.number(),
+  "periodStart": zod.string(),
+  "periodEnd": zod.string(),
+  "status": zod.string(),
+  "entryCount": zod.number(),
+  "grossVolume": zod.number(),
+  "executedAt": zod.string()
+}),
+  "statements": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "totalOwedToOthers": zod.number(),
+  "totalOwedByOthers": zod.number(),
+  "netAmount": zod.number().describe('Positive = the tenant receives from the network this cycle.'),
+  "lines": zod.array(zod.object({
+  "counterpartyTenantId": zod.number(),
+  "counterpartyName": zod.string(),
+  "owedToCounterparty": zod.number(),
+  "owedByCounterparty": zod.number(),
+  "net": zod.number()
+}))
+}))
+})
+
+
+/**
+ * @summary List past settlement cycles, newest first
+ */
+export const ListSettlementCyclesResponseItem = zod.object({
+  "id": zod.number(),
+  "periodStart": zod.string(),
+  "periodEnd": zod.string(),
+  "status": zod.string(),
+  "entryCount": zod.number(),
+  "grossVolume": zod.number(),
+  "executedAt": zod.string()
+})
+export const ListSettlementCyclesResponse = zod.array(ListSettlementCyclesResponseItem)
+
+
+/**
+ * @summary A past settlement cycle with its per-tenant statements
+ */
+export const GetSettlementCycleParams = zod.object({
+  "cycleId": zod.coerce.number()
+})
+
+export const GetSettlementCycleResponse = zod.object({
+  "cycle": zod.object({
+  "id": zod.number(),
+  "periodStart": zod.string(),
+  "periodEnd": zod.string(),
+  "status": zod.string(),
+  "entryCount": zod.number(),
+  "grossVolume": zod.number(),
+  "executedAt": zod.string()
+}),
+  "statements": zod.array(zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "totalOwedToOthers": zod.number(),
+  "totalOwedByOthers": zod.number(),
+  "netAmount": zod.number().describe('Positive = the tenant receives from the network this cycle.'),
+  "lines": zod.array(zod.object({
+  "counterpartyTenantId": zod.number(),
+  "counterpartyName": zod.string(),
+  "owedToCounterparty": zod.number(),
+  "owedByCounterparty": zod.number(),
+  "net": zod.number()
+}))
+}))
+})
+
+
+/**
+ * @summary A tenant's settlement statement with its underlying ledger entries
+ */
+export const GetSettlementStatementParams = zod.object({
+  "cycleId": zod.coerce.number(),
+  "tenantId": zod.coerce.number()
+})
+
+export const GetSettlementStatementResponse = zod.object({
+  "cycle": zod.object({
+  "id": zod.number(),
+  "periodStart": zod.string(),
+  "periodEnd": zod.string(),
+  "status": zod.string(),
+  "entryCount": zod.number(),
+  "grossVolume": zod.number(),
+  "executedAt": zod.string()
+}),
+  "statement": zod.object({
+  "tenantId": zod.number(),
+  "tenantName": zod.string(),
+  "totalOwedToOthers": zod.number(),
+  "totalOwedByOthers": zod.number(),
+  "netAmount": zod.number().describe('Positive = the tenant receives from the network this cycle.'),
+  "lines": zod.array(zod.object({
+  "counterpartyTenantId": zod.number(),
+  "counterpartyName": zod.string(),
+  "owedToCounterparty": zod.number(),
+  "owedByCounterparty": zod.number(),
+  "net": zod.number()
+}))
+}),
+  "entries": zod.array(zod.object({
+  "id": zod.number(),
+  "debtorTenantId": zod.number(),
+  "debtorTenantName": zod.string(),
+  "creditorTenantId": zod.number(),
+  "creditorTenantName": zod.string(),
+  "kind": zod.enum(['referral_fee', 'ad_pool_contribution', 'perk_obligation']),
+  "amount": zod.number(),
+  "sourceRef": zod.string(),
+  "partnershipId": zod.number().nullable(),
+  "description": zod.string().nullable(),
+  "occurredAt": zod.string(),
+  "settlementCycleId": zod.number().nullable()
+}))
+})
+
+
+/**
  * @summary List all provisioned tenants
  */
 export const ListTenantsResponseItem = zod.object({
