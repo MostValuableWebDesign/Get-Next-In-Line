@@ -37,12 +37,14 @@ interface ConnectorMappingEntry {
 }
 
 export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
-  // ── Category 0.5: Marketing OS (GNIL Bridge) ──────────────────────────────
+  // ── Former Marketing OS (GNIL Bridge) — folded into White-Label Resale
+  // Engines (white-label resold marketing tooling at the same 25% markup) ──
   {
     slug: "ghl_crm_pipelines",
     name: "Lead Pipelines & CRM Core",
-    category: "Marketing OS / GNIL Bridge",
-    categorySlug: "marketing",
+    category: "White-Label Resale Engines",
+    categorySlug: "media",
+    markupPercentOverride: "25",
     description: "Full CRM with visual lead pipelines, contact management, and deal tracking.",
     wholesalePrice: "97.00",
     upstreamVendor: "HighLevel",
@@ -53,8 +55,9 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   {
     slug: "ghl_omnichannel_inbox",
     name: "Unified Omnichannel Inbox",
-    category: "Marketing OS / GNIL Bridge",
-    categorySlug: "marketing",
+    category: "White-Label Resale Engines",
+    categorySlug: "media",
+    markupPercentOverride: "25",
     description: "One inbox for SMS, email, chat, and social conversations.",
     wholesalePrice: "97.00",
     upstreamVendor: "HighLevel / Twilio / Mailgun",
@@ -65,8 +68,9 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   {
     slug: "ghl_funnel_builder",
     name: "High-Converting Funnel & Site Builder",
-    category: "Marketing OS / GNIL Bridge",
-    categorySlug: "marketing",
+    category: "White-Label Resale Engines",
+    categorySlug: "media",
+    markupPercentOverride: "25",
     description: "Drag-and-drop funnel and website builder with custom domains.",
     wholesalePrice: "97.00",
     upstreamVendor: "HighLevel",
@@ -77,8 +81,9 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   {
     slug: "ghl_ai_automation",
     name: "AI Voice & SMS Nurture Bots",
-    category: "Marketing OS / GNIL Bridge",
-    categorySlug: "marketing",
+    category: "White-Label Resale Engines",
+    categorySlug: "media",
+    markupPercentOverride: "25",
     description: "AI-powered conversational bots that follow up leads via voice and SMS automatically.",
     wholesalePrice: "147.00",
     upstreamVendor: "HighLevel / OpenAI",

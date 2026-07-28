@@ -98,6 +98,18 @@ export function ModuleGrid({ categorySlug, title, description }: { categorySlug:
                 <CardContent className="flex-1" />
                 {!isPartner && (
                 <CardFooter className="border-t bg-muted/20 p-4 flex flex-col items-start gap-1">
+                  {priceInfo != null && priceInfo.wholesalePrice === 0 ? (
+                    /* $0-wholesale modules carry no meaningful markup — read
+                       as included rather than a price + percentage. */
+                    <div className="flex justify-between w-full items-end">
+                      <div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Retail Price</div>
+                        <div className="text-2xl font-mono font-bold text-foreground" data-testid={`included-${module.id}`}>
+                          Included
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                   <div className="flex justify-between w-full items-end">
                     <div>
                       <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">Retail Price</div>
@@ -117,6 +129,7 @@ export function ModuleGrid({ categorySlug, title, description }: { categorySlug:
                       </div>
                     )}
                   </div>
+                  )}
 
                   {priceInfo?.resalePriceBiweekly != null && (
                     <div className="w-full mt-2 pt-2 border-t border-dashed border-border/50 space-y-1" data-testid={`biweekly-pricing-${module.id}`}>

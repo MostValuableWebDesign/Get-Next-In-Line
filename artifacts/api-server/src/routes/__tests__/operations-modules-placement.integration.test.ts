@@ -65,8 +65,10 @@ describe("seed guard: connector mapping pins the five service modules to operati
   });
 
   it("no seed entry uses a daily-workflow slug as a module category", () => {
+    // "marketing" is no longer a valid module category either — the former
+    // Marketing OS modules were folded into "media" (White-Label Resale Engines).
     for (const entry of CONNECTOR_MAPPING) {
-      expect(DAILY_WORKFLOW_SLUGS.filter((s) => s !== "marketing")).not.toContain(entry.categorySlug);
+      expect(DAILY_WORKFLOW_SLUGS).not.toContain(entry.categorySlug);
     }
   });
 });

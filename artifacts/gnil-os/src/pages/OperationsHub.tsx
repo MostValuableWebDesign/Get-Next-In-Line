@@ -211,9 +211,9 @@ function PartnerSections() {
  * the "Partners (0%)" module marketplace (/partners) — now a single merged
  * Partners tab that also carries the former Partner Services details
  * (/sos/partner-services and the four SOS partner placeholder pages, whose
- * old URLs redirect to /partners) — plus the former GNIL Bridge marketing
- * marketplace (/marketing) —
- * into one tabbed page. All old URLs still work as deep links, each
+ * old URLs redirect to /partners) —
+ * into one tabbed page. The former GNIL Bridge marketing marketplace
+ * (/marketing) was folded into the White-Label Resale Engines (Media) tab. All old URLs still work as deep links, each
  * selecting the matching tab, so refresh/back and bookmarks stay correct.
  * Backends and page content are untouched. The former Live Operations tab
  * (/sos/operations) now lives on the Command Center landing page.
@@ -221,12 +221,14 @@ function PartnerSections() {
 
 const TAB_ROUTES: Record<string, string> = {
   modules: '/operations',
-  marketing: '/marketing',
   media: '/media',
   partners: '/partners',
 };
 
 function tabForLocation(location: string): string {
+  // The retired Marketing tab's modules were folded into the White-Label
+  // Resale Engines group — old /marketing deep links land on that tab.
+  if (location.startsWith('/marketing')) return 'media';
   const match = Object.entries(TAB_ROUTES).find(
     ([tab, path]) => tab !== 'modules' && location.startsWith(path),
   );
@@ -248,7 +250,6 @@ export default function OperationsHub() {
       >
         <TabsList data-testid="operations-tabs" className="flex-wrap h-auto">
           <TabsTrigger value="modules" data-testid="tab-modules">Modules</TabsTrigger>
-          <TabsTrigger value="marketing" data-testid="tab-marketing">Marketing</TabsTrigger>
           <TabsTrigger value="media" data-testid="tab-media">Media</TabsTrigger>
           <TabsTrigger value="partners" data-testid="tab-partners">
             Partners
@@ -261,7 +262,10 @@ export default function OperationsHub() {
             description="Service modules for payroll, booking, tracking, and backend operations."
           />
         </TabsContent>
-        <TabsContent value="marketing" className="mt-4 space-y-4">
+        <TabsContent value="media" className="mt-4 space-y-4">
+          {/* Former standalone Media & Assets page — same module marketplace,
+              now a tab. /media deep links select this tab, and so do old
+              /marketing links (the Marketing OS modules were folded in). */}
           <div className="flex justify-end">
             <Button
               asChild
@@ -276,18 +280,9 @@ export default function OperationsHub() {
             </Button>
           </div>
           <ModuleGrid
-            categorySlug="marketing"
-            title="Marketing OS & Bridge"
-            description="GNIL integration modules and core marketing pipelines."
-          />
-        </TabsContent>
-        <TabsContent value="media" className="mt-4">
-          {/* Former standalone Media & Assets page — same module marketplace,
-              now a tab. /media deep links select this tab. */}
-          <ModuleGrid
             categorySlug="media"
             title="White-Label Resale Engines"
-            description="Media buying, ads, and streaming networks."
+            description="Media buying, ads, streaming networks, and white-label marketing tooling."
           />
         </TabsContent>
         <TabsContent value="partners" className="mt-4 space-y-8">

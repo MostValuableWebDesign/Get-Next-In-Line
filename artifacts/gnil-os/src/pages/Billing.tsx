@@ -72,6 +72,11 @@ export default function Billing() {
                         <TableCell colSpan={2} className="text-right text-muted-foreground" data-testid={`pricing-partner-${p.id}`}>
                           Partner billed
                         </TableCell>
+                      ) : p.wholesalePrice === 0 ? (
+                        // $0-wholesale modules carry no meaningful markup
+                        <TableCell colSpan={2} className="text-right text-muted-foreground" data-testid={`pricing-included-${p.id}`}>
+                          Included
+                        </TableCell>
                       ) : (
                         <>
                           <TableCell className="text-right font-mono font-bold">{formatCurrency(p.resalePrice)}</TableCell>

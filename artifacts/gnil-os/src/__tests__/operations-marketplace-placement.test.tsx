@@ -38,9 +38,9 @@ const modules = OPERATIONS_MODULES.map((name, i) => ({
 modules.push({
   id: 99,
   name: 'Lead Pipelines & CRM Core',
-  category: 'Marketing OS',
-  categorySlug: 'marketing',
-  description: 'marketing module',
+  category: 'White-Label Resale Engines',
+  categorySlug: 'media',
+  description: 'resale engine module (former Marketing OS)',
   isActive: true,
   wholesalePrice: 197,
 });

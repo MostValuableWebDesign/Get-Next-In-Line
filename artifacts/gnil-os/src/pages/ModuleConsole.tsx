@@ -30,7 +30,6 @@ import {
 // Configuration screen so each console links to one obvious settings home.
 const CATEGORY_SETTINGS_ANCHOR: Record<string, string> = {
   operations: '/settings#sos-operations',
-  marketing: '/settings#sms',
 };
 
 // Modules with a dedicated settings section link straight to it. Keyed by
@@ -40,7 +39,6 @@ const MODULE_SETTINGS_ANCHOR: Record<string, string> = {
 };
 
 const CATEGORY_ROUTES: Record<string, { path: string; label: string }> = {
-  marketing: { path: '/marketing', label: 'Marketing OS & Bridge' },
   operations: { path: '/operations', label: 'Operations' },
   partners: { path: '/partners', label: 'Partners' },
   media: { path: '/media', label: 'Media' },
@@ -168,6 +166,15 @@ export default function ModuleConsole() {
               >
                 Partner Direct
               </Badge>
+            ) : priceInfo != null && priceInfo.wholesalePrice === 0 ? (
+              // $0-wholesale modules carry no meaningful markup — show them as
+              // included rather than a price + percentage.
+              <div className="text-right mr-2">
+                <div className="text-xs text-muted-foreground">Retail Price</div>
+                <div className="text-xl font-extrabold font-mono text-emerald-600" data-testid="text-resale-price">
+                  Included
+                </div>
+              </div>
             ) : (
               <div className="text-right mr-2">
                 <div className="text-xs text-muted-foreground">Retail Price</div>
@@ -243,7 +250,11 @@ export default function ModuleConsole() {
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Profit Margin</span>
                 <span className="text-sm font-bold text-primary" data-testid="text-markup-percent">
-                  {isPartner ? 'Partner Direct' : `+${markupPercent}% Profit Margin`}
+                  {isPartner
+                    ? 'Partner Direct'
+                    : priceInfo != null && priceInfo.wholesalePrice === 0
+                      ? 'Included' // $0 wholesale — a markup % would be meaningless
+                      : `+${markupPercent}% Profit Margin`}
                 </span>
               </div>
             </div>

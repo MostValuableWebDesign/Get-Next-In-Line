@@ -103,7 +103,8 @@ function ProtectedApp() {
         <Route path="/tenants/:id/concierge">
           {(params) => <Redirect to={`/tenants/${params.id}?tab=rules`} replace />}
         </Route>
-        {/* Unified Operations hub — Marketing tab (old GNIL Bridge URL) */}
+        {/* Old GNIL Bridge marketing URL — its modules were folded into the
+            White-Label Resale Engines (Media) tab, which this now selects */}
         <Route path="/marketing" component={OperationsHub} />
         {/* Unified Operations hub — Modules tab */}
         <Route path="/operations" component={OperationsHub} />

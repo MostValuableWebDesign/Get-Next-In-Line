@@ -35,8 +35,8 @@ const NAV_ITEMS: NavItem[] = [
     icon: LayoutDashboard,
     aliases: ['/tenants', '/billing', '/settings'],
   },
-  // Unified hub: Modules (/operations),
-  // Marketing marketplace (/marketing, the old GNIL Bridge page),
+  // Unified hub: Modules (/operations), Media (/media — White-Label Resale
+  // Engines; old /marketing links land here too),
   // and the merged Partners tab (/partners — grid + partner services).
   // Live Operations moved to the Command Center landing page.
   {

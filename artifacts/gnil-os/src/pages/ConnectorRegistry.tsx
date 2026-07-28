@@ -12,7 +12,9 @@ import { EditConnectorDialog } from '@/components/EditConnectorDialog';
 import { formatCurrency } from '@/lib/format';
 import { ShieldAlert, Package, Pencil, PanelsTopLeft } from 'lucide-react';
 
-const CATEGORY_ORDER = ['marketing', 'operations', 'partners', 'media'];
+// The former "marketing" group was folded into media (White-Label Resale
+// Engines); unknown slugs still render after the known ones.
+const CATEGORY_ORDER = ['operations', 'partners', 'media'];
 
 /**
  * Product Catalog, rendered as a section of the Configuration page
@@ -92,6 +94,11 @@ export function ConnectorRegistrySection() {
                         {isPartner ? (
                           <span className="text-sm text-muted-foreground" data-testid={`text-pricing-${m.id}`}>
                             Partner billed
+                          </span>
+                        ) : price && price.wholesalePrice === 0 ? (
+                          // $0-wholesale modules carry no meaningful markup
+                          <span className="text-sm text-muted-foreground" data-testid={`text-pricing-${m.id}`}>
+                            Included
                           </span>
                         ) : price ? (
                           <span className="text-sm font-mono" data-testid={`text-pricing-${m.id}`}>
