@@ -252,6 +252,64 @@ describe("selling plans", () => {
     expect(renewsAt).toBeLessThan(before + oneYear + 3 * 24 * 3600e3);
   });
 
+  it("refuses to sell a plan the customer already actively holds (409)", async () => {
+    const customerId = await createCustomer("Double Buyer");
+    await agent
+      .post("/api/sos/customer-plans")
+      .set(asTenant())
+      .send({ customerId, planId: packagePlan })
+      .expect(201);
+    // Second sell of the same plan while the first is active → 409, and no
+    // second enrollment or purchase ledger row is created.
+    const dup = await agent
+      .post("/api/sos/customer-plans")
+      .set(asTenant())
+      .send({ customerId, planId: packagePlan });
+    expect(dup.status).toBe(409);
+    expect(dup.body.message).toMatch(/already has an active enrollment/i);
+
+    let { plans, transactions } = await getPlans(customerId);
+    expect(plans).toHaveLength(1);
+    expect(transactions.filter((t) => t.transactionType === "purchase")).toHaveLength(1);
+
+    // A different plan is still sellable to the same customer.
+    await agent
+      .post("/api/sos/customer-plans")
+      .set(asTenant())
+      .send({ customerId, planId: membershipPlan })
+      .expect(201);
+
+    // Cancelling the enrollment frees the customer to buy the plan again.
+    await agent
+      .post(`/api/sos/customer-plans/${plans[0].id}/cancel`)
+      .set(asTenant())
+      .expect(200);
+    await agent
+      .post("/api/sos/customer-plans")
+      .set(asTenant())
+      .send({ customerId, planId: packagePlan })
+      .expect(201);
+  });
+
+  it("a concurrent double-click sells the plan exactly once", async () => {
+    const customerId = await createCustomer("Click Racer");
+    const [ra, rb] = await Promise.all([
+      agent
+        .post("/api/sos/customer-plans")
+        .set(asTenant())
+        .send({ customerId, planId: packagePlan }),
+      agent
+        .post("/api/sos/customer-plans")
+        .set(asTenant())
+        .send({ customerId, planId: packagePlan }),
+    ]);
+    expect([ra.status, rb.status].sort()).toEqual([201, 409]);
+
+    const { plans, transactions } = await getPlans(customerId);
+    expect(plans).toHaveLength(1);
+    expect(transactions.filter((t) => t.transactionType === "purchase")).toHaveLength(1);
+  });
+
   it("refuses to sell an inactive plan or to an unknown customer", async () => {
     const customerId = await createCustomer("Inactive Buyer");
     const inactive = await agent

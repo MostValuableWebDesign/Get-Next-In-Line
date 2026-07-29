@@ -1201,19 +1201,48 @@ router.post("/sos/customer-plans", async (req, res): Promise<void> => {
     return;
   }
   const now = new Date();
-  const [cp] = await db
-    .insert(sosCustomerPlansTable)
-    .values({
-      customerId: customer.id,
-      planId: plan.id,
-      status: "active",
-      remainingCredits: plan.planType === "membership" ? null : plan.creditCount,
-      renewsAt:
-        plan.planType === "membership"
-          ? nextRenewalDate(plan.billingInterval, now)
-          : null,
-    })
-    .returning();
+  // Guard against accidentally selling the same plan twice (e.g. a
+  // double-click at the register): a customer may hold at most one ACTIVE
+  // enrollment per plan. The check + insert run in one transaction under a
+  // per-(customer, plan) advisory lock so two concurrent sells can't both
+  // pass the check — the loser sees the winner's row and gets the 409.
+  const cp = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`sos_customer_plan_sell:${customer.id}:${plan.id}`})::bigint)`,
+    );
+    const [existing] = await tx
+      .select({ id: sosCustomerPlansTable.id })
+      .from(sosCustomerPlansTable)
+      .where(
+        and(
+          eq(sosCustomerPlansTable.customerId, customer.id),
+          eq(sosCustomerPlansTable.planId, plan.id),
+          eq(sosCustomerPlansTable.status, "active"),
+        ),
+      )
+      .limit(1);
+    if (existing) return null;
+    const [row] = await tx
+      .insert(sosCustomerPlansTable)
+      .values({
+        customerId: customer.id,
+        planId: plan.id,
+        status: "active",
+        remainingCredits: plan.planType === "membership" ? null : plan.creditCount,
+        renewsAt:
+          plan.planType === "membership"
+            ? nextRenewalDate(plan.billingInterval, now)
+            : null,
+      })
+      .returning();
+    return row;
+  });
+  if (!cp) {
+    res.status(409).json({
+      message: "Customer already has an active enrollment in this plan",
+    });
+    return;
+  }
   const [purchaseTxn] = await db.insert(sosPlanTransactionsTable).values({
     customerPlanId: cp.id,
     customerId: customer.id,
