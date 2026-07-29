@@ -625,3 +625,116 @@ describe("plan benefits at POS checkout", () => {
       .expect(200);
   });
 });
+
+describe("lapsed memberships stop granting the discount", () => {
+  let membershipPlan: number;
+
+  beforeAll(async () => {
+    const mem = await agent
+      .post("/api/sos/plans")
+      .set(asTenant())
+      .send({ name: `Lapse Mem ${RUN}`, planType: "membership", price: 30, discountPercent: 20 })
+      .expect(201);
+    membershipPlan = mem.body.id;
+    planIds.push(membershipPlan);
+  });
+
+  async function sellAndBackdate(customerId: number, daysPast: number) {
+    const sold = await agent
+      .post("/api/sos/customer-plans")
+      .set(asTenant())
+      .send({ customerId, planId: membershipPlan })
+      .expect(201);
+    await db
+      .update(sosCustomerPlansTable)
+      .set({ renewsAt: new Date(Date.now() - daysPast * 24 * 60 * 60 * 1000) })
+      .where(eq(sosCustomerPlansTable.id, sold.body.id));
+    return sold.body.id as number;
+  }
+
+  it("rejects the discount once the renewal date is past the grace period", async () => {
+    const customerId = await createCustomer("Lapsed");
+    const resourceId = await createResource("Chair L1");
+    const enrollmentId = await sellAndBackdate(customerId, 10);
+
+    const visitId = await startVisit(customerId, resourceId);
+    const res = await agent
+      .post(`/api/sos/visits/${visitId}/advance`)
+      .set(asTenant())
+      .send({
+        action: "check_out",
+        paymentAmount: 50,
+        benefitCustomerPlanId: enrollmentId,
+        benefitType: "membership_discount",
+      });
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/past due/i);
+
+    // No discount was ledgered and the visit is still checkout-able.
+    const { transactions } = await getPlans(customerId);
+    expect(
+      transactions.filter(
+        (t) => t.transactionType === "discount" && t.customerPlanId === enrollmentId,
+      ),
+    ).toHaveLength(0);
+    await agent
+      .post(`/api/sos/visits/${visitId}/advance`)
+      .set(asTenant())
+      .send({ action: "check_out", paymentAmount: 50 })
+      .expect(200);
+  });
+
+  it("still honors the discount within the 3-day grace period", async () => {
+    const customerId = await createCustomer("Grace");
+    const resourceId = await createResource("Chair L2");
+    const enrollmentId = await sellAndBackdate(customerId, 1);
+
+    const visitId = await startVisit(customerId, resourceId);
+    await agent
+      .post(`/api/sos/visits/${visitId}/advance`)
+      .set(asTenant())
+      .send({
+        action: "check_out",
+        paymentAmount: 40,
+        benefitCustomerPlanId: enrollmentId,
+        benefitType: "membership_discount",
+      })
+      .expect(200);
+    const { transactions } = await getPlans(customerId);
+    expect(
+      transactions.find(
+        (t) => t.transactionType === "discount" && t.customerPlanId === enrollmentId,
+      ),
+    ).toBeDefined();
+  });
+
+  it("surfaces past_due on the customer plans list as soon as renewal lapses", async () => {
+    const customerId = await createCustomer("PastDueViewer");
+    const enrollmentId = await sellAndBackdate(customerId, 1);
+    const { plans } = await getPlans(customerId);
+    expect(plans.find((p) => p.id === enrollmentId)!.status).toBe("past_due");
+  });
+
+  it("renewing a lapsed membership restores the discount", async () => {
+    const customerId = await createCustomer("Reviver");
+    const resourceId = await createResource("Chair L3");
+    const enrollmentId = await sellAndBackdate(customerId, 10);
+
+    await agent.post(`/api/sos/customer-plans/${enrollmentId}/renew`).set(asTenant()).expect(200);
+
+    const { plans } = await getPlans(customerId);
+    expect(plans.find((p) => p.id === enrollmentId)!.status).toBe("active");
+
+    const visitId = await startVisit(customerId, resourceId);
+    await agent
+      .post(`/api/sos/visits/${visitId}/advance`)
+      .set(asTenant())
+      .send({
+        action: "check_out",
+        paymentAmount: 60,
+        benefitCustomerPlanId: enrollmentId,
+        benefitType: "membership_discount",
+      })
+      .expect(200);
+  });
+});

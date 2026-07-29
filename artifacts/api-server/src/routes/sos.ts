@@ -1012,6 +1012,29 @@ function serializePlan(p: PlanRow) {
   };
 }
 
+// A membership whose renewal date has passed keeps its discount for a short
+// grace period (card retries, weekend lapses), then stops granting benefits
+// until it is renewed. 3 days is the product default.
+const MEMBERSHIP_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
+
+/** True once a membership enrollment's renewal date is in the past. */
+function membershipIsPastDue(cp: CustomerPlanRow, plan: PlanRow, now = new Date()): boolean {
+  return (
+    plan.planType === "membership" &&
+    cp.status !== "cancelled" &&
+    cp.renewsAt != null &&
+    cp.renewsAt.getTime() < now.getTime()
+  );
+}
+
+/** True once a past-due membership has exhausted its grace period. */
+function membershipIsLapsed(cp: CustomerPlanRow, plan: PlanRow, now = new Date()): boolean {
+  return (
+    membershipIsPastDue(cp, plan, now) &&
+    cp.renewsAt!.getTime() + MEMBERSHIP_GRACE_MS < now.getTime()
+  );
+}
+
 function serializeCustomerPlan(cp: CustomerPlanRow, plan: PlanRow) {
   return {
     id: cp.id,
@@ -1022,7 +1045,9 @@ function serializeCustomerPlan(cp: CustomerPlanRow, plan: PlanRow) {
     price: parseFloat(plan.price),
     billingInterval: plan.billingInterval,
     discountPercent: plan.discountPercent,
-    status: cp.status,
+    // Past-due state is derived at read time so staff see why a benefit is
+    // blocked even before any background job flips the stored status.
+    status: cp.status === "active" && membershipIsPastDue(cp, plan) ? "past_due" : cp.status,
     remainingCredits: cp.remainingCredits,
     renewsAt: iso(cp.renewsAt),
     purchasedAt: cp.purchasedAt.toISOString(),
@@ -1991,6 +2016,15 @@ router.post("/sos/visits/:id/advance", async (req, res): Promise<void> => {
     }
     if (body.benefitType !== "redeem_credit" && found.plan.planType !== "membership") {
       res.status(409).json({ message: "Only memberships grant a discount" });
+      return;
+    }
+    if (
+      body.benefitType !== "redeem_credit" &&
+      membershipIsLapsed(found.cp, found.plan)
+    ) {
+      res.status(409).json({
+        message: "Membership is past due and no longer grants its discount — renew it first",
+      });
       return;
     }
     benefitPlan = found;
