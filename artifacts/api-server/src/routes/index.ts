@@ -86,7 +86,7 @@ export const SESSION_EXEMPT_PATHS = new Set([
 // app.ts with express.raw() BEFORE the session middleware — they never reach
 // this router, so no exemption pattern is needed here.
 export const SESSION_EXEMPT_PATTERNS: RegExp[] = [
-  // Public Co-Op API Gateway: server-to-server calls from third-party POS /
+  // Public Co-Op Developer API Gateway: server-to-server calls from
   // developer systems, authenticated by per-tenant bearer tokens inside the
   // gateway router (rotation/revocation enforced there). Never session-authed.
   /^\/v1\/gateway\//,

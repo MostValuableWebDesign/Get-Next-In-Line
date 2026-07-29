@@ -25,7 +25,7 @@ tags:
   - name: sos
     description: SOS operations platform — resources, visits, waitlist, appointments, AI receptionist
   - name: gateway
-    description: Co-Op API & Third-Party POS Integration Gateway — bearer-token management and API call log (public /v1/gateway endpoints are server-to-server, outside this spec)
+    description: Co-Op Developer API Gateway — bearer-token management and API call log (public /v1/gateway endpoints are server-to-server, outside this spec)
   - name: public-booking
     description: Public (no-login) direct-booking flow — service menu, availability, and booking keyed by tenant slug
   - name: governance

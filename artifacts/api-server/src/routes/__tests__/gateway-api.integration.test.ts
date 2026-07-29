@@ -12,7 +12,7 @@ import {
 import { eq } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
-// Co-Op API & Third-Party POS Integration Gateway — tokenized public API.
+// Co-Op Developer API Gateway — tokenized public API.
 //
 //   - merchant token lifecycle: create (shown once) / rotate / revoke,
 //     session-required, tenant-scoped isolation

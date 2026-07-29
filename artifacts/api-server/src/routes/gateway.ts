@@ -28,7 +28,7 @@ import { logger } from "../lib/logger";
 const router: IRouter = Router();
 
 // ---------------------------------------------------------------------------
-// Co-Op API & Third-Party POS Integration Gateway — tokenized developer API.
+// Co-Op Developer API Gateway — tokenized developer API.
 //
 // Two surfaces live here:
 //   1. Merchant management (/gateway/*): session-authed + tenant-authorized —
@@ -464,7 +464,7 @@ router.post("/v1/gateway/redemptions", async (req, res): Promise<void> => {
     });
     return;
   }
-  // Same integrity rules as native and POS-webhook redemptions: participant
+  // Same integrity rules as native checkout redemptions: participant
   // enforcement, single-use lock, exactly-once attribution.
   const result = await redeemWalletPassAsTenant(auth.token.tenantId, code);
   const outcome = result.status === "processed" ? "ok" : result.status === "ignored" ? "ok" : "rejected";
