@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  listEngagementRules,
+  listClientProfiles,
   useListEngagementRules,
   getListEngagementRulesQueryKey,
   useCreateEngagementRule,
@@ -33,6 +35,7 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { usePagedList } from '@/hooks/usePagedList';
 
 const RULE_TYPES = [
   { value: 'reminder', label: 'Appointment Reminder' },
@@ -200,12 +203,22 @@ function summarizeRuleConfig(rule: EngagementRule): string {
     .join(', ');
 }
 
+const PAGE_SIZE = 50;
+
 export function RulesTab({ tenantId }: { tenantId: number }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: rules, isLoading } = useListEngagementRules(tenantId, {
+  const { data: firstPage, isLoading } = useListEngagementRules(tenantId, { limit: PAGE_SIZE }, {
     query: { queryKey: getListEngagementRulesQueryKey(tenantId) },
   });
+  const {
+    items: rules,
+    hasMore: hasMoreRules,
+    loadingMore: loadingMoreRules,
+    loadMore: loadMoreRules,
+  } = usePagedList<EngagementRule>(firstPage, PAGE_SIZE, (offset) =>
+    listEngagementRules(tenantId, { limit: PAGE_SIZE, offset }),
+  );
   const createRule = useCreateEngagementRule();
   const updateRule = useUpdateEngagementRule();
   const deleteRule = useDeleteEngagementRule();
@@ -338,6 +351,19 @@ export function RulesTab({ tenantId }: { tenantId: number }) {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {hasMoreRules && (
+          <div className="pt-3 flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loadingMoreRules}
+              onClick={loadMoreRules}
+              data-testid="button-rules-load-more"
+            >
+              {loadingMoreRules ? 'Loading…' : 'Load more rules'}
+            </Button>
           </div>
         )}
       </CardContent>
@@ -543,9 +569,17 @@ const EMPTY_PROFILE: ProfileFormState = {
 export function ClientsTab({ tenantId }: { tenantId: number }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: profiles, isLoading } = useListClientProfiles(tenantId, {
+  const { data: firstPage, isLoading } = useListClientProfiles(tenantId, { limit: PAGE_SIZE }, {
     query: { queryKey: getListClientProfilesQueryKey(tenantId) },
   });
+  const {
+    items: profiles,
+    hasMore: hasMoreClients,
+    loadingMore: loadingMoreClients,
+    loadMore: loadMoreClients,
+  } = usePagedList<ConciergeClientProfile>(firstPage, PAGE_SIZE, (offset) =>
+    listClientProfiles(tenantId, { limit: PAGE_SIZE, offset }),
+  );
   const createProfile = useCreateClientProfile();
   const updateProfile = useUpdateClientProfile();
   const deleteProfile = useDeleteClientProfile();
@@ -670,6 +704,19 @@ export function ClientsTab({ tenantId }: { tenantId: number }) {
               ))}
             </TableBody>
           </Table>
+        )}
+        {hasMoreClients && (
+          <div className="pt-3 flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={loadingMoreClients}
+              onClick={loadMoreClients}
+              data-testid="button-clients-load-more"
+            >
+              {loadingMoreClients ? 'Loading…' : 'Load more clients'}
+            </Button>
+          </div>
         )}
       </CardContent>
 

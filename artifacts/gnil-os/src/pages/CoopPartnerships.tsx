@@ -1,3 +1,4 @@
+import { useAllTenants } from '@/hooks/useAllTenants';
 import { useEffect, useState } from 'react';
 import {
   useListCoopPartnerships,
@@ -60,9 +61,7 @@ export default function CoopPartnerships() {
   // Partnerships are tenant-scoped on the server (participant-only): the
   // operator picks a business, and the list shows the pacts that business
   // participates in as host or partner.
-  const { data: tenants } = useListTenants({
-    query: { queryKey: getListTenantsQueryKey() },
-  });
+  const { data: tenants } = useAllTenants();
   const [selectedTenantId, setSelectedTenantId] = useState<string>('');
   useEffect(() => {
     if (selectedTenantId === '' && tenants && tenants.length > 0) {
@@ -695,9 +694,7 @@ function CreatePartnershipDialog() {
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: tenants } = useListTenants({
-    query: { queryKey: getListTenantsQueryKey(), enabled: open },
-  });
+  const { data: tenants } = useAllTenants({ enabled: open });
   const createPartnership = useCreateCoopPartnership();
 
   const reset = () => {

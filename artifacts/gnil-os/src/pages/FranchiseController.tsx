@@ -1,3 +1,4 @@
+import { useAllTenants } from '@/hooks/useAllTenants';
 import { useState } from 'react';
 import {
   useListFranchiseOrgs,
@@ -210,7 +211,7 @@ function HierarchyCard({ org, isSuperAdmin }: { org: FranchiseOrgDetail; isSuper
   const [regionName, setRegionName] = useState('');
   const [attachTenantId, setAttachTenantId] = useState('');
   const [attachRegionId, setAttachRegionId] = useState('none');
-  const tenantsQuery = useListTenants();
+  const tenantsQuery = useAllTenants();
   const attachedIds = new Set(org.storefronts.map((s) => s.tenantId));
   const attachable = (tenantsQuery.data ?? []).filter((t) => !attachedIds.has(t.id));
 
@@ -679,7 +680,7 @@ function ApprovalsCard({ org, canApprove }: { org: FranchiseOrgDetail; canApprov
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const requestsQuery = useListFranchiseRequests(org.id);
-  const tenantsQuery = useListTenants();
+  const tenantsQuery = useAllTenants();
   const [storefrontId, setStorefrontId] = useState('');
   const [targetId, setTargetId] = useState('');
   const [perkTitle, setPerkTitle] = useState('');

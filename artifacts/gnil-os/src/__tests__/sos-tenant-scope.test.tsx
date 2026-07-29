@@ -97,6 +97,7 @@ describe('Business Bookings selector', () => {
         useListSosAppointments: () => ({ data: [], isLoading: false }),
         useListSosVisits: () => ({ data: [], isLoading: false }),
         useGetSosDashboard: () => ({ data: undefined, isLoading: false }),
+        getListTenantsQueryKey: () => ['tenants'],
         useListTenants: () => ({
           data: [
             { id: 7, brandName: 'Glow Salon' },

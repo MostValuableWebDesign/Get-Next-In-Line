@@ -208,16 +208,19 @@ import type {
   HealthStatus,
   ListAdminCoopDisputesParams,
   ListAdminCoopFinancialDisputesParams,
+  ListClientProfilesParams,
   ListCoopComplianceLedgerParams,
   ListCoopDirectoryParams,
   ListCoopPartnerPayoutsParams,
   ListCoopPartnerPerformanceParams,
   ListCoopPartnershipsParams,
+  ListEngagementRulesParams,
   ListGratuityLedgerParams,
   ListSosAppointmentsParams,
   ListSosCustomersParams,
   ListSosMessagesParams,
   ListSosVisitsParams,
+  ListTenantsParams,
   ListTipPoolPartnerStaffParams,
   MasterOverview,
   Module,
@@ -1960,20 +1963,27 @@ export function useGetSettlementStatement<TData = Awaited<ReturnType<typeof getS
 
 
 
-export const getListTenantsUrl = () => {
+export const getListTenantsUrl = (params?: ListTenantsParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/tenants`
+  return stringifiedParams.length > 0 ? `/api/tenants?${stringifiedParams}` : `/api/tenants`
 }
 
 /**
  * @summary List all provisioned tenants
  */
-export const listTenants = async ( options?: RequestInit): Promise<Tenant[]> => {
+export const listTenants = async (params?: ListTenantsParams, options?: RequestInit): Promise<Tenant[]> => {
 
-  return customFetch<Tenant[]>(getListTenantsUrl(),
+  return customFetch<Tenant[]>(getListTenantsUrl(params),
   {
     ...options,
     method: 'GET'
@@ -1986,23 +1996,23 @@ export const listTenants = async ( options?: RequestInit): Promise<Tenant[]> => 
 
 
 
-export const getListTenantsQueryKey = () => {
+export const getListTenantsQueryKey = (params?: ListTenantsParams,) => {
     return [
-    `/api/tenants`
+    `/api/tenants`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListTenantsQueryOptions = <TData = Awaited<ReturnType<typeof listTenants>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTenants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListTenantsQueryOptions = <TData = Awaited<ReturnType<typeof listTenants>>, TError = ErrorType<unknown>>(params?: ListTenantsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTenants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListTenantsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListTenantsQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTenants>>> = ({ signal }) => listTenants({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTenants>>> = ({ signal }) => listTenants(params, { signal, ...requestOptions });
 
 
 
@@ -2020,11 +2030,11 @@ export type ListTenantsQueryError = ErrorType<unknown>
  */
 
 export function useListTenants<TData = Awaited<ReturnType<typeof listTenants>>, TError = ErrorType<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTenants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ params?: ListTenantsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTenants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListTenantsQueryOptions(options)
+  const queryOptions = getListTenantsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -18628,20 +18638,29 @@ export const useDeleteTenantReview = <TError = ErrorType<void>,
       return useMutation(getDeleteTenantReviewMutationOptions(options));
     }
 
-export const getListEngagementRulesUrl = (id: number,) => {
+export const getListEngagementRulesUrl = (id: number,
+    params?: ListEngagementRulesParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/tenants/${id}/engagement-rules`
+  return stringifiedParams.length > 0 ? `/api/tenants/${id}/engagement-rules?${stringifiedParams}` : `/api/tenants/${id}/engagement-rules`
 }
 
 /**
  * @summary List a tenant's concierge engagement rules
  */
-export const listEngagementRules = async (id: number, options?: RequestInit): Promise<EngagementRule[]> => {
+export const listEngagementRules = async (id: number,
+    params?: ListEngagementRulesParams, options?: RequestInit): Promise<EngagementRule[]> => {
 
-  return customFetch<EngagementRule[]>(getListEngagementRulesUrl(id),
+  return customFetch<EngagementRule[]>(getListEngagementRulesUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -18654,23 +18673,25 @@ export const listEngagementRules = async (id: number, options?: RequestInit): Pr
 
 
 
-export const getListEngagementRulesQueryKey = (id: number,) => {
+export const getListEngagementRulesQueryKey = (id: number,
+    params?: ListEngagementRulesParams,) => {
     return [
-    `/api/tenants/${id}/engagement-rules`
+    `/api/tenants/${id}/engagement-rules`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListEngagementRulesQueryOptions = <TData = Awaited<ReturnType<typeof listEngagementRules>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngagementRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListEngagementRulesQueryOptions = <TData = Awaited<ReturnType<typeof listEngagementRules>>, TError = ErrorType<void>>(id: number,
+    params?: ListEngagementRulesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngagementRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListEngagementRulesQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getListEngagementRulesQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEngagementRules>>> = ({ signal }) => listEngagementRules(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEngagementRules>>> = ({ signal }) => listEngagementRules(id,params, { signal, ...requestOptions });
 
 
 
@@ -18688,11 +18709,12 @@ export type ListEngagementRulesQueryError = ErrorType<void>
  */
 
 export function useListEngagementRules<TData = Awaited<ReturnType<typeof listEngagementRules>>, TError = ErrorType<void>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngagementRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: number,
+    params?: ListEngagementRulesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEngagementRules>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListEngagementRulesQueryOptions(id,options)
+  const queryOptions = getListEngagementRulesQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -18924,20 +18946,29 @@ export const useDeleteEngagementRule = <TError = ErrorType<void>,
       return useMutation(getDeleteEngagementRuleMutationOptions(options));
     }
 
-export const getListClientProfilesUrl = (id: number,) => {
+export const getListClientProfilesUrl = (id: number,
+    params?: ListClientProfilesParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/tenants/${id}/client-profiles`
+  return stringifiedParams.length > 0 ? `/api/tenants/${id}/client-profiles?${stringifiedParams}` : `/api/tenants/${id}/client-profiles`
 }
 
 /**
  * @summary List a tenant's concierge client profiles
  */
-export const listClientProfiles = async (id: number, options?: RequestInit): Promise<ConciergeClientProfile[]> => {
+export const listClientProfiles = async (id: number,
+    params?: ListClientProfilesParams, options?: RequestInit): Promise<ConciergeClientProfile[]> => {
 
-  return customFetch<ConciergeClientProfile[]>(getListClientProfilesUrl(id),
+  return customFetch<ConciergeClientProfile[]>(getListClientProfilesUrl(id,params),
   {
     ...options,
     method: 'GET'
@@ -18950,23 +18981,25 @@ export const listClientProfiles = async (id: number, options?: RequestInit): Pro
 
 
 
-export const getListClientProfilesQueryKey = (id: number,) => {
+export const getListClientProfilesQueryKey = (id: number,
+    params?: ListClientProfilesParams,) => {
     return [
-    `/api/tenants/${id}/client-profiles`
+    `/api/tenants/${id}/client-profiles`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListClientProfilesQueryOptions = <TData = Awaited<ReturnType<typeof listClientProfiles>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientProfiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListClientProfilesQueryOptions = <TData = Awaited<ReturnType<typeof listClientProfiles>>, TError = ErrorType<void>>(id: number,
+    params?: ListClientProfilesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientProfiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListClientProfilesQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getListClientProfilesQueryKey(id,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientProfiles>>> = ({ signal }) => listClientProfiles(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listClientProfiles>>> = ({ signal }) => listClientProfiles(id,params, { signal, ...requestOptions });
 
 
 
@@ -18984,11 +19017,12 @@ export type ListClientProfilesQueryError = ErrorType<void>
  */
 
 export function useListClientProfiles<TData = Awaited<ReturnType<typeof listClientProfiles>>, TError = ErrorType<void>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientProfiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ id: number,
+    params?: ListClientProfilesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listClientProfiles>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListClientProfilesQueryOptions(id,options)
+  const queryOptions = getListClientProfilesQueryOptions(id,params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

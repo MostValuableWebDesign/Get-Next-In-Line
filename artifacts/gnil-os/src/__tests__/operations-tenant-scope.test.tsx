@@ -22,6 +22,7 @@ vi.mock('@workspace/api-client-react', () => ({
   useUpdateSosResource: () => ({ mutate: vi.fn() }),
   useCreateSosResource: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteSosResource: () => ({ mutate: vi.fn(), isPending: false }),
+  getListTenantsQueryKey: () => ['tenants'],
   useListTenants: () => ({
     data: [
       { id: 7, brandName: 'Glow Salon' },

@@ -1,3 +1,4 @@
+import { useAllTenants } from '@/hooks/useAllTenants';
 import React, { useState } from 'react';
 import { 
   useListSosVisits, useListSosResources, useListSosWaitlist,
@@ -37,7 +38,7 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
   // Selected business scope — same ?tenant=<id> URL contract as the other
   // SOS pages, so staff always see which business's live queue is on screen.
   const selectedTenant = parseTenantParam(searchString);
-  const { data: tenants } = useListTenants();
+  const { data: tenants } = useAllTenants();
   const selectedTenantName = tenants?.find(t => t.id === selectedTenant)?.brandName ?? null;
   const changeTenant = (v: string) => {
     const tenant = v === 'all' ? null : Number(v);

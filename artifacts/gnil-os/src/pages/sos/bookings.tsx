@@ -1,3 +1,4 @@
+import { useAllTenants } from '@/hooks/useAllTenants';
 import React, { useMemo, useState } from 'react';
 import { Link, useLocation, useSearch } from 'wouter';
 import {
@@ -62,7 +63,7 @@ export function BookingsPage() {
   // component reads the same param and attaches x-tenant-id to every
   // /api/sos/* request; with no selection the legacy combined view loads.
   const selectedTenant = parseTenantParam(searchString);
-  const { data: tenants } = useListTenants();
+  const { data: tenants } = useAllTenants();
   const selectedTenantName = tenants?.find(t => t.id === selectedTenant)?.brandName;
 
   const buildUrl = (tab: string, tenant: number | null) => {

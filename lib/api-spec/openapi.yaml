@@ -443,6 +443,22 @@ paths:
       operationId: listTenants
       tags: [tenants]
       summary: List all provisioned tenants
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of tenants per page (default 100, max 500)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+        - name: offset
+          in: query
+          required: false
+          description: Number of tenants to skip (default 0)
+          schema:
+            type: integer
+            minimum: 0
       responses:
         "200":
           description: List of tenants
@@ -2650,6 +2666,21 @@ paths:
           required: true
           schema:
             type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of entries per page (default 100, max 500)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+        - name: offset
+          in: query
+          required: false
+          description: Number of entries to skip (default 0)
+          schema:
+            type: integer
+            minimum: 0
       responses:
         "200":
           description: Ledger entries, newest first
@@ -5345,6 +5376,21 @@ paths:
       tags: [concierge]
       summary: List a tenant's concierge engagement rules
       parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of rules per page (default 100, max 500)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+        - name: offset
+          in: query
+          required: false
+          description: Number of rules to skip (default 0)
+          schema:
+            type: integer
+            minimum: 0
         - name: id
           in: path
           required: true
@@ -5449,6 +5495,21 @@ paths:
       tags: [concierge]
       summary: List a tenant's concierge client profiles
       parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of profiles per page (default 100, max 500)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+        - name: offset
+          in: query
+          required: false
+          description: Number of profiles to skip (default 0)
+          schema:
+            type: integer
+            minimum: 0
         - name: id
           in: path
           required: true

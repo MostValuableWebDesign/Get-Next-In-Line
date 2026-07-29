@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
+  listCoopComplianceLedger,
+  type CoopComplianceLedgerEntry,
   useGetCoopComplianceSettings,
   useUpdateCoopComplianceSettings,
   getGetCoopComplianceSettingsQueryKey,
@@ -24,6 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrentSosTenantId } from '@/lib/sos-tenant';
 import { Scale, Download, Plus, AlertTriangle } from 'lucide-react';
+import { usePagedList } from '@/hooks/usePagedList';
 
 /**
  * Co-Op Tax & Revenue Compliance Ledger — merchant-facing "Tax & Compliance"
@@ -62,6 +65,8 @@ function periodOptions(): { value: string; label: string }[] {
   return opts;
 }
 
+const LEDGER_PAGE_SIZE = 50;
+
 export default function TaxCompliancePage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -70,13 +75,28 @@ export default function TaxCompliancePage() {
   const year = Number(period.slice(0, 4));
 
   const { data: summary, isLoading: summaryLoading } = useGetCoopComplianceSummary({ period });
-  const { data: ledger, isLoading: ledgerLoading } = useListCoopComplianceLedger({ period });
+  const { data: ledgerFirstPage, isLoading: ledgerLoading } = useListCoopComplianceLedger({
+    period,
+    limit: LEDGER_PAGE_SIZE,
+  });
+  // usePagedList resets its extra pages whenever the first page refreshes —
+  // including period changes and post-mutation invalidations.
+  const {
+    items: ledger,
+    hasMore: hasMoreLedger,
+    loadingMore: loadingMoreLedger,
+    loadMore: loadMoreLedger,
+  } = usePagedList<CoopComplianceLedgerEntry>(ledgerFirstPage, LEDGER_PAGE_SIZE, (offset) =>
+    listCoopComplianceLedger({ period, limit: LEDGER_PAGE_SIZE, offset }),
+  );
   const { data: payouts } = useListCoopPartnerPayouts({ year });
   const { data: settings } = useGetCoopComplianceSettings();
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: getGetCoopComplianceSummaryQueryKey({ period }) });
-    queryClient.invalidateQueries({ queryKey: getListCoopComplianceLedgerQueryKey({ period }) });
+    queryClient.invalidateQueries({
+      queryKey: getListCoopComplianceLedgerQueryKey({ period, limit: LEDGER_PAGE_SIZE }),
+    });
     queryClient.invalidateQueries({ queryKey: getListCoopPartnerPayoutsQueryKey({ year }) });
   };
 
@@ -297,6 +317,19 @@ export default function TaxCompliancePage() {
                     ))}
                   </tbody>
                 </table>
+                {hasMoreLedger && (
+                  <div className="pt-3 flex justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={loadingMoreLedger}
+                      onClick={loadMoreLedger}
+                      data-testid="button-ledger-load-more"
+                    >
+                      {loadingMoreLedger ? 'Loading…' : 'Load more entries'}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

@@ -1,3 +1,4 @@
+import { useAllTenants } from '@/hooks/useAllTenants';
 import { useState } from 'react';
 import {
   useListGovernanceUsers,
@@ -236,7 +237,7 @@ function TenantScopePicker({
   selected: number[];
   onChange: (ids: number[]) => void;
 }) {
-  const { data: tenants } = useListTenants({ query: { queryKey: getListTenantsQueryKey() } });
+  const { data: tenants } = useAllTenants();
   if (role === 'super_admin') {
     return <p className="text-sm text-muted-foreground">Super-admins manage every business — no scope needed.</p>;
   }

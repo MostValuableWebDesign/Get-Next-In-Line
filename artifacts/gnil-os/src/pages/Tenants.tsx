@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
-import { useListTenants, useUpdateTenant, useDeleteTenant, useCreateTenant, getListTenantsQueryKey, useGetTenant } from '@workspace/api-client-react';
+import { useListTenants, useUpdateTenant, useDeleteTenant, useCreateTenant, getListTenantsQueryKey, useGetTenant, listTenants, type Tenant } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,18 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { useSessionRole } from '@/hooks/useAuth';
+import { usePagedList } from '@/hooks/usePagedList';
+
+const PAGE_SIZE = 50;
 
 export default function Tenants() {
-  const { data: tenants, isLoading } = useListTenants();
+  const { data: firstPage, isLoading } = useListTenants({ limit: PAGE_SIZE });
+  const { items, hasMore, loadingMore, loadMore } = usePagedList<Tenant>(
+    firstPage,
+    PAGE_SIZE,
+    (offset) => listTenants({ limit: PAGE_SIZE, offset }),
+  );
+  const tenants = items ?? [];
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [, navigate] = useLocation();
   const role = useSessionRole();
@@ -114,6 +123,19 @@ export default function Tenants() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {hasMore && (
+            <div className="p-4 flex justify-center border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={loadingMore}
+                onClick={loadMore}
+                data-testid="button-tenants-load-more"
+              >
+                {loadingMore ? 'Loading…' : 'Load more tenants'}
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

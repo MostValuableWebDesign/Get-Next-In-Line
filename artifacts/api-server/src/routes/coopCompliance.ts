@@ -18,6 +18,7 @@ import {
   UpdateCoopComplianceSettingsBody,
   UpdateCoopComplianceSettingsResponse,
   ListCoopComplianceLedgerResponse,
+  ListCoopComplianceLedgerQueryParams,
   CreateCoopComplianceEntryBody,
   CreateCoopComplianceEntryResponse,
   GetCoopComplianceSummaryResponse,
@@ -158,9 +159,12 @@ router.get("/coop/compliance/ledger", async (req, res): Promise<void> => {
     res.status(400).json({ message: "x-tenant-id header is required" });
     return;
   }
-  const period = parseCompliancePeriod(
-    typeof req.query.period === "string" ? req.query.period : undefined,
-  );
+  const query = ListCoopComplianceLedgerQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ message: "Invalid query", errors: query.error.flatten() });
+    return;
+  }
+  const period = parseCompliancePeriod(query.data.period);
   if (!period) {
     res.status(400).json({ message: "Invalid period: use YYYY, YYYY-MM, or YYYY-Qn" });
     return;
@@ -175,7 +179,9 @@ router.get("/coop/compliance/ledger", async (req, res): Promise<void> => {
         lt(coopComplianceLedgerTable.occurredAt, period.to),
       ),
     )
-    .orderBy(desc(coopComplianceLedgerTable.occurredAt), desc(coopComplianceLedgerTable.id));
+    .orderBy(desc(coopComplianceLedgerTable.occurredAt), desc(coopComplianceLedgerTable.id))
+    .limit(query.data.limit ?? 100)
+    .offset(query.data.offset ?? 0);
   res.json(ListCoopComplianceLedgerResponse.parse(await serializeEntries(rows)));
 });
 

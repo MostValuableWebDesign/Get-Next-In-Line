@@ -1,3 +1,4 @@
+import { useAllTenants } from '@/hooks/useAllTenants';
 import { useState } from 'react';
 import {
   useListTenants,
@@ -52,7 +53,7 @@ export function CheckoutSimulationDialog({
   description,
   lockedModuleId,
 }: CheckoutSimulationDialogProps) {
-  const { data: tenants } = useListTenants();
+  const { data: tenants } = useAllTenants();
   const { data: modules } = useListModules();
   const { data: pricing } = useGetModulesPricing();
   const simulateCheckout = useSimulateCheckout();

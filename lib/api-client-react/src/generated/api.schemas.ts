@@ -6922,6 +6922,20 @@ periodStart: string;
 periodEnd: string;
 };
 
+export type ListTenantsParams = {
+/**
+ * Maximum number of tenants per page (default 100, max 500)
+ * @minimum 1
+ * @maximum 500
+ */
+limit?: number;
+/**
+ * Number of tenants to skip (default 0)
+ * @minimum 0
+ */
+offset?: number;
+};
+
 export type GetTenantActivityParams = {
 /**
  * Filter activity to a single tenant
@@ -6992,6 +7006,17 @@ export const GetCoopStatsWindowDays = {
 
 export type ListCoopComplianceLedgerParams = {
 period: string;
+/**
+ * Maximum number of entries per page (default 100, max 500)
+ * @minimum 1
+ * @maximum 500
+ */
+limit?: number;
+/**
+ * Number of entries to skip (default 0)
+ * @minimum 0
+ */
+offset?: number;
 };
 
 export type GetCoopComplianceSummaryParams = {
@@ -7147,5 +7172,33 @@ export type GetGratuityShiftReportParams = {
  * Calendar day (YYYY-MM-DD, server-local)
  */
 date: string;
+};
+
+export type ListEngagementRulesParams = {
+/**
+ * Maximum number of rules per page (default 100, max 500)
+ * @minimum 1
+ * @maximum 500
+ */
+limit?: number;
+/**
+ * Number of rules to skip (default 0)
+ * @minimum 0
+ */
+offset?: number;
+};
+
+export type ListClientProfilesParams = {
+/**
+ * Maximum number of profiles per page (default 100, max 500)
+ * @minimum 1
+ * @maximum 500
+ */
+limit?: number;
+/**
+ * Number of profiles to skip (default 0)
+ * @minimum 0
+ */
+offset?: number;
 };
 

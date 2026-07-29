@@ -41,6 +41,7 @@ const appointments = [
 vi.mock('@workspace/api-client-react', () => ({
   setTenantHeaderGetter: () => {},
   useListTenants: () => ({ data: [], isLoading: false }),
+  getListTenantsQueryKey: () => ['tenants'],
   useListSosAppointments: () => ({ data: appointments, isLoading: false }),
   getListSosAppointmentsQueryKey: () => ['/api/sos/appointments'],
   useListSosVisits: () => ({ data: [], isLoading: false }),

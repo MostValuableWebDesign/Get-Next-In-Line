@@ -6,16 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListCoopComplianceLedgerParams = {
-period: string;
+export type ListTenantsParams = {
 /**
- * Maximum number of entries per page (default 100, max 500)
+ * Maximum number of tenants per page (default 100, max 500)
  * @minimum 1
  * @maximum 500
  */
 limit?: number;
 /**
- * Number of entries to skip (default 0)
+ * Number of tenants to skip (default 0)
  * @minimum 0
  */
 offset?: number;

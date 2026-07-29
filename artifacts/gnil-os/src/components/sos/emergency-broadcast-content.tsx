@@ -1,3 +1,4 @@
+import { useAllTenants } from '@/hooks/useAllTenants';
 import { useState } from 'react';
 import {
   useListEmergencyBroadcasts, getListEmergencyBroadcastsQueryKey,
@@ -254,9 +255,7 @@ function ComposeDialog({
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   // Admin selected-scope target picker only.
-  const { data: tenants } = useListTenants({
-    query: { queryKey: getListTenantsQueryKey(), enabled: isAdmin && open },
-  });
+  const { data: tenants } = useAllTenants({ enabled: isAdmin && open });
 
   const create = useCreateEmergencyBroadcast({
     mutation: {

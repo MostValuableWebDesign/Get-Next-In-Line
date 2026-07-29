@@ -594,6 +594,17 @@ export const GetSettlementStatementResponse = zod.object({
 /**
  * @summary List all provisioned tenants
  */
+export const listTenantsQueryLimitMax = 500;
+
+export const listTenantsQueryOffsetMin = 0;
+
+
+
+export const ListTenantsQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(listTenantsQueryLimitMax).optional().describe('Maximum number of tenants per page (default 100, max 500)'),
+  "offset": zod.coerce.number().min(listTenantsQueryOffsetMin).optional().describe('Number of tenants to skip (default 0)')
+})
+
 export const ListTenantsResponseItem = zod.object({
   "id": zod.number(),
   "brandName": zod.string(),
@@ -3646,8 +3657,16 @@ export const UpdateCoopComplianceSettingsResponse = zod.object({
 /**
  * @summary Merchant-facing — compliance ledger entries for a period (YYYY, YYYY-MM, or YYYY-Qn); tenant scope via x-tenant-id
  */
+export const listCoopComplianceLedgerQueryLimitMax = 500;
+
+export const listCoopComplianceLedgerQueryOffsetMin = 0;
+
+
+
 export const ListCoopComplianceLedgerQueryParams = zod.object({
-  "period": zod.coerce.string()
+  "period": zod.coerce.string(),
+  "limit": zod.coerce.number().min(1).max(listCoopComplianceLedgerQueryLimitMax).optional().describe('Maximum number of entries per page (default 100, max 500)'),
+  "offset": zod.coerce.number().min(listCoopComplianceLedgerQueryOffsetMin).optional().describe('Number of entries to skip (default 0)')
 })
 
 export const ListCoopComplianceLedgerResponseItem = zod.object({
@@ -7752,6 +7771,17 @@ export const ListEngagementRulesParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const listEngagementRulesQueryLimitMax = 500;
+
+export const listEngagementRulesQueryOffsetMin = 0;
+
+
+
+export const ListEngagementRulesQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(listEngagementRulesQueryLimitMax).optional().describe('Maximum number of rules per page (default 100, max 500)'),
+  "offset": zod.coerce.number().min(listEngagementRulesQueryOffsetMin).optional().describe('Number of rules to skip (default 0)')
+})
+
 export const ListEngagementRulesResponseItem = zod.object({
   "id": zod.number(),
   "tenantId": zod.number(),
@@ -7828,6 +7858,17 @@ export const DeleteEngagementRuleResponse = zod.void()
  */
 export const ListClientProfilesParams = zod.object({
   "id": zod.coerce.number()
+})
+
+export const listClientProfilesQueryLimitMax = 500;
+
+export const listClientProfilesQueryOffsetMin = 0;
+
+
+
+export const ListClientProfilesQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(listClientProfilesQueryLimitMax).optional().describe('Maximum number of profiles per page (default 100, max 500)'),
+  "offset": zod.coerce.number().min(listClientProfilesQueryOffsetMin).optional().describe('Number of profiles to skip (default 0)')
 })
 
 export const ListClientProfilesResponseItem = zod.object({

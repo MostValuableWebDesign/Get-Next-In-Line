@@ -1,3 +1,4 @@
+import { useAllTenants } from '@/hooks/useAllTenants';
 import { useState } from 'react';
 import {
   useListAdminCoopFinancialDisputes, getListAdminCoopFinancialDisputesQueryKey,
@@ -392,9 +393,7 @@ function SuspensionManager() {
   const { data: suspensions, isLoading } = useListCoopSuspensions({
     query: { queryKey: getListCoopSuspensionsQueryKey() },
   });
-  const { data: tenants } = useListTenants({
-    query: { queryKey: getListTenantsQueryKey() },
-  });
+  const { data: tenants } = useAllTenants();
   const suspend = useCreateCoopSuspension();
   const lift = useLiftCoopSuspension();
 

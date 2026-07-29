@@ -16,6 +16,8 @@ import {
   DispatchConciergeMessageBody,
   DispatchConciergeMessageResponse,
   ListEngagementRulesResponse,
+  ListEngagementRulesQueryParams,
+  ListClientProfilesQueryParams,
   CreateEngagementRuleBody,
   CreateEngagementRuleResponse,
   UpdateEngagementRuleBody,
@@ -202,6 +204,11 @@ router.post("/concierge/dispatch-message", async (req, res): Promise<void> => {
 
 router.get("/tenants/:id/engagement-rules", async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
+  const query = ListEngagementRulesQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
   if (!Number.isInteger(tenantId) || !(await tenantExists(tenantId))) {
     res.status(404).json({ error: "Tenant not found" });
     return;
@@ -210,7 +217,9 @@ router.get("/tenants/:id/engagement-rules", async (req, res): Promise<void> => {
     .select()
     .from(engagementRulesTable)
     .where(eq(engagementRulesTable.tenantId, tenantId))
-    .orderBy(engagementRulesTable.id);
+    .orderBy(engagementRulesTable.id)
+    .limit(query.data.limit ?? 100)
+    .offset(query.data.offset ?? 0);
   res.json(ListEngagementRulesResponse.parse(rules.map(serializeRule)));
 });
 
@@ -310,6 +319,11 @@ const toDate = (v: string | null | undefined): Date | null | undefined =>
 
 router.get("/tenants/:id/client-profiles", async (req, res): Promise<void> => {
   const tenantId = Number(req.params.id);
+  const query = ListClientProfilesQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
   if (!Number.isInteger(tenantId) || !(await tenantExists(tenantId))) {
     res.status(404).json({ error: "Tenant not found" });
     return;
@@ -318,7 +332,9 @@ router.get("/tenants/:id/client-profiles", async (req, res): Promise<void> => {
     .select()
     .from(clientProfilesTable)
     .where(eq(clientProfilesTable.tenantId, tenantId))
-    .orderBy(desc(clientProfilesTable.createdAt));
+    .orderBy(desc(clientProfilesTable.createdAt), desc(clientProfilesTable.id))
+    .limit(query.data.limit ?? 100)
+    .offset(query.data.offset ?? 0);
   res.json(ListClientProfilesResponse.parse(profiles.map(serializeProfile)));
 });
 

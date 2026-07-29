@@ -9,6 +9,7 @@ import {
   GetTenantModulesParams,
   GetTenantModulesResponse,
   ListTenantsResponse,
+  ListTenantsQueryParams,
   CreateTenantBody,
   CreateTenantResponse,
   GetTenantActivityResponse,
@@ -95,6 +96,13 @@ router.patch("/tenants/:id/settings", requireSettingsWriteRole, async (req, res)
 });
 
 router.get("/tenants", async (req, res): Promise<void> => {
+  const query = ListTenantsQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
+  const limit = query.data.limit ?? 100;
+  const offset = query.data.offset ?? 0;
   // Platform admins see every tenant; district managers (the only other role
   // the authorization layer lets through here) see only their assigned set.
   let scopedIds: number[] | null = null;
@@ -119,7 +127,9 @@ router.get("/tenants", async (req, res): Promise<void> => {
     .select()
     .from(tenantsTable)
     .where(scopedIds ? inArray(tenantsTable.id, scopedIds) : undefined)
-    .orderBy(desc(tenantsTable.createdAt));
+    .orderBy(desc(tenantsTable.createdAt), desc(tenantsTable.id))
+    .limit(limit)
+    .offset(offset);
 
   res.json(
     ListTenantsResponse.parse(

@@ -41,6 +41,7 @@ vi.mock('@workspace/api-client-react', async (importOriginal) => {
     useSimulateSosCall: () => ({ mutate: () => {}, isPending: false }),
     useSendSosMessage: () => ({ mutate: () => {}, isPending: false }),
     // Tenant-scoped variants used when the redirect carries ?tenant=<id>.
+    getListTenantsQueryKey: () => ['tenants'],
     useListTenants: () => ({
       data: [{ id: 7, brandName: 'Glow Salon' }],
       isLoading: false,
