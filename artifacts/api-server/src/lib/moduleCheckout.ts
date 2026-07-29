@@ -63,11 +63,25 @@ export interface ProvisionResult {
   mrrDelta: number;
 }
 
+// Test hook: inject a failure mid-provisioning (after the tenant_modules
+// insert, before the tenant MRR update) to prove the transaction rolls the
+// whole checkout back with no partial state.
+let provisionFailureInjectionForTests: (() => void) | null = null;
+
+/** Test hook: throw mid-provisioning inside the transaction (null disables). */
+export function __setProvisionFailureInjectionForTests(fn: (() => void) | null): void {
+  provisionFailureInjectionForTests = fn;
+}
+
 /**
  * Provision the given priced items for a tenant: tenant_modules rows (with
- * payment mode), compliance-ledger entries, tenant MRR/modulesEnabled update,
- * and an activity-log entry. Items whose module the tenant already has are
- * skipped (never double-provisioned, never double-counted in MRR).
+ * payment mode), tenant MRR/modulesEnabled update, and an activity-log entry —
+ * all inside ONE database transaction so a mid-checkout crash can never leave
+ * modules provisioned without the MRR updated (or vice versa). Items whose
+ * module the tenant already has are skipped (never double-provisioned, never
+ * double-counted in MRR). Compliance-ledger entries are recorded after commit:
+ * a ledger failure must not abort the money operation, and its idempotent
+ * (source, sourceRef) capture is recoverable via backfill.
  */
 export async function provisionModuleItems(opts: {
   tenantId: number;
@@ -77,38 +91,95 @@ export async function provisionModuleItems(opts: {
 }): Promise<ProvisionResult> {
   const { tenantId, items, paymentMode } = opts;
 
-  const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId));
-  if (!tenant) throw new Error(`Tenant ${tenantId} not found`);
+  const {
+    created,
+    moduleById,
+    itemById,
+    provisionedNames,
+    skippedNames,
+    mrrDelta,
+  } = await db.transaction(async (tx) => {
+    const [tenant] = await tx.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId));
+    if (!tenant) throw new Error(`Tenant ${tenantId} not found`);
 
-  const moduleIds = items.map((i) => i.moduleId);
-  const mods = moduleIds.length
-    ? await db.select().from(modulesTable).where(inArray(modulesTable.id, moduleIds))
-    : [];
-  const moduleById = new Map(mods.map((m) => [m.id, m]));
-  const itemById = new Map(items.map((i) => [i.moduleId, i]));
+    const moduleIds = items.map((i) => i.moduleId);
+    const mods = moduleIds.length
+      ? await tx.select().from(modulesTable).where(inArray(modulesTable.id, moduleIds))
+      : [];
+    const moduleById = new Map(mods.map((m) => [m.id, m]));
+    const itemById = new Map(items.map((i) => [i.moduleId, i]));
 
-  const created = items.length
-    ? await db
-        .insert(tenantModulesTable)
-        .values(
-          items
-            .filter((i) => moduleById.has(i.moduleId))
-            .map((i) => ({
-              tenantId,
-              moduleId: i.moduleId,
-              billingCadence: i.cadence,
-              chargedWholesale: i.wholesale.toFixed(2),
-              chargedResale: i.resale.toFixed(2),
-              paymentMode,
-              stripeCheckoutSessionId: opts.stripeCheckoutSessionId ?? null,
-            }))
-        )
-        .onConflictDoNothing()
-        .returning()
-    : [];
+    const created = items.length
+      ? await tx
+          .insert(tenantModulesTable)
+          .values(
+            items
+              .filter((i) => moduleById.has(i.moduleId))
+              .map((i) => ({
+                tenantId,
+                moduleId: i.moduleId,
+                billingCadence: i.cadence,
+                chargedWholesale: i.wholesale.toFixed(2),
+                chargedResale: i.resale.toFixed(2),
+                paymentMode,
+                stripeCheckoutSessionId: opts.stripeCheckoutSessionId ?? null,
+              }))
+          )
+          .onConflictDoNothing()
+          .returning()
+      : [];
+
+    // Simulated mid-checkout crash (tests only): modules inserted, MRR not
+    // yet updated — the transaction must roll everything back.
+    provisionFailureInjectionForTests?.();
+
+    // MRR delta counts only the rows actually created (monthly-equivalent).
+    let mrrDelta = 0;
+    const provisionedNames: string[] = [];
+    for (const row of created) {
+      const item = itemById.get(row.moduleId);
+      const mod = moduleById.get(row.moduleId);
+      if (!item) continue;
+      mrrDelta += item.cadence === "biweekly" ? item.resale * BIWEEKLY_TO_MONTHLY : item.resale;
+      provisionedNames.push(
+        `${mod?.name ?? `module ${row.moduleId}`} (${item.cadence === "biweekly" ? "bi-weekly" : "monthly"})`
+      );
+    }
+
+    const createdIds = new Set(created.map((r) => r.moduleId));
+    const skippedNames = items
+      .filter((i) => !createdIds.has(i.moduleId))
+      .map((i) => moduleById.get(i.moduleId)?.name ?? `module ${i.moduleId}`);
+
+    // Derive modulesEnabled from the join table so the two can never drift apart.
+    const assignmentsAfter = await tx
+      .select()
+      .from(tenantModulesTable)
+      .where(eq(tenantModulesTable.tenantId, tenantId));
+
+    await tx
+      .update(tenantsTable)
+      .set({
+        mrr: String(Math.round((parseFloat(tenant.mrr ?? "0") + mrrDelta) * 100) / 100),
+        modulesEnabled: assignmentsAfter.length,
+      })
+      .where(eq(tenantsTable.id, tenantId));
+
+    await tx.insert(tenantActivitiesTable).values({
+      tenantId,
+      action: paymentMode === "live" ? "Modules provisioned (paid)" : "Modules provisioned",
+      details: `${created.length} module(s) activated — ${provisionedNames.join(", ")}${
+        skippedNames.length > 0 ? ` (skipped already-active: ${skippedNames.join(", ")})` : ""
+      }${paymentMode === "live" ? " — payment collected via Stripe" : " — SIMULATED checkout, no payment collected"}`,
+    });
+
+    return { created, moduleById, itemById, provisionedNames, skippedNames, mrrDelta };
+  });
 
   // Compliance ledger: one immutable entry per provisioned charge, carrying
-  // the realized wholesale/resale so reports never re-derive pricing.
+  // the realized wholesale/resale so reports never re-derive pricing. Written
+  // AFTER commit — a ledger hiccup never rolls back the checkout, and a
+  // rolled-back checkout never leaves ledger entries behind.
   await recordLedgerEventsSafe(
     created.flatMap((row) => {
       const mod = moduleById.get(row.moduleId);
@@ -129,46 +200,6 @@ export async function provisionModuleItems(opts: {
       ];
     })
   );
-
-  // MRR delta counts only the rows actually created (monthly-equivalent).
-  let mrrDelta = 0;
-  const provisionedNames: string[] = [];
-  for (const row of created) {
-    const item = itemById.get(row.moduleId);
-    const mod = moduleById.get(row.moduleId);
-    if (!item) continue;
-    mrrDelta += item.cadence === "biweekly" ? item.resale * BIWEEKLY_TO_MONTHLY : item.resale;
-    provisionedNames.push(
-      `${mod?.name ?? `module ${row.moduleId}`} (${item.cadence === "biweekly" ? "bi-weekly" : "monthly"})`
-    );
-  }
-
-  const createdIds = new Set(created.map((r) => r.moduleId));
-  const skippedNames = items
-    .filter((i) => !createdIds.has(i.moduleId))
-    .map((i) => moduleById.get(i.moduleId)?.name ?? `module ${i.moduleId}`);
-
-  // Derive modulesEnabled from the join table so the two can never drift apart.
-  const assignmentsAfter = await db
-    .select()
-    .from(tenantModulesTable)
-    .where(eq(tenantModulesTable.tenantId, tenantId));
-
-  await db
-    .update(tenantsTable)
-    .set({
-      mrr: String(Math.round((parseFloat(tenant.mrr ?? "0") + mrrDelta) * 100) / 100),
-      modulesEnabled: assignmentsAfter.length,
-    })
-    .where(eq(tenantsTable.id, tenantId));
-
-  await db.insert(tenantActivitiesTable).values({
-    tenantId,
-    action: paymentMode === "live" ? "Modules provisioned (paid)" : "Modules provisioned",
-    details: `${created.length} module(s) activated — ${provisionedNames.join(", ")}${
-      skippedNames.length > 0 ? ` (skipped already-active: ${skippedNames.join(", ")})` : ""
-    }${paymentMode === "live" ? " — payment collected via Stripe" : " — SIMULATED checkout, no payment collected"}`,
-  });
 
   return {
     provisionedCount: created.length,

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import request from "supertest";
 import {
   db,
@@ -9,6 +9,8 @@ import {
   agencySettingsTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
+import { platformLedgerEntriesTable } from "@workspace/db";
+import { __setProvisionFailureInjectionForTests } from "../../lib/moduleCheckout";
 
 // ---------------------------------------------------------------------------
 // Integration tests: POST /api/billing/checkout with moduleCadences against
@@ -264,6 +266,69 @@ describe("POST /api/billing/checkout with moduleCadences (real database)", () =>
       moduleCadences: [{ moduleId: biModA.id, cadence: "biweekly" }],
     });
     expect(res.status).toBe(404);
+  });
+
+  describe("mid-checkout write failure", () => {
+    afterEach(() => {
+      __setProvisionFailureInjectionForTests(null);
+    });
+
+    it("rolls back the whole checkout — no modules, unchanged MRR, no activity, no ledger entries", async () => {
+      const agent = await loggedInAgent();
+      const tenant = await newTenant("CrashMid");
+
+      // Crash after the tenant_modules insert but before the MRR update —
+      // the exact half-finished state the transaction must prevent.
+      __setProvisionFailureInjectionForTests(() => {
+        throw new Error("simulated mid-checkout crash");
+      });
+
+      const res = await agent.post("/api/billing/checkout").send({
+        tenantId: tenant.id,
+        moduleIds: [biModA.id, biModB.id],
+        moduleCadences: [{ moduleId: biModA.id, cadence: "biweekly" }],
+      });
+      expect(res.status).toBe(500);
+
+      // No partial state: no tenant_modules rows…
+      const assignments = await db
+        .select()
+        .from(tenantModulesTable)
+        .where(eq(tenantModulesTable.tenantId, tenant.id));
+      expect(assignments).toHaveLength(0);
+
+      // …MRR and modulesEnabled untouched…
+      const [after] = await db
+        .select()
+        .from(tenantsTable)
+        .where(eq(tenantsTable.id, tenant.id));
+      expect(parseFloat(after.mrr ?? "0")).toBe(tenant.mrr);
+      expect(after.modulesEnabled).toBe(0);
+
+      // …no activity entry…
+      const activities = await db
+        .select()
+        .from(tenantActivitiesTable)
+        .where(eq(tenantActivitiesTable.tenantId, tenant.id));
+      expect(activities).toHaveLength(0);
+
+      // …and no compliance-ledger entries for this tenant.
+      const ledger = await db
+        .select()
+        .from(platformLedgerEntriesTable)
+        .where(eq(platformLedgerEntriesTable.tenantId, tenant.id));
+      expect(ledger).toHaveLength(0);
+
+      // A retry after the crash succeeds cleanly (nothing half-claimed).
+      __setProvisionFailureInjectionForTests(null);
+      const retry = await agent.post("/api/billing/checkout").send({
+        tenantId: tenant.id,
+        moduleIds: [biModA.id, biModB.id],
+        moduleCadences: [{ moduleId: biModA.id, cadence: "biweekly" }],
+      });
+      expect(retry.status).toBe(200);
+      expect(retry.body.modulesProvisioned).toBe(2);
+    });
   });
 
   it("charges the monthly rate and records monthly cadence when moduleCadences is omitted entirely", async () => {
