@@ -82,3 +82,117 @@ describe("Twilio webhook signature validation", () => {
     });
   }
 });
+
+describe("Twilio webhook signature acceptance (real Twilio requests)", () => {
+  // Sign with the SAME token the handlers validate against, over the SAME
+  // URL the handlers reconstruct (`${req.protocol}://${req.get("host")}${req.originalUrl}`).
+  // If URL reconstruction ever drifts from what Twilio signs, these fail and
+  // real inbound texts/status callbacks would silently start 403ing.
+  const authToken = process.env.TWILIO_AUTH_TOKEN!;
+  // Unknown sender so the inbound handler just records + returns TwiML.
+  const from = "+15559998877";
+
+  it("accepts a correctly signed inbound SMS behind the Replit proxy (https + forwarded host)", async () => {
+    const host = "example-app.replit.dev";
+    const path = "/api/sos/twilio/inbound";
+    // Twilio signs the public https URL it was configured with; the app sits
+    // behind the proxy, so req.protocol comes from X-Forwarded-Proto (trust
+    // proxy is enabled) and req.get("host") from the Host header the proxy
+    // forwards.
+    const params = { From: from, To: "+15550009999", Body: "hi", MessageSid: "SMacceptance1" };
+    const signature = twilio.getExpectedTwilioSignature(
+      authToken,
+      `https://${host}${path}`,
+      params,
+    );
+    const res = await request(app)
+      .post(path)
+      .type("form")
+      .set("Host", host)
+      .set("X-Forwarded-Proto", "https")
+      .set("X-Twilio-Signature", signature)
+      .send(params);
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toMatch(/text\/xml/);
+    expect(res.text).toContain("<Response>");
+  });
+
+  it("accepts a correctly signed inbound SMS over plain http (direct, unproxied)", async () => {
+    const host = "127.0.0.1";
+    const path = "/api/sos/twilio/inbound";
+    const params = { From: from, Body: "hi", MessageSid: "SMacceptance2" };
+    const signature = twilio.getExpectedTwilioSignature(
+      authToken,
+      `http://${host}${path}`,
+      params,
+    );
+    const res = await request(app)
+      .post(path)
+      .type("form")
+      .set("Host", host)
+      .set("X-Twilio-Signature", signature)
+      .send(params);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("<Response>");
+  });
+
+  it("accepts a correctly signed delivery-status callback behind the proxy", async () => {
+    const host = "example-app.replit.dev";
+    const path = "/api/sos/twilio/status";
+    // Unknown MessageSid: the handler validates the signature, finds no
+    // matching message, and still acknowledges with 204.
+    const params = { MessageSid: "SMacceptance-status", MessageStatus: "delivered" };
+    const signature = twilio.getExpectedTwilioSignature(
+      authToken,
+      `https://${host}${path}`,
+      params,
+    );
+    const res = await request(app)
+      .post(path)
+      .type("form")
+      .set("Host", host)
+      .set("X-Forwarded-Proto", "https")
+      .set("X-Twilio-Signature", signature)
+      .send(params);
+    expect(res.status).toBe(204);
+  });
+
+  it("accepts a correctly signed delivery-status callback over plain http (direct, unproxied)", async () => {
+    const host = "127.0.0.1";
+    const path = "/api/sos/twilio/status";
+    const params = { MessageSid: "SMacceptance-status2", MessageStatus: "delivered" };
+    const signature = twilio.getExpectedTwilioSignature(
+      authToken,
+      `http://${host}${path}`,
+      params,
+    );
+    const res = await request(app)
+      .post(path)
+      .type("form")
+      .set("Host", host)
+      .set("X-Twilio-Signature", signature)
+      .send(params);
+    expect(res.status).toBe(204);
+  });
+
+  it("rejects the same correctly signed request if the effective URL differs (scheme drift)", async () => {
+    // Sanity check that acceptance above is meaningful: signing the https
+    // URL but arriving without X-Forwarded-Proto (so the handler
+    // reconstructs http://...) must fail validation.
+    const host = "example-app.replit.dev";
+    const path = "/api/sos/twilio/inbound";
+    const params = { From: from, Body: "hi" };
+    const signature = twilio.getExpectedTwilioSignature(
+      authToken,
+      `https://${host}${path}`,
+      params,
+    );
+    const res = await request(app)
+      .post(path)
+      .type("form")
+      .set("Host", host)
+      .set("X-Twilio-Signature", signature)
+      .send(params);
+    expect(res.status).toBe(403);
+  });
+});
