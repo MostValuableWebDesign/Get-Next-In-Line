@@ -33,7 +33,7 @@
 | Service | Mode | Action needed |
 |---------|------|---------------|
 | Stripe | 🟢 Live | Configured via Replit integration |
-| SMS (Twilio) | 🟡 Simulated | Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER` to go live |
+| SMS (Twilio) | 🟢 Live | Credentials via Replit Twilio connector + `TWILIO_PHONE_NUMBER` secret |
 | Email (Resend) | 🟡 Simulated | Set `RESEND_API_KEY` to go live |
 | AI / OpenAI | 🟡 Simulated | Set `AI_INTEGRATIONS_OPENAI_BASE_URL` + `AI_INTEGRATIONS_OPENAI_API_KEY` to go live |
 
