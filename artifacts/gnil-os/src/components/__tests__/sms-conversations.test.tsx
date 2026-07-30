@@ -142,6 +142,27 @@ describe('SmsConversations', () => {
     expect(bubble).toHaveTextContent('[opted_out] Customer has opted out of SMS');
   });
 
+  it('flags threads whose latest outbound message failed or was skipped in the list', () => {
+    messages = [
+      msg({ id: 12, customerId: 2, customerName: 'Bob', body: 'Skipped', deliveryStatus: 'skipped', errorCode: 'opted_out', createdAt: '2026-07-02T12:00:00Z' }),
+      msg({ id: 11, customerId: 1, customerName: 'Ana', body: 'Failed', deliveryStatus: 'failed', errorCode: '30003', createdAt: '2026-07-02T11:00:00Z' }),
+      msg({ id: 10, customerId: null, toNumber: '+15550009999', body: 'Hi?', direction: 'inbound', kind: 'inbound', createdAt: '2026-07-01T09:00:00Z' }),
+    ];
+    renderIt();
+    expect(screen.getByTestId('conversation-failure-c:1')).toBeInTheDocument();
+    expect(screen.getByTestId('conversation-failure-c:2')).toBeInTheDocument();
+    expect(screen.queryByTestId('conversation-failure-p:+15550009999')).not.toBeInTheDocument();
+  });
+
+  it('clears the list failure flag once a newer outbound message succeeds', () => {
+    messages = [
+      msg({ id: 21, customerId: 1, customerName: 'Ana', body: 'Recovered', deliveryStatus: 'delivered', createdAt: '2026-07-02T11:00:00Z' }),
+      msg({ id: 20, customerId: 1, customerName: 'Ana', body: 'Failed earlier', deliveryStatus: 'failed', errorCode: '30003', createdAt: '2026-07-02T10:00:00Z' }),
+    ];
+    renderIt();
+    expect(screen.queryByTestId('conversation-failure-c:1')).not.toBeInTheDocument();
+  });
+
   it('disables replies for opted-out customers', () => {
     renderIt();
     fireEvent.click(screen.getByTestId('conversation-item-c:2'));

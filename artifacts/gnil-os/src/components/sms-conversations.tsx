@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { MessageStatusBadge } from '@/components/message-history';
-import { MessageSquare, Send } from 'lucide-react';
+import { AlertTriangle, MessageSquare, Send } from 'lucide-react';
 
 /**
  * Two-way SMS conversations, grouped per customer.
@@ -157,6 +157,12 @@ export function SmsConversations({ tenantId }: { tenantId?: number } = {}) {
         {threads.map((t) => {
           const last = t.messages[t.messages.length - 1];
           const isActive = selected?.key === t.key;
+          // Flag threads whose most recent outbound text failed or was
+          // skipped; a newer successful message clears the flag.
+          const lastOutbound = [...t.messages].reverse().find((m) => m.direction === 'outbound');
+          const hasUndelivered =
+            lastOutbound != null &&
+            (lastOutbound.deliveryStatus === 'failed' || lastOutbound.deliveryStatus === 'skipped');
           return (
             <button
               key={t.key}
@@ -166,7 +172,16 @@ export function SmsConversations({ tenantId }: { tenantId?: number } = {}) {
               data-testid={`conversation-item-${t.key}`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium truncate">{t.title}</span>
+                <span className="font-medium truncate flex items-center gap-1.5">
+                  {t.title}
+                  {hasUndelivered && (
+                    <AlertTriangle
+                      className="w-3.5 h-3.5 text-destructive shrink-0"
+                      aria-label="Last text not delivered"
+                      data-testid={`conversation-failure-${t.key}`}
+                    />
+                  )}
+                </span>
                 <span className="text-[10px] text-muted-foreground shrink-0">
                   {new Date(t.lastAt).toLocaleDateString()}
                 </span>
