@@ -2599,8 +2599,13 @@ router.post("/sos/waitlist/:id/claim", async (req, res): Promise<void> => {
 type MessageRow = typeof messagesTable.$inferSelect;
 
 /** Serialize a unified messages row in the stable SOS message shape. */
-function serializeSosMessage(msg: MessageRow, customerName: string | null) {
+function serializeSosMessage(
+  msg: MessageRow,
+  customerName: string | null,
+  retriedByMessageId: number | null = null,
+) {
   return {
+    retriedByMessageId,
     id: msg.id,
     customerId: msg.customerId,
     customerName,
@@ -2616,6 +2621,33 @@ function serializeSosMessage(msg: MessageRow, customerName: string | null) {
     errorMessage: msg.errorMessage,
     createdAt: msg.createdAt.toISOString(),
   };
+}
+
+/**
+ * Map failed-message id → id of a non-failed retry row (payload.retryOf).
+ *
+ * A retry that itself ended "failed" doesn't count — staff may retry again.
+ * Anything else (pending/sent/delivered/simulated/skipped) means a fresh
+ * delivery attempt already exists, so a second retry would double-text the
+ * customer.
+ */
+async function findRetriedBy(originalIds: number[]): Promise<Map<number, number>> {
+  const map = new Map<number, number>();
+  if (originalIds.length === 0) return map;
+  const rows = await db
+    .select({ id: messagesTable.id, payload: messagesTable.payload })
+    .from(messagesTable)
+    .where(
+      and(
+        inArray(sql`(${messagesTable.payload} ->> 'retryOf')::int`, originalIds),
+        ne(messagesTable.status, "failed"),
+      ),
+    );
+  for (const row of rows) {
+    const retryOf = Number((row.payload as Record<string, unknown> | null)?.retryOf);
+    if (Number.isInteger(retryOf) && !map.has(retryOf)) map.set(retryOf, row.id);
+  }
+  return map;
 }
 
 router.get("/sos/messages", async (req, res): Promise<void> => {
@@ -2637,9 +2669,16 @@ router.get("/sos/messages", async (req, res): Promise<void> => {
     )
     .orderBy(desc(messagesTable.createdAt))
     .limit(limit);
+  const retriedBy = await findRetriedBy(
+    rows
+      .filter(({ msg }) => msg.direction === "outbound" && msg.status === "failed")
+      .map(({ msg }) => msg.id),
+  );
   res.json(
     ListSosMessagesResponse.parse(
-      rows.map(({ msg, customerName }) => serializeSosMessage(msg, customerName)),
+      rows.map(({ msg, customerName }) =>
+        serializeSosMessage(msg, customerName, retriedBy.get(msg.id) ?? null),
+      ),
     ),
   );
 });
@@ -2697,6 +2736,19 @@ router.post("/sos/messages/:id/retry", async (req, res): Promise<void> => {
     res
       .status(409)
       .json({ message: "Only failed outbound messages can be retried" });
+    return;
+  }
+
+  // Double-send guard: if a prior retry of this message already produced a
+  // non-failed delivery attempt, a second retry would text the customer
+  // twice (two staff members, or a double-click past the button's disabled
+  // window). Reject with 409 so the UI can refresh and hide the button.
+  const alreadyRetried = await findRetriedBy([original.id]);
+  if (alreadyRetried.has(original.id)) {
+    res.status(409).json({
+      message: "This message has already been retried",
+      retriedByMessageId: alreadyRetried.get(original.id),
+    });
     return;
   }
 

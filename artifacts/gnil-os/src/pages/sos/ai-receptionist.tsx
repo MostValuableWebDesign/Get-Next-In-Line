@@ -507,6 +507,7 @@ function MessageLogList() {
     direction: msg.direction as 'inbound' | 'outbound',
     errorMessage: msg.errorMessage,
     errorCode: msg.errorCode,
+    retriedByMessageId: msg.retriedByMessageId,
   }));
 
   const retry = useRetrySosMessage();

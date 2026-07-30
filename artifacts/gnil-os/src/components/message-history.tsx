@@ -23,6 +23,8 @@ export interface MessageHistoryItem {
   direction?: 'inbound' | 'outbound';
   errorMessage?: string | null;
   errorCode?: string | null;
+  /** Id of a non-failed retry already recorded for this failed message. */
+  retriedByMessageId?: number | null;
 }
 
 const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -122,7 +124,20 @@ export function MessageHistoryTable({
                 <MessageStatusBadge item={item} />
                 {onRetry &&
                   item.status === 'failed' &&
-                  item.direction !== 'inbound' && (
+                  item.direction !== 'inbound' &&
+                  item.retriedByMessageId != null && (
+                    <Badge
+                      variant="secondary"
+                      className="mt-1 text-[10px] uppercase"
+                      data-testid={`badge-message-retried-${item.id}`}
+                    >
+                      Retried
+                    </Badge>
+                  )}
+                {onRetry &&
+                  item.status === 'failed' &&
+                  item.direction !== 'inbound' &&
+                  item.retriedByMessageId == null && (
                     <Button
                       variant="outline"
                       size="sm"

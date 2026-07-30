@@ -150,6 +150,55 @@ describe("POST /api/sos/messages/:id/retry", () => {
       .expect(409);
   });
 
+  it("rejects a second retry once a non-failed retry row exists (double-send guard)", async () => {
+    const original = await insertMessage({});
+    const first = await agent
+      .post(`/api/sos/messages/${original.id}/retry`)
+      .set("x-tenant-id", String(tenantId))
+      .expect(201);
+    // Simulated mode: the retry row is non-failed, so a second retry must 409.
+    const second = await agent
+      .post(`/api/sos/messages/${original.id}/retry`)
+      .set("x-tenant-id", String(tenantId))
+      .expect(409);
+    expect(second.body.message).toMatch(/already been retried/i);
+    expect(second.body.retriedByMessageId).toBe(first.body.id);
+
+    // Exactly one retry row exists for the original.
+    const rows = await db.select().from(messagesTable).where(eq(messagesTable.customerId, customerId));
+    const retries = rows.filter(
+      (r) => (r.payload as Record<string, unknown> | null)?.retryOf === original.id,
+    );
+    expect(retries).toHaveLength(1);
+
+    // The message log surfaces the link so the UI can hide the Retry button.
+    const list = await agent
+      .get("/api/sos/messages")
+      .set("x-tenant-id", String(tenantId))
+      .expect(200);
+    const listedOriginal = list.body.find((m: { id: number }) => m.id === original.id);
+    expect(listedOriginal.retriedByMessageId).toBe(first.body.id);
+    const listedRetry = list.body.find((m: { id: number }) => m.id === first.body.id);
+    expect(listedRetry.retriedByMessageId).toBeNull();
+  });
+
+  it("allows retrying again when the previous retry itself failed", async () => {
+    const original = await insertMessage({});
+    const first = await agent
+      .post(`/api/sos/messages/${original.id}/retry`)
+      .set("x-tenant-id", String(tenantId))
+      .expect(201);
+    // Force the first retry into a failed terminal state.
+    await db
+      .update(messagesTable)
+      .set({ status: "failed", errorCode: "30003" })
+      .where(eq(messagesTable.id, first.body.id));
+    await agent
+      .post(`/api/sos/messages/${original.id}/retry`)
+      .set("x-tenant-id", String(tenantId))
+      .expect(201);
+  });
+
   it("is tenant-scoped: another tenant's message 404s, as does a bogus id", async () => {
     const original = await insertMessage({});
     await agent

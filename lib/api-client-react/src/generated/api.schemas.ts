@@ -5215,6 +5215,11 @@ export interface SosMessage {
   errorCode?: string | null;
   /** @nullable */
   errorMessage?: string | null;
+  /**
+     * For a failed outbound message, the id of a non-failed retry row already linked to it via payload.retryOf (i.e. it has already been retried); null otherwise.
+     * @nullable
+     */
+  retriedByMessageId?: number | null;
   createdAt: string;
 }
 

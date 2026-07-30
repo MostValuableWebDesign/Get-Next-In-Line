@@ -4308,7 +4308,7 @@ paths:
         "404":
           description: Message not found
         "409":
-          description: Message is not a failed outbound message
+          description: Message is not a failed outbound message, or it has already been retried (a non-failed retry row exists)
 
   /sos/calls:
     get:
@@ -13308,6 +13308,9 @@ components:
           type: ["string", "null"]
         errorMessage:
           type: ["string", "null"]
+        retriedByMessageId:
+          type: ["integer", "null"]
+          description: For a failed outbound message, the id of a non-failed retry row already linked to it via payload.retryOf (i.e. it has already been retried); null otherwise.
         createdAt:
           type: string
 

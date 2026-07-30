@@ -6068,6 +6068,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
   "errorMessage": zod.string().nullish(),
+  "retriedByMessageId": zod.number().nullish().describe('For a failed outbound message, the id of a non-failed retry row already linked to it via payload.retryOf (i.e. it has already been retried); null otherwise.'),
   "createdAt": zod.string()
 })
 export const ListSosMessagesResponse = zod.array(ListSosMessagesResponseItem)
@@ -6099,6 +6100,7 @@ export const SendSosMessageResponse = zod.object({
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
   "errorMessage": zod.string().nullish(),
+  "retriedByMessageId": zod.number().nullish().describe('For a failed outbound message, the id of a non-failed retry row already linked to it via payload.retryOf (i.e. it has already been retried); null otherwise.'),
   "createdAt": zod.string()
 })
 
@@ -6124,6 +6126,7 @@ export const RetrySosMessageResponse = zod.object({
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
   "errorMessage": zod.string().nullish(),
+  "retriedByMessageId": zod.number().nullish().describe('For a failed outbound message, the id of a non-failed retry row already linked to it via payload.retryOf (i.e. it has already been retried); null otherwise.'),
   "createdAt": zod.string()
 })
 
