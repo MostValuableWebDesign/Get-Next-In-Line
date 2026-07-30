@@ -49,6 +49,18 @@ interface Thread {
   lastAt: string;
 }
 
+/**
+ * A thread needs attention when its most recent outbound text failed or was
+ * skipped; a newer successful outbound clears the flag.
+ */
+function threadNeedsAttention(t: Thread): boolean {
+  const lastOutbound = [...t.messages].reverse().find((m) => m.direction === 'outbound');
+  return (
+    lastOutbound != null &&
+    (lastOutbound.deliveryStatus === 'failed' || lastOutbound.deliveryStatus === 'skipped')
+  );
+}
+
 export function SmsConversations({ tenantId }: { tenantId?: number } = {}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -108,7 +120,15 @@ export function SmsConversations({ tenantId }: { tenantId?: number } = {}) {
   }, [messages]);
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const selected = threads.find((t) => t.key === selectedKey) ?? threads[0] ?? null;
+  // "Needs attention" filter: show only threads whose latest outbound text
+  // failed or was skipped, so staff can triage delivery failures instantly.
+  const [attentionOnly, setAttentionOnly] = useState(false);
+  const attentionCount = useMemo(() => threads.filter(threadNeedsAttention).length, [threads]);
+  const visibleThreads = attentionOnly ? threads.filter(threadNeedsAttention) : threads;
+  // The selected thread may not be visible under the filter — keep the thread
+  // view sane by falling back to the first visible thread.
+  const selected =
+    visibleThreads.find((t) => t.key === selectedKey) ?? visibleThreads[0] ?? null;
 
   const selectedCustomer =
     selected?.customerId != null
@@ -154,15 +174,32 @@ export function SmsConversations({ tenantId }: { tenantId?: number } = {}) {
     <div className="border rounded-lg grid grid-cols-1 md:grid-cols-[260px_1fr] overflow-hidden" data-testid="sms-conversations">
       {/* Thread list */}
       <div className="border-b md:border-b-0 md:border-r max-h-[420px] overflow-y-auto" data-testid="conversation-list">
-        {threads.map((t) => {
+        <div className="px-4 py-2 border-b bg-muted/40">
+          <button
+            type="button"
+            onClick={() => setAttentionOnly((v) => !v)}
+            aria-pressed={attentionOnly}
+            className={`inline-flex items-center gap-1.5 text-xs rounded-full border px-2.5 py-1 transition-colors ${
+              attentionOnly
+                ? 'bg-destructive text-destructive-foreground border-destructive'
+                : 'text-muted-foreground hover:bg-muted'
+            }`}
+            data-testid="filter-needs-attention"
+          >
+            <AlertTriangle className="w-3 h-3" />
+            Needs attention
+            <span data-testid="filter-needs-attention-count">{attentionCount}</span>
+          </button>
+        </div>
+        {visibleThreads.length === 0 && (
+          <div className="px-4 py-6 text-center text-xs text-muted-foreground" data-testid="conversations-filter-empty">
+            No conversations need attention.
+          </div>
+        )}
+        {visibleThreads.map((t) => {
           const last = t.messages[t.messages.length - 1];
           const isActive = selected?.key === t.key;
-          // Flag threads whose most recent outbound text failed or was
-          // skipped; a newer successful message clears the flag.
-          const lastOutbound = [...t.messages].reverse().find((m) => m.direction === 'outbound');
-          const hasUndelivered =
-            lastOutbound != null &&
-            (lastOutbound.deliveryStatus === 'failed' || lastOutbound.deliveryStatus === 'skipped');
+          const hasUndelivered = threadNeedsAttention(t);
           return (
             <button
               key={t.key}

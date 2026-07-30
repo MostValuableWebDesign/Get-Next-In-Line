@@ -76,7 +76,9 @@ describe('SmsConversations', () => {
   it('groups messages into per-customer threads, newest thread first', () => {
     renderIt();
     const list = screen.getByTestId('conversation-list');
-    const items = within(list).getAllByRole('button');
+    const items = within(list)
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('data-testid')?.startsWith('conversation-item-'));
     expect(items[0]).toHaveTextContent('Bob');
     expect(items[1]).toHaveTextContent('Ana');
     expect(items[2]).toHaveTextContent('+15550009999');
@@ -161,6 +163,45 @@ describe('SmsConversations', () => {
     ];
     renderIt();
     expect(screen.queryByTestId('conversation-failure-c:1')).not.toBeInTheDocument();
+  });
+
+  it('filters the list to flagged threads and back, keeping selection sane', () => {
+    messages = [
+      msg({ id: 32, customerId: 2, customerName: 'Bob', body: 'Skipped', deliveryStatus: 'skipped', errorCode: 'opted_out', createdAt: '2026-07-02T12:00:00Z' }),
+      msg({ id: 31, customerId: 1, customerName: 'Ana', body: 'Delivered fine', deliveryStatus: 'delivered', createdAt: '2026-07-02T11:00:00Z' }),
+      msg({ id: 30, customerId: null, toNumber: '+15550009999', body: 'Hi?', direction: 'inbound', kind: 'inbound', createdAt: '2026-07-01T09:00:00Z' }),
+    ];
+    renderIt();
+    expect(screen.getByTestId('filter-needs-attention-count')).toHaveTextContent('1');
+
+    // Select an unflagged thread, then filter — the flagged thread becomes
+    // the visible selection so the thread view stays sane.
+    fireEvent.click(screen.getByTestId('conversation-item-c:1'));
+    expect(screen.getByTestId('conversation-title')).toHaveTextContent('Ana');
+
+    fireEvent.click(screen.getByTestId('filter-needs-attention'));
+    const list = screen.getByTestId('conversation-list');
+    expect(within(list).getByTestId('conversation-item-c:2')).toBeInTheDocument();
+    expect(within(list).queryByTestId('conversation-item-c:1')).not.toBeInTheDocument();
+    expect(within(list).queryByTestId('conversation-item-p:+15550009999')).not.toBeInTheDocument();
+    expect(screen.getByTestId('conversation-title')).toHaveTextContent('Bob');
+
+    // Toggle back: all threads visible again, prior selection restored.
+    fireEvent.click(screen.getByTestId('filter-needs-attention'));
+    expect(within(list).getByTestId('conversation-item-c:1')).toBeInTheDocument();
+    expect(within(list).getByTestId('conversation-item-p:+15550009999')).toBeInTheDocument();
+    expect(screen.getByTestId('conversation-title')).toHaveTextContent('Ana');
+  });
+
+  it('shows an empty note when the filter is on and nothing is flagged', () => {
+    messages = [
+      msg({ id: 40, customerId: 1, customerName: 'Ana', body: 'Delivered fine', deliveryStatus: 'delivered', createdAt: '2026-07-02T11:00:00Z' }),
+    ];
+    renderIt();
+    expect(screen.getByTestId('filter-needs-attention-count')).toHaveTextContent('0');
+    fireEvent.click(screen.getByTestId('filter-needs-attention'));
+    expect(screen.getByTestId('conversations-filter-empty')).toBeInTheDocument();
+    expect(screen.queryByTestId('conversation-item-c:1')).not.toBeInTheDocument();
   });
 
   it('disables replies for opted-out customers', () => {
