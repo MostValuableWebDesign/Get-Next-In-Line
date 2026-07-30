@@ -7,6 +7,7 @@ import {
   getListSosVisitsQueryKey, getListSosResourcesQueryKey, getListSosWaitlistQueryKey,
   useGetSosSettings, getGetSosSettingsQueryKey,
   useGetSosDashboard, getGetSosDashboardQueryKey,
+  useRetryFailedSosMessages,
   useListTenants,
   SosVisitStatus,
   type SosCustomer
@@ -68,6 +69,27 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
   });
   const failedSmsToday = dashboard?.messagesFailedToday ?? 0;
   const messageLogHref = `/bookings?tab=ai-receptionist${selectedTenant != null ? `&tenant=${selectedTenant}` : ''}`;
+
+  // Bulk-retry today's failed texts in one click (Twilio-outage recovery).
+  const retryFailed = useRetryFailedSosMessages();
+  const handleRetryAllFailed = () => {
+    retryFailed.mutate(undefined, {
+      onSuccess: (summary) => {
+        queryClient.invalidateQueries({ queryKey: getGetSosDashboardQueryKey() });
+        toast({
+          title: 'Retry complete',
+          description: `${summary.retried} message${summary.retried === 1 ? '' : 's'} retried, ${summary.skipped} skipped (already retried).`,
+        });
+      },
+      onError: (err: any) => {
+        toast({
+          title: 'Bulk retry failed',
+          description: err?.response?.data?.message || err?.message || 'Could not retry failed messages. Please try again.',
+          variant: 'destructive',
+        });
+      },
+    });
+  };
 
   const advanceVisit = useAdvanceSosVisit();
   const updateResource = useUpdateSosResource();
@@ -246,9 +268,21 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
               text message{failedSmsToday === 1 ? '' : 's'} failed to deliver today. Those customers were not reached.
             </span>
           </div>
-          <Button asChild variant="outline" size="sm" className="h-7 text-xs shrink-0" data-testid="link-failed-sms-log">
-            <Link href={messageLogHref}>Review message log</Link>
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              data-testid="button-retry-failed-sms"
+              disabled={retryFailed.isPending}
+              onClick={handleRetryAllFailed}
+            >
+              {retryFailed.isPending ? 'Retrying…' : 'Retry all failed'}
+            </Button>
+            <Button asChild variant="outline" size="sm" className="h-7 text-xs" data-testid="link-failed-sms-log">
+              <Link href={messageLogHref}>Review message log</Link>
+            </Button>
+          </div>
         </div>
       )}
 

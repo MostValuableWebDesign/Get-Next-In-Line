@@ -4310,6 +4310,19 @@ paths:
         "409":
           description: Message is not a failed outbound message, or it has already been retried (a non-failed retry row exists)
 
+  /sos/messages/retry-failed:
+    post:
+      operationId: retryFailedSosMessages
+      tags: [sos]
+      summary: Bulk-retry today's failed operational outbound SMS for the tenant (each via the same per-message retry path), skipping messages that already have a successful retry
+      responses:
+        "200":
+          description: Summary of the bulk retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosBulkRetrySummary"
+
   /sos/calls:
     get:
       operationId: listSosCalls
@@ -13313,6 +13326,17 @@ components:
           description: For a failed outbound message, the id of a non-failed retry row already linked to it via payload.retryOf (i.e. it has already been retried); null otherwise.
         createdAt:
           type: string
+
+    SosBulkRetrySummary:
+      type: object
+      required: [retried, skipped]
+      properties:
+        retried:
+          type: integer
+          description: Number of failed messages re-dispatched (each recorded as a new message row linked via payload.retryOf)
+        skipped:
+          type: integer
+          description: Number of failed messages left alone because a retry already exists (successful, or itself being retried in this batch)
 
     SosMessageInput:
       type: object

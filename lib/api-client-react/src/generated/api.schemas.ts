@@ -5223,6 +5223,12 @@ export interface SosMessage {
   createdAt: string;
 }
 
+export interface SosBulkRetrySummary {
+  /** Number of failed messages re-dispatched (each recorded as a new message row linked via payload.retryOf) */
+  retried: number;
+  /** Number of failed messages left alone because a retry already exists (successful, or itself being retried in this batch) */
+  skipped: number;
+}
 export type SosMessageInputKind = typeof SosMessageInputKind[keyof typeof SosMessageInputKind];
 
 
@@ -7207,4 +7213,3 @@ limit?: number;
  */
 offset?: number;
 };
-

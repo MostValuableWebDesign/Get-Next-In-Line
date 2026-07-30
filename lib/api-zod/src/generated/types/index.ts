@@ -527,6 +527,7 @@ export * from './sosAutomationFailureReason';
 export * from './sosAutomationFailureReasonStatus';
 export * from './sosAutomationJobTypeStats';
 export * from './sosAutomationSummary';
+export * from './sosBulkRetrySummary';
 export * from './sosCall';
 export * from './sosCallInput';
 export * from './sosCallOutcome';

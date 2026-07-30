@@ -57,6 +57,7 @@ import {
   SendSosMessageBody,
   SendSosMessageResponse,
   RetrySosMessageResponse,
+  RetryFailedSosMessagesResponse,
   ListSosCallsResponse,
   SimulateSosCallBody,
   SimulateSosCallResponse,
@@ -2752,8 +2753,28 @@ router.post("/sos/messages/:id/retry", async (req, res): Promise<void> => {
     return;
   }
 
-  // Re-resolve the customer so the retry uses the freshest phone number and
-  // so sendMessage's opt-out/no-phone guards apply against current state.
+  const { retried, customer } = await resendFailedMessage(original);
+  res
+    .status(201)
+    .json(
+      RetrySosMessageResponse.parse(
+        serializeSosMessage(retried, customer?.name ?? null),
+      ),
+    );
+});
+
+/**
+ * Re-dispatch one failed outbound message through the unified send path.
+ * Re-resolves the customer so the retry uses the freshest phone number and
+ * so sendMessage's opt-out/no-phone guards apply against current state.
+ * Records a NEW messages row linked to the original via payload.retryOf.
+ */
+async function resendFailedMessage(
+  original: typeof messagesTable.$inferSelect,
+): Promise<{
+  retried: typeof messagesTable.$inferSelect;
+  customer: typeof sosCustomersTable.$inferSelect | undefined;
+}> {
   let customer: typeof sosCustomersTable.$inferSelect | undefined;
   if (original.customerId != null) {
     [customer] = await db
@@ -2780,13 +2801,79 @@ router.post("/sos/messages/:id/retry", async (req, res): Promise<void> => {
     channel: original.channel,
     context: { ...originalPayload, retryOf: original.id },
   });
-  res
-    .status(201)
-    .json(
-      RetrySosMessageResponse.parse(
-        serializeSosMessage(retried, customer?.name ?? null),
+  return { retried, customer };
+}
+
+// Bulk recovery after a provider outage: retry ALL of today's failed
+// operational outbound SMS for the tenant in one click. Each message goes
+// through the exact same per-message resend path (payload.retryOf link,
+// opt-out/no-phone guards). A message is SKIPPED when a retry of it already
+// exists that either is non-failed (same double-send guard as the
+// per-message route) or is itself one of today's failed candidates (the
+// chain tip gets retried instead, never both).
+router.post("/sos/messages/retry-failed", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const candidates = await db
+    .select()
+    .from(messagesTable)
+    .where(
+      and(
+        gte(messagesTable.createdAt, startOfDay),
+        eq(messagesTable.origin, "operational"),
+        eq(messagesTable.direction, "outbound"),
+        eq(messagesTable.channel, "sms"),
+        eq(messagesTable.status, "failed"),
+        tenantMatch(messagesTable.tenantId, tenantId),
       ),
-    );
+    )
+    .orderBy(messagesTable.createdAt);
+
+  let retriedCount = 0;
+  let skippedCount = 0;
+
+  if (candidates.length > 0) {
+    const candidateIds = candidates.map((c) => c.id);
+    const candidateIdSet = new Set(candidateIds);
+    // All retries (any age/status) that point at one of today's candidates.
+    const existingRetries = await db
+      .select({
+        id: messagesTable.id,
+        status: messagesTable.status,
+        payload: messagesTable.payload,
+      })
+      .from(messagesTable)
+      .where(
+        inArray(sql`(${messagesTable.payload} ->> 'retryOf')::int`, candidateIds),
+      );
+
+    const alreadyHandled = new Set<number>();
+    for (const r of existingRetries) {
+      const originalId = Number((r.payload as Record<string, unknown> | null)?.retryOf);
+      if (!Number.isInteger(originalId)) continue;
+      if (r.status !== "failed" || candidateIdSet.has(r.id)) {
+        alreadyHandled.add(originalId);
+      }
+    }
+
+    for (const original of candidates) {
+      if (alreadyHandled.has(original.id)) {
+        skippedCount++;
+        continue;
+      }
+      await resendFailedMessage(original);
+      retriedCount++;
+    }
+  }
+
+  res.json(
+    RetryFailedSosMessagesResponse.parse({
+      retried: retriedCount,
+      skipped: skippedCount,
+    }),
+  );
 });
 
 // ── Twilio inbound SMS webhook ───────────────────────────────────────────────

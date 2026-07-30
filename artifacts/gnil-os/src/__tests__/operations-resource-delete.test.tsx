@@ -25,6 +25,7 @@ vi.mock('@workspace/api-client-react', () => ({
   useListSosWaitlist: () => ({ data: [] }),
   useGetSosSettings: () => ({ data: { waitlistAutoFillEnabled: false } }),
   useGetSosDashboard: () => ({ data: undefined }),
+  useRetryFailedSosMessages: () => ({ mutate: vi.fn(), isPending: false }),
   getGetSosDashboardQueryKey: () => ['sos-dashboard'],
   useAdvanceSosVisit: () => ({ mutate: vi.fn() }),
   useCheckInSosVisit: () => ({ mutate: vi.fn(), isPending: false }),

@@ -3,15 +3,17 @@
  * failed outbound texts today, a destructive banner shows the count and a
  * link to the message log; when there are none, the banner is absent.
  */
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Router } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
 
 let failedToday = 0;
+const retryFailedMutate = vi.fn();
 
 vi.mock('@workspace/api-client-react', () => ({
+  useRetryFailedSosMessages: () => ({ mutate: retryFailedMutate, isPending: false }),
   useListSosVisits: () => ({ data: [] }),
   useListSosResources: () => ({ data: [] }),
   useListSosWaitlist: () => ({ data: [] }),
@@ -65,6 +67,16 @@ describe('Live Operations failed-SMS banner', () => {
       'href',
       expect.stringContaining('tenant=7'),
     );
+  });
+
+  it('offers a bulk "Retry all failed" action that triggers the retry mutation', () => {
+    failedToday = 2;
+    retryFailedMutate.mockClear();
+    renderPage('/?tenant=7');
+    const button = screen.getByTestId('button-retry-failed-sms');
+    expect(button).toHaveTextContent('Retry all failed');
+    fireEvent.click(button);
+    expect(retryFailedMutate).toHaveBeenCalledTimes(1);
   });
 
   it('renders no banner when nothing failed today', () => {

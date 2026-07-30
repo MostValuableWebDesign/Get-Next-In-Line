@@ -283,6 +283,7 @@ import type {
   SettlementStatementDetail,
   SosAppointment,
   SosAppointmentInput,
+  SosBulkRetrySummary,
   SosCall,
   SosCallInput,
   SosCancellationResult,
@@ -15127,6 +15128,77 @@ export const useRetrySosMessage = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRetrySosMessageMutationOptions(options));
+    }
+
+export const getRetryFailedSosMessagesUrl = () => {
+
+
+
+
+  return `/api/sos/messages/retry-failed`
+}
+
+/**
+ * @summary Bulk-retry today's failed operational outbound SMS for the tenant (each via the same per-message retry path), skipping messages that already have a successful retry
+ */
+export const retryFailedSosMessages = async ( options?: RequestInit): Promise<SosBulkRetrySummary> => {
+
+  return customFetch<SosBulkRetrySummary>(getRetryFailedSosMessagesUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRetryFailedSosMessagesMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryFailedSosMessages>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retryFailedSosMessages>>, TError,void, TContext> => {
+
+const mutationKey = ['retryFailedSosMessages'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retryFailedSosMessages>>, void> = () => {
+
+
+          return  retryFailedSosMessages(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetryFailedSosMessagesMutationResult = NonNullable<Awaited<ReturnType<typeof retryFailedSosMessages>>>
+
+    export type RetryFailedSosMessagesMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Bulk-retry today's failed operational outbound SMS for the tenant (each via the same per-message retry path), skipping messages that already have a successful retry
+ */
+export const useRetryFailedSosMessages = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retryFailedSosMessages>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retryFailedSosMessages>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRetryFailedSosMessagesMutationOptions(options));
     }
 
 export const getListSosCallsUrl = () => {
