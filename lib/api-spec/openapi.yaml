@@ -4287,6 +4287,29 @@ paths:
         "409":
           description: Customer has opted out of SMS
 
+  /sos/messages/{id}/retry:
+    post:
+      operationId: retrySosMessage
+      tags: [sos]
+      summary: Re-send a failed outbound message through the unified send path (records a new message row linked via payload.retryOf)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: The new (retried) message record with its own delivery status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosMessage"
+        "404":
+          description: Message not found
+        "409":
+          description: Message is not a failed outbound message
+
   /sos/calls:
     get:
       operationId: listSosCalls

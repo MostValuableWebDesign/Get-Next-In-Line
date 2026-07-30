@@ -15058,6 +15058,77 @@ export const useSendSosMessage = <TError = ErrorType<void>,
       return useMutation(getSendSosMessageMutationOptions(options));
     }
 
+export const getRetrySosMessageUrl = (id: number,) => {
+
+
+
+
+  return `/api/sos/messages/${id}/retry`
+}
+
+/**
+ * @summary Re-send a failed outbound message through the unified send path (records a new message row linked via payload.retryOf)
+ */
+export const retrySosMessage = async (id: number, options?: RequestInit): Promise<SosMessage> => {
+
+  return customFetch<SosMessage>(getRetrySosMessageUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRetrySosMessageMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retrySosMessage>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retrySosMessage>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['retrySosMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retrySosMessage>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  retrySosMessage(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetrySosMessageMutationResult = NonNullable<Awaited<ReturnType<typeof retrySosMessage>>>
+
+    export type RetrySosMessageMutationError = ErrorType<void>
+
+    /**
+ * @summary Re-send a failed outbound message through the unified send path (records a new message row linked via payload.retryOf)
+ */
+export const useRetrySosMessage = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retrySosMessage>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retrySosMessage>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getRetrySosMessageMutationOptions(options));
+    }
+
 export const getListSosCallsUrl = () => {
 
 

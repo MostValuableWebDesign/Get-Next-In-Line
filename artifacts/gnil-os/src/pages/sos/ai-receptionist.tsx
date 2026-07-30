@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'wouter';
 import {
-  useListSosCalls, useListSosMessages, useSimulateSosCall, useSendSosMessage,
+  useListSosCalls, useListSosMessages, useSimulateSosCall, useSendSosMessage, useRetrySosMessage,
   useGetSosSettings, useUpdateSosSettings, getGetSosSettingsQueryKey,
   useGetTenantSettings, useUpdateTenantSettings, getGetTenantSettingsQueryKey,
   useGetTenant, getGetTenantQueryKey,
@@ -509,7 +509,39 @@ function MessageLogList() {
     errorCode: msg.errorCode,
   }));
 
-  return <MessageHistoryTable items={items} showDirection testId="table-sms-history" />;
+  const retry = useRetrySosMessage();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const handleRetry = (item: MessageHistoryItem) => {
+    retry.mutate(
+      { id: Number(item.id) },
+      {
+        onSuccess: (msg) => {
+          queryClient.invalidateQueries({ queryKey: getListSosMessagesQueryKey() });
+          toast({
+            title:
+              msg.deliveryStatus === 'failed' || msg.deliveryStatus === 'skipped'
+                ? 'Retry attempted, but the message did not go through'
+                : 'Message re-sent',
+          });
+        },
+        onError: () => {
+          toast({ title: 'Could not retry this message', variant: 'destructive' });
+        },
+      },
+    );
+  };
+
+  return (
+    <MessageHistoryTable
+      items={items}
+      showDirection
+      testId="table-sms-history"
+      onRetry={handleRetry}
+      retryingId={retry.isPending ? (retry.variables?.id ?? null) : null}
+    />
+  );
 }
 
 function SendSmsDialog() {

@@ -56,6 +56,7 @@ import {
   ListSosMessagesResponse,
   SendSosMessageBody,
   SendSosMessageResponse,
+  RetrySosMessageResponse,
   ListSosCallsResponse,
   SimulateSosCallBody,
   SimulateSosCallResponse,
@@ -101,6 +102,7 @@ import {
   sendMessageSafe,
   recordInboundMessage,
   applyDeliveryStatus,
+  type OutboundMessageKind,
 } from "../lib/messaging";
 import { recordLedgerEventsSafe } from "../lib/platformLedger";
 import { parseCallIntent } from "../lib/receptionist";
@@ -2668,6 +2670,71 @@ router.post("/sos/messages", async (req, res): Promise<void> => {
   res
     .status(201)
     .json(SendSosMessageResponse.parse(serializeSosMessage(msg, customer.name)));
+});
+
+router.post("/sos/messages/:id/retry", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(404).json({ message: "Message not found" });
+    return;
+  }
+  const [original] = await db
+    .select()
+    .from(messagesTable)
+    .where(
+      and(
+        eq(messagesTable.id, id),
+        eq(messagesTable.origin, "operational"),
+        tenantMatch(messagesTable.tenantId, tenantIdFrom(req)),
+      ),
+    )
+    .limit(1);
+  if (!original) {
+    res.status(404).json({ message: "Message not found" });
+    return;
+  }
+  if (original.direction !== "outbound" || original.status !== "failed") {
+    res
+      .status(409)
+      .json({ message: "Only failed outbound messages can be retried" });
+    return;
+  }
+
+  // Re-resolve the customer so the retry uses the freshest phone number and
+  // so sendMessage's opt-out/no-phone guards apply against current state.
+  let customer: typeof sosCustomersTable.$inferSelect | undefined;
+  if (original.customerId != null) {
+    [customer] = await db
+      .select()
+      .from(sosCustomersTable)
+      .where(eq(sosCustomersTable.id, original.customerId))
+      .limit(1);
+  }
+
+  const originalPayload =
+    original.payload && typeof original.payload === "object"
+      ? (original.payload as Record<string, unknown>)
+      : {};
+  const retried = await sendMessage({
+    tenantId: original.tenantId,
+    origin: "operational",
+    customerId: original.customerId,
+    clientProfileId: original.clientProfileId,
+    ruleId: original.ruleId,
+    toNumber: customer?.phone ?? original.toNumber,
+    toEmail: original.toEmail,
+    body: original.body ?? "",
+    kind: original.kind as OutboundMessageKind,
+    channel: original.channel,
+    context: { ...originalPayload, retryOf: original.id },
+  });
+  res
+    .status(201)
+    .json(
+      RetrySosMessageResponse.parse(
+        serializeSosMessage(retried, customer?.name ?? null),
+      ),
+    );
 });
 
 // ── Twilio inbound SMS webhook ───────────────────────────────────────────────

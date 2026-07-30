@@ -37,6 +37,7 @@ vi.mock('@workspace/api-client-react', () => ({
   getListSosMessagesQueryKey: () => ['/api/sos/messages'],
   useSimulateSosCall: () => ({ mutate: vi.fn(), isPending: false }),
   useSendSosMessage: () => ({ mutate: sendMutate, isPending: false }),
+  useRetrySosMessage: () => ({ mutate: vi.fn(), isPending: false, variables: undefined }),
   useListSosCustomers: () => ({ data: customers, isLoading: false }),
   getListSosCustomersQueryKey: () => ['/api/sos/customers'],
   useCreateSosCustomer: () => ({ mutate: vi.fn(), isPending: false }),

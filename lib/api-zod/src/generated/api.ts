@@ -6104,6 +6104,31 @@ export const SendSosMessageResponse = zod.object({
 
 
 /**
+ * @summary Re-send a failed outbound message through the unified send path (records a new message row linked via payload.retryOf)
+ */
+export const RetrySosMessageParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RetrySosMessageResponse = zod.object({
+  "id": zod.number(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string().nullish(),
+  "toNumber": zod.string().nullish(),
+  "toEmail": zod.string().nullish(),
+  "channel": zod.enum(['sms', 'email', 'voice']).optional(),
+  "direction": zod.enum(['outbound', 'inbound']),
+  "body": zod.string(),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute', 'booking_confirmation', 'receipt', 'voice_call', 'voicemail']),
+  "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
+  "providerSid": zod.string().nullish(),
+  "errorCode": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary AI receptionist call log
  */
 export const ListSosCallsResponseItem = zod.object({

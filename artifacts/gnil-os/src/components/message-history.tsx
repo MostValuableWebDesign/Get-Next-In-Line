@@ -1,4 +1,6 @@
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { RotateCcw } from 'lucide-react';
 
 /**
  * Shared message-history table used by both the tenant Concierge page
@@ -66,12 +68,18 @@ export function MessageHistoryTable({
   showDirection = false,
   emptyMessage = 'No messages yet.',
   testId = 'table-message-history',
+  onRetry,
+  retryingId,
 }: {
   items: MessageHistoryItem[] | undefined;
   /** Show the Inbound/Outbound column (SMS histories). */
   showDirection?: boolean;
   emptyMessage?: string;
   testId?: string;
+  /** When set, failed outbound messages get a one-click Retry action. */
+  onRetry?: (item: MessageHistoryItem) => void;
+  /** Id of the message currently being retried (disables its button). */
+  retryingId?: number | string | null;
 }) {
   const colCount = showDirection ? 6 : 5;
 
@@ -112,6 +120,21 @@ export function MessageHistoryTable({
               </td>
               <td className="px-4 py-3">
                 <MessageStatusBadge item={item} />
+                {onRetry &&
+                  item.status === 'failed' &&
+                  item.direction !== 'inbound' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 h-6 px-2 text-[10px]"
+                      disabled={retryingId != null && retryingId === item.id}
+                      onClick={() => onRetry(item)}
+                      data-testid={`button-retry-message-${item.id}`}
+                    >
+                      <RotateCcw className="w-3 h-3 mr-1" />
+                      {retryingId === item.id ? 'Retrying…' : 'Retry'}
+                    </Button>
+                  )}
               </td>
               <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">
                 {new Date(item.createdAt).toLocaleString()}
