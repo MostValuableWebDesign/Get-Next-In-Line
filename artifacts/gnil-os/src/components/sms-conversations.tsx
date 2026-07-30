@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { MessageStatusBadge } from '@/components/message-history';
 import { MessageSquare, Send } from 'lucide-react';
 
 /**
@@ -35,6 +36,8 @@ interface ThreadMessage {
   body: string;
   kind: string;
   deliveryStatus: string;
+  errorCode: string | null;
+  errorMessage: string | null;
   createdAt: string;
 }
 
@@ -95,6 +98,8 @@ export function SmsConversations({ tenantId }: { tenantId?: number } = {}) {
         body: m.body,
         kind: m.kind,
         deliveryStatus: m.deliveryStatus,
+        errorCode: m.errorCode ?? null,
+        errorMessage: m.errorMessage ?? null,
         createdAt: m.createdAt,
       });
       t.lastAt = m.createdAt;
@@ -212,6 +217,24 @@ export function SmsConversations({ tenantId }: { tenantId?: number } = {}) {
                       {new Date(m.createdAt).toLocaleString()}
                       {m.direction === 'outbound' && ` · ${m.deliveryStatus}`}
                     </div>
+                    {m.direction === 'outbound' &&
+                      (m.deliveryStatus === 'failed' || m.deliveryStatus === 'skipped') && (
+                        <div className="mt-1" data-testid={`message-delivery-error-${m.id}`}>
+                          <MessageStatusBadge
+                            item={{
+                              id: m.id,
+                              createdAt: m.createdAt,
+                              contact: null,
+                              body: m.body,
+                              kind: m.kind,
+                              status: m.deliveryStatus,
+                              direction: m.direction,
+                              errorCode: m.errorCode,
+                              errorMessage: m.errorMessage,
+                            }}
+                          />
+                        </div>
+                      )}
                   </div>
                 </div>
               ))}

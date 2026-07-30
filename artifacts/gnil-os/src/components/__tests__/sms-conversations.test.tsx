@@ -96,6 +96,52 @@ describe('SmsConversations', () => {
     });
   });
 
+  it('surfaces error details on failed outbound messages, leaves delivered ones unchanged', () => {
+    messages = [
+      msg({
+        id: 6,
+        customerId: 1,
+        customerName: 'Ana',
+        body: 'This one failed',
+        deliveryStatus: 'failed',
+        errorCode: '30003',
+        errorMessage: 'Unreachable destination handset',
+        createdAt: '2026-07-02T10:05:00Z',
+      }),
+      msg({ id: 5, customerId: 1, customerName: 'Ana', body: 'Delivered fine', deliveryStatus: 'delivered', createdAt: '2026-07-02T10:00:00Z' }),
+    ];
+    renderIt();
+    fireEvent.click(screen.getByTestId('conversation-item-c:1'));
+
+    const failedBubble = screen.getByTestId('message-bubble-6');
+    expect(within(failedBubble).getByTestId('message-delivery-error-6')).toBeInTheDocument();
+    expect(within(failedBubble).getByTestId('badge-message-status-6')).toHaveTextContent('failed');
+    expect(failedBubble).toHaveTextContent('[30003] Unreachable destination handset');
+
+    const okBubble = screen.getByTestId('message-bubble-5');
+    expect(within(okBubble).queryByTestId('message-delivery-error-5')).not.toBeInTheDocument();
+    expect(okBubble).toHaveTextContent('delivered');
+  });
+
+  it('surfaces skipped outbound messages with the error detail', () => {
+    messages = [
+      msg({
+        id: 7,
+        customerId: 1,
+        customerName: 'Ana',
+        body: 'Skipped one',
+        deliveryStatus: 'skipped',
+        errorCode: 'opted_out',
+        errorMessage: 'Customer has opted out of SMS',
+        createdAt: '2026-07-02T10:10:00Z',
+      }),
+    ];
+    renderIt();
+    const bubble = screen.getByTestId('message-bubble-7');
+    expect(within(bubble).getByTestId('badge-message-status-7')).toHaveTextContent('skipped');
+    expect(bubble).toHaveTextContent('[opted_out] Customer has opted out of SMS');
+  });
+
   it('disables replies for opted-out customers', () => {
     renderIt();
     fireEvent.click(screen.getByTestId('conversation-item-c:2'));
