@@ -5284,6 +5284,7 @@ export const GetSosDashboardResponse = zod.object({
   "appointmentsToday": zod.number(),
   "waitlistWaiting": zod.number(),
   "messagesSentToday": zod.number(),
+  "messagesFailedToday": zod.number(),
   "callsHandledToday": zod.number(),
   "revenueToday": zod.number()
 })

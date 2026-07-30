@@ -393,7 +393,7 @@ router.get("/sos/dashboard", async (req, res): Promise<void> => {
       .where(and(eq(sosWaitlistTable.status, "waiting"), scope(sosWaitlistTable.tenantId))),
   ]);
 
-  const [apptsToday, msgsToday, callsToday, revenueRows, waitRows] =
+  const [apptsToday, msgsToday, failedMsgsToday, callsToday, revenueRows, waitRows] =
     await Promise.all([
       db
         .select({ n: sql<number>`count(*)::int` })
@@ -414,6 +414,21 @@ router.get("/sos/dashboard", async (req, res): Promise<void> => {
           and(
             gte(messagesTable.createdAt, startOfDay),
             eq(messagesTable.origin, "operational"),
+            scope(messagesTable.tenantId),
+          ),
+        ),
+      // Failed SMS attempts today — Twilio rejections (invalid number,
+      // carrier block, …) must be visible to staff, never silently logged.
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(messagesTable)
+        .where(
+          and(
+            gte(messagesTable.createdAt, startOfDay),
+            eq(messagesTable.origin, "operational"),
+            eq(messagesTable.direction, "outbound"),
+            eq(messagesTable.channel, "sms"),
+            eq(messagesTable.status, "failed"),
             scope(messagesTable.tenantId),
           ),
         ),
@@ -446,6 +461,7 @@ router.get("/sos/dashboard", async (req, res): Promise<void> => {
       appointmentsToday: apptsToday[0].n,
       waitlistWaiting: waitlist[0].n,
       messagesSentToday: msgsToday[0].n,
+      messagesFailedToday: failedMsgsToday[0].n,
       callsHandledToday: callsToday[0].n,
       revenueToday: parseFloat(revenueRows[0].total),
     }),

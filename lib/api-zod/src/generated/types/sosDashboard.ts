@@ -15,6 +15,7 @@ export interface SosDashboard {
   appointmentsToday: number;
   waitlistWaiting: number;
   messagesSentToday: number;
+  messagesFailedToday: number;
   callsHandledToday: number;
   revenueToday: number;
 }

@@ -13366,7 +13366,7 @@ components:
 
     SosDashboard:
       type: object
-      required: [inQueue, inService, availableResources, totalResources, avgWaitMinutes, appointmentsToday, waitlistWaiting, messagesSentToday, callsHandledToday, revenueToday]
+      required: [inQueue, inService, availableResources, totalResources, avgWaitMinutes, appointmentsToday, waitlistWaiting, messagesSentToday, messagesFailedToday, callsHandledToday, revenueToday]
       properties:
         inQueue:
           type: integer
@@ -13383,6 +13383,8 @@ components:
         waitlistWaiting:
           type: integer
         messagesSentToday:
+          type: integer
+        messagesFailedToday:
           type: integer
         callsHandledToday:
           type: integer

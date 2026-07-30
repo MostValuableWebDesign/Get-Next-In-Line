@@ -6,6 +6,7 @@ import {
   useUpdateSosResource, useCreateSosResource, useDeleteSosResource,
   getListSosVisitsQueryKey, getListSosResourcesQueryKey, getListSosWaitlistQueryKey,
   useGetSosSettings, getGetSosSettingsQueryKey,
+  useGetSosDashboard, getGetSosDashboardQueryKey,
   useListTenants,
   SosVisitStatus,
   type SosCustomer
@@ -26,7 +27,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Play, ArrowRight, CheckSquare, Bell, CreditCard, Check, LogOut, Clock, Plus, Settings2, Trash2 } from 'lucide-react';
+import { Play, ArrowRight, CheckSquare, Bell, CreditCard, Check, LogOut, Clock, Plus, Settings2, Trash2, AlertTriangle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
@@ -60,6 +61,13 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
   const { data: settings } = useGetSosSettings({
     query: { queryKey: getGetSosSettingsQueryKey() },
   });
+  // Dashboard counters — used here to surface today's failed SMS attempts so
+  // Twilio rejections (invalid number, carrier block, …) never go unnoticed.
+  const { data: dashboard } = useGetSosDashboard({
+    query: { queryKey: getGetSosDashboardQueryKey(), refetchInterval: 30000 },
+  });
+  const failedSmsToday = dashboard?.messagesFailedToday ?? 0;
+  const messageLogHref = `/bookings?tab=ai-receptionist${selectedTenant != null ? `&tenant=${selectedTenant}` : ''}`;
 
   const advanceVisit = useAdvanceSosVisit();
   const updateResource = useUpdateSosResource();
@@ -225,6 +233,24 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
           <CheckInDialog />
         </div>
       </div>
+
+      {failedSmsToday > 0 && (
+        <div
+          className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 shrink-0"
+          data-testid="banner-failed-sms"
+        >
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span data-testid="text-failed-sms-count">
+              <span className="font-semibold">{failedSmsToday}</span>{' '}
+              text message{failedSmsToday === 1 ? '' : 's'} failed to deliver today. Those customers were not reached.
+            </span>
+          </div>
+          <Button asChild variant="outline" size="sm" className="h-7 text-xs shrink-0" data-testid="link-failed-sms-log">
+            <Link href={messageLogHref}>Review message log</Link>
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
         
