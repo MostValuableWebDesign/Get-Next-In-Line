@@ -56,6 +56,8 @@ import {
   ListSosMessagesResponse,
   SendSosMessageBody,
   SendSosMessageResponse,
+  SendSosTestSmsBody,
+  SendSosTestSmsResponse,
   RetrySosMessageResponse,
   RetryFailedSosMessagesResponse,
   ListSosCallsResponse,
@@ -97,7 +99,7 @@ import {
 } from "@workspace/api-zod";
 import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import twilio from "twilio";
-import { getSmsStatus, getTwilioAuthToken, getTwilioWebhookStatus, normalizeToE164 } from "../lib/sms";
+import { getSmsStatus, getTestSmsRecipient, getTwilioAuthToken, getTwilioWebhookStatus, normalizeToE164 } from "../lib/sms";
 import {
   sendMessage,
   sendMessageSafe,
@@ -2710,6 +2712,38 @@ router.post("/sos/messages", async (req, res): Promise<void> => {
   res
     .status(201)
     .json(SendSosMessageResponse.parse(serializeSosMessage(msg, customer.name)));
+});
+
+// Admin/ops test text: verifies the live SMS pipeline end to end without a
+// customer record. The recipient defaults to the configured test number
+// (TEST_SMS_RECIPIENT env var). Deliberately bypasses the customer opt-in
+// guard — it targets no customer — and records the send in the unified
+// messages table like every other outbound text.
+router.post("/sos/sms/test-send", async (req, res): Promise<void> => {
+  const tenantId = tenantIdFrom(req);
+  const body = SendSosTestSmsBody.parse(req.body ?? {});
+  const defaultRecipient = getTestSmsRecipient();
+  const raw = body.toNumber?.trim() || defaultRecipient;
+  const toNumber = normalizeToE164(raw);
+  if (!toNumber) {
+    res.status(400).json({ message: `"${raw}" is not a valid phone number` });
+    return;
+  }
+  const { smsMode } = await getSmsStatus(tenantId);
+  const msg = await sendMessage({
+    tenantId,
+    toNumber,
+    kind: "test_send",
+    body: `Test text from Get Next In Line — if you received this, live SMS delivery is working. (Sent ${new Date().toLocaleString("en-US", { timeZone: "America/New_York" })} ET)`,
+    context: { testSend: true, smsMode },
+  });
+  res.status(201).json(
+    SendSosTestSmsResponse.parse({
+      smsMode,
+      defaultRecipient,
+      message: serializeSosMessage(msg, null),
+    }),
+  );
 });
 
 router.post("/sos/messages/:id/retry", async (req, res): Promise<void> => {

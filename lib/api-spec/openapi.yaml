@@ -4287,6 +4287,27 @@ paths:
         "409":
           description: Customer has opted out of SMS
 
+  /sos/sms/test-send:
+    post:
+      operationId: sendSosTestSms
+      tags: [sos]
+      summary: Send a one-off test text (no customer record) to verify the SMS pipeline is live vs simulated
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosTestSmsInput"
+      responses:
+        "201":
+          description: Outcome of the test send, including live/simulated mode and provider status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosTestSmsResult"
+        "400":
+          description: Invalid recipient number
+
   /sos/messages/{id}/retry:
     post:
       operationId: retrySosMessage
@@ -11467,6 +11488,9 @@ components:
           type: ["string", "null"]
         smsInboundReady:
           type: boolean
+        smsTestRecipient:
+          type: string
+          description: Configured default recipient for admin test texts (TEST_SMS_RECIPIENT env var, platform default otherwise).
         noShowShieldEnabled:
           type: boolean
         noShowShieldProvisioned:
@@ -13311,7 +13335,7 @@ components:
           type: string
         kind:
           type: string
-          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_marketing_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock, coop_reputation, coop_feedback_request, coop_financial_dispute, booking_confirmation, receipt, voice_call, voicemail]
+          enum: [you_are_next, slot_open, ai_followup, manual, inbound, claim_confirmation, deposit_update, send_reminder, rebooking_nudge, wallet_login_code, perk_expiry_reminder, coop_monthly_report, safety_alert, coop_dispute, coop_invite, coop_campaign_blast, coop_marketing_blast, coop_tier_change, passport_reward, emergency_broadcast, coop_event_broadcast, retail_low_stock, coop_reputation, coop_feedback_request, coop_financial_dispute, booking_confirmation, receipt, test_send, voice_call, voicemail]
         deliveryStatus:
           type: string
           enum: [pending, sent, delivered, failed, simulated, skipped, received]
@@ -13350,6 +13374,27 @@ components:
         kind:
           type: string
           enum: [you_are_next, slot_open, ai_followup, manual]
+
+    SosTestSmsInput:
+      type: object
+      properties:
+        toNumber:
+          type: ["string", "null"]
+          description: Recipient number; omitted/empty falls back to the configured default test recipient.
+
+    SosTestSmsResult:
+      type: object
+      required: [smsMode, defaultRecipient, message]
+      properties:
+        smsMode:
+          type: string
+          enum: [live, simulated]
+          description: Whether the SMS transport was live (Twilio) or simulated at send time.
+        defaultRecipient:
+          type: string
+          description: The configured default test recipient number.
+        message:
+          $ref: "#/components/schemas/SosMessage"
 
     SosCall:
       type: object

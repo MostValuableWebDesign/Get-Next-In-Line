@@ -31,6 +31,8 @@ export interface SosSettings {
   /** @nullable */
   smsInboundWebhookUrl?: string | null;
   smsInboundReady?: boolean;
+  /** Configured default recipient for admin test texts (TEST_SMS_RECIPIENT env var, platform default otherwise). */
+  smsTestRecipient?: string;
   noShowShieldEnabled: boolean;
   /** Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled. */
   noShowShieldProvisioned: boolean;

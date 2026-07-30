@@ -5,6 +5,8 @@ import {
   getGetSosSettingsQueryKey,
   useGetSosTwilioWebhookStatus,
   getGetSosTwilioWebhookStatusQueryKey,
+  useSendSosTestSms,
+  type SosTestSmsResult,
   useGetTenantSettings,
   useUpdateTenantSettings,
   getGetTenantSettingsQueryKey,
@@ -98,6 +100,11 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
   const [openTime, setOpenTime] = React.useState('09:00');
   const [closeTime, setCloseTime] = React.useState('17:00');
   const [smsFromNumber, setSmsFromNumber] = React.useState('');
+  const [testSmsRecipient, setTestSmsRecipient] = React.useState('');
+  const [testSmsResult, setTestSmsResult] = React.useState<SosTestSmsResult | null>(null);
+  const testSms = useSendSosTestSms({
+    request: { headers: { 'x-tenant-id': isTenantScoped ? String(tenantId) : 'legacy' } },
+  });
   const [noShowShieldEnabled, setNoShowShieldEnabled] = React.useState(false);
   const [noShowDepositAmount, setNoShowDepositAmount] = React.useState('25');
   const [noShowCancellationWindowHours, setNoShowCancellationWindowHours] = React.useState('24');
@@ -143,6 +150,7 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       setOpenTime(settings.openTime);
       setCloseTime(settings.closeTime);
       setSmsFromNumber(settings.smsFromNumber || '');
+      setTestSmsRecipient((prev) => prev || settings.smsTestRecipient || '');
       setNoShowShieldEnabled(settings.noShowShieldEnabled);
       setNoShowDepositAmount(String(settings.noShowDepositAmount));
       setNoShowCancellationWindowHours(String(settings.noShowCancellationWindowHours));
@@ -792,6 +800,93 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
               This number is used for all outgoing AI and waitlist texts.
             </p>
           </div>
+          <div className="p-4 border rounded-lg space-y-3" data-testid="section-test-sms">
+            <div>
+              <Label className="text-base">Send a Test Text</Label>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Verify the SMS pipeline end to end — currently{' '}
+                <span className="font-medium">
+                  {settings?.smsMode === 'live' ? 'Live (Twilio)' : 'Simulated'}
+                </span>
+                . The test send is recorded in message history.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={testSmsRecipient}
+                onChange={(e) => setTestSmsRecipient(e.target.value)}
+                placeholder={settings?.smsTestRecipient || '+1 (555) 000-0000'}
+                className="max-w-xs"
+                data-testid="input-test-sms-recipient"
+              />
+              <Button
+                variant="secondary"
+                disabled={testSms.isPending}
+                onClick={() => {
+                  setTestSmsResult(null);
+                  testSms.mutate(
+                    { data: { toNumber: testSmsRecipient || null } },
+                    {
+                      onSuccess: (result) => {
+                        setTestSmsResult(result);
+                        toast({
+                          title:
+                            result.message.deliveryStatus === 'failed'
+                              ? 'Test text failed'
+                              : result.smsMode === 'live'
+                                ? 'Test text sent via Twilio'
+                                : 'Test text simulated (no Twilio credentials)',
+                          description:
+                            result.message.errorMessage ??
+                            `To ${result.message.toNumber}`,
+                          variant:
+                            result.message.deliveryStatus === 'failed'
+                              ? 'destructive'
+                              : undefined,
+                        });
+                      },
+                      onError: () =>
+                        toast({
+                          title: "Couldn't send test text",
+                          description: 'Please check the number and try again.',
+                          variant: 'destructive',
+                        }),
+                    },
+                  );
+                }}
+                data-testid="button-send-test-sms"
+              >
+                {testSms.isPending ? 'Sending…' : 'Send test text'}
+              </Button>
+            </div>
+            {testSmsResult && (
+              <div className="text-sm" data-testid="text-test-sms-result">
+                <Badge
+                  variant={
+                    testSmsResult.message.deliveryStatus === 'failed'
+                      ? 'destructive'
+                      : testSmsResult.smsMode === 'live'
+                        ? 'default'
+                        : 'secondary'
+                  }
+                  data-testid="badge-test-sms-outcome"
+                >
+                  {testSmsResult.smsMode === 'live' ? 'Live' : 'Simulated'} ·{' '}
+                  {testSmsResult.message.deliveryStatus}
+                </Badge>{' '}
+                <span className="text-muted-foreground">
+                  to {testSmsResult.message.toNumber}
+                  {testSmsResult.message.providerSid
+                    ? ` — Twilio SID ${testSmsResult.message.providerSid}`
+                    : ''}
+                  {testSmsResult.message.errorMessage
+                    ? ` — ${testSmsResult.message.errorCode ?? 'error'}: ${testSmsResult.message.errorMessage}`
+                    : ''}
+                </span>
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-between items-center gap-3">
             <Button
               asChild

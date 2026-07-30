@@ -1,6 +1,6 @@
 import { db, sosSettingsTable, tenantsTable } from "@workspace/db";
 import { eq, isNull } from "drizzle-orm";
-import { getSmsStatus, getTwilioAuthToken } from "./sms";
+import { getSmsStatus, getTestSmsRecipient, getTwilioAuthToken } from "./sms";
 import { getInboundWebhookUrl } from "./inboundSms";
 import { effectiveSubCategory } from "./coopFirewall";
 import { effectiveCoopRadiusMiles } from "./geoDensity";
@@ -175,6 +175,7 @@ export async function serializeSettings(s: SosSettingsRow) {
     smsActiveFromNumber: sms.activeFromNumber,
     smsInboundWebhookUrl: getInboundWebhookUrl(),
     smsInboundReady: (await getTwilioAuthToken()) != null,
+    smsTestRecipient: getTestSmsRecipient(),
     noShowShieldEnabled: s.noShowShieldEnabled,
     noShowShieldProvisioned,
     noShowDepositAmount: parseFloat(s.noShowDepositAmount),

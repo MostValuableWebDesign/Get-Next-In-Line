@@ -192,6 +192,12 @@ export function normalizeToE164(raw: string | null | undefined): string | null {
 }
 
 /**
+ * Default recipient for admin "send test text" checks. Single source of
+ * truth: the TEST_SMS_RECIPIENT env var, falling back to the platform
+ * default. Always returned in E.164 form.
+ */
+export const DEFAULT_TEST_SMS_RECIPIENT = "+14703467558";
+/**
  * Auth token used to verify Twilio inbound-webhook signatures. Falls back to
  * TWILIO_AUTH_TOKEN so signature validation can work even when outbound
  * sending is not fully configured (e.g. no From number yet).
@@ -460,4 +466,10 @@ export async function deliverSms(
   }
 
   return { status, toNumber, providerSid, errorCode, errorMessage };
+}
+
+export function getTestSmsRecipient(): string {
+  return (
+    normalizeToE164(process.env.TEST_SMS_RECIPIENT) ?? DEFAULT_TEST_SMS_RECIPIENT
+  );
 }

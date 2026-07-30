@@ -34,6 +34,8 @@ vi.mock('@workspace/api-client-react', () => ({
   useGetTenantSettings: () => ({ data: undefined, isLoading: false }),
   getGetTenantSettingsQueryKey: (id: number) => ['/api/tenants', id, 'settings'],
   useUpdateTenantSettings: () => ({ mutate: vi.fn(), isPending: false }),
+  // "Send test text" control in the SMS section.
+  useSendSosTestSms: () => ({ mutate: vi.fn(), isPending: false }),
   // Product Catalog section (folded into Configuration) — empty registry.
   useGetConnectorRegistry: () => ({ data: [], isLoading: false }),
   useGetModulesPricing: () => ({ data: [], isLoading: false }),

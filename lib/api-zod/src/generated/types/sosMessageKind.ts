@@ -37,6 +37,7 @@ export const SosMessageKind = {
   coop_financial_dispute: 'coop_financial_dispute',
   booking_confirmation: 'booking_confirmation',
   receipt: 'receipt',
+  test_send: 'test_send',
   voice_call: 'voice_call',
   voicemail: 'voicemail',
 } as const;

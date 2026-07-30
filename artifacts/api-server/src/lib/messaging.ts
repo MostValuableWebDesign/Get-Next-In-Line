@@ -44,7 +44,8 @@ export type OutboundMessageKind =
   | "coop_reputation"
   | "coop_feedback_request"
   | "booking_confirmation"
-  | "receipt";
+  | "receipt"
+  | "test_send";
 
 export type MessageOrigin = "operational" | "concierge" | "marketing";
 

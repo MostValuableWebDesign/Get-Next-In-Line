@@ -3554,6 +3554,8 @@ export interface SosSettings {
   /** @nullable */
   smsInboundWebhookUrl?: string | null;
   smsInboundReady?: boolean;
+  /** Configured default recipient for admin test texts (TEST_SMS_RECIPIENT env var, platform default otherwise). */
+  smsTestRecipient?: string;
   noShowShieldEnabled: boolean;
   /** Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled. */
   noShowShieldProvisioned: boolean;
@@ -5177,6 +5179,7 @@ export const SosMessageKind = {
   coop_financial_dispute: 'coop_financial_dispute',
   booking_confirmation: 'booking_confirmation',
   receipt: 'receipt',
+  test_send: 'test_send',
   voice_call: 'voice_call',
   voicemail: 'voicemail',
 } as const;
@@ -5229,6 +5232,7 @@ export interface SosBulkRetrySummary {
   /** Number of failed messages left alone because a retry already exists (successful, or itself being retried in this batch) */
   skipped: number;
 }
+
 export type SosMessageInputKind = typeof SosMessageInputKind[keyof typeof SosMessageInputKind];
 
 
@@ -5244,6 +5248,33 @@ export interface SosMessageInput {
   /** @minLength 1 */
   body: string;
   kind?: SosMessageInputKind;
+}
+
+export interface SosTestSmsInput {
+  /**
+     * Recipient number; omitted/empty falls back to the configured default test recipient.
+     * @nullable
+     */
+  toNumber?: string | null;
+}
+
+/**
+ * Whether the SMS transport was live (Twilio) or simulated at send time.
+ */
+export type SosTestSmsResultSmsMode = typeof SosTestSmsResultSmsMode[keyof typeof SosTestSmsResultSmsMode];
+
+
+export const SosTestSmsResultSmsMode = {
+  live: 'live',
+  simulated: 'simulated',
+} as const;
+
+export interface SosTestSmsResult {
+  /** Whether the SMS transport was live (Twilio) or simulated at send time. */
+  smsMode: SosTestSmsResultSmsMode;
+  /** The configured default test recipient number. */
+  defaultRecipient: string;
+  message: SosMessage;
 }
 
 export type SosCallOutcome = typeof SosCallOutcome[keyof typeof SosCallOutcome];
@@ -7213,3 +7244,4 @@ limit?: number;
  */
 offset?: number;
 };
+

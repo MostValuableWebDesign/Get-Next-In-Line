@@ -321,6 +321,8 @@ import type {
   SosStaffMember,
   SosStaffMemberInput,
   SosStaffMemberUpdate,
+  SosTestSmsInput,
+  SosTestSmsResult,
   SosTimelineEntry,
   SosTwilioWebhookStatus,
   SosVisit,
@@ -15057,6 +15059,77 @@ export const useSendSosMessage = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getSendSosMessageMutationOptions(options));
+    }
+
+export const getSendSosTestSmsUrl = () => {
+
+
+
+
+  return `/api/sos/sms/test-send`
+}
+
+/**
+ * @summary Send a one-off test text (no customer record) to verify the SMS pipeline is live vs simulated
+ */
+export const sendSosTestSms = async (sosTestSmsInput?: SosTestSmsInput, options?: RequestInit): Promise<SosTestSmsResult> => {
+
+  return customFetch<SosTestSmsResult>(getSendSosTestSmsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(sosTestSmsInput)
+  }
+);}
+
+
+
+
+
+export const getSendSosTestSmsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendSosTestSms>>, TError,{data?: BodyType<SosTestSmsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendSosTestSms>>, TError,{data?: BodyType<SosTestSmsInput>}, TContext> => {
+
+const mutationKey = ['sendSosTestSms'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendSosTestSms>>, {data?: BodyType<SosTestSmsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sendSosTestSms(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendSosTestSmsMutationResult = NonNullable<Awaited<ReturnType<typeof sendSosTestSms>>>
+    export type SendSosTestSmsMutationBody = BodyType<SosTestSmsInput> | undefined
+    export type SendSosTestSmsMutationError = ErrorType<void>
+
+    /**
+ * @summary Send a one-off test text (no customer record) to verify the SMS pipeline is live vs simulated
+ */
+export const useSendSosTestSms = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendSosTestSms>>, TError,{data?: BodyType<SosTestSmsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendSosTestSms>>,
+        TError,
+        {data?: BodyType<SosTestSmsInput>},
+        TContext
+      > => {
+      return useMutation(getSendSosTestSmsMutationOptions(options));
     }
 
 export const getRetrySosMessageUrl = (id: number,) => {

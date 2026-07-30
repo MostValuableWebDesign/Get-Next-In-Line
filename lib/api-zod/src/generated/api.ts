@@ -33,6 +33,7 @@ export const createGovernanceUserBodyUsernameMin = 2;
 export const createGovernanceUserBodyUsernameMax = 64;
 
 
+
 export const CreateGovernanceUserBody = zod.object({
   "username": zod.string().min(createGovernanceUserBodyUsernameMin).max(createGovernanceUserBodyUsernameMax),
   "role": zod.enum(['super_admin', 'district_manager', 'merchant', 'staff']).describe('Hierarchical network-governance role'),
@@ -140,6 +141,7 @@ export const reviewCoopApplicationBodyMerchantUsernameMin = 2;
 export const reviewCoopApplicationBodyMerchantUsernameMax = 80;
 
 
+
 export const ReviewCoopApplicationBody = zod.object({
   "status": zod.enum(['under_review', 'approved', 'rejected']).optional(),
   "reviewNotes": zod.string().max(reviewCoopApplicationBodyReviewNotesMax).optional().describe('Reviewer-only verification\/vetting notes'),
@@ -188,6 +190,7 @@ export const submitCoopApplicationBodyContactEmailRegExp = new RegExp('^[^\\s@]+
 export const submitCoopApplicationBodyCategoryMax = 120;
 
 export const submitCoopApplicationBodyPitchMax = 2000;
+
 
 
 export const SubmitCoopApplicationBody = zod.object({
@@ -596,6 +599,7 @@ export const listTenantsQueryLimitMax = 500;
 export const listTenantsQueryOffsetMin = 0;
 
 
+
 export const ListTenantsQueryParams = zod.object({
   "limit": zod.coerce.number().min(1).max(listTenantsQueryLimitMax).optional().describe('Maximum number of tenants per page (default 100, max 500)'),
   "offset": zod.coerce.number().min(listTenantsQueryOffsetMin).optional().describe('Number of tenants to skip (default 0)')
@@ -630,6 +634,7 @@ export const createTenantBodyContactEmailRegExp = new RegExp('^[^\\s@]+@[^\\s@]+
 export const createTenantBodyContactNameMax = 120;
 
 
+
 export const CreateTenantBody = zod.object({
   "brandName": zod.string().min(1).max(createTenantBodyBrandNameMax),
   "subdomain": zod.string().min(1).max(createTenantBodySubdomainMax),
@@ -656,6 +661,8 @@ export const CreateTenantResponse = zod.object({
  * @summary Recent tenant provisioning and status change activity feed
  */
 export const getTenantActivityQueryLimitMax = 100;
+
+
 
 
 export const GetTenantActivityQueryParams = zod.object({
@@ -715,6 +722,7 @@ export const updateTenantBodyContactEmailMax = 254;
 
 export const updateTenantBodyContactEmailRegExp = new RegExp('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$');
 export const updateTenantBodyContactNameMax = 120;
+
 
 
 export const UpdateTenantBody = zod.object({
@@ -976,6 +984,7 @@ export const createCoopPartnershipBodyPerkValueAmountMin = 0;
 export const createCoopPartnershipBodyUsageCapMax = 1000000;
 
 
+
 export const CreateCoopPartnershipBody = zod.object({
   "hostTenantId": zod.number(),
   "partnerTenantId": zod.number(),
@@ -1045,6 +1054,7 @@ export const updateCoopPartnershipBodyHostReciprocityThresholdMax = 1000;
 export const updateCoopPartnershipBodyPartnerReciprocityThresholdMax = 1000;
 
 export const updateCoopPartnershipBodyUsageCapMax = 1000000;
+
 
 
 export const UpdateCoopPartnershipBody = zod.object({
@@ -1169,6 +1179,7 @@ export const GetCoopTaxonomyResponse = zod.array(GetCoopTaxonomyResponseItem)
 export const getCoopLedgerQueryWindowDaysMax = 365;
 
 
+
 export const GetCoopLedgerQueryParams = zod.object({
   "windowDays": zod.coerce.number().min(1).max(getCoopLedgerQueryWindowDaysMax).optional()
 })
@@ -1205,6 +1216,8 @@ export const GetCoopLedgerResponse = zod.object({
 export const ProposeCoopRenegotiationParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
 
 
 export const ProposeCoopRenegotiationBody = zod.object({
@@ -1459,6 +1472,7 @@ export const DismissCoopSuggestionResponse = zod.object({
 export const createCoopInviteBodyUsageCapMax = 1000000;
 
 
+
 export const CreateCoopInviteBody = zod.object({
   "partnerTenantId": zod.number(),
   "perkTitle": zod.string().min(1),
@@ -1670,6 +1684,7 @@ export const updateCoopCapacityBodyCapacityThresholdMin = 0;
 export const updateCoopCapacityBodyOverrideMinutesMin = 0;
 
 
+
 export const UpdateCoopCapacityBody = zod.object({
   "capacityThreshold": zod.number().min(updateCoopCapacityBodyCapacityThresholdMin).nullish().describe('Daily appointment capacity threshold; null clears it.'),
   "manualStatus": zod.union([zod.literal('available'),zod.literal('moderate'),zod.literal('busy'),zod.literal(null)]).nullish().describe('Manual live status; null reverts to automatic derivation.'),
@@ -1876,6 +1891,7 @@ export const ListCoopBoostsResponse = zod.array(ListCoopBoostsResponseItem)
 export const createCoopBoostBodyAmountExclusiveMin = 0;
 
 
+
 export const CreateCoopBoostBody = zod.object({
   "partnershipId": zod.number(),
   "surface": zod.enum(['discovery', 'booking_confirmation']),
@@ -1953,12 +1969,14 @@ export const updateAdminCoopFeeBodyFeePercentMin = 0;
 export const updateAdminCoopFeeBodyFeePercentMax = 100;
 
 
+
 export const UpdateAdminCoopFeeBody = zod.object({
   "feePercent": zod.number().min(updateAdminCoopFeeBodyFeePercentMin).max(updateAdminCoopFeeBodyFeePercentMax)
 })
 
 export const updateAdminCoopFeeResponseFeePercentMin = 0;
 export const updateAdminCoopFeeResponseFeePercentMax = 100;
+
 
 
 export const UpdateAdminCoopFeeResponse = zod.object({
@@ -2005,6 +2023,8 @@ export const ListPublicBookingPerksResponse = zod.object({
 /**
  * @summary Merchant-facing — redeem a scanned perk pass, locking that pass instance against double redemption; tenant scope via x-tenant-id
  */
+
+
 
 
 export const RedeemCoopPerkBody = zod.object({
@@ -2082,6 +2102,7 @@ export const ListCoopPassKeysResponse = zod.object({
 export const signCoopPassPayloadsBodyCodesMax = 50;
 
 
+
 export const SignCoopPassPayloadsBody = zod.object({
   "passCode": zod.string().min(1).describe('The customer pass instance the QR is rendered for (e.g. \"C123\").'),
   "codes": zod.array(zod.string().min(1)).min(1).max(signCoopPassPayloadsBodyCodesMax).describe('Redemption\/tracking codes to sign, one per perk shown on the pass surface.')
@@ -2102,7 +2123,9 @@ export const syncCoopOfflineRedemptionsBodyRedemptionsItemClientRedemptionIdMin 
 export const syncCoopOfflineRedemptionsBodyRedemptionsItemClientRedemptionIdMax = 100;
 
 
+
 export const syncCoopOfflineRedemptionsBodyRedemptionsMax = 200;
+
 
 
 export const SyncCoopOfflineRedemptionsBody = zod.object({
@@ -2242,6 +2265,7 @@ export const createPlatformInviteBodyBusinessNameMax = 120;
 export const createPlatformInviteBodyContactMax = 200;
 
 
+
 export const CreatePlatformInviteBody = zod.object({
   "businessName": zod.string().min(1).max(createPlatformInviteBodyBusinessNameMax),
   "contact": zod.string().max(createPlatformInviteBodyContactMax).optional().describe('Optional phone\/email note for the merchant\'s own tracking.')
@@ -2303,6 +2327,9 @@ export const ListCoopCampaignsResponse = zod.array(ListCoopCampaignsResponseItem
 /**
  * @summary Merchant-facing — launch a flash campaign inviting current accepted, active partners; the uniform window applies identically to every participant; tenant scope via x-tenant-id
  */
+
+
+
 
 
 export const CreateCoopCampaignBody = zod.object({
@@ -2447,6 +2474,7 @@ export const ListCoopMarketingChannelsResponse = zod.array(ListCoopMarketingChan
 export const createCoopMarketingChannelBodyHandleMax = 120;
 
 
+
 export const CreateCoopMarketingChannelBody = zod.object({
   "platform": zod.enum(['instagram', 'facebook']),
   "handle": zod.string().min(1).max(createCoopMarketingChannelBodyHandleMax)
@@ -2476,6 +2504,7 @@ export const DeleteCoopMarketingChannelResponse = zod.void()
  * @summary Merchant-facing — AI-suggested co-branded promo copy (deterministic template fallback), always editable; tenant scope via x-tenant-id
  */
 export const suggestCoopMarketingCopyBodyOfferTextMax = 500;
+
 
 
 export const SuggestCoopMarketingCopyBody = zod.object({
@@ -2536,6 +2565,8 @@ export const createCoopMarketingCampaignBodyHeadlineMax = 200;
 export const createCoopMarketingCampaignBodyBodyTextMax = 1000;
 
 export const createCoopMarketingCampaignBodySmsTextMax = 320;
+
+
 
 
 export const CreateCoopMarketingCampaignBody = zod.object({
@@ -2706,6 +2737,8 @@ export const ListCoopEventsResponse = zod.array(ListCoopEventsResponseItem)
  */
 
 
+
+
 export const CreateCoopEventBody = zod.object({
   "name": zod.string().min(1),
   "description": zod.string().optional(),
@@ -2855,6 +2888,7 @@ export const CreateCoopEventExpenseParams = zod.object({
 export const createCoopEventExpenseBodyAmountExclusiveMin = 0;
 
 
+
 export const CreateCoopEventExpenseBody = zod.object({
   "description": zod.string().min(1),
   "amount": zod.number().gt(createCoopEventExpenseBodyAmountExclusiveMin).describe('Cost in dollars (max 2 decimal places).'),
@@ -2931,6 +2965,7 @@ export const UpdateCoopEventParticipantParams = zod.object({
 })
 
 export const updateCoopEventParticipantBodyShareWeightExclusiveMin = 0;
+
 
 
 export const UpdateCoopEventParticipantBody = zod.object({
@@ -3022,6 +3057,7 @@ export const TriggerCoopEventBroadcastResponse = zod.object({
 /**
  * @summary Merchant-facing — record a check-in from a scanned/entered code; attributes the sign-up to the storefront whose code was used (unified codes count community-level only)
  */
+
 
 
 export const CheckInCoopEventBody = zod.object({
@@ -3142,6 +3178,7 @@ export const createCoopRetailItemBodyLowStockThresholdMin = 0;
 export const createCoopRetailItemBodyLowStockThresholdMax = 1000000;
 
 
+
 export const CreateCoopRetailItemBody = zod.object({
   "partnershipId": zod.number(),
   "name": zod.string().min(1),
@@ -3184,6 +3221,7 @@ export const updateCoopRetailItemBodyOwnerSharePercentMax = 100;
 
 export const updateCoopRetailItemBodyLowStockThresholdMin = 0;
 export const updateCoopRetailItemBodyLowStockThresholdMax = 1000000;
+
 
 
 export const UpdateCoopRetailItemBody = zod.object({
@@ -3249,6 +3287,8 @@ export const AdjustCoopRetailStockResponse = zod.object({
 export const RecordCoopRetailSaleParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
 
 
 export const RecordCoopRetailSaleBody = zod.object({
@@ -3423,6 +3463,7 @@ export const createEmergencyBroadcastBodyHeadlineMax = 120;
 export const createEmergencyBroadcastBodyMessageMax = 1000;
 
 
+
 export const CreateEmergencyBroadcastBody = zod.object({
   "severity": zod.enum(['info', 'warning', 'critical']),
   "alertType": zod.enum(['weather_closure', 'power_outage', 'safety_alert', 'schedule_change', 'other']),
@@ -3503,6 +3544,7 @@ export const SubmitEmergencyCheckinParams = zod.object({
 })
 
 export const submitEmergencyCheckinBodyNoteMax = 300;
+
 
 
 export const SubmitEmergencyCheckinBody = zod.object({
@@ -3595,6 +3637,7 @@ export const updateCoopComplianceSettingsBodySalesRatePercentMax = 100;
 export const updateCoopComplianceSettingsBodyThreshold1099Min = 0;
 
 
+
 export const UpdateCoopComplianceSettingsBody = zod.object({
   "stateRatePercent": zod.number().min(updateCoopComplianceSettingsBodyStateRatePercentMin).max(updateCoopComplianceSettingsBodyStateRatePercentMax).optional(),
   "localRatePercent": zod.number().min(updateCoopComplianceSettingsBodyLocalRatePercentMin).max(updateCoopComplianceSettingsBodyLocalRatePercentMax).optional(),
@@ -3617,6 +3660,7 @@ export const UpdateCoopComplianceSettingsResponse = zod.object({
 export const listCoopComplianceLedgerQueryLimitMax = 500;
 
 export const listCoopComplianceLedgerQueryOffsetMin = 0;
+
 
 
 export const ListCoopComplianceLedgerQueryParams = zod.object({
@@ -3649,6 +3693,8 @@ export const ListCoopComplianceLedgerResponse = zod.array(ListCoopComplianceLedg
  * @summary Merchant-facing — manually log a referral commission, sponsorship, or shared event expense in the compliance ledger
  */
 export const createCoopComplianceEntryBodyGrossAmountExclusiveMin = 0;
+
+
 
 
 export const CreateCoopComplianceEntryBody = zod.object({
@@ -3770,6 +3816,7 @@ export const ListSafetyIncidentsResponse = zod.array(ListSafetyIncidentsResponse
  */
 
 
+
 export const CreateSafetyIncidentBody = zod.object({
   "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
   "description": zod.string().min(1),
@@ -3819,6 +3866,8 @@ export const GetSafetyIncidentTimelineResponse = zod.array(GetSafetyIncidentTime
 export const CreateSafetyIncidentUpdateParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
 
 
 export const CreateSafetyIncidentUpdateBody = zod.object({
@@ -3915,6 +3964,8 @@ export const ListSafetyContactsResponse = zod.array(ListSafetyContactsResponseIt
  */
 
 
+
+
 export const CreateSafetyContactBody = zod.object({
   "label": zod.string().min(1),
   "phone": zod.string().min(1),
@@ -3938,6 +3989,9 @@ export const CreateSafetyContactResponse = zod.object({
 export const UpdateSafetyContactParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
+
 
 
 export const UpdateSafetyContactBody = zod.object({
@@ -3985,6 +4039,8 @@ export const ListSafetyTemplatesResponse = zod.array(ListSafetyTemplatesResponse
  */
 
 
+
+
 export const CreateSafetyTemplateBody = zod.object({
   "title": zod.string().min(1),
   "incidentType": zod.enum(['silent_panic', 'suspicious_activity', 'safety_hazard', 'medical_emergency', 'severe_weather']),
@@ -4006,6 +4062,9 @@ export const CreateSafetyTemplateResponse = zod.object({
 export const UpdateSafetyTemplateParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
+
 
 
 export const UpdateSafetyTemplateBody = zod.object({
@@ -4130,6 +4189,7 @@ export const submitCoopPartnerRatingBodyProfessionalismMax = 5;
 export const submitCoopPartnerRatingBodyTrafficValueMax = 5;
 
 export const submitCoopPartnerRatingBodyCommentMax = 2000;
+
 
 
 export const SubmitCoopPartnerRatingBody = zod.object({
@@ -4335,6 +4395,8 @@ export const AddCoopDisputeMediationNoteParams = zod.object({
 })
 
 
+
+
 export const AddCoopDisputeMediationNoteBody = zod.object({
   "note": zod.string().min(1)
 })
@@ -4429,6 +4491,7 @@ export const ListCoopFinancialDisputesResponse = zod.array(ListCoopFinancialDisp
 /**
  * @summary Merchant-facing — file a financial dispute on a partnership with evidence; automated reconciliation runs immediately; tenant scope via x-tenant-id
  */
+
 
 
 export const CreateCoopFinancialDisputeBody = zod.object({
@@ -4591,6 +4654,8 @@ export const AddCoopFinancialDisputeEvidenceParams = zod.object({
 })
 
 
+
+
 export const AddCoopFinancialDisputeEvidenceBody = zod.object({
   "redemptionIds": zod.array(zod.number()).optional(),
   "receipts": zod.array(zod.object({
@@ -4669,6 +4734,8 @@ export const AddCoopFinancialDisputeEvidenceResponse = zod.object({
 export const RespondToCoopFinancialDisputeParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
 
 
 export const RespondToCoopFinancialDisputeBody = zod.object({
@@ -4834,6 +4901,8 @@ export const CreateCoopFinancialAdjustmentParams = zod.object({
 export const createCoopFinancialAdjustmentBodyAmountExclusiveMin = 0;
 
 
+
+
 export const CreateCoopFinancialAdjustmentBody = zod.object({
   "adjustmentType": zod.enum(['adjustment', 'bounty_reversal']),
   "amount": zod.number().gt(createCoopFinancialAdjustmentBodyAmountExclusiveMin),
@@ -4910,6 +4979,8 @@ export const CreateCoopFinancialAdjustmentResponse = zod.object({
 export const IssueCoopFinancialRulingParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
 
 
 export const IssueCoopFinancialRulingBody = zod.object({
@@ -5249,6 +5320,7 @@ export const GetSosSettingsResponse = zod.object({
   "smsActiveFromNumber": zod.string().nullish(),
   "smsInboundWebhookUrl": zod.string().nullish(),
   "smsInboundReady": zod.boolean().optional(),
+  "smsTestRecipient": zod.string().optional().describe('Configured default recipient for admin test texts (TEST_SMS_RECIPIENT env var, platform default otherwise).'),
   "noShowShieldEnabled": zod.boolean(),
   "noShowShieldProvisioned": zod.boolean().describe('Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled.'),
   "noShowDepositAmount": zod.number(),
@@ -5312,6 +5384,7 @@ export const updateSosSettingsBodyBrandPrimaryColorMax = 32;
 export const updateSosSettingsBodyBrandSecondaryColorMax = 32;
 
 
+
 export const UpdateSosSettingsBody = zod.object({
   "businessName": zod.string().optional(),
   "industryType": zod.string().optional(),
@@ -5362,6 +5435,7 @@ export const UpdateSosSettingsResponse = zod.object({
   "smsActiveFromNumber": zod.string().nullish(),
   "smsInboundWebhookUrl": zod.string().nullish(),
   "smsInboundReady": zod.boolean().optional(),
+  "smsTestRecipient": zod.string().optional().describe('Configured default recipient for admin test texts (TEST_SMS_RECIPIENT env var, platform default otherwise).'),
   "noShowShieldEnabled": zod.boolean(),
   "noShowShieldProvisioned": zod.boolean().describe('Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled.'),
   "noShowDepositAmount": zod.number(),
@@ -5422,6 +5496,8 @@ export const ListSosResourcesResponse = zod.array(ListSosResourcesResponseItem)
 /**
  * @summary Add a resource
  */
+
+
 
 
 export const CreateSosResourceBody = zod.object({
@@ -5508,6 +5584,7 @@ export const ListSosCustomersResponse = zod.array(ListSosCustomersResponseItem)
 /**
  * @summary Add a customer
  */
+
 
 
 export const CreateSosCustomerBody = zod.object({
@@ -5667,6 +5744,7 @@ export const ListSosVisitsResponse = zod.array(ListSosVisitsResponseItem)
  */
 
 
+
 export const CheckInSosVisitBody = zod.object({
   "customerId": zod.number(),
   "serviceType": zod.string().min(1),
@@ -5708,6 +5786,7 @@ export const AdvanceSosVisitParams = zod.object({
 })
 
 export const advanceSosVisitBodyTipAmountMin = 0;
+
 
 
 export const AdvanceSosVisitBody = zod.object({
@@ -5785,6 +5864,7 @@ export const ListSosAppointmentsResponse = zod.array(ListSosAppointmentsResponse
 /**
  * @summary Book an appointment
  */
+
 
 
 export const CreateSosAppointmentBody = zod.object({
@@ -5916,6 +5996,7 @@ export const ListSosWaitlistResponse = zod.array(ListSosWaitlistResponseItem)
  */
 
 
+
 export const CreateSosWaitlistEntryBody = zod.object({
   "customerId": zod.number(),
   "desiredService": zod.string().min(1)
@@ -5984,7 +6065,7 @@ export const ListSosMessagesResponseItem = zod.object({
   "channel": zod.enum(['sms', 'email', 'voice']).optional(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute', 'booking_confirmation', 'receipt', 'voice_call', 'voicemail']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute', 'booking_confirmation', 'receipt', 'test_send', 'voice_call', 'voicemail']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -5998,6 +6079,7 @@ export const ListSosMessagesResponse = zod.array(ListSosMessagesResponseItem)
 /**
  * @summary Send an SMS to a customer
  */
+
 
 
 export const SendSosMessageBody = zod.object({
@@ -6015,13 +6097,43 @@ export const SendSosMessageResponse = zod.object({
   "channel": zod.enum(['sms', 'email', 'voice']).optional(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute', 'booking_confirmation', 'receipt', 'voice_call', 'voicemail']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute', 'booking_confirmation', 'receipt', 'test_send', 'voice_call', 'voicemail']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
   "errorMessage": zod.string().nullish(),
   "retriedByMessageId": zod.number().nullish().describe('For a failed outbound message, the id of a non-failed retry row already linked to it via payload.retryOf (i.e. it has already been retried); null otherwise.'),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Send a one-off test text (no customer record) to verify the SMS pipeline is live vs simulated
+ */
+export const SendSosTestSmsBody = zod.object({
+  "toNumber": zod.string().nullish().describe('Recipient number; omitted\/empty falls back to the configured default test recipient.')
+})
+
+export const SendSosTestSmsResponse = zod.object({
+  "smsMode": zod.enum(['live', 'simulated']).describe('Whether the SMS transport was live (Twilio) or simulated at send time.'),
+  "defaultRecipient": zod.string().describe('The configured default test recipient number.'),
+  "message": zod.object({
+  "id": zod.number(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string().nullish(),
+  "toNumber": zod.string().nullish(),
+  "toEmail": zod.string().nullish(),
+  "channel": zod.enum(['sms', 'email', 'voice']).optional(),
+  "direction": zod.enum(['outbound', 'inbound']),
+  "body": zod.string(),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute', 'booking_confirmation', 'receipt', 'test_send', 'voice_call', 'voicemail']),
+  "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
+  "providerSid": zod.string().nullish(),
+  "errorCode": zod.string().nullish(),
+  "errorMessage": zod.string().nullish(),
+  "retriedByMessageId": zod.number().nullish().describe('For a failed outbound message, the id of a non-failed retry row already linked to it via payload.retryOf (i.e. it has already been retried); null otherwise.'),
+  "createdAt": zod.string()
+})
 })
 
 
@@ -6041,7 +6153,7 @@ export const RetrySosMessageResponse = zod.object({
   "channel": zod.enum(['sms', 'email', 'voice']).optional(),
   "direction": zod.enum(['outbound', 'inbound']),
   "body": zod.string(),
-  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute', 'booking_confirmation', 'receipt', 'voice_call', 'voicemail']),
+  "kind": zod.enum(['you_are_next', 'slot_open', 'ai_followup', 'manual', 'inbound', 'claim_confirmation', 'deposit_update', 'send_reminder', 'rebooking_nudge', 'wallet_login_code', 'perk_expiry_reminder', 'coop_monthly_report', 'safety_alert', 'coop_dispute', 'coop_invite', 'coop_campaign_blast', 'coop_marketing_blast', 'coop_tier_change', 'passport_reward', 'emergency_broadcast', 'coop_event_broadcast', 'retail_low_stock', 'coop_reputation', 'coop_feedback_request', 'coop_financial_dispute', 'booking_confirmation', 'receipt', 'test_send', 'voice_call', 'voicemail']),
   "deliveryStatus": zod.enum(['pending', 'sent', 'delivered', 'failed', 'simulated', 'skipped', 'received']),
   "providerSid": zod.string().nullish(),
   "errorCode": zod.string().nullish(),
@@ -6050,6 +6162,7 @@ export const RetrySosMessageResponse = zod.object({
   "createdAt": zod.string()
 })
 
+
 /**
  * @summary Bulk-retry today's failed operational outbound SMS for the tenant (each via the same per-message retry path), skipping messages that already have a successful retry
  */
@@ -6057,6 +6170,8 @@ export const RetryFailedSosMessagesResponse = zod.object({
   "retried": zod.number().describe('Number of failed messages re-dispatched (each recorded as a new message row linked via payload.retryOf)'),
   "skipped": zod.number().describe('Number of failed messages left alone because a retry already exists (successful, or itself being retried in this batch)')
 })
+
+
 /**
  * @summary AI receptionist call log
  */
@@ -6077,6 +6192,8 @@ export const ListSosCallsResponse = zod.array(ListSosCallsResponseItem)
 /**
  * @summary Simulate an inbound call handled by the AI receptionist (books/follows up automatically)
  */
+
+
 
 
 export const SimulateSosCallBody = zod.object({
@@ -6179,6 +6296,8 @@ export const createSosPlanBodyDiscountPercentMin = 0;
 export const createSosPlanBodyDiscountPercentMax = 100;
 
 
+
+
 export const CreateSosPlanBody = zod.object({
   "name": zod.string().min(1),
   "planType": zod.enum(['membership', 'package', 'pass']),
@@ -6215,6 +6334,8 @@ export const updateSosPlanBodyPriceMin = 0;
 
 export const updateSosPlanBodyDiscountPercentMin = 0;
 export const updateSosPlanBodyDiscountPercentMax = 100;
+
+
 
 
 export const UpdateSosPlanBody = zod.object({
@@ -6265,6 +6386,8 @@ export const ListSosServicesResponse = zod.array(ListSosServicesResponseItem)
 export const createSosServiceBodyPriceMin = 0;
 
 
+
+
 export const CreateSosServiceBody = zod.object({
   "name": zod.string().min(1),
   "category": zod.string().nullish(),
@@ -6295,6 +6418,8 @@ export const UpdateSosServiceParams = zod.object({
 
 
 export const updateSosServiceBodyPriceMin = 0;
+
+
 
 
 export const UpdateSosServiceBody = zod.object({
@@ -6501,6 +6626,7 @@ export const createSosStaffMemberBodyCommissionPercentMax = 100;
 export const createSosStaffMemberBodyAmountMin = 0;
 
 
+
 export const CreateSosStaffMemberBody = zod.object({
   "name": zod.string().min(1),
   "phone": zod.string().optional(),
@@ -6556,6 +6682,7 @@ export const updateSosStaffMemberBodyCommissionPercentMax = 100;
 export const updateSosStaffMemberBodyAmountMin = 0;
 
 
+
 export const UpdateSosStaffMemberBody = zod.object({
   "name": zod.string().min(1).optional(),
   "phone": zod.string().optional(),
@@ -6604,6 +6731,8 @@ export const UpdateSosStaffMemberResponse = zod.object({
 export const VerifySosStaffLicenseParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
 
 
 export const VerifySosStaffLicenseBody = zod.object({
@@ -6701,6 +6830,7 @@ export const ListCoopCoverageShiftsResponse = zod.array(ListCoopCoverageShiftsRe
  */
 
 export const createCoopCoverageShiftBodyOfferedHourlyRateMin = 0;
+
 
 
 export const CreateCoopCoverageShiftBody = zod.object({
@@ -6858,6 +6988,7 @@ export const CompleteCoopCoverageShiftParams = zod.object({
 export const completeCoopCoverageShiftBodyHoursWorkedMin = 0;
 
 
+
 export const CompleteCoopCoverageShiftBody = zod.object({
   "hoursWorked": zod.number().min(completeCoopCoverageShiftBodyHoursWorkedMin)
 })
@@ -6955,6 +7086,7 @@ export const RateCoopCoverageShiftParams = zod.object({
 })
 
 export const rateCoopCoverageShiftBodyRatingMax = 5;
+
 
 
 export const RateCoopCoverageShiftBody = zod.object({
@@ -7132,6 +7264,7 @@ export const updateSosGratuityConfigBodyStaffSharesItemTipPercentMax = 100;
 export const updateSosGratuityConfigBodyStaffSharesItemTipRoleWeightMin = 0;
 
 
+
 export const UpdateSosGratuityConfigBody = zod.object({
   "tipSplitRule": zod.enum(['equal', 'percentage', 'role_weighted']).optional(),
   "staffShares": zod.array(zod.object({
@@ -7212,6 +7345,9 @@ export const ListTipPoolRulesResponse = zod.array(ListTipPoolRulesResponseItem)
 export const createTipPoolRuleBodyParticipantsItemPercentMax = 100;
 
 
+
+
+
 export const CreateTipPoolRuleBody = zod.object({
   "scope": zod.enum(['partnership', 'group_event']),
   "partnershipId": zod.number().optional(),
@@ -7255,6 +7391,9 @@ export const UpdateTipPoolRuleParams = zod.object({
 })
 
 export const updateTipPoolRuleBodyParticipantsItemPercentMax = 100;
+
+
+
 
 
 export const UpdateTipPoolRuleBody = zod.object({
@@ -7438,6 +7577,7 @@ export const GetTenantSettingsResponse = zod.object({
   "smsActiveFromNumber": zod.string().nullish(),
   "smsInboundWebhookUrl": zod.string().nullish(),
   "smsInboundReady": zod.boolean().optional(),
+  "smsTestRecipient": zod.string().optional().describe('Configured default recipient for admin test texts (TEST_SMS_RECIPIENT env var, platform default otherwise).'),
   "noShowShieldEnabled": zod.boolean(),
   "noShowShieldProvisioned": zod.boolean().describe('Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled.'),
   "noShowDepositAmount": zod.number(),
@@ -7505,6 +7645,7 @@ export const updateTenantSettingsBodyBrandPrimaryColorMax = 32;
 export const updateTenantSettingsBodyBrandSecondaryColorMax = 32;
 
 
+
 export const UpdateTenantSettingsBody = zod.object({
   "businessName": zod.string().optional(),
   "industryType": zod.string().optional(),
@@ -7555,6 +7696,7 @@ export const UpdateTenantSettingsResponse = zod.object({
   "smsActiveFromNumber": zod.string().nullish(),
   "smsInboundWebhookUrl": zod.string().nullish(),
   "smsInboundReady": zod.boolean().optional(),
+  "smsTestRecipient": zod.string().optional().describe('Configured default recipient for admin test texts (TEST_SMS_RECIPIENT env var, platform default otherwise).'),
   "noShowShieldEnabled": zod.boolean(),
   "noShowShieldProvisioned": zod.boolean().describe('Whether the No-Show Shield module is provisioned — the policy only enforces when provisioned AND enabled.'),
   "noShowDepositAmount": zod.number(),
@@ -7595,6 +7737,7 @@ export const ListTenantReviewsParams = zod.object({
 export const listTenantReviewsResponseRatingMax = 5;
 
 
+
 export const ListTenantReviewsResponseItem = zod.object({
   "id": zod.number(),
   "tenantId": zod.number().nullable(),
@@ -7621,6 +7764,7 @@ export const createTenantReviewBodyRatingMax = 5;
 export const createTenantReviewBodyBodyMax = 2000;
 
 
+
 export const CreateTenantReviewBody = zod.object({
   "authorName": zod.string().min(1).max(createTenantReviewBodyAuthorNameMax),
   "rating": zod.number().min(1).max(createTenantReviewBodyRatingMax),
@@ -7629,6 +7773,7 @@ export const CreateTenantReviewBody = zod.object({
 })
 
 export const createTenantReviewResponseRatingMax = 5;
+
 
 
 export const CreateTenantReviewResponse = zod.object({
@@ -7657,6 +7802,7 @@ export const updateTenantReviewBodyRatingMax = 5;
 export const updateTenantReviewBodyBodyMax = 2000;
 
 
+
 export const UpdateTenantReviewBody = zod.object({
   "authorName": zod.string().min(1).max(updateTenantReviewBodyAuthorNameMax).optional(),
   "rating": zod.number().min(1).max(updateTenantReviewBodyRatingMax).optional(),
@@ -7665,6 +7811,7 @@ export const UpdateTenantReviewBody = zod.object({
 })
 
 export const updateTenantReviewResponseRatingMax = 5;
+
 
 
 export const UpdateTenantReviewResponse = zod.object({
@@ -7699,6 +7846,7 @@ export const ListEngagementRulesParams = zod.object({
 export const listEngagementRulesQueryLimitMax = 500;
 
 export const listEngagementRulesQueryOffsetMin = 0;
+
 
 
 export const ListEngagementRulesQueryParams = zod.object({
@@ -7789,6 +7937,7 @@ export const listClientProfilesQueryLimitMax = 500;
 export const listClientProfilesQueryOffsetMin = 0;
 
 
+
 export const ListClientProfilesQueryParams = zod.object({
   "limit": zod.coerce.number().min(1).max(listClientProfilesQueryLimitMax).optional().describe('Maximum number of profiles per page (default 100, max 500)'),
   "offset": zod.coerce.number().min(listClientProfilesQueryOffsetMin).optional().describe('Number of profiles to skip (default 0)')
@@ -7817,6 +7966,8 @@ export const ListClientProfilesResponse = zod.array(ListClientProfilesResponseIt
 export const CreateClientProfileParams = zod.object({
   "id": zod.coerce.number()
 })
+
+
 
 
 export const CreateClientProfileBody = zod.object({
@@ -7853,6 +8004,8 @@ export const UpdateClientProfileParams = zod.object({
   "id": zod.coerce.number(),
   "profileId": zod.coerce.number()
 })
+
+
 
 
 export const UpdateClientProfileBody = zod.object({
@@ -7923,6 +8076,7 @@ export const ListConciergeMessageLogsResponse = zod.array(ListConciergeMessageLo
  */
 
 
+
 export const SuggestConciergeUpsellsBody = zod.object({
   "tenantId": zod.number(),
   "serviceName": zod.string().min(1)
@@ -7943,6 +8097,7 @@ export const SuggestConciergeUpsellsResponse = zod.object({
 /**
  * @summary Dispatch a message to a client via their preferred channel and record an audit log
  */
+
 
 
 export const DispatchConciergeMessageBody = zod.object({
@@ -8103,6 +8258,7 @@ export const ListGatewayTokensResponse = zod.array(ListGatewayTokensResponseItem
 export const createGatewayTokenBodyLabelMax = 100;
 
 
+
 export const CreateGatewayTokenBody = zod.object({
   "label": zod.string().min(1).max(createGatewayTokenBodyLabelMax),
   "sandbox": zod.boolean().nullish().describe('Sandbox tokens exercise the same endpoints against isolated test data and never touch live records.')
@@ -8251,6 +8407,7 @@ export const createPublicBookingBodyPhoneMax = 30;
 export const createPublicBookingBodyEmailMax = 254;
 
 
+
 export const CreatePublicBookingBody = zod.object({
   "serviceId": zod.number(),
   "startsAt": zod.string(),
@@ -8277,6 +8434,7 @@ export const requestWalletLoginCodeBodyPhoneMin = 7;
 export const requestWalletLoginCodeBodyPhoneMax = 32;
 
 
+
 export const RequestWalletLoginCodeBody = zod.object({
   "phone": zod.string().min(requestWalletLoginCodeBodyPhoneMin).max(requestWalletLoginCodeBodyPhoneMax).describe('The customer\'s mobile phone number (any common format; normalized server-side).')
 })
@@ -8295,6 +8453,7 @@ export const verifyWalletLoginCodeBodyPhoneMax = 32;
 
 export const verifyWalletLoginCodeBodyCodeMin = 4;
 export const verifyWalletLoginCodeBodyCodeMax = 12;
+
 
 
 export const VerifyWalletLoginCodeBody = zod.object({
@@ -8455,6 +8614,7 @@ export const GetWalletAmbassadorResponse = zod.object({
  */
 
 
+
 export const EnterWalletReferralCodeBody = zod.object({
   "code": zod.string().min(1)
 })
@@ -8540,6 +8700,7 @@ export const updateAmbassadorProgramBodyPledgePerRedemptionMin = 0;
 export const updateAmbassadorProgramBodyPledgePerRedemptionMax = 100;
 
 
+
 export const UpdateAmbassadorProgramBody = zod.object({
   "optedIn": zod.boolean(),
   "pledgePerRedemption": zod.number().min(updateAmbassadorProgramBodyPledgePerRedemptionMin).max(updateAmbassadorProgramBodyPledgePerRedemptionMax).optional().describe('Dollars accrued into the shared pool for each co-op perk redemption at this storefront.')
@@ -8597,6 +8758,7 @@ export const GetAmbassadorLedgerResponse = zod.object({
  */
 
 
+
 export const RedeemAmbassadorRewardBody = zod.object({
   "code": zod.string().min(1).describe('The staff-verifiable reward code shown in the customer\'s wallet (AMB-…).')
 })
@@ -8650,6 +8812,7 @@ export const createPassportChallengeBodyWindowDaysMax = 365;
 export const createPassportChallengeBodyRewardDescriptionMax = 500;
 
 
+
 export const CreatePassportChallengeBody = zod.object({
   "title": zod.string().min(1).max(createPassportChallengeBodyTitleMax),
   "requiredBusinesses": zod.number().min(createPassportChallengeBodyRequiredBusinessesMin).max(createPassportChallengeBodyRequiredBusinessesMax),
@@ -8691,6 +8854,7 @@ export const updatePassportChallengeBodyRequiredBusinessesMax = 50;
 export const updatePassportChallengeBodyWindowDaysMax = 365;
 
 export const updatePassportChallengeBodyRewardDescriptionMax = 500;
+
 
 
 export const UpdatePassportChallengeBody = zod.object({
@@ -8736,6 +8900,7 @@ export const ListFranchiseOrgsResponse = zod.array(ListFranchiseOrgsResponseItem
 /**
  * @summary Create a franchise organization (creator becomes its Super Admin)
  */
+
 
 
 export const CreateFranchiseOrgBody = zod.object({
@@ -8787,6 +8952,8 @@ export const UpdateFranchiseOrgParams = zod.object({
 })
 
 
+
+
 export const UpdateFranchiseOrgBody = zod.object({
   "name": zod.string().min(1).optional(),
   "autonomyPolicy": zod.enum(['allowed', 'approval_required', 'locked']).optional()
@@ -8807,6 +8974,8 @@ export const UpdateFranchiseOrgResponse = zod.object({
 export const CreateFranchiseRegionParams = zod.object({
   "orgId": zod.coerce.number()
 })
+
+
 
 
 export const CreateFranchiseRegionBody = zod.object({
@@ -8962,6 +9131,8 @@ export const CreateFranchiseTemplateParams = zod.object({
 })
 
 
+
+
 export const CreateFranchiseTemplateBody = zod.object({
   "title": zod.string().min(1),
   "redemptionTerms": zod.string().optional()
@@ -8990,6 +9161,8 @@ export const UpdateFranchiseTemplateParams = zod.object({
   "orgId": zod.coerce.number(),
   "templateId": zod.coerce.number()
 })
+
+
 
 
 export const UpdateFranchiseTemplateBody = zod.object({
@@ -9043,6 +9216,8 @@ export const ListFranchiseRequestsResponse = zod.array(ListFranchiseRequestsResp
 export const CreateFranchiseRequestParams = zod.object({
   "orgId": zod.coerce.number()
 })
+
+
 
 
 export const CreateFranchiseRequestBody = zod.object({
@@ -9145,6 +9320,7 @@ export const listAdminProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceM
 export const listAdminProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceMax = 100000;
 
 
+
 export const ListAdminProcurementVendorsResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -9176,6 +9352,9 @@ export const ListAdminProcurementVendorsResponse = zod.array(ListAdminProcuremen
  */
 
 
+
+
+
 export const CreateProcurementVendorBody = zod.object({
   "name": zod.string().min(1),
   "category": zod.string().min(1),
@@ -9188,6 +9367,7 @@ export const CreateProcurementVendorBody = zod.object({
 
 export const createProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMin = 0;
 export const createProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMax = 100000;
+
 
 
 export const CreateProcurementVendorResponse = zod.object({
@@ -9223,6 +9403,10 @@ export const UpdateProcurementVendorParams = zod.object({
 })
 
 
+
+
+
+
 export const UpdateProcurementVendorBody = zod.object({
   "name": zod.string().min(1).optional(),
   "category": zod.string().min(1).optional(),
@@ -9236,6 +9420,7 @@ export const UpdateProcurementVendorBody = zod.object({
 
 export const updateProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMin = 0;
 export const updateProcurementVendorResponseItemsItemBulkTiersItemUnitPriceMax = 100000;
+
 
 
 export const UpdateProcurementVendorResponse = zod.object({
@@ -9271,12 +9456,14 @@ export const CreateProcurementVendorItemParams = zod.object({
 })
 
 
+
 export const createProcurementVendorItemBodyBasePriceMin = 0;
 export const createProcurementVendorItemBodyBasePriceMax = 100000;
 
 
 export const createProcurementVendorItemBodyBulkTiersItemUnitPriceMin = 0;
 export const createProcurementVendorItemBodyBulkTiersItemUnitPriceMax = 100000;
+
 
 
 export const CreateProcurementVendorItemBody = zod.object({
@@ -9292,6 +9479,7 @@ export const CreateProcurementVendorItemBody = zod.object({
 
 export const createProcurementVendorItemResponseBulkTiersItemUnitPriceMin = 0;
 export const createProcurementVendorItemResponseBulkTiersItemUnitPriceMax = 100000;
+
 
 
 export const CreateProcurementVendorItemResponse = zod.object({
@@ -9316,12 +9504,14 @@ export const UpdateProcurementVendorItemParams = zod.object({
 })
 
 
+
 export const updateProcurementVendorItemBodyBasePriceMin = 0;
 export const updateProcurementVendorItemBodyBasePriceMax = 100000;
 
 
 export const updateProcurementVendorItemBodyBulkTiersItemUnitPriceMin = 0;
 export const updateProcurementVendorItemBodyBulkTiersItemUnitPriceMax = 100000;
+
 
 
 export const UpdateProcurementVendorItemBody = zod.object({
@@ -9338,6 +9528,7 @@ export const UpdateProcurementVendorItemBody = zod.object({
 
 export const updateProcurementVendorItemResponseBulkTiersItemUnitPriceMin = 0;
 export const updateProcurementVendorItemResponseBulkTiersItemUnitPriceMax = 100000;
+
 
 
 export const UpdateProcurementVendorItemResponse = zod.object({
@@ -9368,6 +9559,7 @@ export const getAdminProcurementOverviewResponseOpenGroupBuysItemCurrentTierOneU
 
 export const getAdminProcurementOverviewResponseOpenGroupBuysItemNextTierOneUnitPriceMin = 0;
 export const getAdminProcurementOverviewResponseOpenGroupBuysItemNextTierOneUnitPriceMax = 100000;
+
 
 
 export const GetAdminProcurementOverviewResponse = zod.object({
@@ -9428,6 +9620,7 @@ export const listProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceMin = 
 export const listProcurementVendorsResponseItemsItemBulkTiersItemUnitPriceMax = 100000;
 
 
+
 export const ListProcurementVendorsResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -9468,6 +9661,7 @@ export const listProcurementGroupBuysResponseCurrentTierOneUnitPriceMax = 100000
 
 export const listProcurementGroupBuysResponseNextTierOneUnitPriceMin = 0;
 export const listProcurementGroupBuysResponseNextTierOneUnitPriceMax = 100000;
+
 
 
 export const ListProcurementGroupBuysResponseItem = zod.object({
@@ -9516,6 +9710,7 @@ export const ListProcurementGroupBuysResponse = zod.array(ListProcurementGroupBu
 export const createProcurementGroupBuyBodyQuantityMax = 10000;
 
 
+
 export const CreateProcurementGroupBuyBody = zod.object({
   "vendorItemId": zod.number(),
   "quantity": zod.number().min(1).max(createProcurementGroupBuyBodyQuantityMax)
@@ -9532,6 +9727,7 @@ export const createProcurementGroupBuyResponseCurrentTierOneUnitPriceMax = 10000
 
 export const createProcurementGroupBuyResponseNextTierOneUnitPriceMin = 0;
 export const createProcurementGroupBuyResponseNextTierOneUnitPriceMax = 100000;
+
 
 
 export const CreateProcurementGroupBuyResponse = zod.object({
@@ -9584,6 +9780,7 @@ export const joinProcurementGroupBuyBodyQuantityMin = 0;
 export const joinProcurementGroupBuyBodyQuantityMax = 10000;
 
 
+
 export const JoinProcurementGroupBuyBody = zod.object({
   "quantity": zod.number().min(joinProcurementGroupBuyBodyQuantityMin).max(joinProcurementGroupBuyBodyQuantityMax).describe('This tenant\'s pooled quantity; 0 leaves the group buy.')
 })
@@ -9599,6 +9796,7 @@ export const joinProcurementGroupBuyResponseCurrentTierOneUnitPriceMax = 100000;
 
 export const joinProcurementGroupBuyResponseNextTierOneUnitPriceMin = 0;
 export const joinProcurementGroupBuyResponseNextTierOneUnitPriceMax = 100000;
+
 
 
 export const JoinProcurementGroupBuyResponse = zod.object({
@@ -9660,6 +9858,7 @@ export const closeProcurementGroupBuyResponseNextTierOneUnitPriceMin = 0;
 export const closeProcurementGroupBuyResponseNextTierOneUnitPriceMax = 100000;
 
 
+
 export const CloseProcurementGroupBuyResponse = zod.object({
   "id": zod.number(),
   "status": zod.enum(['open', 'closed', 'cancelled']),
@@ -9717,6 +9916,7 @@ export const getProcurementGroupBuyLedgerResponseGroupBuyCurrentTierOneUnitPrice
 
 export const getProcurementGroupBuyLedgerResponseGroupBuyNextTierOneUnitPriceMin = 0;
 export const getProcurementGroupBuyLedgerResponseGroupBuyNextTierOneUnitPriceMax = 100000;
+
 
 
 export const GetProcurementGroupBuyLedgerResponse = zod.object({
@@ -9833,6 +10033,7 @@ export const createProcurementSupplyBodyLowStockThresholdMin = 0;
 export const createProcurementSupplyBodyLowStockThresholdMax = 1000000;
 
 
+
 export const CreateProcurementSupplyBody = zod.object({
   "name": zod.string().min(1),
   "unit": zod.string().min(1).optional(),
@@ -9869,11 +10070,13 @@ export const UpdateProcurementSupplyParams = zod.object({
 })
 
 
+
 export const updateProcurementSupplyBodyOnHandQtyMin = 0;
 export const updateProcurementSupplyBodyOnHandQtyMax = 1000000;
 
 export const updateProcurementSupplyBodyLowStockThresholdMin = 0;
 export const updateProcurementSupplyBodyLowStockThresholdMax = 1000000;
+
 
 
 export const UpdateProcurementSupplyBody = zod.object({
@@ -9914,6 +10117,7 @@ export const ReplenishProcurementSupplyParams = zod.object({
 export const replenishProcurementSupplyBodyQuantityMax = 10000;
 
 
+
 export const ReplenishProcurementSupplyBody = zod.object({
   "quantity": zod.number().min(1).max(replenishProcurementSupplyBodyQuantityMax).optional().describe('Quantity to pool; defaults to the shortfall versus the threshold (minimum 1).')
 })
@@ -9929,6 +10133,7 @@ export const replenishProcurementSupplyResponseGroupBuyCurrentTierOneUnitPriceMa
 
 export const replenishProcurementSupplyResponseGroupBuyNextTierOneUnitPriceMin = 0;
 export const replenishProcurementSupplyResponseGroupBuyNextTierOneUnitPriceMax = 100000;
+
 
 
 export const ReplenishProcurementSupplyResponse = zod.object({
@@ -9971,4 +10176,5 @@ export const ReplenishProcurementSupplyResponse = zod.object({
   "createdAt": zod.coerce.date()
 })
 })
+
 
