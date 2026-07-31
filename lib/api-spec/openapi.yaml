@@ -11547,6 +11547,15 @@ components:
           type: ["string", "null"]
         smsInboundReady:
           type: boolean
+        smsDeliveryStatusMode:
+          type: string
+          enum: [callbacks, polling, none]
+          description: >-
+            How per-message delivery status (delivered/failed) reaches the app.
+            "callbacks" — Twilio StatusCallback webhooks are signature-verified with
+            the raw auth token. "polling" — SMS goes through the Replit Twilio
+            connector (auth token withheld), so statuses are reconciled by polling
+            Twilio's API. "none" — simulated mode, nothing to track.
         smsTestRecipient:
           type: string
           description: Configured default recipient for admin test texts (TEST_SMS_RECIPIENT env var, platform default otherwise).

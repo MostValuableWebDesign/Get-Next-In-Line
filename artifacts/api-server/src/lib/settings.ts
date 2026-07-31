@@ -1,6 +1,7 @@
 import { db, sosSettingsTable, tenantsTable } from "@workspace/db";
 import { eq, isNull } from "drizzle-orm";
 import {
+  getDeliveryStatusMode,
   getSmsStatus,
   getTestSmsRecipient,
   getTwilioAuthToken,
@@ -224,6 +225,7 @@ export async function serializeSettings(s: SosSettingsRow) {
     smsIgnoredFromNumber: sms.ignoredFromNumber,
     smsInboundWebhookUrl: getInboundWebhookUrl(),
     smsInboundReady: (await getTwilioAuthToken()) != null,
+    smsDeliveryStatusMode: await getDeliveryStatusMode(),
     smsTestRecipient: getTestSmsRecipient(),
     noShowShieldEnabled: s.noShowShieldEnabled,
     noShowShieldProvisioned,

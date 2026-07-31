@@ -34,6 +34,7 @@ import { sweepSupplyReorders } from "../lib/procurement";
 import { expireStaleNotifiedWaitlistEntries } from "../lib/waitlistClaim";
 import { recordConciergeHeartbeat } from "../lib/workerHeartbeat";
 import { sweepDepositHoldRetries } from "../lib/noShowShield";
+import { reconcileDeliveryStatuses } from "../lib/deliveryStatusSweep";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -425,6 +426,8 @@ export interface ConciergeTickResult {
   staleWaitlistReverted: number;
   /** Failed no-show deposit captures/voids re-attempted against Stripe this tick. */
   depositRetries: number;
+  /** Outbound SMS rows whose delivery status was reconciled to a final state this tick. */
+  deliveryStatusUpdates: number;
 }
 
 /**
@@ -446,7 +449,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     const locked = Boolean((res.rows?.[0] as { locked?: boolean } | undefined)?.locked);
     if (!locked) {
       logger.info("Concierge tick skipped — another instance holds the lock");
-      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, marketingDispatches: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0, supplyReminders: 0, supplyAutoRequests: 0, boostAuctionsSettled: 0, boostsExpired: 0, sentimentReports: 0, staleWaitlistReverted: 0, depositRetries: 0 };
+      return { ran: false, reaped: 0, reminders: 0, nudges: 0, expiredPerks: 0, perkReminders: 0, coopReports: 0, escalatedDisputes: 0, campaignBlasts: 0, marketingDispatches: 0, tierTransitions: 0, emergencyFanouts: 0, surgeActivated: 0, surgeEnded: 0, reputationActions: 0, supplyReminders: 0, supplyAutoRequests: 0, boostAuctionsSettled: 0, boostsExpired: 0, sentimentReports: 0, staleWaitlistReverted: 0, depositRetries: 0, deliveryStatusUpdates: 0 };
     }
     const reaped = await reapStalePendingMessages(now);
     // Waitlist offer timeout: notified entries whose "Reply YES" window
@@ -504,6 +507,11 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     // per (tenant, periodType, periodKey) unique constraint, so running on
     // every tick only ever creates each report once after a period closes.
     const sentimentReports = (await generateCoopSentimentReports(now)).created;
+    // Delivery-status reconciliation: outbound texts stuck at "sent" are
+    // checked against Twilio's authoritative Messages API. This is the
+    // reliability net for connector-proxy mode, where StatusCallback
+    // signatures can't be verified (the proxy withholds the auth token).
+    const deliveryStatusUpdates = await reconcileDeliveryStatuses(now);
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
     return {
@@ -514,6 +522,7 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
       sentimentReports,
       staleWaitlistReverted,
       depositRetries,
+      deliveryStatusUpdates,
     };
   });
 }
@@ -566,6 +575,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       await sweepSupplyReorders();
       await resolveCoopBoosts();
       await generateCoopSentimentReports();
+      await reconcileDeliveryStatuses();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;
@@ -593,10 +603,10 @@ function startIntervalWorker(): ConciergeWorkerHandle {
     if (running) return; // don't overlap slow ticks
     running = true;
     try {
-      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests, boostAuctionsSettled, boostsExpired, sentimentReports, staleWaitlistReverted } = await runConciergeTick();
-      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts + emergencyFanouts + surgeActivated + surgeEnded + reputationActions + supplyReminders + supplyAutoRequests + boostAuctionsSettled + boostsExpired + sentimentReports + staleWaitlistReverted > 0) {
+      const { ran, reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests, boostAuctionsSettled, boostsExpired, sentimentReports, staleWaitlistReverted, deliveryStatusUpdates } = await runConciergeTick();
+      if (ran && reaped + reminders + nudges + expiredPerks + perkReminders + coopReports + escalatedDisputes + campaignBlasts + emergencyFanouts + surgeActivated + surgeEnded + reputationActions + supplyReminders + supplyAutoRequests + boostAuctionsSettled + boostsExpired + sentimentReports + staleWaitlistReverted + deliveryStatusUpdates > 0) {
         logger.info(
-          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests, boostAuctionsSettled, boostsExpired, sentimentReports, staleWaitlistReverted },
+          { reaped, reminders, nudges, expiredPerks, perkReminders, coopReports, escalatedDisputes, campaignBlasts, emergencyFanouts, surgeActivated, surgeEnded, reputationActions, supplyReminders, supplyAutoRequests, boostAuctionsSettled, boostsExpired, sentimentReports, staleWaitlistReverted, deliveryStatusUpdates },
           "Concierge interval tick dispatched messages",
         );
       }

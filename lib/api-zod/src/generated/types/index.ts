@@ -589,6 +589,7 @@ export * from './sosServiceUpdate';
 export * from './sosSettings';
 export * from './sosSettingsDensityClassification';
 export * from './sosSettingsSmsActiveFromNumberSource';
+export * from './sosSettingsSmsDeliveryStatusMode';
 export * from './sosSettingsSmsMode';
 export * from './sosSettingsUpdate';
 export * from './sosStaffEarningsRow';

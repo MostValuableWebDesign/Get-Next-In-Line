@@ -3588,6 +3588,18 @@ export const SosSettingsSmsActiveFromNumberSource = {
 } as const;
 
 /**
+ * How per-message delivery status (delivered/failed) reaches the app. "callbacks" — Twilio StatusCallback webhooks are signature-verified with the raw auth token. "polling" — SMS goes through the Replit Twilio connector (auth token withheld), so statuses are reconciled by polling Twilio's API. "none" — simulated mode, nothing to track.
+ */
+export type SosSettingsSmsDeliveryStatusMode = typeof SosSettingsSmsDeliveryStatusMode[keyof typeof SosSettingsSmsDeliveryStatusMode];
+
+
+export const SosSettingsSmsDeliveryStatusMode = {
+  callbacks: 'callbacks',
+  polling: 'polling',
+  none: 'none',
+} as const;
+
+/**
  * Auto-detected commercial density around the business address. Suburban is the fallback when detection can't run.
  */
 export type SosSettingsDensityClassification = typeof SosSettingsDensityClassification[keyof typeof SosSettingsDensityClassification];
@@ -3635,6 +3647,8 @@ export interface SosSettings {
   /** @nullable */
   smsInboundWebhookUrl?: string | null;
   smsInboundReady?: boolean;
+  /** How per-message delivery status (delivered/failed) reaches the app. "callbacks" — Twilio StatusCallback webhooks are signature-verified with the raw auth token. "polling" — SMS goes through the Replit Twilio connector (auth token withheld), so statuses are reconciled by polling Twilio's API. "none" — simulated mode, nothing to track. */
+  smsDeliveryStatusMode?: SosSettingsSmsDeliveryStatusMode;
   /** Configured default recipient for admin test texts (TEST_SMS_RECIPIENT env var, platform default otherwise). */
   smsTestRecipient?: string;
   noShowShieldEnabled: boolean;

@@ -746,6 +746,15 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
                 'Simulated mode — messages are logged but not actually sent. Connect Twilio and set a From number to go live.'
               )}
             </p>
+            {settings?.smsMode === 'live' && settings?.smsDeliveryStatusMode && (
+              <p className="text-sm text-muted-foreground mt-2" data-testid="text-delivery-status-mode">
+                {settings.smsDeliveryStatusMode === 'polling'
+                  ? 'Delivery tracking: this environment uses the Replit Twilio connector, which withholds the auth token, so Twilio delivery callbacks can\u2019t be signature-verified. Message statuses (delivered / failed) are confirmed directly with Twilio instead \u2014 they may take a minute or two to update in message history.'
+                  : settings.smsDeliveryStatusMode === 'callbacks'
+                    ? 'Delivery tracking: Twilio reports delivered / failed statuses via signed callbacks in near real time.'
+                    : null}
+              </p>
+            )}
             {settings?.smsIgnoredFromNumber && (
               <p className="text-sm text-destructive mt-2" data-testid="text-ignored-from-number">
                 The saved override {settings.smsIgnoredFromNumber} is a placeholder or invalid

@@ -109,6 +109,7 @@ import {
   applyDeliveryStatus,
   type OutboundMessageKind,
 } from "../lib/messaging";
+import { verifyDeliveryStatusBySid } from "../lib/deliveryStatusSweep";
 import { recordLedgerEventsSafe } from "../lib/platformLedger";
 import { parseCallIntent } from "../lib/receptionist";
 import {
@@ -3361,6 +3362,14 @@ router.post("/sos/twilio/status", webhookRateLimit, async (req, res): Promise<vo
   const params = (req.body ?? {}) as Record<string, string>;
   if (!twilio.validateRequest(authToken, signature, url, params)) {
     logger.warn({ url }, "Rejected status callback: invalid Twilio signature");
+    // Connector-proxy mode: the proxy withholds the sending account's auth
+    // token, so genuine Twilio callbacks can't pass signature validation
+    // here. Never trust the unverified body — instead, look up the message's
+    // authoritative status from Twilio's API (auth injected by the proxy)
+    // and apply that. A forged request can at worst trigger a truthful
+    // lookup of a SID we sent.
+    const hintSid = params.MessageSid ?? params.SmsSid;
+    if (hintSid) void verifyDeliveryStatusBySid(hintSid);
     res.status(403).json({ message: "Invalid Twilio signature" });
     return;
   }

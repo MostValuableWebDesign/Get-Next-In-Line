@@ -531,6 +531,84 @@ export async function deliverSms(
   return { status, toNumber, providerSid, errorCode, errorMessage };
 }
 
+/** Authoritative per-message status fetched from Twilio's Messages API. */
+export interface TwilioMessageStatusFetch {
+  /** Twilio message status, e.g. queued|sending|sent|delivered|undelivered|failed|read */
+  messageStatus: string;
+  errorCode: string | null;
+  errorMessage: string | null;
+}
+
+/**
+ * Fetch the authoritative delivery status of one outbound message from
+ * Twilio (SDK when raw creds exist, connector proxy otherwise). Never
+ * throws; returns null when no live transport is available, the SID isn't a
+ * Twilio message SID, or the lookup fails.
+ */
+export async function fetchTwilioMessageStatus(
+  providerSid: string,
+): Promise<TwilioMessageStatusFetch | null> {
+  // Only real Twilio message SIDs (simulated sends record other markers).
+  if (!/^SM[0-9a-f]{32}$/i.test(providerSid)) return null;
+  const creds = await getTwilioCreds();
+  const proxy = creds ? null : await getTwilioProxy();
+  try {
+    if (creds) {
+      const client = twilio(creds.accountSid, creds.authToken);
+      const message = await client.messages(providerSid).fetch();
+      return {
+        messageStatus: message.status,
+        errorCode: message.errorCode != null ? String(message.errorCode) : null,
+        errorMessage: message.errorMessage ?? null,
+      };
+    }
+    if (proxy) {
+      const res = await proxy.request(
+        `/2010-04-01/Accounts/${proxy.accountSid}/Messages/${providerSid}.json`,
+      );
+      if (!res.ok) {
+        logger.warn(
+          { providerSid, httpStatus: res.status },
+          "Twilio message status lookup failed",
+        );
+        return null;
+      }
+      const data = (await res.json().catch(() => null)) as {
+        status?: string;
+        error_code?: number | string | null;
+        error_message?: string | null;
+      } | null;
+      if (!data?.status) return null;
+      return {
+        messageStatus: data.status,
+        errorCode: data.error_code != null ? String(data.error_code) : null,
+        errorMessage: data.error_message ?? null,
+      };
+    }
+  } catch (err) {
+    logger.warn({ err, providerSid }, "Twilio message status lookup threw");
+  }
+  return null;
+}
+
+/**
+ * How delivery-status updates reach this app.
+ * - "callbacks": raw Twilio creds exist, so StatusCallback signatures verify
+ *   against the sending account's auth token.
+ * - "polling": sends go through the connector proxy, which withholds the
+ *   auth token — Twilio's callbacks can't be signature-verified here, so
+ *   statuses are reconciled by polling Twilio's Messages API instead.
+ * - "none": simulated mode, nothing to track.
+ */
+export type DeliveryStatusMode = "callbacks" | "polling" | "none";
+
+export async function getDeliveryStatusMode(): Promise<DeliveryStatusMode> {
+  const creds = await getTwilioCreds();
+  if (creds) return "callbacks";
+  const proxy = await getTwilioProxy();
+  return proxy ? "polling" : "none";
+}
+
 export function getTestSmsRecipient(): string {
   return (
     normalizeToE164(process.env.TEST_SMS_RECIPIENT) ?? DEFAULT_TEST_SMS_RECIPIENT

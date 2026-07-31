@@ -7,6 +7,7 @@
  */
 import type { SosSettingsDensityClassification } from './sosSettingsDensityClassification';
 import type { SosSettingsSmsActiveFromNumberSource } from './sosSettingsSmsActiveFromNumberSource';
+import type { SosSettingsSmsDeliveryStatusMode } from './sosSettingsSmsDeliveryStatusMode';
 import type { SosSettingsSmsMode } from './sosSettingsSmsMode';
 
 export interface SosSettings {
@@ -45,6 +46,8 @@ export interface SosSettings {
   /** @nullable */
   smsInboundWebhookUrl?: string | null;
   smsInboundReady?: boolean;
+  /** How per-message delivery status (delivered/failed) reaches the app. "callbacks" — Twilio StatusCallback webhooks are signature-verified with the raw auth token. "polling" — SMS goes through the Replit Twilio connector (auth token withheld), so statuses are reconciled by polling Twilio's API. "none" — simulated mode, nothing to track. */
+  smsDeliveryStatusMode?: SosSettingsSmsDeliveryStatusMode;
   /** Configured default recipient for admin test texts (TEST_SMS_RECIPIENT env var, platform default otherwise). */
   smsTestRecipient?: string;
   noShowShieldEnabled: boolean;
