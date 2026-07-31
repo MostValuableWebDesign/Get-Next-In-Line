@@ -203,6 +203,16 @@ import("./lib/startupConfig")
     logger.error({ err }, "Startup config report failed to load");
   });
 
+// Twilio webhook domain-drift self-heal: if the dev/production domain rotated
+// while the Twilio number's inbound SMS/voice webhooks pointed at the old
+// URL, repair them via the existing auto-configure. No-op under test mode or
+// when creds/proxy/public URL are absent; throttled inside the module.
+import("./lib/twilioWebhookSelfHeal")
+  .then(({ runTwilioWebhookSelfHeal }) => runTwilioWebhookSelfHeal())
+  .catch((err) => {
+    logger.error({ err }, "Twilio webhook self-heal failed to start");
+  });
+
 // Concierge background worker (reminders + rebooking nudges). BullMQ when
 // REDIS_URL is set; in-process interval scheduler otherwise.
 let conciergeWorker: ConciergeWorkerHandle | null = null;

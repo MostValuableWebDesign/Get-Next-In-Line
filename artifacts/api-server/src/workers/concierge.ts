@@ -35,6 +35,7 @@ import { expireStaleNotifiedWaitlistEntries } from "../lib/waitlistClaim";
 import { recordConciergeHeartbeat } from "../lib/workerHeartbeat";
 import { sweepDepositHoldRetries } from "../lib/noShowShield";
 import { reconcileDeliveryStatuses } from "../lib/deliveryStatusSweep";
+import { runTwilioWebhookSelfHeal } from "../lib/twilioWebhookSelfHeal";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -512,6 +513,11 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     // reliability net for connector-proxy mode, where StatusCallback
     // signatures can't be verified (the proxy withholds the auth token).
     const deliveryStatusUpdates = await reconcileDeliveryStatuses(now);
+    // Twilio webhook domain-drift backstop: heals a domain rotation that
+    // happens while the server stays up. Internally throttled (hours-scale
+    // re-check / failure backoff) and disabled under test mode, so running
+    // it on every tick never spams the Twilio API.
+    await runTwilioWebhookSelfHeal(now);
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
     return {
@@ -576,6 +582,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       await resolveCoopBoosts();
       await generateCoopSentimentReports();
       await reconcileDeliveryStatuses();
+      await runTwilioWebhookSelfHeal();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;
