@@ -36,6 +36,7 @@ import { recordConciergeHeartbeat } from "../lib/workerHeartbeat";
 import { sweepDepositHoldRetries } from "../lib/noShowShield";
 import { reconcileDeliveryStatuses } from "../lib/deliveryStatusSweep";
 import { runTwilioWebhookSelfHeal } from "../lib/twilioWebhookSelfHeal";
+import { runStripeWebhookSelfHeal } from "../lib/stripeWebhookSelfHeal";
 
 // ── Concierge background worker ──────────────────────────────────────────────
 // Processes SEND_REMINDER and REBOOKING_NUDGE jobs:
@@ -518,6 +519,10 @@ export async function runConciergeTick(now: Date = new Date()): Promise<Concierg
     // re-check / failure backoff) and disabled under test mode, so running
     // it on every tick never spams the Twilio API.
     await runTwilioWebhookSelfHeal(now);
+    // Stripe managed-webhook domain-drift backstop: same pattern — internally
+    // throttled (hours-scale), disabled under test mode / when Stripe isn't
+    // configured, so running it on every tick never spams the Stripe API.
+    await runStripeWebhookSelfHeal(now);
     const reminders = await handleSendReminder(now);
     const nudges = await handleRebookingNudge(now);
     return {
@@ -583,6 +588,7 @@ async function startBullMqWorker(redisUrl: string): Promise<ConciergeWorkerHandl
       await generateCoopSentimentReports();
       await reconcileDeliveryStatuses();
       await runTwilioWebhookSelfHeal();
+      await runStripeWebhookSelfHeal();
       const n = await handler();
       logger.info({ jobName: job.name, dispatched: n }, "Concierge job processed");
       return n;

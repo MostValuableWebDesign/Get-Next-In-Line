@@ -182,8 +182,13 @@ async function initStripe() {
   if (!databaseUrl) throw new Error("DATABASE_URL required for Stripe integration");
   await runMigrations({ databaseUrl });
   const stripeSync = await getStripeSync();
-  const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(",")[0]}`;
-  await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
+  const { currentStripeWebhookUrl } = await import("./lib/stripeWebhookSelfHeal");
+  const webhookUrl = currentStripeWebhookUrl();
+  if (webhookUrl) {
+    await stripeSync.findOrCreateManagedWebhook(webhookUrl);
+  } else {
+    logger.warn("No public domain known — skipping Stripe managed webhook registration");
+  }
   stripeSync
     .syncBackfill()
     .then(() => logger.info("Stripe data synced"))
