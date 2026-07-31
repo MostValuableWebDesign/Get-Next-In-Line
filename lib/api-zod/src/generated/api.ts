@@ -5409,7 +5409,20 @@ export const GetSosTwilioWebhookStatusResponse = zod.object({
   "errorMessage": zod.string().nullable()
 })
 
-
+/**
+ * @summary Auto-configure the Twilio number's "A message comes in" webhook to the app's inbound URL, then re-check
+ */
+export const ConfigureSosTwilioWebhookResponse = zod.object({
+  "fixed": zod.boolean().describe('True when the Twilio number\'s webhook URL was successfully updated to the app\'s inbound URL.'),
+  "check": zod.object({
+  "status": zod.enum(['configured', 'misconfigured', 'no_credentials', 'no_public_url', 'no_number', 'number_not_found', 'error']).describe('Result of the live Twilio console check. \"configured\" means the number\'s \"A message comes in\" URL matches the app\'s inbound webhook.'),
+  "phoneNumber": zod.string().nullable().describe('The E.164 SMS number whose Twilio configuration was checked.'),
+  "expectedUrl": zod.string().nullable().describe('The inbound webhook URL the app expects Twilio to point at.'),
+  "configuredUrl": zod.string().nullable().describe('The URL currently configured on the number in the Twilio console, when reachable.'),
+  "errorMessage": zod.string().nullable()
+}),
+  "errorMessage": zod.string().nullable().describe('Human-readable reason when the fix could not be applied.')
+})
 /**
  * @summary List all configurable resources (chairs, rooms, tables, bays, etc.)
  */
@@ -10016,4 +10029,3 @@ export const ReplenishProcurementSupplyResponse = zod.object({
   "createdAt": zod.coerce.date()
 })
 })
-

@@ -612,6 +612,7 @@ export * from './sosTimelineEntryChannel';
 export * from './sosTimelineEntryDirection';
 export * from './sosTipsSummary';
 export * from './sosTipsSummaryByStaffItem';
+export * from './sosTwilioWebhookConfigureResult';
 export * from './sosTwilioWebhookStatus';
 export * from './sosTwilioWebhookStatusStatus';
 export * from './sosVisit';

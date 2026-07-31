@@ -361,6 +361,14 @@ export async function getTwilioWebhookStatus(
   }
 }
 
+export interface TwilioWebhookConfigureResult {
+  /** True when the Twilio number's smsUrl was successfully updated. */
+  fixed: boolean;
+  /** Fresh webhook check reflecting the state after the fix attempt. */
+  check: TwilioWebhookCheck;
+  /** Human-readable reason when the fix could not be applied. */
+  errorMessage: string | null;
+}
 export interface DeliverSmsResult {
   status: "sent" | "failed" | "simulated";
   /** Normalized E.164 recipient, when the raw number was usable. */
@@ -491,6 +499,90 @@ export function getTestSmsRecipient(): string {
   return (
     normalizeToE164(process.env.TEST_SMS_RECIPIENT) ?? DEFAULT_TEST_SMS_RECIPIENT
   );
+}
+
+/**
+ * Auto-configure the Twilio number's "A message comes in" webhook to point
+ * at this app's inbound URL, then re-run the live check. Never throws —
+ * every failure mode (missing creds/number, Twilio API rejection such as
+ * insufficient token permissions) is reported in the result so the Settings
+ * page can render it.
+ */
+export async function configureTwilioWebhook(
+  tenantId?: number | null,
+): Promise<TwilioWebhookConfigureResult> {
+  const before = await getTwilioWebhookStatus(tenantId);
+  // Nothing to fix, or preconditions (creds / number / public URL) missing —
+  // report the check as-is instead of attempting a doomed API call.
+  if (before.status === "configured") {
+    return { fixed: false, check: before, errorMessage: null };
+  }
+  if (before.status !== "misconfigured") {
+    return {
+      fixed: false,
+      check: before,
+      errorMessage:
+        "The webhook can't be auto-configured until Twilio credentials, an SMS number, and a public URL are all available.",
+    };
+  }
+
+  const expectedUrl = before.expectedUrl!;
+  const phoneNumber = before.phoneNumber!;
+  try {
+    const creds = await getTwilioCreds();
+    const proxy = creds ? null : await getTwilioProxy();
+    if (creds) {
+      const client = twilio(creds.accountSid, creds.authToken);
+      const numbers = await client.incomingPhoneNumbers.list({ phoneNumber, limit: 1 });
+      const sid = numbers[0]?.sid;
+      if (!sid) throw new Error(`Number ${phoneNumber} not found in the Twilio account`);
+      await client.incomingPhoneNumbers(sid).update({ smsUrl: expectedUrl, smsMethod: "POST" });
+    } else if (proxy) {
+      const lookup = await proxy.request(
+        `/2010-04-01/Accounts/${proxy.accountSid}/IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(phoneNumber)}&PageSize=1`,
+      );
+      if (!lookup.ok) throw new Error(`Twilio number lookup failed (HTTP ${lookup.status})`);
+      const data = (await lookup.json()) as {
+        incoming_phone_numbers?: Array<{ sid?: string }>;
+      };
+      const sid = data.incoming_phone_numbers?.[0]?.sid;
+      if (!sid) throw new Error(`Number ${phoneNumber} not found in the Twilio account`);
+      const form = new URLSearchParams({ SmsUrl: expectedUrl, SmsMethod: "POST" });
+      const update = await proxy.request(
+        `/2010-04-01/Accounts/${proxy.accountSid}/IncomingPhoneNumbers/${sid}.json`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: form.toString(),
+        },
+      );
+      if (!update.ok) {
+        const body = (await update.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(body?.message ?? `Twilio webhook update failed (HTTP ${update.status})`);
+      }
+    } else {
+      throw new Error("Twilio credentials are no longer available");
+    }
+  } catch (err) {
+    const e = err as { message?: string };
+    logger.warn({ err }, "Twilio webhook auto-configure failed");
+    return {
+      fixed: false,
+      check: before,
+      errorMessage: e.message ?? "Twilio API request failed",
+    };
+  }
+
+  // Re-run the live check so the caller sees the post-fix state.
+  const after = await getTwilioWebhookStatus(tenantId);
+  return {
+    fixed: after.status === "configured",
+    check: after,
+    errorMessage:
+      after.status === "configured"
+        ? null
+        : "Twilio accepted the update but the webhook still doesn't match — re-check the number in the Twilio console.",
+  };
 }
 
 /**

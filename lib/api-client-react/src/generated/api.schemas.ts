@@ -3511,6 +3511,16 @@ export interface SosTwilioWebhookStatus {
   errorMessage: string | null;
 }
 
+export interface SosTwilioWebhookConfigureResult {
+  /** True when the Twilio number's webhook URL was successfully updated to the app's inbound URL. */
+  fixed: boolean;
+  check: SosTwilioWebhookStatus;
+  /**
+     * Human-readable reason when the fix could not be applied.
+     * @nullable
+     */
+  errorMessage: string | null;
+}
 export type SosSettingsSmsMode = typeof SosSettingsSmsMode[keyof typeof SosSettingsSmsMode];
 
 

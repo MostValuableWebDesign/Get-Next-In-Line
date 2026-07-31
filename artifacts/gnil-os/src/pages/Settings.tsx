@@ -5,6 +5,7 @@ import {
   getGetSosSettingsQueryKey,
   useGetSosTwilioWebhookStatus,
   getGetSosTwilioWebhookStatusQueryKey,
+  useConfigureSosTwilioWebhook,
   useSendSosTestSms,
   type SosTestSmsResult,
   useGetTenantSettings,
@@ -83,6 +84,9 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
     request: { headers: { 'x-tenant-id': webhookScope } },
   });
   const webhook = webhookQuery.data;
+  const configureWebhook = useConfigureSosTwilioWebhook({
+    request: { headers: { 'x-tenant-id': webhookScope } },
+  });
 
   const updateGlobal = useUpdateSosSettings();
   const updateTenant = useUpdateTenantSettings();
@@ -752,18 +756,63 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
             >
               <div className="flex items-center justify-between">
                 <Label className="text-sm">Twilio console check</Label>
-                {webhookQuery.isLoading ? (
-                  <Badge variant="secondary" data-testid="badge-webhook-check">
-                    Checking…
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant={webhook?.status === 'configured' ? 'default' : 'secondary'}
-                    data-testid="badge-webhook-check"
-                  >
-                    {webhook?.status === 'configured' ? 'Configured' : 'Not configured'}
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  {!webhookQuery.isLoading && webhook?.status === 'misconfigured' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={configureWebhook.isPending}
+                      data-testid="button-fix-webhook"
+                      onClick={() => {
+                        configureWebhook.mutate(undefined, {
+                          onSuccess: (result) => {
+                            // Push the fresh post-fix check into the cache so the
+                            // status indicator updates immediately, then refetch
+                            // to stay honest with the server.
+                            queryClient.setQueryData(
+                              [...getGetSosTwilioWebhookStatusQueryKey(), { scope: webhookScope }],
+                              result.check,
+                            );
+                            queryClient.invalidateQueries({
+                              queryKey: getGetSosTwilioWebhookStatusQueryKey(),
+                            });
+                            if (result.fixed) {
+                              toast({ title: 'Webhook configured', description: 'Twilio now points at this app.' });
+                            } else {
+                              toast({
+                                title: "Couldn't fix the webhook",
+                                description: result.errorMessage ?? 'Twilio rejected the update.',
+                                variant: 'destructive',
+                              });
+                            }
+                          },
+                          onError: (err) => {
+                            toast({
+                              title: "Couldn't fix the webhook",
+                              description: err instanceof Error ? err.message : 'Request failed.',
+                              variant: 'destructive',
+                            });
+                          },
+                        });
+                      }}
+                    >
+                      {configureWebhook.isPending ? 'Fixing…' : 'Fix now'}
+                    </Button>
+                  )}
+                  {webhookQuery.isLoading ? (
+                    <Badge variant="secondary" data-testid="badge-webhook-check">
+                      Checking…
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant={webhook?.status === 'configured' ? 'default' : 'secondary'}
+                      data-testid="badge-webhook-check"
+                    >
+                      {webhook?.status === 'configured' ? 'Configured' : 'Not configured'}
+                    </Badge>
+                  )}
+                </div>
               </div>
               {!webhookQuery.isLoading && (
                 <p className="text-xs text-muted-foreground" data-testid="text-webhook-check-detail">
@@ -780,7 +829,8 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
                       <span className="font-mono break-all">
                         {webhook.configuredUrl ?? 'no URL'}
                       </span>
-                      . Inbound texts will not reach this app — paste the URL above into the
+                      . Inbound texts will not reach this app — click Fix now to point the
+                      number at this app automatically, or paste the URL above into the
                       number's "A message comes in" field in the Twilio console.
                     </>
                   ) : webhook?.status === 'number_not_found' ? (

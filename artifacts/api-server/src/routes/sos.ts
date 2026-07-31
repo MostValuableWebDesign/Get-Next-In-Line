@@ -95,11 +95,12 @@ import {
   UpdateSosGratuityConfigResponse,
   GetSosGratuityLedgerResponse,
   GetSosTwilioWebhookStatusResponse,
+  ConfigureSosTwilioWebhookResponse,
   GetSosOnboardingResponse,
 } from "@workspace/api-zod";
 import { and, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm";
 import twilio from "twilio";
-import { getSmsStatus, getTestSmsRecipient, getTwilioAuthToken, getTwilioWebhookStatus, normalizeToE164 } from "../lib/sms";
+import { configureTwilioWebhook, getSmsStatus, getTestSmsRecipient, getTwilioAuthToken, getTwilioWebhookStatus, normalizeToE164 } from "../lib/sms";
 import {
   sendMessage,
   sendMessageSafe,
@@ -549,6 +550,16 @@ router.get("/sos/onboarding", async (req, res): Promise<void> => {
 router.get("/sos/twilio/webhook-status", async (req, res): Promise<void> => {
   const result = await getTwilioWebhookStatus(tenantIdFrom(req));
   res.json(GetSosTwilioWebhookStatusResponse.parse(result));
+});
+
+// Auto-fix: point the Twilio number's "A message comes in" webhook at this
+// app's inbound URL via the Twilio API, then re-run the live check. Never
+// throws — failures (e.g. insufficient token permissions) come back as a
+// 200 with fixed=false and an errorMessage so the Settings page can render
+// them gracefully.
+router.post("/sos/twilio/configure-webhook", async (req, res): Promise<void> => {
+  const result = await configureTwilioWebhook(tenantIdFrom(req));
+  res.json(ConfigureSosTwilioWebhookResponse.parse(result));
 });
 
 // ── resources ────────────────────────────────────────────────────────────────

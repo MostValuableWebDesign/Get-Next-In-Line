@@ -3854,6 +3854,19 @@ paths:
               schema:
                 $ref: "#/components/schemas/SosTwilioWebhookStatus"
 
+  /sos/twilio/configure-webhook:
+    post:
+      operationId: configureSosTwilioWebhook
+      tags: [sos]
+      summary: Auto-configure the Twilio number's "A message comes in" webhook to the app's inbound URL, then re-check
+      responses:
+        "200":
+          description: Result of the fix attempt, including the fresh post-fix check
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SosTwilioWebhookConfigureResult"
+
   /sos/resources:
     get:
       operationId: listSosResources
@@ -11449,6 +11462,19 @@ components:
           description: The URL currently configured on the number in the Twilio console, when reachable.
         errorMessage:
           type: ["string", "null"]
+
+    SosTwilioWebhookConfigureResult:
+      type: object
+      required: [fixed, check, errorMessage]
+      properties:
+        fixed:
+          type: boolean
+          description: True when the Twilio number's webhook URL was successfully updated to the app's inbound URL.
+        check:
+          $ref: "#/components/schemas/SosTwilioWebhookStatus"
+        errorMessage:
+          type: ["string", "null"]
+          description: Human-readable reason when the fix could not be applied.
 
     SosSettings:
       type: object
