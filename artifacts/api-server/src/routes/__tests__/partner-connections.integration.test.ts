@@ -278,4 +278,24 @@ describe("partner connection lifecycle", () => {
     const res = await agent.post(`/api/v1/partners/not-a-partner-${RUN}/connect`);
     expect(res.status).toBe(404);
   });
+
+  it("hides retired (inactive) partner modules: not listed, not connectable", async () => {
+    // Retire the throwaway module the way the connector seed does — the row
+    // survives (history intact) but every partner surface must go dark.
+    await db.update(modulesTable).set({ isActive: false }).where(eq(modulesTable.id, moduleId));
+    try {
+      const agent = await loggedInAgent();
+
+      const list = await agent.get("/api/v1/partners");
+      expect(list.status).toBe(200);
+      expect(list.body.find((p: { moduleId: number }) => p.moduleId === moduleId)).toBeUndefined();
+
+      const connect = await agent.post(`/api/v1/partners/${PARTNER_ID}/connect`);
+      expect(connect.status).toBe(404);
+      const status = await agent.get(`/api/v1/partners/${PARTNER_ID}/status`);
+      expect(status.status).toBe(404);
+    } finally {
+      await db.update(modulesTable).set({ isActive: true }).where(eq(modulesTable.id, moduleId));
+    }
+  });
 });

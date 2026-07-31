@@ -34,14 +34,18 @@ export const PARTNER_OFFERINGS: Record<
     ],
   },
   Gusto: {
-    title: 'Payroll & Compliance',
+    // Consolidated offering: the former standalone Guideline 401(k)/benefits
+    // module was retired and folded into Gusto (payroll + benefits together).
+    title: 'Payroll, Benefits & 401(k)',
     description:
-      'Run payroll in minutes. We handle tax filings, W-2s, and 1099s automatically so you can focus on running your business.',
+      'Run payroll in minutes and offer Fortune 500 benefits to your team. We handle tax filings, W-2s, and 1099s automatically, with 401(k) and employee benefits fully integrated with your payroll.',
     features: [
       'Next-Day Direct Deposit',
-      'Automated Tax Filings',
+      'Automated Tax Filings (W-2 & 1099)',
       'Contractor Payments',
-      'Time Tracking Sync',
+      '401(k) Administration',
+      'Payroll-Integrated Employee Benefits',
+      'Automated Payroll Deductions',
     ],
   },
   'Next Insurance': {
@@ -53,17 +57,6 @@ export const PARTNER_OFFERINGS: Record<
       'Professional Liability',
       "Workers' Compensation",
       'Instant COI Generation',
-    ],
-  },
-  Guideline: {
-    title: 'Employee Benefits',
-    description:
-      'Offer Fortune 500 benefits to your team. 401(k), health, dental, and vision plans fully integrated with your payroll.',
-    features: [
-      'Zero-Fee 401(k) Administration',
-      'National Health Networks',
-      'Flexible Spending Accounts',
-      'Automated Payroll Deductions',
     ],
   },
   'The Hartford': {
@@ -117,7 +110,6 @@ const PARTNER_ORDER = [
   'Deel',
   'Gusto',
   'Next Insurance',
-  'Guideline',
   'The Hartford',
   'Vestwell',
   'SimplyInsured',
@@ -173,7 +165,9 @@ function PartnerSections() {
   }
 
   const partners = (modules ?? [])
-    .filter((m) => m.categorySlug === 'partners')
+    // Retired partner modules stay in the DB as inactive rows for history —
+    // they are excluded here entirely, never rendered as "Coming Soon".
+    .filter((m) => m.categorySlug === 'partners' && m.isActive)
     .sort((a, b) => {
       const ai = PARTNER_ORDER.indexOf(a.partnerBrand ?? '');
       const bi = PARTNER_ORDER.indexOf(b.partnerBrand ?? '');

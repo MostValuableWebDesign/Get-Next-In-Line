@@ -31,8 +31,9 @@ async function loggedInAgent() {
 const SEEDED_PARTNERS = CONNECTOR_MAPPING.filter((e) => e.categorySlug === "partners");
 
 describe("partnerBrand exposure is scoped to the partners category", () => {
-  it("the seed defines exactly eight partner modules, all with a partnerBrand", () => {
-    expect(SEEDED_PARTNERS).toHaveLength(8);
+  it("the seed defines exactly seven partner modules, all with a partnerBrand", () => {
+    // Guideline was retired (401(k)/benefits consolidated into Gusto).
+    expect(SEEDED_PARTNERS).toHaveLength(7);
     for (const entry of SEEDED_PARTNERS) {
       expect(entry.partnerBrand, `${entry.name} seeded without partnerBrand`).toBeTruthy();
     }
@@ -44,7 +45,7 @@ describe("partnerBrand exposure is scoped to the partners category", () => {
     }
   });
 
-  it("GET /api/modules: partnerBrand populated for all eight partner modules, null everywhere else", async () => {
+  it("GET /api/modules: partnerBrand populated for all seven partner modules, null everywhere else", async () => {
     const agent = await loggedInAgent();
     const res = await agent.get("/api/modules");
     expect(res.status).toBe(200);

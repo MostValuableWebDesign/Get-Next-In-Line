@@ -60,7 +60,14 @@ function tenantMatch(column: PgColumn, tenantId: number | null) {
 }
 
 async function partnerModules(): Promise<Module[]> {
-  return db.select().from(modulesTable).where(eq(modulesTable.categorySlug, "partners"));
+  // Retired partner modules stay in the DB (isActive=false) for billing and
+  // provisioning history, but they are invisible here: not listed, not
+  // connectable, no status/webhook surface. The connector seed already
+  // force-disconnected any remaining connections at retirement time.
+  return db
+    .select()
+    .from(modulesTable)
+    .where(and(eq(modulesTable.categorySlug, "partners"), eq(modulesTable.isActive, true)));
 }
 
 async function findPartnerModule(partnerId: string): Promise<Module | undefined> {

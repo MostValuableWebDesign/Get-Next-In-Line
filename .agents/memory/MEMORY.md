@@ -34,6 +34,7 @@
 - [Dev DB checkpoint rollback self-heal](dev-db-checkpoint-rollback.md) — recurring "unstamped migrations" drift = checkpoint DB restore, not data loss; server startup now auto-reconciles then seeds.
 - After repairing DB drift, restart the API server — its start-time connector seed backfills columns (e.g. partner_brand) that silently stayed null while the column was missing.
 - [Partner-Direct Integrations](partner-integrations.md) — partners category always bills pass-through (0%) in pricing.ts; partnerId keys derive from brand, never slug; tokens encrypted, never in responses.
+- Retiring a catalog module goes through the connector seed's RETIRED_MODULES: deactivate (never delete) + force-disconnect connections with an audit event; partner routes/UI exclude inactive partner modules entirely (no "Coming Soon"). Seed stamps name/description from the mapping, so consolidations rename existing rows.
 - Crawlable public pages are served as server-rendered HTML from api-server routes registered before the auth middleware (see routes/landing.ts pattern); the gnil-os SPA is CSR-only and not crawlable.
 - [Co-op partnership lifecycle](coop-network.md) — perks render only from /api/coop/perks (accepted+active); guardrail message text is contractual; add new tenant-scoped URL families to sos-tenant.tsx.
 - New OutboundMessageKind values must also be added to the message `kind` enum in the OpenAPI spec — the messages list response is zod-parsed, so an unknown kind turns GET /sos/messages into a 400 (surfaces as unrelated test failures).

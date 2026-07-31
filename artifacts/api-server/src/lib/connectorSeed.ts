@@ -1,5 +1,10 @@
-import { db, modulesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import {
+  db,
+  modulesTable,
+  partnerConnectionsTable,
+  partnerConnectionEventsTable,
+} from "@workspace/db";
+import { and, eq, ne } from "drizzle-orm";
 import { logger } from "./logger";
 
 /**
@@ -207,16 +212,21 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     proxyNotes: null,
   },
   {
+    // Consolidated offering: real-world Gusto sells payroll AND 401(k)/benefits,
+    // so the former standalone Guideline module was folded in here (see
+    // RETIRED_MODULES below).
     slug: "gusto",
     markupPercentOverride: "0",
     partnerBrand: "Gusto",
-    name: "Integrated W-2 & Contractor Payroll",
+    name: "Payroll, 401(k) & Employee Benefits",
     category: "Partner-Direct Integrations",
     categorySlug: "partners",
-    description: "Full-service payroll for W-2 employees and 1099 contractors.",
+    description:
+      "Full-service payroll for W-2 employees and 1099 contractors, plus 401(k) administration and payroll-integrated employee benefits.",
     wholesalePrice: "0.00",
     upstreamVendor: "Gusto",
-    hiddenConnector: "Gusto Embedded Payroll API & Tax Filing Engine",
+    hiddenConnector:
+      "Gusto Embedded Payroll, Tax Filing & 401(k) Benefits Administration API",
     proxyNotes: null,
   },
   {
@@ -245,20 +255,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     wholesalePrice: "0.00",
     upstreamVendor: "Next Insurance",
     hiddenConnector: "Next Insurance Embedded Quoting & Certificate API",
-    proxyNotes: null,
-  },
-  {
-    slug: "guideline",
-    markupPercentOverride: "0",
-    partnerBrand: "Guideline",
-    name: "401(k) & Employee Benefits",
-    category: "Partner-Direct Integrations",
-    categorySlug: "partners",
-    description:
-      "Zero-fee 401(k) administration and payroll-integrated employee benefits.",
-    wholesalePrice: "0.00",
-    upstreamVendor: "Guideline",
-    hiddenConnector: "Guideline 401(k) Administration & Payroll Deduction Sync API",
     proxyNotes: null,
   },
   {
@@ -364,11 +360,40 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
 ];
 
 /**
+ * Modules retired from the catalog. Retirement is deliberately soft: the seed
+ * deactivates the module row (isActive=false) rather than deleting it, so
+ * tenant activations, billing, and provisioning history stay intact. Any
+ * partner connection that is not already disconnected gets its stored
+ * credentials purged (same semantics as the tenant-facing disconnect route)
+ * with an explanatory audit event on the connection history.
+ */
+interface RetiredModuleEntry {
+  slug: string;
+  /** Fallback match for legacy rows that predate slugs. */
+  name: string;
+  /** Audit note recorded on every connection the seed force-disconnects. */
+  auditNote: string;
+}
+
+export const RETIRED_MODULES: RetiredModuleEntry[] = [
+  {
+    // Real-world Gusto offers payroll AND 401(k)/benefits, so the standalone
+    // Guideline partner module is redundant — consolidated into "gusto".
+    slug: "guideline",
+    name: "401(k) & Employee Benefits",
+    auditNote:
+      "Partner offering retired: 401(k) & employee benefits are now part of the Gusto integration. Connection disconnected; stored credentials purged.",
+  },
+];
+
+/**
  * Idempotent seed: upserts the hidden connector mapping into the modules table.
- * - Existing modules (matched by slug, falling back to name) get their connector
- *   fields refreshed from the mapping.
+ * - Existing modules (matched by slug, falling back to name) get their catalog
+ *   copy (name, description) and connector fields refreshed from the mapping.
  * - Modules present in the mapping but missing from the DB are inserted, so the
  *   registry is always complete.
+ * - RETIRED_MODULES are deactivated (never deleted) and their remaining
+ *   partner connections force-disconnected with an audit event.
  * Runs on every server start; safe to re-run.
  */
 export async function seedConnectorMapping(): Promise<void> {
@@ -386,6 +411,11 @@ export async function seedConnectorMapping(): Promise<void> {
         .update(modulesTable)
         .set({
           slug: entry.slug,
+          // The mapping is the source of truth for catalog identity — keep
+          // name/description in sync so consolidations (e.g. Gusto absorbing
+          // the retired Guideline offering) land on existing rows too.
+          name: entry.name,
+          description: entry.description,
           category: entry.category,
           // Keep marketplace placement pinned — e.g. Core Service Modules
           // must stay under "operations" (Core Operations grid).
@@ -419,5 +449,61 @@ export async function seedConnectorMapping(): Promise<void> {
     }
   }
 
-  logger.info({ updated, inserted }, "Connector mapping seed complete");
+  // ── Retired modules: deactivate (never delete) + force-disconnect ─────────
+  let deactivated = 0;
+  let disconnected = 0;
+  for (const retired of RETIRED_MODULES) {
+    const match =
+      existing.find((m) => m.slug === retired.slug) ??
+      existing.find((m) => m.name === retired.name);
+    if (!match) continue;
+
+    if (match.isActive) {
+      await db
+        .update(modulesTable)
+        .set({ isActive: false })
+        .where(eq(modulesTable.id, match.id));
+      deactivated++;
+    }
+
+    // Disconnect any connection that isn't already disconnected, purging
+    // stored credentials (mirrors the tenant-facing disconnect semantics) and
+    // recording an explanatory audit event. Idempotent: already-disconnected
+    // rows are skipped, so re-running the seed never duplicates audit events.
+    const liveConns = await db
+      .select({ id: partnerConnectionsTable.id })
+      .from(partnerConnectionsTable)
+      .where(
+        and(
+          eq(partnerConnectionsTable.moduleId, match.id),
+          ne(partnerConnectionsTable.status, "not_connected")
+        )
+      );
+    for (const conn of liveConns) {
+      await db
+        .update(partnerConnectionsTable)
+        .set({
+          status: "not_connected",
+          oauthState: null,
+          accessTokenEncrypted: null,
+          refreshTokenEncrypted: null,
+          webhookSecretEncrypted: null,
+          connectedAt: null,
+          lastError: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(partnerConnectionsTable.id, conn.id));
+      await db.insert(partnerConnectionEventsTable).values({
+        connectionId: conn.id,
+        eventType: "disconnected",
+        details: retired.auditNote,
+      });
+      disconnected++;
+    }
+  }
+
+  logger.info(
+    { updated, inserted, deactivated, disconnected },
+    "Connector mapping seed complete"
+  );
 }

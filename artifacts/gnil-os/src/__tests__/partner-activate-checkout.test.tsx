@@ -1,11 +1,13 @@
 /**
  * Partner tabs' "Activate Module" guard:
- *  - each of the four partner placeholder cards (Deel, Gusto, Next Insurance,
- *    Guideline) resolves its backing marketplace module by name and opens the
- *    shared CheckoutSimulationDialog locked to that module — no dead-end
+ *  - each partner placeholder card (Deel, Gusto — which now carries the
+ *    consolidated payroll + 401(k)/benefits offering — and Next Insurance)
+ *    resolves its backing marketplace module by name and opens the shared
+ *    CheckoutSimulationDialog locked to that module — no dead-end
  *    "Coming soon" toast;
- *  - when the backing module is missing or inactive the button is disabled
- *    ("Module Unavailable") instead of opening a broken checkout.
+ *  - when the backing module is missing or inactive (e.g. the retired
+ *    Guideline module) the button is disabled ("Module Unavailable") instead
+ *    of opening a broken checkout.
  */
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -14,9 +16,8 @@ import { StaticPlaceholderPage } from '@/components/static-page';
 
 const PARTNER_MODULES = [
   'Global Team & HR Management',
-  'Integrated W-2 & Contractor Payroll',
+  'Payroll, 401(k) & Employee Benefits',
   'Small Business Insurance & COI',
-  '401(k) & Employee Benefits',
 ];
 
 // Tenant-safe /api/modules shape: no machine slug is exposed.
@@ -29,9 +30,11 @@ const modules = PARTNER_MODULES.map((name, i) => ({
   isActive: true,
   wholesalePrice: 0,
 }));
+// Retired partner module (like Guideline after the Gusto consolidation): the
+// row survives inactive so history stays intact, but it must never activate.
 modules.push({
   id: 90,
-  name: 'Retired Partner Module',
+  name: '401(k) & Employee Benefits',
   category: 'Partner Integrations',
   categorySlug: 'partners',
   description: 'inactive',
@@ -57,9 +60,8 @@ vi.mock('@/components/checkout/CheckoutSimulationDialog', () => ({
 
 const CARDS: Array<{ title: string; moduleName: string; moduleId: number }> = [
   { title: 'Team Management', moduleName: PARTNER_MODULES[0], moduleId: 20 },
-  { title: 'Payroll & Compliance', moduleName: PARTNER_MODULES[1], moduleId: 21 },
+  { title: 'Payroll, Benefits & 401(k)', moduleName: PARTNER_MODULES[1], moduleId: 21 },
   { title: 'Business Protection', moduleName: PARTNER_MODULES[2], moduleId: 22 },
-  { title: 'Employee Benefits', moduleName: PARTNER_MODULES[3], moduleId: 23 },
 ];
 
 describe('partner placeholder Activate Module', () => {
@@ -100,14 +102,14 @@ describe('partner placeholder Activate Module', () => {
     expect(btn).toHaveTextContent('Module Unavailable');
   });
 
-  it('disables the button when the matching module is inactive', () => {
+  it('disables the button when the matching module is inactive (retired partner)', () => {
     render(
       <StaticPlaceholderPage
         title="Retired Service"
         description="desc"
         partner="Old Partner"
         features={['A']}
-        moduleName="Retired Partner Module"
+        moduleName="401(k) & Employee Benefits"
       />,
     );
     const btn = screen.getByTestId('btn-activate-retired-service');

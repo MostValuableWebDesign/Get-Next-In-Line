@@ -62,9 +62,10 @@ afterAll(async () => {
 });
 
 describe("partner-direct pass-through markup (multiplier 1.00)", () => {
-  it("all eight seeded partner modules carry an explicit 0% override", () => {
+  it("all seven seeded partner modules carry an explicit 0% override", () => {
     const partners = CONNECTOR_MAPPING.filter((e) => e.categorySlug === "partners");
-    expect(partners).toHaveLength(8);
+    // Guideline was retired (401(k)/benefits consolidated into Gusto).
+    expect(partners).toHaveLength(7);
     for (const entry of partners) {
       expect(
         entry.markupPercentOverride,
