@@ -30,6 +30,7 @@ import {
   getSettingsForTenant,
   serializeSettings,
   toSettingsColumnUpdates,
+  validateSmsFromNumberUpdate,
 } from "../lib/settings";
 import { runCoopConflictCheck } from "../lib/coopFirewall";
 import { refreshCoopSuggestionsSafe } from "../lib/coopMatchmaking";
@@ -67,9 +68,20 @@ router.patch("/tenants/:id/settings", requireSettingsWriteRole, async (req, res)
     res.status(404).json({ error: "Tenant not found" });
     return;
   }
+  // A bad stored From number overrides the working Twilio number and breaks
+  // every live send — reject placeholders / unowned numbers at the door.
+  const smsFrom = await validateSmsFromNumberUpdate(body.smsFromNumber);
+  if (!smsFrom.ok) {
+    res.status(400).json({ error: "Invalid SMS From number", message: smsFrom.message });
+    return;
+  }
   const [updated] = await db
     .update(sosSettingsTable)
-    .set({ ...toSettingsColumnUpdates(body), updatedAt: new Date() })
+    .set({
+      ...toSettingsColumnUpdates(body),
+      ...(smsFrom.touched ? { smsFromNumber: smsFrom.value } : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(sosSettingsTable.id, settings.id))
     .returning();
   // Automated conflict check: whenever the sub-category, radius, or location

@@ -192,6 +192,23 @@ export function normalizeToE164(raw: string | null | undefined): string | null {
 }
 
 /**
+ * Obvious placeholder / fictional phone numbers that can never send real SMS.
+ * Covers NANP "555" area-code fakes (e.g. the legacy demo +15550100000) and
+ * the reserved fictional 555-0100..0199 exchange block. A placeholder left in
+ * a settings row must never override a working connector/env From number —
+ * Twilio rejects such sends with error 21659.
+ */
+export function isPlaceholderPhoneNumber(e164: string | null | undefined): boolean {
+  if (!e164) return false;
+  const digits = e164.replace(/\D/g, "");
+  // +1 555 ... — 555 is not a real NANP area code.
+  if (/^1?555\d{7}$/.test(digits)) return true;
+  // +1 NXX 555-01XX — the reserved fictional exchange range.
+  if (/^1?\d{3}55501\d{2}$/.test(digits)) return true;
+  return false;
+}
+
+/**
  * Default recipient for admin "send test text" checks. Single source of
  * truth: the TEST_SMS_RECIPIENT env var, falling back to the platform
  * default. Always returned in E.164 form.
@@ -226,16 +243,18 @@ async function getSmsSettings(tenantId?: number | null) {
 export async function getSmsStatus(tenantId?: number | null): Promise<{
   smsMode: "live" | "simulated";
   activeFromNumber: string | null;
+  activeFromNumberSource: FromNumberSource | null;
+  ignoredFromNumber: string | null;
 }> {
   const settings = await getSmsSettings(tenantId);
   const creds = await getTwilioCreds();
   const proxy = creds ? null : await getTwilioProxy();
-  const fromNumber = normalizeToE164(
-    settings?.smsFromNumber ?? creds?.fromNumber ?? envFromNumber(),
-  );
+  const resolved = resolveFromNumber(settings?.smsFromNumber, creds?.fromNumber);
   return {
-    smsMode: (creds || proxy) && fromNumber ? "live" : "simulated",
-    activeFromNumber: fromNumber,
+    smsMode: (creds || proxy) && resolved.fromNumber ? "live" : "simulated",
+    activeFromNumber: resolved.fromNumber,
+    activeFromNumberSource: resolved.source,
+    ignoredFromNumber: resolved.ignoredSettingsNumber,
   };
 }
 
@@ -294,8 +313,9 @@ export async function getTwilioWebhookStatus(
   if (!creds && !proxy) return { ...base, status: "no_credentials" };
 
   const settings = await getSmsSettings(tenantId);
-  const phoneNumber = normalizeToE164(
-    settings?.smsFromNumber ?? creds?.fromNumber ?? envFromNumber(),
+  const { fromNumber: phoneNumber } = resolveFromNumber(
+    settings?.smsFromNumber,
+    creds?.fromNumber,
   );
   if (!phoneNumber) return { ...base, status: "no_number" };
 
@@ -364,10 +384,9 @@ export async function deliverSms(
   const creds = await getTwilioCreds();
   const proxy = creds ? null : await getTwilioProxy();
   // The tenant's (or legacy global) settings override wins over the
-  // connector/env From number.
-  const fromNumber = normalizeToE164(
-    settings?.smsFromNumber ?? creds?.fromNumber ?? envFromNumber(),
-  );
+  // connector/env From number — unless it's an obvious placeholder, which is
+  // ignored so it can't break every live send (Twilio error 21659).
+  const { fromNumber } = resolveFromNumber(settings?.smsFromNumber, creds?.fromNumber);
   const toNumber = normalizeToE164(toRaw);
 
   let status: "sent" | "failed" | "simulated" = "simulated";
@@ -472,4 +491,109 @@ export function getTestSmsRecipient(): string {
   return (
     normalizeToE164(process.env.TEST_SMS_RECIPIENT) ?? DEFAULT_TEST_SMS_RECIPIENT
   );
+}
+
+/**
+ * Resolve the From number that live sends will actually use. The tenant's
+ * (or legacy global) settings override wins over the connector/env number —
+ * unless it is an obvious placeholder or unparsable, in which case it is
+ * ignored (with a warning) so it can't silently break every send.
+ */
+function resolveFromNumber(
+  settingsNumber: string | null | undefined,
+  credsNumber: string | null | undefined,
+): { fromNumber: string | null; source: FromNumberSource | null; ignoredSettingsNumber: string | null } {
+  const settingsRaw = settingsNumber?.trim() ? settingsNumber.trim() : null;
+  if (settingsRaw) {
+    const normalized = normalizeToE164(settingsRaw);
+    if (normalized && !isPlaceholderPhoneNumber(normalized)) {
+      return { fromNumber: normalized, source: "settings", ignoredSettingsNumber: null };
+    }
+    logger.warn(
+      { smsFromNumber: settingsRaw },
+      "Ignoring placeholder/invalid sms_from_number settings override; falling back to connector/env From number",
+    );
+    const fallback = normalizeToE164(credsNumber) ?? normalizeToE164(envFromNumber());
+    return {
+      fromNumber: fallback,
+      source: fallback ? (normalizeToE164(credsNumber) ? "connector" : "env") : null,
+      ignoredSettingsNumber: settingsRaw,
+    };
+  }
+  const connector = normalizeToE164(credsNumber);
+  if (connector) return { fromNumber: connector, source: "connector", ignoredSettingsNumber: null };
+  const env = normalizeToE164(envFromNumber());
+  if (env) return { fromNumber: env, source: "env", ignoredSettingsNumber: null };
+  return { fromNumber: null, source: null, ignoredSettingsNumber: null };
+}
+
+export type FromNumberSource = "settings" | "connector" | "env";
+
+export type FromNumberOwnership = "owned" | "not_owned" | "unverifiable";
+
+/**
+ * Check whether the connected Twilio account actually owns a phone number
+ * (i.e. Twilio would accept it as a From number). "unverifiable" means no
+ * live Twilio transport is available (simulated mode / tests) or the lookup
+ * itself failed — callers must not treat that as a rejection.
+ */
+export async function verifyFromNumberOwnership(
+  fromNumber: string,
+): Promise<{ ownership: FromNumberOwnership; errorMessage: string | null }> {
+  const creds = await getTwilioCreds();
+  const proxy = creds ? null : await getTwilioProxy();
+  if (!creds && !proxy) return { ownership: "unverifiable", errorMessage: null };
+  try {
+    let found = false;
+    if (creds) {
+      const client = twilio(creds.accountSid, creds.authToken);
+      const numbers = await client.incomingPhoneNumbers.list({ phoneNumber: fromNumber, limit: 1 });
+      found = numbers.length > 0;
+    } else if (proxy) {
+      const res = await proxy.request(
+        `/2010-04-01/Accounts/${proxy.accountSid}/IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(fromNumber)}&PageSize=1`,
+      );
+      if (!res.ok) throw new Error(`Twilio number lookup failed (HTTP ${res.status})`);
+      const data = (await res.json()) as {
+        incoming_phone_numbers?: Array<{ phone_number?: string }>;
+      };
+      found = (data.incoming_phone_numbers?.length ?? 0) > 0;
+    }
+    return { ownership: found ? "owned" : "not_owned", errorMessage: null };
+  } catch (err) {
+    const e = err as { message?: string };
+    logger.warn({ err }, "Twilio From-number ownership check failed");
+    return { ownership: "unverifiable", errorMessage: e.message ?? "Twilio API request failed" };
+  }
+}
+
+/**
+ * One-time-per-boot cleanup: clear obvious placeholder sms_from_number values
+ * (e.g. the legacy demo +15550100000) from every settings row so they can't
+ * override a working Twilio number. Idempotent; returns cleared row count.
+ */
+export async function clearPlaceholderFromNumbers(): Promise<number> {
+  const { isNotNull } = await import("drizzle-orm");
+  const rows = await db
+    .select({ id: sosSettingsTable.id, smsFromNumber: sosSettingsTable.smsFromNumber })
+    .from(sosSettingsTable)
+    .where(isNotNull(sosSettingsTable.smsFromNumber));
+  let cleared = 0;
+  for (const row of rows) {
+    const raw = row.smsFromNumber?.trim();
+    if (!raw) continue;
+    const normalized = normalizeToE164(raw);
+    if (normalized && isPlaceholderPhoneNumber(normalized)) {
+      await db
+        .update(sosSettingsTable)
+        .set({ smsFromNumber: null, updatedAt: new Date() })
+        .where(eq(sosSettingsTable.id, row.id));
+      logger.warn(
+        { settingsId: row.id, smsFromNumber: raw },
+        "Cleared placeholder sms_from_number from settings row",
+      );
+      cleared++;
+    }
+  }
+  return cleared;
 }

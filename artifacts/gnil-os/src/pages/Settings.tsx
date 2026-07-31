@@ -245,10 +245,13 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       });
       toast({ title: `${sectionLabel} saved` });
     };
-    const onError = () => {
+    const onError = (err: unknown) => {
+      // Surface the server's specific rejection reason (e.g. an SMS From
+      // number the Twilio account doesn't own) instead of a generic retry.
+      const serverMessage = (err as { data?: { message?: string } | null })?.data?.message;
       toast({
         title: `Couldn't save ${sectionLabel.toLowerCase()}`,
-        description: 'Please try again.',
+        description: serverMessage || 'Please try again.',
         variant: 'destructive',
       });
     };
@@ -680,12 +683,26 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
               {settings?.smsMode === 'live' ? (
                 <>
                   Real texts are being sent via Twilio from{' '}
-                  <span className="font-medium">{settings?.smsActiveFromNumber}</span>.
+                  <span className="font-medium" data-testid="text-active-from-number">
+                    {settings?.smsActiveFromNumber}
+                  </span>
+                  {settings?.smsActiveFromNumberSource === 'settings'
+                    ? ' (your saved override)'
+                    : settings?.smsActiveFromNumberSource
+                      ? ' (the connected Twilio number)'
+                      : ''}
+                  . The Twilio console check below verifies Twilio accepts this number.
                 </>
               ) : (
                 'Simulated mode — messages are logged but not actually sent. Connect Twilio and set a From number to go live.'
               )}
             </p>
+            {settings?.smsIgnoredFromNumber && (
+              <p className="text-sm text-destructive mt-2" data-testid="text-ignored-from-number">
+                The saved override {settings.smsIgnoredFromNumber} is a placeholder or invalid
+                number and is being ignored. Clear or replace it below.
+              </p>
+            )}
           </div>
 
           <div className="p-4 border rounded-lg space-y-2">
@@ -797,7 +814,9 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
               data-testid="input-sms-from-number"
             />
             <p className="text-xs text-muted-foreground">
-              This number is used for all outgoing AI and waitlist texts.
+              This number is used for all outgoing AI and waitlist texts. It must be a real number
+              owned by your connected Twilio account — leave it blank to use the connected Twilio
+              number automatically.
             </p>
           </div>
           <div className="p-4 border rounded-lg space-y-3" data-testid="section-test-sms">

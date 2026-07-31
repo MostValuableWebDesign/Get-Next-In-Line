@@ -79,7 +79,9 @@ describe("per-tenant settings", () => {
       .send({
         businessName: "Tenant A Salon",
         aiReceptionistEnabled: false,
-        smsFromNumber: "+15550001111",
+        // Must be a plausible real number — placeholder 555 numbers are now
+        // rejected by the settings routes (they break live Twilio sends).
+        smsFromNumber: "+12028671111",
         serviceNames: "Balayage, Gel Manicure",
       })
       .expect(200);

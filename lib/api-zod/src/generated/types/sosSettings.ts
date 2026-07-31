@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SosSettingsDensityClassification } from './sosSettingsDensityClassification';
+import type { SosSettingsSmsActiveFromNumberSource } from './sosSettingsSmsActiveFromNumberSource';
 import type { SosSettingsSmsMode } from './sosSettingsSmsMode';
 
 export interface SosSettings {
@@ -26,8 +27,21 @@ export interface SosSettings {
   /** @nullable */
   smsFromNumber?: string | null;
   smsMode?: SosSettingsSmsMode;
-  /** @nullable */
+  /**
+     * The From number live sends will actually use, after ignoring placeholder overrides.
+     * @nullable
+     */
   smsActiveFromNumber?: string | null;
+  /**
+     * Where the active From number comes from — the settings override, the Twilio connector, or the environment.
+     * @nullable
+     */
+  smsActiveFromNumberSource?: SosSettingsSmsActiveFromNumberSource;
+  /**
+     * A stored From-number override that is being ignored because it is a placeholder or unparsable.
+     * @nullable
+     */
+  smsIgnoredFromNumber?: string | null;
   /** @nullable */
   smsInboundWebhookUrl?: string | null;
   smsInboundReady?: boolean;

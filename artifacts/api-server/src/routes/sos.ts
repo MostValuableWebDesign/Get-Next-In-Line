@@ -141,6 +141,7 @@ import {
   resolveSettings,
   serializeSettings,
   toSettingsColumnUpdates,
+  validateSmsFromNumberUpdate,
 } from "../lib/settings";
 import { scheduleDensityDetection } from "../lib/geoDensity";
 import type { Request } from "express";
@@ -486,10 +487,21 @@ router.get("/sos/settings", async (req, res): Promise<void> => {
 
 router.patch("/sos/settings", async (req, res): Promise<void> => {
   const body = UpdateSosSettingsBody.parse(req.body);
+  // A bad stored From number overrides the working Twilio number and breaks
+  // every live send — reject placeholders / unowned numbers at the door.
+  const smsFrom = await validateSmsFromNumberUpdate(body.smsFromNumber);
+  if (!smsFrom.ok) {
+    res.status(400).json({ error: "Invalid SMS From number", message: smsFrom.message });
+    return;
+  }
   const s = await resolveSettings(tenantIdFrom(req));
   const [updated] = await db
     .update(sosSettingsTable)
-    .set({ ...toSettingsColumnUpdates(body), updatedAt: new Date() })
+    .set({
+      ...toSettingsColumnUpdates(body),
+      ...(smsFrom.touched ? { smsFromNumber: smsFrom.value } : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(sosSettingsTable.id, s.id))
     .returning();
   // Address changed → re-run co-op density detection in the background.

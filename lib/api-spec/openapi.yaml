@@ -11484,6 +11484,14 @@ components:
           enum: [live, simulated]
         smsActiveFromNumber:
           type: ["string", "null"]
+          description: The From number live sends will actually use, after ignoring placeholder overrides.
+        smsActiveFromNumberSource:
+          type: ["string", "null"]
+          enum: [settings, connector, env, null]
+          description: Where the active From number comes from — the settings override, the Twilio connector, or the environment.
+        smsIgnoredFromNumber:
+          type: ["string", "null"]
+          description: A stored From-number override that is being ignored because it is a placeholder or unparsable.
         smsInboundWebhookUrl:
           type: ["string", "null"]
         smsInboundReady:

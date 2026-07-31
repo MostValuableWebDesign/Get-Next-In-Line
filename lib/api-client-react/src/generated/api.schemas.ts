@@ -3520,6 +3520,11 @@ export const SosSettingsSmsMode = {
 } as const;
 
 /**
+ * Where the active From number comes from — the settings override, the Twilio connector, or the environment.
+ * @nullable
+ */
+export type SosSettingsSmsActiveFromNumberSource = typeof SosSettingsSmsActiveFromNumberSource[keyof typeof SosSettingsSmsActiveFromNumberSource] | null;
+/**
  * Auto-detected commercial density around the business address. Suburban is the fallback when detection can't run.
  */
 export type SosSettingsDensityClassification = typeof SosSettingsDensityClassification[keyof typeof SosSettingsDensityClassification];
@@ -3549,8 +3554,21 @@ export interface SosSettings {
   /** @nullable */
   smsFromNumber?: string | null;
   smsMode?: SosSettingsSmsMode;
-  /** @nullable */
+  /**
+     * The From number live sends will actually use, after ignoring placeholder overrides.
+     * @nullable
+     */
   smsActiveFromNumber?: string | null;
+  /**
+     * Where the active From number comes from — the settings override, the Twilio connector, or the environment.
+     * @nullable
+     */
+  smsActiveFromNumberSource?: SosSettingsSmsActiveFromNumberSource;
+  /**
+     * A stored From-number override that is being ignored because it is a placeholder or unparsable.
+     * @nullable
+     */
+  smsIgnoredFromNumber?: string | null;
   /** @nullable */
   smsInboundWebhookUrl?: string | null;
   smsInboundReady?: boolean;
@@ -7245,3 +7263,9 @@ limit?: number;
 offset?: number;
 };
 
+
+export const SosSettingsSmsActiveFromNumberSource = {
+  settings: 'settings',
+  connector: 'connector',
+  env: 'env',
+} as const;

@@ -1,6 +1,13 @@
 import { db, sosSettingsTable, tenantsTable } from "@workspace/db";
 import { eq, isNull } from "drizzle-orm";
-import { getSmsStatus, getTestSmsRecipient, getTwilioAuthToken } from "./sms";
+import {
+  getSmsStatus,
+  getTestSmsRecipient,
+  getTwilioAuthToken,
+  isPlaceholderPhoneNumber,
+  normalizeToE164,
+  verifyFromNumberOwnership,
+} from "./sms";
 import { getInboundWebhookUrl } from "./inboundSms";
 import { effectiveSubCategory } from "./coopFirewall";
 import { effectiveCoopRadiusMiles } from "./geoDensity";
@@ -132,6 +139,46 @@ export function toSettingsColumnUpdates<
   };
 }
 
+/**
+ * Validate an incoming smsFromNumber settings update. The stored override
+ * silently wins over the connector/env From number at send time, so a bad
+ * value here breaks every text — reject anything that can't work:
+ *  - unparsable numbers
+ *  - obvious placeholders (555 area code / 555-01XX fictional exchange)
+ *  - numbers the connected Twilio account doesn't own (when verifiable)
+ * An empty string clears the override. Returns the normalized value to store.
+ */
+export async function validateSmsFromNumberUpdate(
+  raw: string | undefined,
+): Promise<
+  | { ok: true; touched: boolean; value: string | null }
+  | { ok: false; message: string }
+> {
+  if (raw === undefined) return { ok: true, touched: false, value: null };
+  const trimmed = raw.trim();
+  if (trimmed === "") return { ok: true, touched: true, value: null };
+  const normalized = normalizeToE164(trimmed);
+  if (!normalized) {
+    return {
+      ok: false,
+      message: `"${trimmed}" is not a valid phone number. Enter it in international format, e.g. +15551234567 — or leave it blank to use the connected Twilio number.`,
+    };
+  }
+  if (isPlaceholderPhoneNumber(normalized)) {
+    return {
+      ok: false,
+      message: `${normalized} looks like a placeholder number (555 numbers aren't real). Texts sent from it would fail — leave the field blank to use the connected Twilio number.`,
+    };
+  }
+  const { ownership } = await verifyFromNumberOwnership(normalized);
+  if (ownership === "not_owned") {
+    return {
+      ok: false,
+      message: `${normalized} isn't owned by the connected Twilio account, so texts sent from it would be rejected. Use a number from your Twilio account, or leave the field blank to use the connected Twilio number.`,
+    };
+  }
+  return { ok: true, touched: true, value: normalized };
+}
 /** True when a settings-update body touches any address or coordinate field. */
 export function addressFieldsTouched(body: {
   streetAddress?: string;
@@ -173,6 +220,8 @@ export async function serializeSettings(s: SosSettingsRow) {
     serviceNames: s.serviceNames ?? "",
     smsMode: sms.smsMode,
     smsActiveFromNumber: sms.activeFromNumber,
+    smsActiveFromNumberSource: sms.activeFromNumberSource,
+    smsIgnoredFromNumber: sms.ignoredFromNumber,
     smsInboundWebhookUrl: getInboundWebhookUrl(),
     smsInboundReady: (await getTwilioAuthToken()) != null,
     smsTestRecipient: getTestSmsRecipient(),

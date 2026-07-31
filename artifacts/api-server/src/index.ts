@@ -118,6 +118,19 @@ async function ensureDatabaseReady(): Promise<void> {
     logger.error({ err }, "Service catalog backfill failed");
   }
 
+  // Idempotent: clear obvious placeholder sms_from_number overrides (e.g. the
+  // legacy demo +15550100000) so they can't silently break live sends with
+  // Twilio error 21659. New writes are rejected at the settings routes.
+  try {
+    const { clearPlaceholderFromNumbers } = await import("./lib/sms");
+    const cleared = await clearPlaceholderFromNumbers();
+    if (cleared > 0) {
+      logger.warn({ cleared }, "Cleared placeholder SMS From-number overrides from settings");
+    }
+  } catch (err) {
+    logger.error({ err }, "Placeholder SMS From-number cleanup failed");
+  }
+
   // Idempotent: give pre-existing co-op partnerships their direction-aware
   // cross-promotion tracking codes (new rows get codes at insert time).
   try {
