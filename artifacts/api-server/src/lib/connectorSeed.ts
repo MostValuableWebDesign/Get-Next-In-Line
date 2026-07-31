@@ -3,8 +3,11 @@ import {
   modulesTable,
   partnerConnectionsTable,
   partnerConnectionEventsTable,
+  tenantModulesTable,
+  tenantsTable,
+  type Module,
 } from "@workspace/db";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { logger } from "./logger";
 
 /**
@@ -373,6 +376,21 @@ interface RetiredModuleEntry {
   name: string;
   /** Audit note recorded on every connection the seed force-disconnects. */
   auditNote: string;
+  /**
+   * Consolidation target. When set, retirement is a MIGRATE-THEN-REMOVE:
+   * every tenant activation of the retired module is re-pointed to the
+   * successor module (keeping charged wholesale/resale snapshots, cadence,
+   * payment mode, and provisioning date), tenants that already hold the
+   * successor keep their existing activation (the redundant retired one is
+   * dropped so nobody is double-billed), an explanatory audit event is
+   * recorded on each affected workspace's successor connection history, and
+   * the retired module row (plus its own connection rows) is then hard-deleted
+   * so it can never reappear. Without a successor, retirement stays soft
+   * (deactivate + force-disconnect, history intact).
+   */
+  successorSlug?: string;
+  /** Audit note recorded on each migrated workspace's successor connection. */
+  migrationAuditNote?: string;
 }
 
 export const RETIRED_MODULES: RetiredModuleEntry[] = [
@@ -383,6 +401,9 @@ export const RETIRED_MODULES: RetiredModuleEntry[] = [
     name: "401(k) & Employee Benefits",
     auditNote:
       "Partner offering retired: 401(k) & employee benefits are now part of the Gusto integration. Connection disconnected; stored credentials purged.",
+    successorSlug: "gusto",
+    migrationAuditNote:
+      "Partner offering consolidated: the standalone 401(k) & Employee Benefits module was folded into the Gusto integration. Existing billing (charged prices, cadence, provisioning date) carried over unchanged; the retired module's connection history was removed with it and any stored credentials were purged.",
   },
 ];
 
@@ -426,6 +447,15 @@ export async function seedConnectorMapping(): Promise<void> {
           partnerBrand: entry.partnerBrand ?? null,
           wholesalePriceBiweekly: entry.wholesalePriceBiweekly ?? null,
           markupPercentOverride: entry.markupPercentOverride ?? null,
+          // Partner-Direct modules bill strictly at $0 pass-through: the
+          // catalog's declared wholesale price is authoritative on EVERY run
+          // (like the markup override above), so legacy partner rows carrying
+          // pre-contract prices reconcile to $0.00. Non-partner categories
+          // keep their DB wholesale price (only written on insert) —
+          // historical charged snapshots are never touched either way.
+          ...(entry.categorySlug === "partners"
+            ? { wholesalePrice: entry.wholesalePrice }
+            : {}),
         })
         .where(eq(modulesTable.id, match.id));
       updated++;
@@ -449,14 +479,30 @@ export async function seedConnectorMapping(): Promise<void> {
     }
   }
 
-  // ── Retired modules: deactivate (never delete) + force-disconnect ─────────
+  // ── Retired modules ────────────────────────────────────────────────────────
+  // Two flavors:
+  //  - with a successor: MIGRATE-THEN-REMOVE — activations re-point to the
+  //    successor (billing history intact), then the retired row is deleted
+  //    and never re-created (it is absent from CONNECTOR_MAPPING).
+  //  - without: soft retire — deactivate (never delete) + force-disconnect.
   let deactivated = 0;
   let disconnected = 0;
+  let migrated = 0;
+  let removed = 0;
   for (const retired of RETIRED_MODULES) {
     const match =
       existing.find((m) => m.slug === retired.slug) ??
       existing.find((m) => m.name === retired.name);
     if (!match) continue;
+
+    if (retired.successorSlug) {
+      const stats = await migrateAndRemoveRetiredModule(match, retired);
+      if (stats) {
+        migrated += stats.migrated;
+        removed++;
+      }
+      continue;
+    }
 
     if (match.isActive) {
       await db
@@ -503,7 +549,156 @@ export async function seedConnectorMapping(): Promise<void> {
   }
 
   logger.info(
-    { updated, inserted, deactivated, disconnected },
+    { updated, inserted, deactivated, disconnected, migrated, removed },
     "Connector mapping seed complete"
   );
+}
+
+/**
+ * Migrate a retired module's tenant activations onto its successor, record an
+ * explanatory audit event on each affected workspace's successor connection
+ * history, and hard-delete the retired module row (its own connection rows
+ * and their events cascade away with it).
+ *
+ * Idempotent by construction: once the retired row is deleted, later seed
+ * runs find no match and skip this path entirely — audit events are written
+ * exactly once. Runs in a single transaction so a crash mid-migration leaves
+ * everything untouched.
+ */
+async function migrateAndRemoveRetiredModule(
+  retiredModule: Module,
+  entry: RetiredModuleEntry
+): Promise<{ migrated: number } | null> {
+  const [successor] = await db
+    .select()
+    .from(modulesTable)
+    .where(eq(modulesTable.slug, entry.successorSlug!));
+  if (!successor) {
+    // Never delete billing-referenced rows without a live consolidation
+    // target — loud skip, next seed run retries.
+    logger.error(
+      { retiredSlug: entry.slug, successorSlug: entry.successorSlug },
+      "Retired-module migration skipped: successor module not found"
+    );
+    return null;
+  }
+
+  return db.transaction(async (tx) => {
+    const retiredAssignments = await tx
+      .select()
+      .from(tenantModulesTable)
+      .where(eq(tenantModulesTable.moduleId, retiredModule.id));
+    const successorAssignments = await tx
+      .select()
+      .from(tenantModulesTable)
+      .where(eq(tenantModulesTable.moduleId, successor.id));
+    const tenantsWithSuccessor = new Set(successorAssignments.map((a) => a.tenantId));
+
+    const migratedTenantIds = new Set<number>();
+    for (const assignment of retiredAssignments) {
+      if (tenantsWithSuccessor.has(assignment.tenantId)) {
+        // Tenant already holds the successor: keep that activation untouched
+        // and drop the redundant retired one, pulling the tenant's MRR and
+        // module count back in line with the join table — the consolidation
+        // must not leave anyone double-billed.
+        await tx.delete(tenantModulesTable).where(eq(tenantModulesTable.id, assignment.id));
+
+        const biweekly = assignment.billingCadence === "biweekly";
+        const removedResale =
+          assignment.chargedResale != null
+            ? parseFloat(assignment.chargedResale)
+            : parseFloat(
+                (biweekly ? retiredModule.wholesalePriceBiweekly : null) ??
+                  retiredModule.wholesalePrice
+              );
+        const monthlyEquivalent = biweekly ? (removedResale * 26) / 12 : removedResale;
+
+        const [tenant] = await tx
+          .select()
+          .from(tenantsTable)
+          .where(eq(tenantsTable.id, assignment.tenantId));
+        if (tenant) {
+          const remaining = await tx
+            .select({ id: tenantModulesTable.id })
+            .from(tenantModulesTable)
+            .where(eq(tenantModulesTable.tenantId, assignment.tenantId));
+          await tx
+            .update(tenantsTable)
+            .set({
+              mrr: String(
+                Math.max(
+                  0,
+                  Math.round((parseFloat(tenant.mrr ?? "0") - monthlyEquivalent) * 100) / 100
+                )
+              ),
+              modulesEnabled: remaining.length,
+            })
+            .where(eq(tenantsTable.id, tenant.id));
+        }
+      } else {
+        // Re-point to the successor, preserving the original charged
+        // wholesale/resale snapshots, cadence, payment mode, and provisioning
+        // date — billing history and MRR are unchanged.
+        await tx
+          .update(tenantModulesTable)
+          .set({ moduleId: successor.id })
+          .where(eq(tenantModulesTable.id, assignment.id));
+      }
+      migratedTenantIds.add(assignment.tenantId);
+    }
+
+    // Audit trail: every workspace that had an activation OR a connection on
+    // the retired module gets a consolidation event on its successor
+    // connection history (created not_connected when absent) — replacing the
+    // history that is deleted along with the retired module's own connections.
+    const retiredConns = await tx
+      .select({ tenantId: partnerConnectionsTable.tenantId })
+      .from(partnerConnectionsTable)
+      .where(eq(partnerConnectionsTable.moduleId, retiredModule.id));
+    const scopes = new Set<number | null>([
+      ...retiredConns.map((c) => c.tenantId),
+      ...migratedTenantIds,
+    ]);
+    for (const scope of scopes) {
+      const [existingConn] = await tx
+        .select({ id: partnerConnectionsTable.id })
+        .from(partnerConnectionsTable)
+        .where(
+          and(
+            eq(partnerConnectionsTable.moduleId, successor.id),
+            scope == null
+              ? isNull(partnerConnectionsTable.tenantId)
+              : eq(partnerConnectionsTable.tenantId, scope)
+          )
+        );
+      let connectionId = existingConn?.id;
+      if (connectionId == null) {
+        const [insertedConn] = await tx
+          .insert(partnerConnectionsTable)
+          .values({ tenantId: scope, moduleId: successor.id, status: "not_connected" })
+          .returning({ id: partnerConnectionsTable.id });
+        connectionId = insertedConn.id;
+      }
+      await tx.insert(partnerConnectionEventsTable).values({
+        connectionId,
+        eventType: "module_migrated",
+        details: entry.migrationAuditNote ?? entry.auditNote,
+      });
+    }
+
+    // Hard delete — the retired module's own partner connections (and their
+    // events) cascade away; no tenant activation references it anymore.
+    await tx.delete(modulesTable).where(eq(modulesTable.id, retiredModule.id));
+
+    logger.info(
+      {
+        retiredSlug: entry.slug,
+        successorSlug: entry.successorSlug,
+        migratedActivations: retiredAssignments.length,
+        auditedWorkspaces: scopes.size,
+      },
+      "Retired module migrated to successor and removed"
+    );
+    return { migrated: retiredAssignments.length };
+  });
 }

@@ -5,8 +5,8 @@
  *    resolves its backing marketplace module by name and opens the shared
  *    CheckoutSimulationDialog locked to that module — no dead-end
  *    "Coming soon" toast;
- *  - when the backing module is missing or inactive (e.g. the retired
- *    Guideline module) the button is disabled ("Module Unavailable") instead
+ *  - when the backing module is missing or inactive (e.g. a soft-retired
+ *    partner module) the button is disabled ("Module Unavailable") instead
  *    of opening a broken checkout.
  */
 import { render, screen } from '@testing-library/react';
@@ -30,11 +30,11 @@ const modules = PARTNER_MODULES.map((name, i) => ({
   isActive: true,
   wholesalePrice: 0,
 }));
-// Retired partner module (like Guideline after the Gusto consolidation): the
-// row survives inactive so history stays intact, but it must never activate.
+// Soft-retired partner module: the row survives inactive so history stays
+// intact, but it must never activate.
 modules.push({
   id: 90,
-  name: '401(k) & Employee Benefits',
+  name: 'Legacy Retired Offering',
   category: 'Partner Integrations',
   categorySlug: 'partners',
   description: 'inactive',

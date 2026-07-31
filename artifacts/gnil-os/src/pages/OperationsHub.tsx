@@ -34,7 +34,7 @@ export const PARTNER_OFFERINGS: Record<
     ],
   },
   Gusto: {
-    // Consolidated offering: the former standalone Guideline 401(k)/benefits
+    // Consolidated offering: the former standalone 401(k)/benefits partner
     // module was retired and folded into Gusto (payroll + benefits together).
     title: 'Payroll, Benefits & 401(k)',
     description:

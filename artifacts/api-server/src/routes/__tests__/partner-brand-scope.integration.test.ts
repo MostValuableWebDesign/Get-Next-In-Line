@@ -32,7 +32,7 @@ const SEEDED_PARTNERS = CONNECTOR_MAPPING.filter((e) => e.categorySlug === "part
 
 describe("partnerBrand exposure is scoped to the partners category", () => {
   it("the seed defines exactly seven partner modules, all with a partnerBrand", () => {
-    // Guideline was retired (401(k)/benefits consolidated into Gusto).
+    // The standalone 401(k)/benefits offering was consolidated into Gusto.
     expect(SEEDED_PARTNERS).toHaveLength(7);
     for (const entry of SEEDED_PARTNERS) {
       expect(entry.partnerBrand, `${entry.name} seeded without partnerBrand`).toBeTruthy();
@@ -55,7 +55,7 @@ describe("partnerBrand exposure is scoped to the partners category", () => {
     const partnerModules = res.body.filter(
       (m: { categorySlug: string }) => m.categorySlug === "partners"
     );
-    expect(partnerModules.length).toBeGreaterThanOrEqual(8);
+    expect(partnerModules.length).toBeGreaterThanOrEqual(7);
 
     // Every seeded partner module appears with its brand exposed
     for (const entry of SEEDED_PARTNERS) {

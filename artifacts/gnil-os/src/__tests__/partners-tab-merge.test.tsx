@@ -4,9 +4,10 @@ import { render, screen, within } from '@testing-library/react';
 
 // All partner-category modules, in the tenant-safe /api/modules shape:
 // no slug/connector internals, but partnerBrand IS exposed for this category
-// (narrow exception to the white-label contract). Guideline is the retired
-// partner: its row survives in the DB as inactive (history stays intact), so
-// /api/modules still returns it — the UI must exclude it entirely.
+// (narrow exception to the white-label contract). "RetiredCo" stands in for a
+// soft-retired partner whose row survives in the DB as inactive (history
+// stays intact), so /api/modules still returns it — the UI must exclude it
+// entirely.
 const PARTNER_MODULES = [
   { brand: 'The Hartford', name: 'Commercial Liability & Workers Comp' },
   { brand: 'Vestwell', name: 'Automated Retirement & 401(k)' },
@@ -14,7 +15,7 @@ const PARTNER_MODULES = [
   { brand: 'Gusto', name: 'Payroll, 401(k) & Employee Benefits' },
   { brand: 'Deel', name: 'Global Team & HR Management' },
   { brand: 'Next Insurance', name: 'Small Business Insurance & COI' },
-  { brand: 'Guideline', name: '401(k) & Employee Benefits' },
+  { brand: 'RetiredCo', name: 'Legacy Retired Offering' },
   { brand: 'QuickBooks', name: 'General Ledger & Financial Sync' },
 ].map((p, i) => ({
   id: 20 + i,
@@ -22,8 +23,8 @@ const PARTNER_MODULES = [
   category: 'Partner Integrations',
   categorySlug: 'partners',
   description: `${p.name} description`,
-  // Guideline (retired) and QuickBooks are inactive → excluded from the tab.
-  isActive: p.brand !== 'QuickBooks' && p.brand !== 'Guideline',
+  // RetiredCo (retired) and QuickBooks are inactive → excluded from the tab.
+  isActive: p.brand !== 'QuickBooks' && p.brand !== 'RetiredCo',
   wholesalePrice: 0,
   partnerBrand: p.brand,
 }));
@@ -84,7 +85,7 @@ describe('merged Partners tab in the Operations hub', () => {
 
     // Retired/inactive partners are gone entirely — no section, no
     // "Coming Soon" fallback.
-    expect(within(services).queryByText('Guideline')).not.toBeInTheDocument();
+    expect(within(services).queryByText('RetiredCo')).not.toBeInTheDocument();
     expect(within(services).queryByText('QuickBooks')).not.toBeInTheDocument();
   });
 
@@ -97,7 +98,7 @@ describe('merged Partners tab in the Operations hub', () => {
     expect(within(services).getByTestId('badge-availability-deel')).toHaveTextContent('Available');
     // Inactive/retired modules render nothing — not even a Coming Soon badge.
     expect(within(services).queryByTestId('badge-availability-quickbooks')).toBeNull();
-    expect(within(services).queryByTestId('badge-availability-guideline')).toBeNull();
+    expect(within(services).queryByTestId('badge-availability-retiredco')).toBeNull();
     expect(services.textContent).not.toMatch(/Coming Soon/i);
 
     // Gusto's consolidated section carries the 401(k)/benefits offering.
