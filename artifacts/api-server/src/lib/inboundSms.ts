@@ -37,6 +37,15 @@ export function getInboundWebhookUrl(): string | null {
 }
 
 /**
+ * Public URL of the Twilio inbound voice webhook ("A call comes in" → this
+ * URL), used by the AI receptionist. Null when no public domain is available.
+ */
+export function getInboundVoiceWebhookUrl(): string | null {
+  const domain = getPublicDomain();
+  return domain ? `https://${domain}/api/sos/twilio/voice` : null;
+}
+
+/**
  * Public URL Twilio should POST delivery-status updates to (the per-message
  * StatusCallback). Null when no public domain is available — sends then go
  * out without a callback and stay at their initial "sent" status.

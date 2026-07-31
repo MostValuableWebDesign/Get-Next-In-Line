@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import request from "supertest";
 import app from "../app";
 import { getTwilioWebhookStatus } from "../lib/sms";
-import { getInboundWebhookUrl } from "../lib/inboundSms";
+import { getInboundWebhookUrl, getInboundVoiceWebhookUrl } from "../lib/inboundSms";
 
 /**
  * GET /sos/twilio/webhook-status — the live "is Twilio actually pointed at
@@ -35,18 +35,26 @@ describe("getTwilioWebhookStatus (lib)", () => {
       expect(res.status).toBe("no_public_url");
       expect(res.expectedUrl).toBeNull();
       expect(res.configuredUrl).toBeNull();
+      // Precondition failures apply to the voice check identically.
+      expect(res.voiceStatus).toBe("no_public_url");
+      expect(res.expectedVoiceUrl).toBeNull();
+      expect(res.configuredVoiceUrl).toBeNull();
     } finally {
       if (savedDomains != null) process.env.REPLIT_DOMAINS = savedDomains;
       if (savedDev != null) process.env.REPLIT_DEV_DOMAIN = savedDev;
     }
   });
 
-  it("always reports the expected URL when a public domain exists", async () => {
+  it("always reports the expected URLs when a public domain exists", async () => {
     const expected = getInboundWebhookUrl();
     expect(expected).toMatch(/^https:\/\/.+\/api\/sos\/twilio\/inbound$/);
+    const expectedVoice = getInboundVoiceWebhookUrl();
+    expect(expectedVoice).toMatch(/^https:\/\/.+\/api\/sos\/twilio\/voice$/);
     const res = await getTwilioWebhookStatus(null);
     expect(res.expectedUrl).toBe(expected);
+    expect(res.expectedVoiceUrl).toBe(expectedVoice);
     expect(STATUSES).toContain(res.status);
+    expect(STATUSES).toContain(res.voiceStatus);
   });
 });
 
@@ -90,8 +98,11 @@ describe("GET /api/sos/twilio/webhook-status (route)", () => {
     expect(res.body).toHaveProperty("expectedUrl");
     expect(res.body).toHaveProperty("configuredUrl");
     expect(res.body).toHaveProperty("errorMessage");
-    // A public domain exists in this environment, so the expected URL must
+    expect(STATUSES).toContain(res.body.voiceStatus);
+    expect(res.body).toHaveProperty("configuredVoiceUrl");
+    // A public domain exists in this environment, so the expected URLs must
     // be surfaced regardless of whether Twilio credentials are connected.
     expect(res.body.expectedUrl).toBe(getInboundWebhookUrl());
+    expect(res.body.expectedVoiceUrl).toBe(getInboundVoiceWebhookUrl());
   });
 });

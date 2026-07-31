@@ -3489,6 +3489,22 @@ export const SosTwilioWebhookStatusStatus = {
   error: 'error',
 } as const;
 
+/**
+ * Result of the same check for the number's "A call comes in" (VoiceUrl) webhook — the AI receptionist's inbound call entry point. Precondition failures mirror `status`.
+ */
+export type SosTwilioWebhookStatusVoiceStatus = typeof SosTwilioWebhookStatusVoiceStatus[keyof typeof SosTwilioWebhookStatusVoiceStatus];
+
+
+export const SosTwilioWebhookStatusVoiceStatus = {
+  configured: 'configured',
+  misconfigured: 'misconfigured',
+  no_credentials: 'no_credentials',
+  no_public_url: 'no_public_url',
+  no_number: 'no_number',
+  number_not_found: 'number_not_found',
+  error: 'error',
+} as const;
+
 export interface SosTwilioWebhookStatus {
   /** Result of the live Twilio console check. "configured" means the number's "A message comes in" URL matches the app's inbound webhook. */
   status: SosTwilioWebhookStatusStatus;
@@ -3507,8 +3523,36 @@ export interface SosTwilioWebhookStatus {
      * @nullable
      */
   configuredUrl: string | null;
+  /** Result of the same check for the number's "A call comes in" (VoiceUrl) webhook — the AI receptionist's inbound call entry point. Precondition failures mirror `status`. */
+  voiceStatus: SosTwilioWebhookStatusVoiceStatus;
+  /**
+     * The inbound voice webhook URL the app expects Twilio's VoiceUrl to point at.
+     * @nullable
+     */
+  expectedVoiceUrl: string | null;
+  /**
+     * The VoiceUrl currently configured on the number in the Twilio console, when reachable.
+     * @nullable
+     */
+  configuredVoiceUrl: string | null;
   /** @nullable */
   errorMessage: string | null;
+}
+
+/**
+ * Which webhook on the number to fix — the SMS "A message comes in" URL (default) or the voice "A call comes in" URL.
+ */
+export type SosTwilioWebhookConfigureRequestTarget = typeof SosTwilioWebhookConfigureRequestTarget[keyof typeof SosTwilioWebhookConfigureRequestTarget];
+
+
+export const SosTwilioWebhookConfigureRequestTarget = {
+  sms: 'sms',
+  voice: 'voice',
+} as const;
+
+export interface SosTwilioWebhookConfigureRequest {
+  /** Which webhook on the number to fix — the SMS "A message comes in" URL (default) or the voice "A call comes in" URL. */
+  target?: SosTwilioWebhookConfigureRequestTarget;
 }
 
 export interface SosTwilioWebhookConfigureResult {
@@ -3521,6 +3565,7 @@ export interface SosTwilioWebhookConfigureResult {
      */
   errorMessage: string | null;
 }
+
 export type SosSettingsSmsMode = typeof SosSettingsSmsMode[keyof typeof SosSettingsSmsMode];
 
 
@@ -3534,6 +3579,14 @@ export const SosSettingsSmsMode = {
  * @nullable
  */
 export type SosSettingsSmsActiveFromNumberSource = typeof SosSettingsSmsActiveFromNumberSource[keyof typeof SosSettingsSmsActiveFromNumberSource] | null;
+
+
+export const SosSettingsSmsActiveFromNumberSource = {
+  settings: 'settings',
+  connector: 'connector',
+  env: 'env',
+} as const;
+
 /**
  * Auto-detected commercial density around the business address. Suburban is the fallback when detection can't run.
  */
@@ -7273,9 +7326,3 @@ limit?: number;
 offset?: number;
 };
 
-
-export const SosSettingsSmsActiveFromNumberSource = {
-  settings: 'settings',
-  connector: 'connector',
-  env: 'env',
-} as const;

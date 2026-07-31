@@ -87,6 +87,51 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
   const configureWebhook = useConfigureSosTwilioWebhook({
     request: { headers: { 'x-tenant-id': webhookScope } },
   });
+  // Track which webhook a pending fix targets so only that button spins.
+  const [fixingTarget, setFixingTarget] = useState<'sms' | 'voice' | null>(null);
+  const runWebhookFix = (target: 'sms' | 'voice') => {
+    setFixingTarget(target);
+    configureWebhook.mutate(
+      { data: { target } },
+      {
+        onSuccess: (result) => {
+          // Push the fresh post-fix check into the cache so the status
+          // indicator updates immediately, then refetch to stay honest with
+          // the server.
+          queryClient.setQueryData(
+            [...getGetSosTwilioWebhookStatusQueryKey(), { scope: webhookScope }],
+            result.check,
+          );
+          queryClient.invalidateQueries({
+            queryKey: getGetSosTwilioWebhookStatusQueryKey(),
+          });
+          if (result.fixed) {
+            toast({
+              title: 'Webhook configured',
+              description:
+                target === 'voice'
+                  ? 'Twilio now routes incoming calls to this app.'
+                  : 'Twilio now points at this app.',
+            });
+          } else {
+            toast({
+              title: "Couldn't fix the webhook",
+              description: result.errorMessage ?? 'Twilio rejected the update.',
+              variant: 'destructive',
+            });
+          }
+        },
+        onError: (err) => {
+          toast({
+            title: "Couldn't fix the webhook",
+            description: err instanceof Error ? err.message : 'Request failed.',
+            variant: 'destructive',
+          });
+        },
+        onSettled: () => setFixingTarget(null),
+      },
+    );
+  };
 
   const updateGlobal = useUpdateSosSettings();
   const updateTenant = useUpdateTenantSettings();
@@ -764,40 +809,9 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
                       size="sm"
                       disabled={configureWebhook.isPending}
                       data-testid="button-fix-webhook"
-                      onClick={() => {
-                        configureWebhook.mutate(undefined, {
-                          onSuccess: (result) => {
-                            // Push the fresh post-fix check into the cache so the
-                            // status indicator updates immediately, then refetch
-                            // to stay honest with the server.
-                            queryClient.setQueryData(
-                              [...getGetSosTwilioWebhookStatusQueryKey(), { scope: webhookScope }],
-                              result.check,
-                            );
-                            queryClient.invalidateQueries({
-                              queryKey: getGetSosTwilioWebhookStatusQueryKey(),
-                            });
-                            if (result.fixed) {
-                              toast({ title: 'Webhook configured', description: 'Twilio now points at this app.' });
-                            } else {
-                              toast({
-                                title: "Couldn't fix the webhook",
-                                description: result.errorMessage ?? 'Twilio rejected the update.',
-                                variant: 'destructive',
-                              });
-                            }
-                          },
-                          onError: (err) => {
-                            toast({
-                              title: "Couldn't fix the webhook",
-                              description: err instanceof Error ? err.message : 'Request failed.',
-                              variant: 'destructive',
-                            });
-                          },
-                        });
-                      }}
+                      onClick={() => runWebhookFix('sms')}
                     >
-                      {configureWebhook.isPending ? 'Fixing…' : 'Fix now'}
+                      {configureWebhook.isPending && fixingTarget === 'sms' ? 'Fixing…' : 'Fix now'}
                     </Button>
                   )}
                   {webhookQuery.isLoading ? (
@@ -847,6 +861,82 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
                   ) : (
                     <>
                       Couldn't reach Twilio to verify the webhook
+                      {webhook?.errorMessage ? `: ${webhook.errorMessage}` : '.'}
+                    </>
+                  )}
+                </p>
+              )}
+            </div>
+
+            {/* Same live check for the voice ("A call comes in") webhook — the
+                AI receptionist's inbound call entry point. */}
+            <div
+              className="mt-2 pt-3 border-t space-y-1"
+              data-testid="twilio-voice-webhook-check"
+            >
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Voice webhook check (AI receptionist)</Label>
+                <div className="flex items-center gap-2">
+                  {!webhookQuery.isLoading && webhook?.voiceStatus === 'misconfigured' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={configureWebhook.isPending}
+                      data-testid="button-fix-voice-webhook"
+                      onClick={() => runWebhookFix('voice')}
+                    >
+                      {configureWebhook.isPending && fixingTarget === 'voice' ? 'Fixing…' : 'Fix now'}
+                    </Button>
+                  )}
+                  {webhookQuery.isLoading ? (
+                    <Badge variant="secondary" data-testid="badge-voice-webhook-check">
+                      Checking…
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant={webhook?.voiceStatus === 'configured' ? 'default' : 'secondary'}
+                      data-testid="badge-voice-webhook-check"
+                    >
+                      {webhook?.voiceStatus === 'configured' ? 'Configured' : 'Not configured'}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              {!webhookQuery.isLoading && (
+                <p className="text-xs text-muted-foreground" data-testid="text-voice-webhook-check-detail">
+                  {webhook?.voiceStatus === 'configured' ? (
+                    <>
+                      Twilio number <span className="font-medium">{webhook.phoneNumber}</span> routes
+                      incoming calls to this app's AI receptionist.
+                    </>
+                  ) : webhook?.voiceStatus === 'misconfigured' ? (
+                    <>
+                      Twilio number <span className="font-medium">{webhook.phoneNumber}</span>'s "A
+                      call comes in" webhook currently points at{' '}
+                      <span className="font-mono break-all">
+                        {webhook.configuredVoiceUrl ?? 'no URL'}
+                      </span>
+                      . Incoming calls will not reach the AI receptionist — click Fix now to point
+                      the number at this app automatically, or set the number's "A call comes in"
+                      field to{' '}
+                      <span className="font-mono break-all">{webhook.expectedVoiceUrl}</span> in the
+                      Twilio console.
+                    </>
+                  ) : webhook?.voiceStatus === 'number_not_found' ? (
+                    <>
+                      Number <span className="font-medium">{webhook.phoneNumber}</span> was not
+                      found in the connected Twilio account, so its voice webhook can't be verified.
+                    </>
+                  ) : webhook?.voiceStatus === 'no_number' ? (
+                    'No SMS number is set, so there is no Twilio number to verify yet.'
+                  ) : webhook?.voiceStatus === 'no_credentials' ? (
+                    'Twilio credentials are not connected, so the console configuration can\'t be verified.'
+                  ) : webhook?.voiceStatus === 'no_public_url' ? (
+                    'This environment has no public URL yet, so there is nothing for Twilio to point at.'
+                  ) : (
+                    <>
+                      Couldn't reach Twilio to verify the voice webhook
                       {webhook?.errorMessage ? `: ${webhook.errorMessage}` : '.'}
                     </>
                   )}

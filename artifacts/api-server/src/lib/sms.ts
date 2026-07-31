@@ -2,7 +2,11 @@ import { db, sosSettingsTable } from "@workspace/db";
 import { eq, isNull } from "drizzle-orm";
 import twilio from "twilio";
 import { logger } from "./logger";
-import { getStatusCallbackUrl, getInboundWebhookUrl } from "./inboundSms";
+import {
+  getStatusCallbackUrl,
+  getInboundWebhookUrl,
+  getInboundVoiceWebhookUrl,
+} from "./inboundSms";
 
 /**
  * Low-level SMS transport. Uses Twilio when credentials are available (via
@@ -275,8 +279,21 @@ export interface TwilioWebhookCheck {
   expectedUrl: string | null;
   /** The URL currently configured on the number in Twilio (when reachable). */
   configuredUrl: string | null;
+  /**
+   * Result of the same check for the number's "A call comes in" (VoiceUrl)
+   * webhook — the AI receptionist's inbound call entry point. Precondition
+   * failures (no creds/number/public URL) mirror `status`.
+   */
+  voiceStatus: TwilioWebhookCheckStatus;
+  /** The URL the app expects Twilio's "A call comes in" webhook to be. */
+  expectedVoiceUrl: string | null;
+  /** The VoiceUrl currently configured on the number in Twilio (when reachable). */
+  configuredVoiceUrl: string | null;
   errorMessage: string | null;
 }
+
+/** Which webhook on the Twilio number a fix targets. */
+export type TwilioWebhookTarget = "sms" | "voice";
 
 /** Ignore trailing-slash and case-of-scheme/host differences when comparing webhook URLs. */
 function normalizeWebhookUrl(url: string): string {
@@ -299,65 +316,84 @@ export async function getTwilioWebhookStatus(
   tenantId?: number | null,
 ): Promise<TwilioWebhookCheck> {
   const expectedUrl = getInboundWebhookUrl();
+  const expectedVoiceUrl = getInboundVoiceWebhookUrl();
   const base: TwilioWebhookCheck = {
     status: "error",
     phoneNumber: null,
     expectedUrl,
     configuredUrl: null,
+    voiceStatus: "error",
+    expectedVoiceUrl,
+    configuredVoiceUrl: null,
     errorMessage: null,
   };
-  if (!expectedUrl) return { ...base, status: "no_public_url" };
+  // Precondition failures apply to both webhooks identically.
+  const failBoth = (status: TwilioWebhookCheckStatus, extra?: Partial<TwilioWebhookCheck>) => ({
+    ...base,
+    ...extra,
+    status,
+    voiceStatus: status,
+  });
+  if (!expectedUrl) return failBoth("no_public_url");
 
   const creds = await getTwilioCreds();
   const proxy = creds ? null : await getTwilioProxy();
-  if (!creds && !proxy) return { ...base, status: "no_credentials" };
+  if (!creds && !proxy) return failBoth("no_credentials");
 
   const settings = await getSmsSettings(tenantId);
   const { fromNumber: phoneNumber } = resolveFromNumber(
     settings?.smsFromNumber,
     creds?.fromNumber,
   );
-  if (!phoneNumber) return { ...base, status: "no_number" };
+  if (!phoneNumber) return failBoth("no_number");
 
   try {
     let smsUrl: string | null | undefined;
+    let voiceUrl: string | null | undefined;
     let found = false;
     if (creds) {
       const client = twilio(creds.accountSid, creds.authToken);
       const numbers = await client.incomingPhoneNumbers.list({ phoneNumber, limit: 1 });
       found = numbers.length > 0;
       smsUrl = numbers[0]?.smsUrl;
+      voiceUrl = numbers[0]?.voiceUrl;
     } else if (proxy) {
       const res = await proxy.request(
         `/2010-04-01/Accounts/${proxy.accountSid}/IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(phoneNumber)}&PageSize=1`,
       );
       if (!res.ok) throw new Error(`Twilio number lookup failed (HTTP ${res.status})`);
       const data = (await res.json()) as {
-        incoming_phone_numbers?: Array<{ sms_url?: string | null }>;
+        incoming_phone_numbers?: Array<{ sms_url?: string | null; voice_url?: string | null }>;
       };
       found = (data.incoming_phone_numbers?.length ?? 0) > 0;
       smsUrl = data.incoming_phone_numbers?.[0]?.sms_url;
+      voiceUrl = data.incoming_phone_numbers?.[0]?.voice_url;
     }
-    if (!found) return { ...base, phoneNumber, status: "number_not_found" };
+    if (!found) return failBoth("number_not_found", { phoneNumber });
     const configuredUrl = smsUrl?.trim() ? smsUrl.trim() : null;
     const matches =
       configuredUrl != null &&
       normalizeWebhookUrl(configuredUrl) === normalizeWebhookUrl(expectedUrl);
+    const configuredVoiceUrl = voiceUrl?.trim() ? voiceUrl.trim() : null;
+    const voiceMatches =
+      expectedVoiceUrl != null &&
+      configuredVoiceUrl != null &&
+      normalizeWebhookUrl(configuredVoiceUrl) === normalizeWebhookUrl(expectedVoiceUrl);
     return {
       ...base,
       phoneNumber,
       configuredUrl,
       status: matches ? "configured" : "misconfigured",
+      configuredVoiceUrl,
+      voiceStatus: voiceMatches ? "configured" : "misconfigured",
     };
   } catch (err) {
     const e = err as { message?: string };
     logger.warn({ err }, "Twilio webhook-status check failed");
-    return {
-      ...base,
+    return failBoth("error", {
       phoneNumber,
-      status: "error",
       errorMessage: e.message ?? "Twilio API request failed",
-    };
+    });
   }
 }
 
@@ -502,22 +538,26 @@ export function getTestSmsRecipient(): string {
 }
 
 /**
- * Auto-configure the Twilio number's "A message comes in" webhook to point
- * at this app's inbound URL, then re-run the live check. Never throws —
+ * Auto-configure one of the Twilio number's inbound webhooks — "A message
+ * comes in" (SmsUrl, default) or "A call comes in" (VoiceUrl) — to point at
+ * this app's matching inbound URL, then re-run the live check. Never throws —
  * every failure mode (missing creds/number, Twilio API rejection such as
  * insufficient token permissions) is reported in the result so the Settings
  * page can render it.
  */
 export async function configureTwilioWebhook(
   tenantId?: number | null,
+  target: TwilioWebhookTarget = "sms",
 ): Promise<TwilioWebhookConfigureResult> {
   const before = await getTwilioWebhookStatus(tenantId);
+  const targetStatus = target === "voice" ? before.voiceStatus : before.status;
+  const targetExpectedUrl = target === "voice" ? before.expectedVoiceUrl : before.expectedUrl;
   // Nothing to fix, or preconditions (creds / number / public URL) missing —
   // report the check as-is instead of attempting a doomed API call.
-  if (before.status === "configured") {
+  if (targetStatus === "configured") {
     return { fixed: false, check: before, errorMessage: null };
   }
-  if (before.status !== "misconfigured") {
+  if (targetStatus !== "misconfigured" || !targetExpectedUrl) {
     return {
       fixed: false,
       check: before,
@@ -526,7 +566,7 @@ export async function configureTwilioWebhook(
     };
   }
 
-  const expectedUrl = before.expectedUrl!;
+  const expectedUrl = targetExpectedUrl;
   const phoneNumber = before.phoneNumber!;
   try {
     const creds = await getTwilioCreds();
@@ -536,7 +576,11 @@ export async function configureTwilioWebhook(
       const numbers = await client.incomingPhoneNumbers.list({ phoneNumber, limit: 1 });
       const sid = numbers[0]?.sid;
       if (!sid) throw new Error(`Number ${phoneNumber} not found in the Twilio account`);
-      await client.incomingPhoneNumbers(sid).update({ smsUrl: expectedUrl, smsMethod: "POST" });
+      await client.incomingPhoneNumbers(sid).update(
+        target === "voice"
+          ? { voiceUrl: expectedUrl, voiceMethod: "POST" }
+          : { smsUrl: expectedUrl, smsMethod: "POST" },
+      );
     } else if (proxy) {
       const lookup = await proxy.request(
         `/2010-04-01/Accounts/${proxy.accountSid}/IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(phoneNumber)}&PageSize=1`,
@@ -547,7 +591,10 @@ export async function configureTwilioWebhook(
       };
       const sid = data.incoming_phone_numbers?.[0]?.sid;
       if (!sid) throw new Error(`Number ${phoneNumber} not found in the Twilio account`);
-      const form = new URLSearchParams({ SmsUrl: expectedUrl, SmsMethod: "POST" });
+      const form =
+        target === "voice"
+          ? new URLSearchParams({ VoiceUrl: expectedUrl, VoiceMethod: "POST" })
+          : new URLSearchParams({ SmsUrl: expectedUrl, SmsMethod: "POST" });
       const update = await proxy.request(
         `/2010-04-01/Accounts/${proxy.accountSid}/IncomingPhoneNumbers/${sid}.json`,
         {
@@ -575,11 +622,12 @@ export async function configureTwilioWebhook(
 
   // Re-run the live check so the caller sees the post-fix state.
   const after = await getTwilioWebhookStatus(tenantId);
+  const afterStatus = target === "voice" ? after.voiceStatus : after.status;
   return {
-    fixed: after.status === "configured",
+    fixed: afterStatus === "configured",
     check: after,
     errorMessage:
-      after.status === "configured"
+      afterStatus === "configured"
         ? null
         : "Twilio accepted the update but the webhook still doesn't match — re-check the number in the Twilio console.",
   };

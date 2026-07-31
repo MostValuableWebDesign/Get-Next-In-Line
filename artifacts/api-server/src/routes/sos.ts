@@ -95,6 +95,7 @@ import {
   UpdateSosGratuityConfigResponse,
   GetSosGratuityLedgerResponse,
   GetSosTwilioWebhookStatusResponse,
+  ConfigureSosTwilioWebhookBody,
   ConfigureSosTwilioWebhookResponse,
   GetSosOnboardingResponse,
 } from "@workspace/api-zod";
@@ -552,13 +553,15 @@ router.get("/sos/twilio/webhook-status", async (req, res): Promise<void> => {
   res.json(GetSosTwilioWebhookStatusResponse.parse(result));
 });
 
-// Auto-fix: point the Twilio number's "A message comes in" webhook at this
-// app's inbound URL via the Twilio API, then re-run the live check. Never
+// Auto-fix: point one of the Twilio number's inbound webhooks — "A message
+// comes in" (default) or "A call comes in" (target: "voice") — at this
+// app's matching URL via the Twilio API, then re-run the live check. Never
 // throws — failures (e.g. insufficient token permissions) come back as a
 // 200 with fixed=false and an errorMessage so the Settings page can render
 // them gracefully.
 router.post("/sos/twilio/configure-webhook", async (req, res): Promise<void> => {
-  const result = await configureTwilioWebhook(tenantIdFrom(req));
+  const { target } = ConfigureSosTwilioWebhookBody.parse(req.body ?? {});
+  const result = await configureTwilioWebhook(tenantIdFrom(req), target);
   res.json(ConfigureSosTwilioWebhookResponse.parse(result));
 });
 

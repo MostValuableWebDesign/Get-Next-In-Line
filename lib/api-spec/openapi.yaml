@@ -3858,7 +3858,13 @@ paths:
     post:
       operationId: configureSosTwilioWebhook
       tags: [sos]
-      summary: Auto-configure the Twilio number's "A message comes in" webhook to the app's inbound URL, then re-check
+      summary: Auto-configure one of the Twilio number's inbound webhooks ("A message comes in" SmsUrl by default, or "A call comes in" VoiceUrl) to the app's matching URL, then re-check
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SosTwilioWebhookConfigureRequest"
       responses:
         "200":
           description: Result of the fix attempt, including the fresh post-fix check
@@ -11445,7 +11451,7 @@ components:
 
     SosTwilioWebhookStatus:
       type: object
-      required: [status, phoneNumber, expectedUrl, configuredUrl, errorMessage]
+      required: [status, phoneNumber, expectedUrl, configuredUrl, voiceStatus, expectedVoiceUrl, configuredVoiceUrl, errorMessage]
       properties:
         status:
           type: string
@@ -11460,8 +11466,27 @@ components:
         configuredUrl:
           type: ["string", "null"]
           description: The URL currently configured on the number in the Twilio console, when reachable.
+        voiceStatus:
+          type: string
+          enum: [configured, misconfigured, no_credentials, no_public_url, no_number, number_not_found, error]
+          description: Result of the same check for the number's "A call comes in" (VoiceUrl) webhook — the AI receptionist's inbound call entry point. Precondition failures mirror `status`.
+        expectedVoiceUrl:
+          type: ["string", "null"]
+          description: The inbound voice webhook URL the app expects Twilio's VoiceUrl to point at.
+        configuredVoiceUrl:
+          type: ["string", "null"]
+          description: The VoiceUrl currently configured on the number in the Twilio console, when reachable.
         errorMessage:
           type: ["string", "null"]
+
+    SosTwilioWebhookConfigureRequest:
+      type: object
+      properties:
+        target:
+          type: string
+          enum: [sms, voice]
+          default: sms
+          description: Which webhook on the number to fix — the SMS "A message comes in" URL (default) or the voice "A call comes in" URL.
 
     SosTwilioWebhookConfigureResult:
       type: object

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SosTwilioWebhookStatusStatus } from './sosTwilioWebhookStatusStatus';
+import type { SosTwilioWebhookStatusVoiceStatus } from './sosTwilioWebhookStatusVoiceStatus';
 
 export interface SosTwilioWebhookStatus {
   /** Result of the live Twilio console check. "configured" means the number's "A message comes in" URL matches the app's inbound webhook. */
@@ -25,6 +26,18 @@ export interface SosTwilioWebhookStatus {
      * @nullable
      */
   configuredUrl: string | null;
+  /** Result of the same check for the number's "A call comes in" (VoiceUrl) webhook — the AI receptionist's inbound call entry point. Precondition failures mirror `status`. */
+  voiceStatus: SosTwilioWebhookStatusVoiceStatus;
+  /**
+     * The inbound voice webhook URL the app expects Twilio's VoiceUrl to point at.
+     * @nullable
+     */
+  expectedVoiceUrl: string | null;
+  /**
+     * The VoiceUrl currently configured on the number in the Twilio console, when reachable.
+     * @nullable
+     */
+  configuredVoiceUrl: string | null;
   /** @nullable */
   errorMessage: string | null;
 }

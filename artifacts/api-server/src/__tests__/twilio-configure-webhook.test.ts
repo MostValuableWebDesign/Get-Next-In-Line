@@ -23,6 +23,14 @@ describe("configureTwilioWebhook (lib)", () => {
     expect(res.check.status).not.toBe("configured");
     expect(res.errorMessage).toBeTruthy();
   });
+
+  it("handles the voice target the same graceful way", async () => {
+    const res = await configureTwilioWebhook(null, "voice");
+    expect(res.fixed).toBe(false);
+    expect(res.check).toBeTruthy();
+    expect(res.check.voiceStatus).not.toBe("configured");
+    expect(res.errorMessage).toBeTruthy();
+  });
 });
 
 describe("POST /api/sos/twilio/configure-webhook (route)", () => {
@@ -63,6 +71,27 @@ describe("POST /api/sos/twilio/configure-webhook (route)", () => {
     expect(res.body.fixed).toBe(false);
     expect(res.body).toHaveProperty("check");
     expect(res.body.check).toHaveProperty("status");
+    expect(res.body.check).toHaveProperty("voiceStatus");
     expect(res.body).toHaveProperty("errorMessage");
+  });
+
+  it("accepts an explicit voice target in the body", async () => {
+    const res = await request(app)
+      .post("/api/sos/twilio/configure-webhook")
+      .set("Cookie", cookie)
+      .set("x-tenant-id", "legacy")
+      .send({ target: "voice" });
+    expect(res.status).toBe(200);
+    expect(res.body.fixed).toBe(false);
+    expect(res.body.check).toHaveProperty("voiceStatus");
+  });
+
+  it("rejects an invalid target", async () => {
+    const res = await request(app)
+      .post("/api/sos/twilio/configure-webhook")
+      .set("Cookie", cookie)
+      .set("x-tenant-id", "legacy")
+      .send({ target: "fax" });
+    expect(res.status).toBe(400);
   });
 });
