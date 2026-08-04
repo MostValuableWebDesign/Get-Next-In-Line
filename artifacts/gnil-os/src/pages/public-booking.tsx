@@ -78,6 +78,15 @@ function PublicShell({ embed, children }: { embed: boolean; children: React.Reac
     <div className={embed ? 'min-h-screen bg-background' : 'min-h-screen bg-slate-50'}>
       <div className={embed ? 'max-w-lg mx-auto' : 'max-w-lg mx-auto px-4 py-8'}>
         {children}
+        <footer className="pt-6 pb-2 text-center">
+          <a
+            href={`${import.meta.env.BASE_URL}privacy`}
+            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+            data-testid="link-public-booking-privacy-footer"
+          >
+            Privacy Policy
+          </a>
+        </footer>
       </div>
     </div>
   );
@@ -360,6 +369,17 @@ function BookingFlow({ config, slug }: { config: PublicBookingConfig; slug: stri
           {error && (
             <p className="text-sm text-destructive" data-testid="text-public-booking-error">{error}</p>
           )}
+           <p className="text-xs text-muted-foreground leading-relaxed">
+             By booking, you agree that your information will be handled according to our{' '}
+             <a
+               href={`${import.meta.env.BASE_URL}privacy`}
+               className="text-primary underline underline-offset-2 hover:text-primary/80"
+               data-testid="link-public-booking-privacy"
+             >
+               Privacy Policy
+             </a>
+             .
+           </p>
           <Button
             className="w-full"
             onClick={handleConfirm}
