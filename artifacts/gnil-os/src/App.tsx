@@ -15,6 +15,7 @@ import JoinInvitePage from "@/pages/join-invite";
 import WalletPage from "@/pages/wallet";
 import { ApplyPage, ApplyStatusPage } from "@/pages/apply";
 import NotFound from "@/pages/not-found";
+import PrivacyPolicyPage from "@/pages/privacy-policy";
 
 // SOS Operations section (merged from the former standalone SOS app)
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
@@ -229,6 +230,8 @@ function Router() {
       <Route path="/join/:token">
         {(params) => <JoinInvitePage token={params.token} />}
       </Route>
+      {/* Public legal pages — no login required */}
+      <Route path="/privacy" component={PrivacyPolicyPage} />
       <Route component={ProtectedApp} />
     </Switch>
   );
