@@ -16,6 +16,7 @@ import WalletPage from "@/pages/wallet";
 import { ApplyPage, ApplyStatusPage } from "@/pages/apply";
 import NotFound from "@/pages/not-found";
 import PrivacyPolicyPage from "@/pages/privacy-policy";
+import TermsOfServicePage from "@/pages/terms-of-service";
 
 // SOS Operations section (merged from the former standalone SOS app)
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
@@ -232,6 +233,7 @@ function Router() {
       </Route>
       {/* Public legal pages — no login required */}
       <Route path="/privacy" component={PrivacyPolicyPage} />
+      <Route path="/terms" component={TermsOfServicePage} />
       <Route component={ProtectedApp} />
     </Switch>
   );

@@ -5,6 +5,7 @@
  * and the co-op network.
  */
 import React from 'react';
+import { Link } from 'wouter';
 
 const EFFECTIVE_DATE = 'August 4, 2026';
 const CONTACT_EMAIL = 'privacy@getnextinline.com';
@@ -359,7 +360,12 @@ export default function PrivacyPolicyPage() {
       <div className="border-t border-slate-200 bg-white mt-4">
         <div className="max-w-5xl mx-auto px-6 py-6 flex flex-wrap gap-4 items-center justify-between text-sm text-slate-400">
           <span>© {new Date().getFullYear()} {APP_NAME}. All rights reserved.</span>
-          <span>Effective {EFFECTIVE_DATE}</span>
+          <div className="flex gap-4">
+            <Link href="/terms" className="hover:text-indigo-600 transition-colors">
+              Terms and Conditions
+            </Link>
+            <span>Effective {EFFECTIVE_DATE}</span>
+          </div>
         </div>
       </div>
     </div>
