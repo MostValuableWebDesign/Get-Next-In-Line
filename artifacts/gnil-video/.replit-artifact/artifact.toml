@@ -1,0 +1,27 @@
+kind = "video"
+previewPath = "/gnil-video/"
+title = "Get Next In Line — Neighborhoods in motion"
+version = "1.0.0"
+id = "artifacts/gnil-video"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/gnil-video/" ]
+localPort = 25577
+
+[services.development]
+run = "pnpm --filter @workspace/gnil-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/gnil-video", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/gnil-video/dist"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25577"
+BASE_PATH = "/gnil-video/"

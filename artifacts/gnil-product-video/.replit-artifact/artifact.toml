@@ -1,0 +1,28 @@
+kind = "video"
+previewPath = "/gnil-product-video/"
+title = "Get Next In Line — Product Video"
+description = "A short animated product story showing how Get Next In Line connects public booking, live queues, SMS updates, payments, and Local Perks for neighborhood businesses and their customers."
+version = "1.0.0"
+id = "artifacts/gnil-product-video"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/gnil-product-video/" ]
+localPort = 18173
+
+[services.development]
+run = "pnpm --filter @workspace/gnil-product-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/gnil-product-video", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/gnil-product-video/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18173"
+BASE_PATH = "/gnil-product-video/"
