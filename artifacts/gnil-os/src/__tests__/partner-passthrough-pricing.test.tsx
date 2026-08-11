@@ -18,7 +18,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const modules = [
   {
     id: 20,
-    name: 'Global Team & HR Management',
+    name: 'Payroll, 401(k) & Employee Benefits',
     category: 'Partner Integrations',
     categorySlug: 'partners',
     description: 'partner module',

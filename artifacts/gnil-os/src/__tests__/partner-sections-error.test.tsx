@@ -100,7 +100,7 @@ describe('Partners tab — partner-connections query failure', () => {
       name: 'Team HQ',
       description: 'HR tooling',
       categorySlug: 'partners',
-      partnerBrand: 'Deel',
+      partnerBrand: 'Gusto',
       isActive: true,
     },
   ];

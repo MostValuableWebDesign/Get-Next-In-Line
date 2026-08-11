@@ -13,7 +13,6 @@ const PARTNER_MODULES = [
   { brand: 'Vestwell', name: 'Automated Retirement & 401(k)' },
   { brand: 'SimplyInsured', name: 'Group Health Insurance Hub' },
   { brand: 'Gusto', name: 'Payroll, 401(k) & Employee Benefits' },
-  { brand: 'Deel', name: 'Global Team & HR Management' },
   { brand: 'Next Insurance', name: 'Small Business Insurance & COI' },
   { brand: 'RetiredCo', name: 'Legacy Retired Offering' },
   { brand: 'QuickBooks', name: 'General Ledger & Financial Sync' },
@@ -77,7 +76,6 @@ describe('merged Partners tab in the Operations hub', () => {
       'Vestwell',
       'SimplyInsured',
       'Gusto',
-      'Deel',
       'Next Insurance',
     ]) {
       expect(within(services).getByText(partner)).toBeInTheDocument();
@@ -95,7 +93,6 @@ describe('merged Partners tab in the Operations hub', () => {
     const services = await screen.findByTestId('partner-services');
 
     // Active modules read Available.
-    expect(within(services).getByTestId('badge-availability-deel')).toHaveTextContent('Available');
     // Inactive/retired modules render nothing — not even a Coming Soon badge.
     expect(within(services).queryByTestId('badge-availability-quickbooks')).toBeNull();
     expect(within(services).queryByTestId('badge-availability-retiredco')).toBeNull();

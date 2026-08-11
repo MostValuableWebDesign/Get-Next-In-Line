@@ -233,20 +233,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
     proxyNotes: null,
   },
   {
-    slug: "deel",
-    markupPercentOverride: "0",
-    partnerBrand: "Deel",
-    name: "Global Team & HR Management",
-    category: "Partner-Direct Integrations",
-    categorySlug: "partners",
-    description:
-      "Workforce onboarding, time & attendance, shift scheduling, and HR compliance.",
-    wholesalePrice: "0.00",
-    upstreamVendor: "Deel",
-    hiddenConnector: "Deel HR & Workforce Management API Gateway",
-    proxyNotes: null,
-  },
-  {
     slug: "next_insurance",
     markupPercentOverride: "0",
     partnerBrand: "Next Insurance",
@@ -404,6 +390,12 @@ export const RETIRED_MODULES: RetiredModuleEntry[] = [
     successorSlug: "gusto",
     migrationAuditNote:
       "Partner offering consolidated: the standalone 401(k) & Employee Benefits module was folded into the Gusto integration. Existing billing (charged prices, cadence, provisioning date) carried over unchanged; the retired module's connection history was removed with it and any stored credentials were purged.",
+  },
+  {
+    slug: "deel",
+    name: "Global Team & HR Management",
+    auditNote:
+      "Partner offering retired: Team Management powered by Deel is no longer available. Connection disconnected; stored credentials purged.",
   },
 ];
 

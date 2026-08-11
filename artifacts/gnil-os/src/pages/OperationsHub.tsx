@@ -22,17 +22,6 @@ export const PARTNER_OFFERINGS: Record<
   string,
   { title: string; description: string; features: string[] }
 > = {
-  Deel: {
-    title: 'Team Management',
-    description:
-      'Manage your entire workforce from a single dashboard. Onboard new staff, track hours, and manage schedules with automated compliance.',
-    features: [
-      'Automated Onboarding Flows',
-      'Time & Attendance Tracking',
-      'Shift Scheduling',
-      'Performance Reviews',
-    ],
-  },
   Gusto: {
     // Consolidated offering: the former standalone 401(k)/benefits partner
     // module was retired and folded into Gusto (payroll + benefits together).
@@ -107,7 +96,6 @@ export const PARTNER_OFFERINGS: Record<
 
 /** Display order for the branded partner sections. Unknown brands sort last. */
 const PARTNER_ORDER = [
-  'Deel',
   'Gusto',
   'Next Insurance',
   'The Hartford',

@@ -1,6 +1,6 @@
 /**
  * Partner tabs' "Activate Module" guard:
- *  - each partner placeholder card (Deel, Gusto — which now carries the
+ *  - each partner placeholder card (Gusto — which now carries the
  *    consolidated payroll + 401(k)/benefits offering — and Next Insurance)
  *    resolves its backing marketplace module by name and opens the shared
  *    CheckoutSimulationDialog locked to that module — no dead-end
@@ -15,7 +15,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { StaticPlaceholderPage } from '@/components/static-page';
 
 const PARTNER_MODULES = [
-  'Global Team & HR Management',
   'Payroll, 401(k) & Employee Benefits',
   'Small Business Insurance & COI',
 ];
@@ -59,9 +58,8 @@ vi.mock('@/components/checkout/CheckoutSimulationDialog', () => ({
 }));
 
 const CARDS: Array<{ title: string; moduleName: string; moduleId: number }> = [
-  { title: 'Team Management', moduleName: PARTNER_MODULES[0], moduleId: 20 },
-  { title: 'Payroll, Benefits & 401(k)', moduleName: PARTNER_MODULES[1], moduleId: 21 },
-  { title: 'Business Protection', moduleName: PARTNER_MODULES[2], moduleId: 22 },
+  { title: 'Payroll, Benefits & 401(k)', moduleName: PARTNER_MODULES[0], moduleId: 20 },
+  { title: 'Business Protection', moduleName: PARTNER_MODULES[1], moduleId: 21 },
 ];
 
 describe('partner placeholder Activate Module', () => {

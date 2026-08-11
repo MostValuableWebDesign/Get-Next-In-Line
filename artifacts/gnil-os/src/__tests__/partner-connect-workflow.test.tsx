@@ -14,22 +14,22 @@ import { StaticPlaceholderPage } from '@/components/static-page';
 
 const modules = [
   {
-    id: 20,
-    name: 'Global Team & HR Management',
+    id: 21,
+    name: 'Payroll, 401(k) & Employee Benefits',
     category: 'Partner-Direct Integrations',
     categorySlug: 'partners',
     description: 'partner module',
     isActive: true,
     wholesalePrice: 0,
-    partnerBrand: 'Deel',
+    partnerBrand: 'Gusto',
   },
 ];
 
 let statusData: any = {
-  partnerId: 'deel',
-  moduleId: 20,
+  partnerId: 'gusto',
+  moduleId: 21,
   moduleName: modules[0].name,
-  partnerBrand: 'Deel',
+  partnerBrand: 'Gusto',
   status: 'not_connected',
   lastSyncAt: null,
   connectedAt: null,
@@ -66,13 +66,13 @@ vi.mock('@/components/checkout/CheckoutSimulationDialog', () => ({
 function renderCard(connectionStatus: string) {
   return render(
     <StaticPlaceholderPage
-      title="Team Management"
+       title="Payroll, Benefits & 401(k)"
       description="desc"
-      partner="Deel"
+       partner="Gusto"
       features={['A', 'B']}
       moduleName={modules[0].name}
       available
-      partnerId="deel"
+       partnerId="gusto"
       connectionStatus={connectionStatus}
     />,
   );
@@ -86,7 +86,7 @@ beforeEach(() => {
 describe('partner integration workflow', () => {
   it('Activate Module opens the connection dialog (not checkout) and starts the handshake', async () => {
     renderCard('not_connected');
-    const btn = screen.getByTestId('btn-activate-team-management');
+     const btn = screen.getByTestId('btn-activate-payroll,-benefits-&-401(k)');
     expect(btn).toHaveTextContent('Activate Module');
 
     await userEvent.click(btn);
@@ -95,7 +95,7 @@ describe('partner integration workflow', () => {
 
     await userEvent.click(screen.getByTestId('btn-partner-connect'));
     expect(connectMutate).toHaveBeenCalledWith(
-      { partnerId: 'deel' },
+       { partnerId: 'gusto' },
       expect.anything(),
     );
   });
@@ -103,7 +103,7 @@ describe('partner integration workflow', () => {
   it('reflects pending state on the CTA and status badge', () => {
     statusData = { ...statusData, status: 'pending' };
     renderCard('pending');
-    expect(screen.getByTestId('btn-activate-team-management')).toHaveTextContent('Continue Activation');
+     expect(screen.getByTestId('btn-activate-payroll,-benefits-&-401(k)')).toHaveTextContent('Continue Activation');
     expect(screen.getByTestId('badge-connection-pending')).toBeInTheDocument();
   });
 
@@ -119,7 +119,7 @@ describe('partner integration workflow', () => {
       ],
     };
     renderCard('active');
-    const btn = screen.getByTestId('btn-activate-team-management');
+     const btn = screen.getByTestId('btn-activate-payroll,-benefits-&-401(k)');
     expect(btn).toHaveTextContent('Manage Connection');
     expect(screen.getByTestId('badge-connection-active')).toBeInTheDocument();
 
@@ -132,8 +132,8 @@ describe('partner integration workflow', () => {
     expect(document.body.textContent).not.toMatch(/sandbox_(access|refresh)|accessToken|refreshToken/i);
 
     await userEvent.click(screen.getByTestId('btn-partner-disconnect'));
-    expect(disconnectMutate).toHaveBeenCalledWith(
-      { partnerId: 'deel' },
+     expect(disconnectMutate).toHaveBeenCalledWith(
+       { partnerId: 'gusto' },
       expect.anything(),
     );
   });
@@ -141,7 +141,7 @@ describe('partner integration workflow', () => {
   it('error state offers a restart of the connection', async () => {
     statusData = { ...statusData, status: 'error', lastError: 'Handshake state mismatch' };
     renderCard('error');
-    await userEvent.click(screen.getByTestId('btn-activate-team-management'));
+     await userEvent.click(screen.getByTestId('btn-activate-payroll,-benefits-&-401(k)'));
     expect(screen.getByTestId('partner-connection-error')).toHaveTextContent('Handshake state mismatch');
     expect(screen.getByTestId('btn-partner-connect')).toHaveTextContent('Restart Connection');
   });
