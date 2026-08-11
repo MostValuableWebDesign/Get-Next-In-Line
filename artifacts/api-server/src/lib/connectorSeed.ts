@@ -176,19 +176,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   // ── Category 2: Partner Integrations (0% Markup) ─────────────────────────
   {
-    slug: "vestwell",
-    markupPercentOverride: "0",
-    partnerBrand: "Vestwell",
-    name: "Automated Retirement & 401(k)",
-    category: "Partner-Direct Integrations",
-    categorySlug: "partners",
-    description: "Automated retirement plans and 401(k) administration.",
-    wholesalePrice: "0.00",
-    upstreamVendor: "Vestwell",
-    hiddenConnector: "Vestwell Embedded API & Payroll Deduction Sync Engine",
-    proxyNotes: null,
-  },
-  {
     slug: "simply_insured",
     markupPercentOverride: "0",
     partnerBrand: "SimplyInsured",
@@ -389,6 +376,12 @@ export const RETIRED_MODULES: RetiredModuleEntry[] = [
     name: "Commercial Liability & Workers Comp",
     auditNote:
       "Partner offering retired: Commercial Coverage powered by The Hartford is no longer available. Connection disconnected; stored credentials purged.",
+  },
+  {
+    slug: "vestwell",
+    name: "Automated Retirement & 401(k)",
+    auditNote:
+      "Partner offering retired: Retirement Plans powered by Vestwell is no longer available. Connection disconnected; stored credentials purged.",
   },
 ];
 

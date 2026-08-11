@@ -48,17 +48,6 @@ export const PARTNER_OFFERINGS: Record<
       'Instant COI Generation',
     ],
   },
-  Vestwell: {
-    title: 'Retirement Plans',
-    description:
-      'Give your team a modern retirement plan. Automated 401(k) administration that syncs directly with payroll and keeps you compliant with state mandates.',
-    features: [
-      'Automated 401(k) Administration',
-      'Payroll Deduction Sync',
-      'State Mandate Compliance',
-      'Employee Enrollment Portal',
-    ],
-  },
   SimplyInsured: {
     title: 'Group Health Insurance',
     description:
@@ -87,7 +76,6 @@ export const PARTNER_OFFERINGS: Record<
 const PARTNER_ORDER = [
   'Gusto',
   'Next Insurance',
-  'Vestwell',
   'SimplyInsured',
   'QuickBooks',
 ];

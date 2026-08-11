@@ -67,11 +67,11 @@ afterAll(async () => {
 });
 
 describe("partner-direct pass-through markup (multiplier 1.00)", () => {
-  it("all five seeded partner modules carry an explicit 0% override and a $0.00 wholesale price", () => {
+  it("all four seeded partner modules carry an explicit 0% override and a $0.00 wholesale price", () => {
     const partners = CONNECTOR_MAPPING.filter((e) => e.categorySlug === "partners");
     // The retired 401(k)/benefits offering was consolidated into Gusto, and
-    // the Deel and The Hartford offerings were retired.
-    expect(partners).toHaveLength(5);
+    // the Deel, The Hartford, and Vestwell offerings were retired.
+    expect(partners).toHaveLength(4);
     for (const entry of partners) {
       expect(
         entry.markupPercentOverride,

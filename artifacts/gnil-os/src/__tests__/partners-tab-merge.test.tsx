@@ -9,7 +9,6 @@ import { render, screen, within } from '@testing-library/react';
 // stays intact), so /api/modules still returns it — the UI must exclude it
 // entirely.
 const PARTNER_MODULES = [
-  { brand: 'Vestwell', name: 'Automated Retirement & 401(k)' },
   { brand: 'SimplyInsured', name: 'Group Health Insurance Hub' },
   { brand: 'Gusto', name: 'Payroll, 401(k) & Employee Benefits' },
   { brand: 'Next Insurance', name: 'Small Business Insurance & COI' },
@@ -71,7 +70,6 @@ describe('merged Partners tab in the Operations hub', () => {
     // ...with every ACTIVE partner visible by brand name.
     const services = screen.getByTestId('partner-services');
     for (const partner of [
-      'Vestwell',
       'SimplyInsured',
       'Gusto',
       'Next Insurance',

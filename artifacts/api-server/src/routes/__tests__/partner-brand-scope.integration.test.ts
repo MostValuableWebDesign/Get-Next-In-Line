@@ -31,10 +31,10 @@ async function loggedInAgent() {
 const SEEDED_PARTNERS = CONNECTOR_MAPPING.filter((e) => e.categorySlug === "partners");
 
 describe("partnerBrand exposure is scoped to the partners category", () => {
-  it("the seed defines exactly five active partner modules, all with a partnerBrand", () => {
+  it("the seed defines exactly four active partner modules, all with a partnerBrand", () => {
     // The standalone 401(k)/benefits offering was consolidated into Gusto, and
-    // the Deel and The Hartford offerings were retired.
-    expect(SEEDED_PARTNERS).toHaveLength(5);
+    // the Deel, The Hartford, and Vestwell offerings were retired.
+    expect(SEEDED_PARTNERS).toHaveLength(4);
     for (const entry of SEEDED_PARTNERS) {
       expect(entry.partnerBrand, `${entry.name} seeded without partnerBrand`).toBeTruthy();
     }
@@ -56,7 +56,7 @@ describe("partnerBrand exposure is scoped to the partners category", () => {
     const partnerModules = res.body.filter(
       (m: { categorySlug: string }) => m.categorySlug === "partners"
     );
-    expect(partnerModules.length).toBeGreaterThanOrEqual(5);
+    expect(partnerModules.length).toBeGreaterThanOrEqual(4);
 
     // Every seeded partner module appears with its brand exposed
     for (const entry of SEEDED_PARTNERS) {
