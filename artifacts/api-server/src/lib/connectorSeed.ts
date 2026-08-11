@@ -176,19 +176,6 @@ export const CONNECTOR_MAPPING: ConnectorMappingEntry[] = [
   },
   // ── Category 2: Partner Integrations (0% Markup) ─────────────────────────
   {
-    slug: "the_hartford",
-    markupPercentOverride: "0",
-    partnerBrand: "The Hartford",
-    name: "Commercial Liability & Workers Comp",
-    category: "Partner-Direct Integrations",
-    categorySlug: "partners",
-    description: "Commercial liability and workers compensation coverage for clients.",
-    wholesalePrice: "0.00",
-    upstreamVendor: "The Hartford",
-    hiddenConnector: "The Hartford API Brokerage & Direct Underwriting Gateway",
-    proxyNotes: null,
-  },
-  {
     slug: "vestwell",
     markupPercentOverride: "0",
     partnerBrand: "Vestwell",
@@ -396,6 +383,12 @@ export const RETIRED_MODULES: RetiredModuleEntry[] = [
     name: "Global Team & HR Management",
     auditNote:
       "Partner offering retired: Team Management powered by Deel is no longer available. Connection disconnected; stored credentials purged.",
+  },
+  {
+    slug: "the_hartford",
+    name: "Commercial Liability & Workers Comp",
+    auditNote:
+      "Partner offering retired: Commercial Coverage powered by The Hartford is no longer available. Connection disconnected; stored credentials purged.",
   },
 ];
 

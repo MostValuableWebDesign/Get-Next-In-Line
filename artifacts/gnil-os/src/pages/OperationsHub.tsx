@@ -48,17 +48,6 @@ export const PARTNER_OFFERINGS: Record<
       'Instant COI Generation',
     ],
   },
-  'The Hartford': {
-    title: 'Commercial Coverage',
-    description:
-      'Protect your business with commercial liability and workers compensation coverage from one of the most trusted names in business insurance.',
-    features: [
-      'Commercial General Liability',
-      "Workers' Compensation",
-      'Certificate Management',
-      'Dedicated Claims Support',
-    ],
-  },
   Vestwell: {
     title: 'Retirement Plans',
     description:
@@ -98,7 +87,6 @@ export const PARTNER_OFFERINGS: Record<
 const PARTNER_ORDER = [
   'Gusto',
   'Next Insurance',
-  'The Hartford',
   'Vestwell',
   'SimplyInsured',
   'QuickBooks',

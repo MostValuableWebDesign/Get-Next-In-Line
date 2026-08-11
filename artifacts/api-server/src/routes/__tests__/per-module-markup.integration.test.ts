@@ -160,7 +160,7 @@ describe("POST /api/billing/checkout charges the effective markup", () => {
 });
 
 describe("connector seed applies markup overrides idempotently", () => {
-  const PARTNER_DIRECT = ["the_hartford", "vestwell", "simply_insured", "gusto", "quickbooks"];
+  const PARTNER_DIRECT = ["vestwell", "simply_insured", "gusto", "quickbooks"];
   const RESALE_ENGINES = [
     "qujam",
     "vibe_co",
@@ -171,7 +171,7 @@ describe("connector seed applies markup overrides idempotently", () => {
     "metricool",
   ];
 
-  it("mapping declares 0% for the five partner-direct modules and 25% for the seven resale engines", () => {
+  it("mapping declares 0% for the four partner-direct modules and 25% for the seven resale engines", () => {
     for (const slug of PARTNER_DIRECT) {
       const entry = CONNECTOR_MAPPING.find((e) => e.slug === slug);
       expect(entry, slug).toBeDefined();
@@ -208,9 +208,9 @@ describe("connector seed applies markup overrides idempotently", () => {
 
     // API spot-check: a partner-direct module resells at wholesale.
     const agent = await loggedInAgent();
-    const hartford = all.find((m) => m.slug === "the_hartford")!;
+    const vestwell = all.find((m) => m.slug === "vestwell")!;
     const res = await agent.get("/api/modules/pricing");
-    const priced = res.body.find((r: any) => r.id === hartford.id);
+    const priced = res.body.find((r: any) => r.id === vestwell.id);
     expect(priced.resalePrice).toBe(priced.wholesalePrice);
     expect(priced.markupPercent).toBe(0);
   });

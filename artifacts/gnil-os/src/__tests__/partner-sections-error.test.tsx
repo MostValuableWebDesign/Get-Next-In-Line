@@ -97,8 +97,8 @@ describe('Partners tab — partner-connections query failure', () => {
   const partnerModules = [
     {
       id: 1,
-      name: 'Team HQ',
-      description: 'HR tooling',
+      name: 'Payroll HQ',
+      description: 'Payroll tooling',
       categorySlug: 'partners',
       partnerBrand: 'Gusto',
       isActive: true,
