@@ -8454,7 +8454,8 @@ export const CreatePublicBookingBody = zod.object({
   "resourceId": zod.number().optional(),
   "name": zod.string().min(1).max(createPublicBookingBodyNameMax),
   "phone": zod.string().max(createPublicBookingBodyPhoneMax).optional(),
-  "email": zod.string().max(createPublicBookingBodyEmailMax).optional()
+  "email": zod.string().max(createPublicBookingBodyEmailMax).optional(),
+  "smsOptIn": zod.boolean().optional().describe('Explicit consent to receive transactional SMS messages from Get Next In Line and the business being visited.')
 })
 
 export const CreatePublicBookingResponse = zod.object({

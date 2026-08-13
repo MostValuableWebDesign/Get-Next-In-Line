@@ -19,4 +19,6 @@ export interface PublicBookingInput {
   phone?: string;
   /** @maxLength 254 */
   email?: string;
+  /** Explicit consent to receive transactional SMS messages from Get Next In Line and the business being visited. */
+  smsOptIn?: boolean;
 }

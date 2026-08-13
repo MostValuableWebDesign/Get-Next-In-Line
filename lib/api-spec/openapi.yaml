@@ -11139,6 +11139,9 @@ components:
         email:
           type: string
           maxLength: 254
+        smsOptIn:
+          type: boolean
+          description: Explicit consent to receive transactional SMS messages from Get Next In Line and the business being visited.
 
     PublicBookingConfirmation:
       type: object

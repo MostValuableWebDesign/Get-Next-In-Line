@@ -1,0 +1,20 @@
+I found the likely rejection cause. Your privacy page is publicly accessible, but its language does not satisfy Twilio’s required non-sharing statement and contains potentially conflicting disclosures.
+Your policy currently says phone numbers may be shared with co-op partner businesses and describes “shared promotions.” It only says, “We do not sell personal information.” That is insufficient: Twilio specifically requires messaging consent data to be excluded from marketing/promotional sharing.
+Replace or revise the Sharing & Disclosure section to include this exact, standalone paragraph:
+Mobile information and SMS consent: We do not share, sell, rent, or provide mobile phone numbers, SMS opt-in data, or messaging consent to third parties or affiliates for marketing or promotional purposes. Information may be shared with service providers, such as Twilio, solely to deliver and support our text-messaging program. All other categories exclude text-messaging originator opt-in data and consent; this information will not be shared with any third parties.
+
+Keep this SMS section:
+By providing your mobile number and affirmatively opting in, you consent to receive transactional text messages from Get Next In Line and the business you are visiting, including check-in confirmations, queue updates, appointment reminders, service notifications, and tracking links. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for assistance. Consent is not a condition of purchase.
+
+Also make these changes:
+Change “shared promotions” so it does not imply phone numbers or SMS consent are shared for promotions.
+Clarify that any phone-number disclosure to a partner occurs only when the customer explicitly requests/redeems that partner service—not for advertising.
+Ensure the Twilio campaign’s PrivacyPolicyUrl is exactly:
+https://www.getnextinline.com/privacy
+Use only this one privacy-policy URL throughout the campaign and opt-in flow.
+Ensure the registered campaign brand matches the policy. If Twilio registered the brand as Cold Cutters, identify it on the page as “Cold Cutters, powered by Get Next In Line.” If registered as Get Next In Line, keep that naming consistent.
+Put a visible Privacy Policy link beside the SMS consent checkbox.
+Your SMS checkbox disclosure should read:
+I agree to receive transactional text messages from Get Next In Line and the business I’m visiting about my queue status, appointments, and services. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase. [Privacy Policy]
+
+The main defect is that “we do not sell data” is weaker than Twilio’s required “we do not share mobile information or messaging consent with third parties or affiliates for marketing or promotional purposes.” Twilio error 30908 guidance

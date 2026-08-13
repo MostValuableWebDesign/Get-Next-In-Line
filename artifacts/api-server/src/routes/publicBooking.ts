@@ -372,10 +372,21 @@ router.post(
             name: body.name.trim(),
             phone: normalizedPhone ?? phone,
             email,
+              smsOptIn: body.smsOptIn === true,
           })
           .returning();
         customer = created;
         createdCustomer = true;
+        } else if (body.smsOptIn === true && !customer.smsOptIn) {
+          // Public booking consent is affirmative only. An unchecked box does
+          // not revoke a customer's existing consent, but a checked box may
+          // explicitly opt an existing customer back in.
+          const [updated] = await tx
+            .update(sosCustomersTable)
+            .set({ smsOptIn: true })
+            .where(eq(sosCustomersTable.id, customer.id))
+            .returning();
+          customer = updated;
       }
 
       // Duplicate guard: the same customer re-submitting the same slot+service

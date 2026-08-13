@@ -10,6 +10,7 @@ import { Link } from 'wouter';
 const EFFECTIVE_DATE = 'August 4, 2026';
 const CONTACT_EMAIL = 'privacy@getnextinline.com';
 const APP_NAME = 'Get Next In Line';
+export const PRIVACY_POLICY_URL = 'https://www.getnextinline.com/privacy';
 
 interface SectionProps {
   id: string;
@@ -159,16 +160,14 @@ export default function PrivacyPolicyPage() {
 
           <Section id="sms-communications" title="SMS Communications">
             <P>
-              When you provide your phone number to a business on our platform, you may
-              receive SMS messages from that business via Get Next In Line. These include:
+              By providing your mobile number and affirmatively opting in, you consent
+              to receive transactional text messages from Get Next In Line and the
+              business you are visiting, including check-in confirmations, queue
+              updates, appointment reminders, service notifications, and tracking
+              links. Message frequency varies. Message and data rates may apply. Reply
+              STOP to opt out or HELP for assistance. Consent is not a condition of
+              purchase.
             </P>
-            <Ul items={[
-              "Queue position updates and \u201cyou\u2019re next\u201d notifications.",
-              'Appointment confirmations, reminders, and cancellation notices.',
-              'Waitlist availability alerts.',
-              'Perk availability announcements or co-op campaign messages (only if the business sends them and you have not opted out).',
-              'Post-visit feedback requests (a one-time SMS after your visit).',
-            ]} />
             <P>
               <strong>Opt-out:</strong> Reply <strong>STOP</strong> to any message to
               unsubscribe. Reply <strong>HELP</strong> for assistance. Message and data
@@ -227,11 +226,13 @@ export default function PrivacyPolicyPage() {
           <Section id="coop-network" title="Co-Op Business Network">
             <P>
               Get Next In Line operates a co-op network where independent businesses
-              partner to offer mutual perks, cross-referrals, and shared promotions.
+              partner to offer mutual perks and cross-referrals. Co-op promotions are
+              presented through the platform and do not use mobile phone numbers or SMS
+              opt-in data for marketing or promotional sharing.
               Within this network:
             </P>
             <Ul items={[
-              'Businesses can issue perk passes redeemable at partner locations. Your phone number and pass code are shared with the redeeming partner business when you present a pass.',
+              'Businesses can issue perk passes redeemable at partner locations. Your phone number and pass code are shared with the redeeming partner business only when you explicitly request or redeem that partner service, not for advertising.',
               'Revenue-share obligations, referral fees, and co-op settlement data are recorded in a compliance ledger for tax and audit purposes.',
               'Franchise networks (multi-location businesses) may share customer data across their own locations.',
               'Anonymous aggregate statistics (redemption counts, campaign reach) may be shared within a partnership to measure co-op value.',
@@ -247,14 +248,22 @@ export default function PrivacyPolicyPage() {
             <P>We share personal information only in these circumstances:</P>
             <Ul items={[
               "With the business you are visiting — your name, phone number, service history, and visit status are visible to that business's staff through their dashboard.",
-              'With co-op partner businesses, as described above, to the extent required to deliver a perk.',
+              'With co-op partner businesses, only when you explicitly request or redeem a partner service and only to the extent required to deliver that service — not for advertising or promotions.',
               'With Twilio to send and receive SMS messages on behalf of the business.',
               'With Stripe to process payment holds and deposits.',
               'With our infrastructure providers (database hosting, cloud compute) under data processing agreements.',
               'When required by law, court order, or to protect rights and safety.',
               'In connection with a merger, acquisition, or asset sale — we will notify you via the email or phone on file and/or a prominent notice on this page.',
             ]} />
-            <P>We do not sell personal information to third parties.</P>
+            <P>
+              <strong>Mobile information and SMS consent:</strong> We do not share,
+              sell, rent, or provide mobile phone numbers, SMS opt-in data, or
+              messaging consent to third parties or affiliates for marketing or
+              promotional purposes. Information may be shared with service providers,
+              such as Twilio, solely to deliver and support our text-messaging program.
+              All other categories exclude text-messaging originator opt-in data and
+              consent; this information will not be shared with any third parties.
+            </P>
           </Section>
 
           <Section id="retention" title="Data Retention">

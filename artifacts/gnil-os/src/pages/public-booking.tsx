@@ -12,11 +12,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Calendar, CheckCircle2, ChevronLeft, Clock, User, Scissors, Users,
 } from 'lucide-react';
+import { PRIVACY_POLICY_URL } from './privacy-policy';
 
 /**
  * Public, no-login booking flow: pick a service → optionally a staff
@@ -27,6 +29,8 @@ import {
  */
 
 type Step = 'service' | 'staff' | 'time' | 'details' | 'done';
+const SMS_CONSENT_TEXT =
+  'I agree to receive transactional text messages from Get Next In Line and the business I’m visiting about my queue status, appointments, and services. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.';
 
 const fmtPrice = (p: number | null | undefined) =>
   p == null ? null : `$${p.toFixed(2)}`;
@@ -80,7 +84,7 @@ function PublicShell({ embed, children }: { embed: boolean; children: React.Reac
         {children}
         <footer className="pt-6 pb-2 text-center">
           <a
-            href={`${import.meta.env.BASE_URL}privacy`}
+            href={PRIVACY_POLICY_URL}
             className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
             data-testid="link-public-booking-privacy-footer"
           >
@@ -101,6 +105,7 @@ function BookingFlow({ config, slug }: { config: PublicBookingConfig; slug: stri
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [smsOptIn, setSmsOptIn] = useState(false);
   const [confirmation, setConfirmation] = useState<PublicBookingConfirmation | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -136,6 +141,7 @@ function BookingFlow({ config, slug }: { config: PublicBookingConfig; slug: stri
           name: name.trim(),
           ...(phone.trim() ? { phone: phone.trim() } : {}),
           ...(email.trim() ? { email: email.trim() } : {}),
+           smsOptIn,
         },
       },
       {
@@ -214,7 +220,7 @@ function BookingFlow({ config, slug }: { config: PublicBookingConfig; slug: stri
               onClick={() => {
                 setStep('service');
                 setServiceId(null); setStaffId(null); setSlot(null);
-                setName(''); setPhone(''); setEmail(''); setConfirmation(null);
+                 setName(''); setPhone(''); setEmail(''); setSmsOptIn(false); setConfirmation(null);
               }}
               data-testid="button-book-another"
             >
@@ -366,13 +372,34 @@ function BookingFlow({ config, slug }: { config: PublicBookingConfig; slug: stri
             <Input id="public-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jane@example.com" data-testid="input-public-email" />
             <p className="text-xs text-muted-foreground">We need a phone number or email to confirm your booking.</p>
           </div>
+          <div className="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <Checkbox
+              id="public-sms-consent"
+              checked={smsOptIn}
+              onCheckedChange={(checked) => setSmsOptIn(checked === true)}
+              data-testid="checkbox-public-sms-consent"
+            />
+            <Label
+              htmlFor="public-sms-consent"
+              className="text-xs font-normal leading-relaxed text-muted-foreground cursor-pointer"
+            >
+              {SMS_CONSENT_TEXT}{' '}
+              <a
+                href={PRIVACY_POLICY_URL}
+                className="text-primary underline underline-offset-2 hover:text-primary/80 whitespace-nowrap"
+                data-testid="link-public-booking-sms-privacy"
+              >
+                [Privacy Policy]
+              </a>
+            </Label>
+          </div>
           {error && (
             <p className="text-sm text-destructive" data-testid="text-public-booking-error">{error}</p>
           )}
            <p className="text-xs text-muted-foreground leading-relaxed">
              By booking, you agree that your information will be handled according to our{' '}
              <a
-               href={`${import.meta.env.BASE_URL}privacy`}
+               href={PRIVACY_POLICY_URL}
                className="text-primary underline underline-offset-2 hover:text-primary/80"
                data-testid="link-public-booking-privacy"
              >
