@@ -160,13 +160,11 @@ export default function PrivacyPolicyPage() {
 
           <Section id="sms-communications" title="SMS Communications">
             <P>
-              By providing your mobile number and affirmatively opting in, you consent
-              to receive transactional text messages from Get Next In Line and the
-              business you are visiting, including check-in confirmations, queue
-              updates, appointment reminders, service notifications, and tracking
-              links. Message frequency varies. Message and data rates may apply. Reply
-              STOP to opt out or HELP for assistance. Consent is not a condition of
-              purchase.
+              Customers who affirmatively opt in may receive transactional messages
+              including check-in confirmations, queue updates, appointment reminders,
+              service notifications, and tracking links. Message frequency varies.
+              Message and data rates may apply. Reply STOP to opt out or HELP for
+              assistance. Consent is not a condition of purchase.
             </P>
             <P>
               <strong>Opt-out:</strong> Reply <strong>STOP</strong> to any message to
@@ -174,9 +172,10 @@ export default function PrivacyPolicyPage() {
               rates may apply. We honor carrier-level STOP and carrier unsubscribe signals.
             </P>
             <P>
-              SMS messages are delivered via Twilio. Your phone number is shared with
-              Twilio solely to send and receive messages on behalf of the business you
-              interact with. Twilio's privacy policy applies to their processing.
+              Twilio acts as a messaging service provider, not a marketing recipient.
+              Mobile information and messaging consent may be provided to Twilio solely
+              when necessary to deliver and support the text-messaging program.
+              Twilio's privacy policy applies to their processing.
             </P>
             <P>
               Inbound SMS replies (including feedback ratings, confirmation keywords, and
@@ -219,7 +218,9 @@ export default function PrivacyPolicyPage() {
               Your wallet data is shared among participating co-op businesses only to
               the extent necessary to validate a perk redemption (e.g., the scanning
               business sees that a valid pass exists and whether it has been redeemed).
-              Your full redemption history is not broadly visible across the network.
+              Mobile phone numbers, SMS opt-in data, and messaging consent are not
+              shared with co-op businesses for marketing or promotional purposes. Your
+              full redemption history is not broadly visible across the network.
             </P>
           </Section>
 
@@ -232,38 +233,43 @@ export default function PrivacyPolicyPage() {
               Within this network:
             </P>
             <Ul items={[
-              'Businesses can issue perk passes redeemable at partner locations. Your phone number and pass code are shared with the redeeming partner business only when you explicitly request or redeem that partner service, not for advertising.',
+              'Businesses can issue perk passes redeemable at partner locations. A redeeming partner receives only the minimum information needed to validate and deliver the partner service you explicitly request or redeem; mobile phone numbers, SMS opt-in data, and messaging consent are not provided for advertising, marketing, or promotions.',
               'Revenue-share obligations, referral fees, and co-op settlement data are recorded in a compliance ledger for tax and audit purposes.',
-              'Franchise networks (multi-location businesses) may share customer data across their own locations.',
+              'Franchise networks (multi-location businesses) may share information across their own locations for operational service delivery, but not mobile phone numbers, SMS opt-in data, or messaging consent for marketing or promotional purposes.',
               'Anonymous aggregate statistics (redemption counts, campaign reach) may be shared within a partnership to measure co-op value.',
             ]} />
             <P>
               We do not sell consumer data to co-op partners. Data shared between
-              partner businesses through the platform is limited to what is needed to
-              deliver the perk or service you requested.
+              partner businesses through the platform is limited to the minimum
+              non-marketing information needed to deliver the perk or service you
+              explicitly requested. Mobile phone numbers, SMS opt-in data, and
+              messaging consent are excluded from promotional sharing.
             </P>
           </Section>
 
           <Section id="sharing" title="Sharing & Disclosure">
+            <P>
+              We do not share, sell, or provide your mobile phone number, SMS opt-in
+              data, or messaging consent data to third parties or affiliates for
+              marketing or promotional purposes.
+            </P>
+            <P>
+              Mobile information and messaging consent may be provided only to service
+              providers, such as Twilio, when necessary to operate and deliver the
+              messaging program. All other categories exclude text-messaging originator
+              opt-in data and consent; this information will not be shared with third
+              parties.
+            </P>
             <P>We share personal information only in these circumstances:</P>
             <Ul items={[
               "With the business you are visiting — your name, phone number, service history, and visit status are visible to that business's staff through their dashboard.",
-              'With co-op partner businesses, only when you explicitly request or redeem a partner service and only to the extent required to deliver that service — not for advertising or promotions.',
-              'With Twilio to send and receive SMS messages on behalf of the business.',
+              'With co-op partner businesses, only the minimum non-marketing information required to validate or deliver a partner service that you explicitly request or redeem. Mobile phone numbers, SMS opt-in data, and messaging consent are excluded from promotional sharing.',
+              'With Twilio, acting as a messaging service provider, solely to deliver and support the text-messaging program.',
               'With Stripe to process payment holds and deposits.',
               'With our infrastructure providers (database hosting, cloud compute) under data processing agreements.',
               'When required by law, court order, or to protect rights and safety.',
               'In connection with a merger, acquisition, or asset sale — we will notify you via the email or phone on file and/or a prominent notice on this page.',
             ]} />
-            <P>
-              <strong>Mobile information and SMS consent:</strong> We do not share,
-              sell, rent, or provide mobile phone numbers, SMS opt-in data, or
-              messaging consent to third parties or affiliates for marketing or
-              promotional purposes. Information may be shared with service providers,
-              such as Twilio, solely to deliver and support our text-messaging program.
-              All other categories exclude text-messaging originator opt-in data and
-              consent; this information will not be shared with any third parties.
-            </P>
           </Section>
 
           <Section id="retention" title="Data Retention">
