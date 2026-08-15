@@ -1,0 +1,84 @@
+---
+"@context": https://schema.org
+"@type": TechArticle
+"@id": https://www.twilio.com/docs/api/errors/30908#article
+headline: "30908: Campaign vetting rejection - Compliant Privacy Policy Required"
+url: https://www.twilio.com/docs/api/errors/30908
+inLanguage: en
+dateModified: 2026-07-23T10:57:56.000Z
+author:
+  "@type": Organization
+  name: Twilio Developer Education Team
+publisher:
+  "@type": Organization
+  name: Twilio
+---
+
+# 30908: Campaign vetting rejection - Compliant Privacy Policy Required
+
+Log Type: APPLICATION
+
+Log Level: ERROR
+
+## Description
+
+Your A2P 10DLC campaign submission was rejected during vetting because the privacy policy in your registration could not be verified as compliant. This usually means the privacy policy was missing from the website or `message_flow`, contained conflicting information, or did not include the required statement that mobile information and messaging consent are not shared with third parties or affiliates for marketing or promotional purposes.
+
+### Possible causes
+
+- Your campaign registration request does not include a `PrivacyPolicyUrl`. This field is required for all new A2P 10DLC campaign submissions.
+- A compliant privacy policy was not found on the website you submitted or in the `message_flow` details.
+- Your registration points to multiple privacy policies or inconsistent policy content, which prevents review from confirming which policy applies.
+- Your privacy policy says mobile information, opt-in data, or consent data is shared, sold, or otherwise provided to third parties or affiliates for marketing or promotional purposes.
+- Your privacy policy does not clearly explain what data you collect and how you use it for messaging.
+- Your website-based opt-in flow is missing required messaging disclosures in the privacy policy, such as message frequency or the "message and data rates may apply" disclosure.
+
+### Possible solutions
+
+- Add a `PrivacyPolicyUrl` to your campaign registration request. The URL must be publicly accessible, not behind a login, and point to a privacy policy relevant to your registered brand.
+- Add a publicly accessible privacy policy to the website used in your campaign registration and include the direct policy link in your `message_flow`. If you register through the API, provide the same public URL in `PrivacyPolicyUrl`.
+- Update the privacy policy so it clearly states that mobile information and messaging consent are not shared with third parties or affiliates for marketing or promotional purposes.
+- Make sure the privacy policy explains what customer data you collect and how that data is used in your messaging program.
+- If your opt-in flow happens on a website, include the required messaging disclosures in the privacy policy, including message frequency and "message and data rates may apply."
+- Remove duplicate or conflicting privacy policies so reviewers can verify one clear policy for the registered brand and campaign.
+
+### Fix by cause
+
+#### Privacy policy missing the non-sharing statement
+
+> \[!WARNING]
+>
+> The following privacy policy language would be rejected:
+>
+> `We may share your personal information with third-party partners for marketing purposes.`
+>
+> This directly contradicts the required non-sharing statement for mobile messaging consent data.
+
+> \[!NOTE]
+>
+> The following privacy policy language would pass review:
+>
+> `We do not share, sell, or provide your mobile phone number or messaging consent data to third parties or affiliates for marketing or promotional purposes.`
+>
+> Passes because it explicitly states that mobile opt-in data is not shared with third parties for marketing.
+
+#### Multiple or conflicting privacy policies
+
+> \[!WARNING]
+>
+> The following submission would be rejected:
+>
+> A website with two different privacy policy pages that contain conflicting statements about data sharing. Reviewers cannot determine which policy applies.
+
+> \[!NOTE]
+>
+> The following submission would pass review:
+>
+> A single, clearly labeled privacy policy linked from the opt-in page at www.acmesandwich.com/privacy. The policy states mobile numbers are not shared, includes message frequency, and includes "message and data rates may apply."
+>
+> Passes because there is one unambiguous privacy policy that meets all disclosure requirements.
+
+#### Additional resources
+
+- [A2P 10DLC - Gather the Required Business Information](/docs/messaging/compliance/a2p-10dlc/collect-business-info)
+- [A2P 10DLC Campaign Approval Best Practices](https://help.twilio.com/articles/11847054539547-A2P-10DLC-Campaign-Approval-Best-Practices)
