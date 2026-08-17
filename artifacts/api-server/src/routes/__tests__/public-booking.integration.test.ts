@@ -239,6 +239,19 @@ describe("booking creation", () => {
       .expect(400);
   });
 
+  it("requires a phone number when SMS consent is checked", async () => {
+    await anon
+      .post(`/api/public/booking/${SLUG}/appointments`)
+      .send({
+        serviceId,
+        startsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        name: `Email Only Opt In ${RUN}`,
+        email: `email-only-${RUN}@example.com`,
+        smsOptIn: true,
+      })
+      .expect(400);
+  });
+
   it("under concurrent contention, exactly one booking wins the same slot", async () => {
     // A different future slot (day after the earlier bookings) with 5
     // simultaneous customers racing for it. Capacity is 1 resource, so the

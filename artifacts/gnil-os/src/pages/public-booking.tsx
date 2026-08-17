@@ -29,8 +29,11 @@ import { PRIVACY_POLICY_URL } from './privacy-policy';
  */
 
 type Step = 'service' | 'staff' | 'time' | 'details' | 'done';
-const SMS_CONSENT_TEXT =
-  'I agree to receive transactional text messages from Get Next In Line and the business I’m visiting about my queue status, appointments, and services. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.';
+const TERMS_URL = 'https://www.getnextinline.com/terms';
+
+function smsConsentText(businessName: string) {
+  return `I agree to receive transactional text messages from ${businessName} via Get Next In Line about my queue status, appointments, and services. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.`;
+}
 
 const fmtPrice = (p: number | null | undefined) =>
   p == null ? null : `$${p.toFixed(2)}`;
@@ -376,22 +379,42 @@ function BookingFlow({ config, slug }: { config: PublicBookingConfig; slug: stri
             <Checkbox
               id="public-sms-consent"
               checked={smsOptIn}
+              disabled={!phone.trim()}
               onCheckedChange={(checked) => setSmsOptIn(checked === true)}
               data-testid="checkbox-public-sms-consent"
             />
-            <Label
-              htmlFor="public-sms-consent"
-              className="text-xs font-normal leading-relaxed text-muted-foreground cursor-pointer"
-            >
-              {SMS_CONSENT_TEXT}{' '}
-              <a
-                href={PRIVACY_POLICY_URL}
-                className="text-primary underline underline-offset-2 hover:text-primary/80 whitespace-nowrap"
-                data-testid="link-public-booking-sms-privacy"
+            <div className="space-y-1">
+              <Label
+                htmlFor="public-sms-consent"
+                className={`text-xs font-normal leading-relaxed text-muted-foreground ${
+                  phone.trim() ? 'cursor-pointer' : 'cursor-not-allowed'
+                }`}
               >
-                [Privacy Policy]
-              </a>
-            </Label>
+                <span className="font-medium text-foreground">Optional SMS updates.</span>{' '}
+                {smsConsentText(config.businessName || config.brandName)}{' '}
+                <a
+                  href={PRIVACY_POLICY_URL}
+                  className="text-primary underline underline-offset-2 hover:text-primary/80 whitespace-nowrap"
+                  data-testid="link-public-booking-sms-privacy"
+                >
+                  Privacy Policy
+                </a>{' '}
+                and{' '}
+                <a
+                  href={TERMS_URL}
+                  className="text-primary underline underline-offset-2 hover:text-primary/80 whitespace-nowrap"
+                  data-testid="link-public-booking-sms-terms"
+                >
+                  Terms
+                </a>
+                .
+              </Label>
+              {!phone.trim() && (
+                <p className="text-[11px] text-muted-foreground">
+                  Enter a mobile phone number above to enable SMS consent.
+                </p>
+              )}
+            </div>
           </div>
           {error && (
             <p className="text-sm text-destructive" data-testid="text-public-booking-error">{error}</p>

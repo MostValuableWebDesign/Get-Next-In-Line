@@ -288,6 +288,10 @@ router.post(
       res.status(400).json({ message: "That phone number doesn't look right." });
       return;
     }
+    if (body.smsOptIn === true && !phone) {
+      res.status(400).json({ message: "A mobile phone number is required for SMS consent." });
+      return;
+    }
 
     const service = activeServices(ctx.services).find((s) => s.id === body.serviceId);
     if (!service) {

@@ -14,6 +14,7 @@
 - Stale `lib/*/dist` .d.ts causes phantom "no exported member" typecheck errors in consumers; artifact typecheck scripts must `tsc -b` their lib refs first (api-server and gnil-os both do now).
 - [SOS platform decisions](sos-platform.md) — SOS routes intentionally public (no auth yet), simulated-SMS fallback, AI parse fallback, conditional-update concurrency guards.
 - [Twilio SMS transport](twilio-sms-transport.md) — connector withholds raw creds; sends go via connectors-sdk proxy (disabled under NODE_ENV=test); inbound signature checks still need TWILIO_AUTH_TOKEN.
+- [Twilio CTA vetting](twilio-cta-vetting.md) — campaign message flow must point to a live booking CTA reviewers can follow, not just the privacy policy.
 - [Dev DB drift behind Drizzle schema](dev-db-drift.md) — on missing-column query errors, diff information_schema vs schema and push additive DDL.
 - [SOS tenant scoping](sos-tenant-scoping.md) — `x-tenant-id` is now mandatory on /api/sos: numeric id or the explicit `"legacy"` sentinel (NULL scope); missing/malformed → 400. coop/safety still treat non-numeric as null. Campaign codes unique per (tenant, code); coop redemption codes per (host, code) — lookups must stay caller-scoped.
 - [messages.origin classification](messages-origin.md) — filter message surfaces on `origin`, never on tenant_id nullability; tenant scoping is a separate filter.
