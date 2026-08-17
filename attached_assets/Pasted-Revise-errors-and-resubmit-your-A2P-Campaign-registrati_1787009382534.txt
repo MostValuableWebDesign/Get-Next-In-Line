@@ -1,0 +1,42 @@
+Revise errors and resubmit your A2P Campaign registration
+Campaign description
+This campaign sends customer care and appointment-related SMS messages from the GetNextInLine app to customers who have opted in during the barber shop check-in process. Messages include queue confirmation, estimated wait times, queue position updates, notifications when the customer is next in line, alerts when the barber is ready, appointment status updates, and responses to customer support inquiries. These messages are intended to provide real-time queue management and improve the customer check-in experience. Customers may reply to receive assistance or manage their queue status.
+Sample message #1
+You're checked in at [Barbershop Name]! You're currently #[Queue Position] in line. Estimated wait: [Estimated Wait]. View your status anytime: [Tracking URL]. Reply STOP to opt out.
+Sample message #2
+Your queue position at [Barbershop Name] has been updated. You're now #[Queue Position] with an estimated wait of [Estimated Wait]. View live updates: [Tracking URL]. Reply STOP to opt out.
+Sample message #3
+You're next in line at [Barbershop Name]! Please be ready. Your barber will be available shortly. Track your status: [Tracking URL]. Reply STOP to opt out.
+Sample message #4
+[Barber Name] is ready for you! Please proceed to your barber now. View your queue status: [Tracking URL]. Reply STOP to opt out.
+Sample message #5
+Your estimated wait at [Barbershop Name] has changed to [Estimated Wait]. Track your place in line here: [Tracking URL]. Reply STOP to opt out.
+Select any content your messages may contain:
+
+Embedded links
+
+Phone numbers
+
+Content related to direct lending or other loan arrangement
+
+Age-gated content as defined by carrier and CTIA guidelines
+Provide link to the Campaign's privacy policy
+https://www.getnextinline.com/privacy
+Provide link to Campaign's terms of service
+https://www.getnextinline.com/terms
+How do end-users consent to receive messages?
+Customers opt in by providing their mobile phone number during the digital check-in process at a participating barber shop. Before joining the queue, customers are presented with a checkbox that states they agree to receive SMS notifications related to their visit, including queue confirmations, estimated wait times, queue position updates, and notifications when it is their turn or when their barber is ready. Customers must actively check the consent box before submitting the form. Links to the Terms & Conditions and Privacy Policy are displayed during the check-in process. Customers may reply STOP at any time to opt out or HELP for assistance.
+List all opt-in keywords
+START,YES,UNSTOP
+What is the opt-in message?
+You're subscribed! You'll receive real-time queue updates, estimated wait times, and notifications when it's your turn at [Barbershop Name]. Reply HELP for help or STOP to unsubscribe. Msg & data rates may apply.
+List all opt-out keywords
+CANCEL,QUIT,STOP,OPTOUT,UNSUBSCRIBE,STOPALL,REVOKE,END
+What is the opt-out message?
+You have successfully been unsubscribed. You will not receive any more messages from this number. Reply START to resubscribe.
+List all help keywords
+HELP,INFO
+What is the help message?
+Reply STOP to unsubscribe. Msg&Data Rates May Apply.
+
+I confirm the information entered here is ready to submit for review.
