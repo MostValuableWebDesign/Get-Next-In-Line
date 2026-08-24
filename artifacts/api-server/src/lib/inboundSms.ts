@@ -4,11 +4,12 @@
  * Twilio console ("A message comes in" → this URL).
  */
 
-export type InboundKeyword = "yes" | "stop" | "start" | "none";
+export type InboundKeyword = "yes" | "stop" | "start" | "help" | "none";
 
 // Twilio-standard opt-out / opt-in keywords.
 const STOP_WORDS = new Set(["stop", "stopall", "unsubscribe", "cancel", "end", "quit"]);
 const START_WORDS = new Set(["start", "unstop", "subscribe"]);
+const HELP_WORDS = new Set(["help", "info"]);
 const YES_WORDS = new Set(["yes", "y", "yea", "yeah", "yep", "yes!"]);
 
 /**
@@ -24,6 +25,7 @@ export function parseInboundKeyword(body: string | null | undefined): InboundKey
   if (YES_WORDS.has(cleaned)) return "yes";
   if (STOP_WORDS.has(cleaned)) return "stop";
   if (START_WORDS.has(cleaned)) return "start";
+  if (HELP_WORDS.has(cleaned)) return "help";
   return "none";
 }
 

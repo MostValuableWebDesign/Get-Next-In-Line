@@ -7,6 +7,8 @@ import {
   sosResourcesTable,
   sosSettingsTable,
   sosCustomersTable,
+  sosSmsConsentRecordsTable,
+  sosVisitsTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 
@@ -314,5 +316,232 @@ describe("booking creation", () => {
         phone: "+15551112222",
       })
       .expect(409);
+  });
+});
+
+describe("public digital queue check-in", () => {
+  const CHECK_IN_PHONE = "+15556660000";
+
+  it("serves active-business check-in context without a session", async () => {
+    const res = await anon.get(`/api/public/check-in/${SLUG}`).expect(200);
+    expect(res.body.businessName).toBe(`PubBook Salon ${RUN}`);
+    expect(res.body.services).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: serviceId, name: `Public Cut ${RUN}` })]),
+    );
+
+    await anon.get(`/api/public/check-in/no-such-business-${RUN}`).expect(404);
+  });
+
+  it("creates an unchecked-consent queue visit that staff can see", async () => {
+    const res = await anon
+      .post(`/api/public/check-in/${SLUG}`)
+      .send({
+        serviceId,
+        name: `Queue Guest ${RUN}`,
+        phone: CHECK_IN_PHONE,
+        partySize: 3,
+        smsOptIn: false,
+      })
+      .expect(201);
+
+    expect(res.body.serviceType).toBe(`Public Cut ${RUN}`);
+    expect(res.body.businessName).toBe(`PubBook Salon ${RUN}`);
+
+    const [customer] = await db
+      .select()
+      .from(sosCustomersTable)
+      .where(
+        eq(sosCustomersTable.phone, CHECK_IN_PHONE),
+      );
+    expect(customer.tenantId).toBe(tenantId);
+    expect(customer.smsOptIn).toBe(false);
+    expect(customer.visitCount).toBe(1);
+
+    const [visit] = await db
+      .select()
+      .from(sosVisitsTable)
+      .where(eq(sosVisitsTable.id, res.body.visitId));
+    expect(visit).toMatchObject({
+      tenantId,
+      customerId: customer.id,
+      serviceType: `Public Cut ${RUN}`,
+      partySize: 3,
+      status: "checked_in",
+    });
+
+    const activeVisits = await staff
+      .get("/api/sos/visits?active=true")
+      .set("x-tenant-id", String(tenantId))
+      .expect(200);
+    expect(activeVisits.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: visit.id,
+          customerName: `Queue Guest ${RUN}`,
+          serviceType: `Public Cut ${RUN}`,
+        }),
+      ]),
+    );
+  });
+
+  it("records affirmative SMS consent but rejects submissions without a mobile number", async () => {
+    const optedInPhone = "+15556660001";
+    await anon
+      .post(`/api/public/check-in/${SLUG}`)
+      .send({
+        serviceId,
+        name: `Opted In Guest ${RUN}`,
+        phone: optedInPhone,
+        smsOptIn: true,
+      })
+      .expect(201);
+
+    const [optedIn] = await db
+      .select()
+      .from(sosCustomersTable)
+      .where(eq(sosCustomersTable.phone, optedInPhone));
+    expect(optedIn).toMatchObject({ tenantId, smsOptIn: true });
+
+    const [consentRecord] = await db
+      .select()
+      .from(sosSmsConsentRecordsTable)
+      .where(eq(sosSmsConsentRecordsTable.customerId, optedIn.id));
+    expect(consentRecord).toMatchObject({
+      tenantId,
+      phone: optedInPhone,
+      source: "public_check_in",
+      disclosureVersion: "public-check-in-v1",
+    });
+    expect(consentRecord.disclosureText).toContain(`PubBook Salon ${RUN}`);
+    expect(consentRecord.consentedAt).toBeInstanceOf(Date);
+
+    await anon
+      .post(`/api/public/check-in/${SLUG}`)
+      .send({
+        serviceId,
+        name: `Missing Phone Consent ${RUN}`,
+        smsOptIn: true,
+      })
+      .expect(400);
+  });
+
+  it("does not let a public browser re-enable an opted-out number", async () => {
+    const optedOutPhone = "+15556660002";
+    await db.insert(sosCustomersTable).values({
+      tenantId,
+      name: `Opted Out Guest ${RUN}`,
+      phone: optedOutPhone,
+      smsOptIn: false,
+    });
+
+    await anon
+      .post(`/api/public/check-in/${SLUG}`)
+      .send({
+        serviceId,
+        name: `Opted Out Guest ${RUN}`,
+        phone: optedOutPhone,
+        smsOptIn: true,
+      })
+      .expect(409);
+
+    const [optedOut] = await db
+      .select()
+      .from(sosCustomersTable)
+      .where(eq(sosCustomersTable.phone, optedOutPhone));
+    expect(optedOut.smsOptIn).toBe(false);
+  });
+
+  it("records CTA consent evidence for an existing opted-in customer", async () => {
+    const existingPhone = "+15556660004";
+    const [existingCustomer] = await db
+      .insert(sosCustomersTable)
+      .values({
+        tenantId,
+        name: `Existing Opted In Guest ${RUN}`,
+        phone: existingPhone,
+        smsOptIn: true,
+      })
+      .returning();
+
+    await anon
+      .post(`/api/public/check-in/${SLUG}`)
+      .set("user-agent", "public-checkin-consent-test")
+      .send({
+        serviceId,
+        name: `Existing Opted In Guest ${RUN}`,
+        phone: existingPhone,
+        smsOptIn: true,
+      })
+      .expect(201);
+
+    const [consentRecord] = await db
+      .select()
+      .from(sosSmsConsentRecordsTable)
+      .where(eq(sosSmsConsentRecordsTable.customerId, existingCustomer.id));
+    expect(consentRecord).toMatchObject({
+      source: "public_check_in",
+      disclosureVersion: "public-check-in-v1",
+      userAgent: "public-checkin-consent-test",
+    });
+  });
+
+  it("rejects a whitespace-only customer name", async () => {
+    await anon
+      .post(`/api/public/check-in/${SLUG}`)
+      .send({
+        serviceId,
+        name: "   ",
+        phone: "+15556660003",
+      })
+      .expect(400);
+  });
+
+  it("rejects duplicate active check-ins for the same customer and service", async () => {
+    await anon
+      .post(`/api/public/check-in/${SLUG}`)
+      .send({
+        serviceId,
+        name: `Queue Guest ${RUN}`,
+        phone: CHECK_IN_PHONE,
+      })
+      .expect(409);
+  });
+
+  it("keeps matching phone numbers isolated by tenant slug", async () => {
+    const otherSlug = `${RUN}-checkin-b`;
+    const [otherTenant] = await db
+      .insert(tenantsTable)
+      .values({ brandName: `Other ${RUN}`, subdomain: otherSlug, status: "active" })
+      .returning({ id: tenantsTable.id });
+
+    try {
+      await db.insert(sosSettingsTable).values({
+        tenantId: otherTenant.id,
+        businessName: `Other Check In ${RUN}`,
+      });
+      const [otherService] = await db
+        .insert(sosServicesTable)
+        .values({ tenantId: otherTenant.id, name: `Other Service ${RUN}`, isActive: true })
+        .returning({ id: sosServicesTable.id });
+
+      await anon
+        .post(`/api/public/check-in/${otherSlug}`)
+        .send({
+          serviceId: otherService.id,
+          name: `Same Phone Different Tenant ${RUN}`,
+          phone: CHECK_IN_PHONE,
+        })
+        .expect(201);
+
+      const matchingCustomers = await db
+        .select()
+        .from(sosCustomersTable)
+        .where(eq(sosCustomersTable.phone, CHECK_IN_PHONE));
+      expect(matchingCustomers.map((customer) => customer.tenantId).sort()).toEqual(
+        [tenantId, otherTenant.id].sort(),
+      );
+    } finally {
+      await db.delete(tenantsTable).where(eq(tenantsTable.id, otherTenant.id));
+    }
   });
 });

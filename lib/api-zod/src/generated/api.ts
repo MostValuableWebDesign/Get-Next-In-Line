@@ -8442,6 +8442,8 @@ export const CreatePublicBookingParams = zod.object({
 
 export const createPublicBookingBodyNameMax = 120;
 
+
+export const createPublicBookingBodyNameRegExp = new RegExp('\\S');
 export const createPublicBookingBodyPhoneMax = 30;
 
 export const createPublicBookingBodyEmailMax = 254;
@@ -8452,7 +8454,7 @@ export const CreatePublicBookingBody = zod.object({
   "serviceId": zod.number(),
   "startsAt": zod.string(),
   "resourceId": zod.number().optional(),
-  "name": zod.string().min(1).max(createPublicBookingBodyNameMax),
+  "name": zod.string().min(1).max(createPublicBookingBodyNameMax).regex(createPublicBookingBodyNameRegExp),
   "phone": zod.string().max(createPublicBookingBodyPhoneMax).optional(),
   "email": zod.string().max(createPublicBookingBodyEmailMax).optional(),
   "smsOptIn": zod.boolean().optional().describe('Explicit consent to receive transactional SMS messages from Get Next In Line and the business being visited.')
@@ -8465,6 +8467,64 @@ export const CreatePublicBookingResponse = zod.object({
   "endsAt": zod.string(),
   "businessName": zod.string(),
   "staffName": zod.string().nullish()
+})
+
+
+/**
+ * @summary Public (unauthenticated) digital queue check-in config for an active business, keyed by tenant subdomain slug
+ */
+export const GetPublicCheckInConfigParams = zod.object({
+  "slug": zod.coerce.string()
+})
+
+export const GetPublicCheckInConfigResponse = zod.object({
+  "slug": zod.string(),
+  "brandName": zod.string(),
+  "businessName": zod.string(),
+  "services": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "category": zod.string().nullable(),
+  "description": zod.string().nullable(),
+  "price": zod.number().nullable(),
+  "durationMinutes": zod.number().nullable()
+})),
+  "capacityStatus": zod.union([zod.literal('available'),zod.literal('moderate'),zod.literal('busy'),zod.literal(null)]).nullable().describe('Live capacity status (busy \/ moderate \/ available); null when unavailable.')
+})
+
+
+/**
+ * @summary Check into a business's live queue publicly with optional affirmative transactional SMS consent
+ */
+export const CreatePublicCheckInParams = zod.object({
+  "slug": zod.coerce.string()
+})
+
+export const createPublicCheckInBodyNameMax = 120;
+
+
+export const createPublicCheckInBodyNameRegExp = new RegExp('\\S');
+export const createPublicCheckInBodyPhoneMin = 7;
+export const createPublicCheckInBodyPhoneMax = 30;
+
+export const createPublicCheckInBodyPartySizeDefault = 1;
+export const createPublicCheckInBodyPartySizeMax = 20;
+
+
+
+export const CreatePublicCheckInBody = zod.object({
+  "serviceId": zod.number(),
+  "name": zod.string().min(1).max(createPublicCheckInBodyNameMax).regex(createPublicCheckInBodyNameRegExp),
+  "phone": zod.string().min(createPublicCheckInBodyPhoneMin).max(createPublicCheckInBodyPhoneMax),
+  "partySize": zod.number().min(1).max(createPublicCheckInBodyPartySizeMax).default(createPublicCheckInBodyPartySizeDefault),
+  "smsOptIn": zod.boolean().optional().describe('Explicit consent to receive transactional SMS queue updates from Get Next In Line and the business being visited.')
+})
+
+export const CreatePublicCheckInResponse = zod.object({
+  "visitId": zod.number(),
+  "serviceType": zod.string(),
+  "businessName": zod.string(),
+  "checkedInAt": zod.string()
 })
 
 

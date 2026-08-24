@@ -21,6 +21,12 @@ describe("parseInboundKeyword", () => {
     }
   });
 
+  it("matches HELP keywords", () => {
+    for (const body of ["HELP", "help", " Help! ", "INFO"]) {
+      expect(parseInboundKeyword(body), body).toBe("help");
+    }
+  });
+
   it("returns none for non-keyword, ambiguous, or empty messages", () => {
     for (const body of [
       "",

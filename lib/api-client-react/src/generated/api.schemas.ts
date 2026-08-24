@@ -3181,6 +3181,7 @@ export interface PublicBookingInput {
   /**
      * @minLength 1
      * @maxLength 120
+     * @pattern \S
      */
   name: string;
   /** @maxLength 30 */
@@ -3199,6 +3200,60 @@ export interface PublicBookingConfirmation {
   businessName: string;
   /** @nullable */
   staffName?: string | null;
+}
+
+/**
+ * Live capacity status (busy / moderate / available); null when unavailable.
+ * @nullable
+ */
+export type PublicCheckInConfigCapacityStatus = typeof PublicCheckInConfigCapacityStatus[keyof typeof PublicCheckInConfigCapacityStatus] | null;
+
+
+export const PublicCheckInConfigCapacityStatus = {
+  available: 'available',
+  moderate: 'moderate',
+  busy: 'busy',
+} as const;
+
+export interface PublicCheckInConfig {
+  slug: string;
+  brandName: string;
+  businessName: string;
+  services: PublicBookingService[];
+  /**
+     * Live capacity status (busy / moderate / available); null when unavailable.
+     * @nullable
+     */
+  capacityStatus: PublicCheckInConfigCapacityStatus;
+}
+
+export interface PublicCheckInInput {
+  serviceId: number;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     * @pattern \S
+     */
+  name: string;
+  /**
+     * @minLength 7
+     * @maxLength 30
+     */
+  phone: string;
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  partySize?: number;
+  /** Explicit consent to receive transactional SMS queue updates from Get Next In Line and the business being visited. */
+  smsOptIn?: boolean;
+}
+
+export interface PublicCheckInConfirmation {
+  visitId: number;
+  serviceType: string;
+  businessName: string;
+  checkedInAt: string;
 }
 
 export type PartnerConnectionSummaryStatus = typeof PartnerConnectionSummaryStatus[keyof typeof PartnerConnectionSummaryStatus];

@@ -11,6 +11,7 @@ import OperationsHub from "@/pages/OperationsHub";
 import ModuleConsole from "@/pages/ModuleConsole";
 import Login from "@/pages/Login";
 import PublicBookingPage from "@/pages/public-booking";
+import PublicCheckInPage from "@/pages/public-checkin";
 import JoinInvitePage from "@/pages/join-invite";
 import WalletPage from "@/pages/wallet";
 import { ApplyPage, ApplyStatusPage } from "@/pages/apply";
@@ -214,6 +215,10 @@ function Router() {
           without an account. */}
       <Route path="/book/:slug">
         {(params) => <PublicBookingPage slug={params.slug} />}
+      </Route>
+      {/* Public digital queue check-in — the visible A2P SMS opt-in CTA. */}
+      <Route path="/check-in/:slug">
+        {(params) => <PublicCheckInPage slug={params.slug} />}
       </Route>
       {/* Public platform-invite fast-track registration — the invited
           business owner has no account yet, so this must stay outside

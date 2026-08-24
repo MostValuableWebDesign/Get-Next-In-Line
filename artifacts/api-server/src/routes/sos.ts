@@ -3053,6 +3053,7 @@ async function applyOptInChange(
 }
 
 const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`;
+const helpTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>Get Next In Line: For help with queue texts, email privacy@getnextinline.com. Reply STOP to opt out.</Message></Response>`;
 
 // Public endpoint Twilio calls when a text arrives ("A message comes in").
 // Authenticated via Twilio's request signature, not the session — spoofed
@@ -3113,6 +3114,11 @@ router.post("/sos/twilio/inbound", webhookRateLimit, async (req, res): Promise<v
       "Sender opted back in to SMS via START",
     );
     res.type("text/xml").send(twiml);
+    return;
+  }
+  if (keyword === "help") {
+    logger.info({ customerId: customer?.id ?? null, fromNumber }, "Sender requested SMS help");
+    res.type("text/xml").send(helpTwiml);
     return;
   }
 

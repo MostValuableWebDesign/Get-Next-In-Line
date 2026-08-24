@@ -180,6 +180,37 @@ export const sosCustomersTable = pgTable(
   (t) => [index("sos_customers_tenant_id_idx").on(t.tenantId)],
 );
 
+// Immutable evidence for affirmative transactional-SMS consent collected from
+// public surfaces. Consent can later be withdrawn with STOP, but the original
+// opt-in record remains available for compliance and customer-support review.
+export const sosSmsConsentRecordsTable = pgTable(
+  "sos_sms_consent_records",
+  {
+    id: serial("id").primaryKey(),
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenantsTable.id, { onDelete: "cascade" }),
+    customerId: integer("customer_id")
+      .notNull()
+      .references(() => sosCustomersTable.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    // e.g. public_check_in or public_booking — records the actual opt-in
+    // surface rather than inferring consent from a mutable customer flag.
+    source: text("source").notNull(),
+    disclosureVersion: text("disclosure_version").notNull(),
+    // Snapshot the exact language shown for this opt-in, including business
+    // identity, so later copy edits cannot erase the evidence.
+    disclosureText: text("disclosure_text").notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    consentedAt: timestamp("consented_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("sos_sms_consent_records_tenant_id_idx").on(t.tenantId),
+    index("sos_sms_consent_records_customer_id_idx").on(t.customerId),
+  ],
+);
+
 // ── staff members & compensation ─────────────────────────────────────────────
 
 // Tenant-scoped staff (people, not chairs — physical stations stay in

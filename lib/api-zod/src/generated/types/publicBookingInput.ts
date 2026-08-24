@@ -13,6 +13,7 @@ export interface PublicBookingInput {
   /**
      * @minLength 1
      * @maxLength 120
+     * @pattern \S
      */
   name: string;
   /** @maxLength 30 */

@@ -6024,6 +6024,58 @@ paths:
         "429":
           description: Too many booking attempts
 
+  /public/check-in/{slug}:
+    get:
+      operationId: getPublicCheckInConfig
+      tags: [public-booking]
+      summary: Public (unauthenticated) digital queue check-in config for an active business, keyed by tenant subdomain slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Digital check-in config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicCheckInConfig"
+        "404":
+          description: Active business not found
+    post:
+      operationId: createPublicCheckIn
+      tags: [public-booking]
+      summary: Check into a business's live queue publicly with optional affirmative transactional SMS consent
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublicCheckInInput"
+      responses:
+        "201":
+          description: Queue check-in created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicCheckInConfirmation"
+        "400":
+          description: Invalid check-in or phone number
+        "404":
+          description: Active business or service not found
+        "409":
+          description: Customer already has an active check-in for this service
+        "429":
+          description: Too many check-in attempts
+
   /wallet/login/request:
     post:
       operationId: requestWalletLoginCode
@@ -11133,6 +11185,7 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+          pattern: '\S'
         phone:
           type: string
           maxLength: 30
@@ -11159,6 +11212,62 @@ components:
           type: string
         staffName:
           type: ["string", "null"]
+
+    PublicCheckInConfig:
+      type: object
+      required: [slug, brandName, businessName, services, capacityStatus]
+      properties:
+        slug:
+          type: string
+        brandName:
+          type: string
+        businessName:
+          type: string
+        services:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicBookingService"
+        capacityStatus:
+          type: ["string", "null"]
+          enum: [available, moderate, busy, null]
+          description: Live capacity status (busy / moderate / available); null when unavailable.
+
+    PublicCheckInInput:
+      type: object
+      required: [serviceId, name, phone]
+      properties:
+        serviceId:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          pattern: '\S'
+        phone:
+          type: string
+          minLength: 7
+          maxLength: 30
+        partySize:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 1
+        smsOptIn:
+          type: boolean
+          description: Explicit consent to receive transactional SMS queue updates from Get Next In Line and the business being visited.
+
+    PublicCheckInConfirmation:
+      type: object
+      required: [visitId, serviceType, businessName, checkedInAt]
+      properties:
+        visitId:
+          type: integer
+        serviceType:
+          type: string
+        businessName:
+          type: string
+        checkedInAt:
+          type: string
 
     PartnerConnectionSummary:
       type: object

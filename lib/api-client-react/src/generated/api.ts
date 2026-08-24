@@ -262,6 +262,9 @@ import type {
   PublicBookingConfirmation,
   PublicBookingInput,
   PublicBookingPerksResponse,
+  PublicCheckInConfig,
+  PublicCheckInConfirmation,
+  PublicCheckInInput,
   PublicCoopApplicationStatus,
   PublicPlatformInvite,
   ReadinessStatus,
@@ -20716,6 +20719,155 @@ export const useCreatePublicBooking = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getCreatePublicBookingMutationOptions(options));
+    }
+
+export const getGetPublicCheckInConfigUrl = (slug: string,) => {
+
+
+
+
+  return `/api/public/check-in/${slug}`
+}
+
+/**
+ * @summary Public (unauthenticated) digital queue check-in config for an active business, keyed by tenant subdomain slug
+ */
+export const getPublicCheckInConfig = async (slug: string, options?: RequestInit): Promise<PublicCheckInConfig> => {
+
+  return customFetch<PublicCheckInConfig>(getGetPublicCheckInConfigUrl(slug),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicCheckInConfigQueryKey = (slug: string,) => {
+    return [
+    `/api/public/check-in/${slug}`
+    ] as const;
+    }
+
+
+export const getGetPublicCheckInConfigQueryOptions = <TData = Awaited<ReturnType<typeof getPublicCheckInConfig>>, TError = ErrorType<void>>(slug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicCheckInConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicCheckInConfigQueryKey(slug);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicCheckInConfig>>> = ({ signal }) => getPublicCheckInConfig(slug, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: slug !== null && slug !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicCheckInConfig>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicCheckInConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicCheckInConfig>>>
+export type GetPublicCheckInConfigQueryError = ErrorType<void>
+
+
+/**
+ * @summary Public (unauthenticated) digital queue check-in config for an active business, keyed by tenant subdomain slug
+ */
+
+export function useGetPublicCheckInConfig<TData = Awaited<ReturnType<typeof getPublicCheckInConfig>>, TError = ErrorType<void>>(
+ slug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicCheckInConfig>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicCheckInConfigQueryOptions(slug,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePublicCheckInUrl = (slug: string,) => {
+
+
+
+
+  return `/api/public/check-in/${slug}`
+}
+
+/**
+ * @summary Check into a business's live queue publicly with optional affirmative transactional SMS consent
+ */
+export const createPublicCheckIn = async (slug: string,
+    publicCheckInInput: PublicCheckInInput, options?: RequestInit): Promise<PublicCheckInConfirmation> => {
+
+  return customFetch<PublicCheckInConfirmation>(getCreatePublicCheckInUrl(slug),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(publicCheckInInput)
+  }
+);}
+
+
+
+
+
+export const getCreatePublicCheckInMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPublicCheckIn>>, TError,{slug: string;data: BodyType<PublicCheckInInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPublicCheckIn>>, TError,{slug: string;data: BodyType<PublicCheckInInput>}, TContext> => {
+
+const mutationKey = ['createPublicCheckIn'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPublicCheckIn>>, {slug: string;data: BodyType<PublicCheckInInput>}> = (props) => {
+          const {slug,data} = props ?? {};
+
+          return  createPublicCheckIn(slug,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePublicCheckInMutationResult = NonNullable<Awaited<ReturnType<typeof createPublicCheckIn>>>
+    export type CreatePublicCheckInMutationBody = BodyType<PublicCheckInInput>
+    export type CreatePublicCheckInMutationError = ErrorType<void>
+
+    /**
+ * @summary Check into a business's live queue publicly with optional affirmative transactional SMS consent
+ */
+export const useCreatePublicCheckIn = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPublicCheckIn>>, TError,{slug: string;data: BodyType<PublicCheckInInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPublicCheckIn>>,
+        TError,
+        {slug: string;data: BodyType<PublicCheckInInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePublicCheckInMutationOptions(options));
     }
 
 export const getRequestWalletLoginCodeUrl = () => {

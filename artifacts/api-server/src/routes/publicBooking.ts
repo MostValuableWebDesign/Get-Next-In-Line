@@ -3,8 +3,10 @@ import {
   db,
   tenantsTable,
   sosCustomersTable,
+  sosSmsConsentRecordsTable,
   sosAppointmentsTable,
   sosResourcesTable,
+  sosVisitsTable,
 } from "@workspace/db";
 import { and, eq, lt, gt, ne, or, ilike, sql } from "drizzle-orm";
 import {
@@ -13,6 +15,9 @@ import {
   GetPublicBookingAvailabilityResponse,
   CreatePublicBookingBody,
   CreatePublicBookingResponse,
+  GetPublicCheckInConfigResponse,
+  CreatePublicCheckInBody,
+  CreatePublicCheckInResponse,
   ListPublicBookingPerksResponse,
 } from "@workspace/api-zod";
 import { merchantCoopPartnershipsTable } from "@workspace/db";
@@ -44,24 +49,35 @@ const router: IRouter = Router();
  * writes per tenant so concurrent requests can't double-book a slot.
  */
 export const PUBLIC_BOOKING_LOCK_NS = 0x676e_6270; // "gnbp"
+export const PUBLIC_CHECK_IN_LOCK_NS = 0x676e_6369; // "gnci"
 
 const SLOT_STEP_MINUTES = 30;
 const DEFAULT_DURATION_MINUTES = 60;
 const MAX_ADVANCE_DAYS = 90;
+const PUBLIC_CHECK_IN_SMS_CONSENT_VERSION = "public-check-in-v1";
+
+function publicCheckInSmsConsentDisclosure(businessName: string): string {
+  return `I agree to receive transactional text messages from ${businessName} and Get Next In Line about my digital check-in and queue status. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.`;
+}
 
 // ── Abuse guard: per-IP fixed-window rate limit on booking creation ─────────
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_MAX_BOOKINGS = 10;
 const bookingAttempts = new Map<string, { windowStart: number; count: number }>();
+const checkInAttempts = new Map<string, { windowStart: number; count: number }>();
 
-function isRateLimited(ip: string, now = Date.now()): boolean {
-  const entry = bookingAttempts.get(ip);
+function isRateLimited(
+  attempts: Map<string, { windowStart: number; count: number }>,
+  ip: string,
+  now = Date.now(),
+): boolean {
+  const entry = attempts.get(ip);
   if (!entry || now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
-    bookingAttempts.set(ip, { windowStart: now, count: 1 });
+    attempts.set(ip, { windowStart: now, count: 1 });
     // Opportunistic cleanup so the map can't grow unboundedly.
-    if (bookingAttempts.size > 10_000) {
-      for (const [key, val] of bookingAttempts) {
-        if (now - val.windowStart >= RATE_LIMIT_WINDOW_MS) bookingAttempts.delete(key);
+    if (attempts.size > 10_000) {
+      for (const [key, val] of attempts) {
+        if (now - val.windowStart >= RATE_LIMIT_WINDOW_MS) attempts.delete(key);
       }
     }
     return false;
@@ -73,6 +89,7 @@ function isRateLimited(ip: string, now = Date.now()): boolean {
 /** Test-only hook so integration tests don't trip each other's limits. */
 export function __resetPublicBookingRateLimit(): void {
   bookingAttempts.clear();
+  checkInAttempts.clear();
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -182,6 +199,14 @@ async function getPublicContext(slug: string) {
 const activeServices = (services: SosServiceRow[]) =>
   services.filter((s) => s.isActive);
 
+async function getPublicCheckInContext(slug: string) {
+  const ctx = await getPublicContext(slug);
+  // Public digital check-in must only be available to active businesses. The
+  // slug remains the only tenant authority; never accept a tenant id here.
+  if (!ctx || ctx.tenant.status !== "active") return null;
+  return ctx;
+}
+
 // ── routes ───────────────────────────────────────────────────────────────────
 
 router.get("/public/booking/:slug", async (req, res): Promise<void> => {
@@ -269,7 +294,7 @@ router.post(
     }
 
     const ip = req.ip ?? "unknown";
-    if (isRateLimited(ip)) {
+    if (isRateLimited(bookingAttempts, ip)) {
       res.status(429).json({ message: "Too many booking attempts. Please try again later." });
       return;
     }
@@ -344,6 +369,7 @@ router.post(
     type Outcome =
       | { kind: "duplicate" }
       | { kind: "conflict" }
+      | { kind: "opted_out" }
       | {
           kind: "booked";
           appointment: typeof sosAppointmentsTable.$inferSelect;
@@ -382,15 +408,10 @@ router.post(
         customer = created;
         createdCustomer = true;
         } else if (body.smsOptIn === true && !customer.smsOptIn) {
-          // Public booking consent is affirmative only. An unchecked box does
-          // not revoke a customer's existing consent, but a checked box may
-          // explicitly opt an existing customer back in.
-          const [updated] = await tx
-            .update(sosCustomersTable)
-            .set({ smsOptIn: true })
-            .where(eq(sosCustomersTable.id, customer.id))
-            .returning();
-          customer = updated;
+          // A public form must never override a STOP or another prior consent
+          // decision. The number's owner can explicitly opt back in by texting
+          // START, which proves control of the handset.
+          return { kind: "opted_out" as const };
       }
 
       // Duplicate guard: the same customer re-submitting the same slot+service
@@ -456,6 +477,12 @@ router.post(
       res.status(409).json({ message: "That slot was just taken. Please pick another time." });
       return;
     }
+    if (outcome.kind === "opted_out") {
+      res.status(409).json({
+        message: "This number is opted out of text messages. Reply START from that mobile number to opt back in.",
+      });
+      return;
+    }
     const { appointment, customer, createdCustomer } = outcome;
 
     if (createdCustomer) {
@@ -502,6 +529,208 @@ router.post(
     );
   },
 );
+
+// ── public digital queue check-in ─────────────────────────────────────────────
+// This is intentionally a separate surface from staff check-in. Customers
+// prove the tenant through its public slug; we then find/create their tenant
+// customer record and add a visit to the same live queue staff already use.
+router.get("/public/check-in/:slug", async (req, res): Promise<void> => {
+  const ctx = await getPublicCheckInContext(req.params.slug);
+  if (!ctx) {
+    res.status(404).json({ message: "Business not found" });
+    return;
+  }
+  const { tenant, settings, services } = ctx;
+  res.json(
+    GetPublicCheckInConfigResponse.parse({
+      slug: tenant.subdomain,
+      brandName: tenant.brandName,
+      businessName: settings.businessName,
+      services: activeServices(services).map((s) => ({
+        id: s.id,
+        name: s.name,
+        category: s.category,
+        description: s.description,
+        price: s.price == null ? null : parseFloat(s.price),
+        durationMinutes: s.durationMinutes,
+      })),
+      capacityStatus: await cachedCapacityStatus(tenant.id)
+        .then((r) => r.status)
+        .catch(() => null),
+    }),
+  );
+});
+
+router.post("/public/check-in/:slug", async (req, res): Promise<void> => {
+  const body = CreatePublicCheckInBody.parse(req.body);
+  const ctx = await getPublicCheckInContext(req.params.slug);
+  if (!ctx) {
+    res.status(404).json({ message: "Business not found" });
+    return;
+  }
+
+  const ip = req.ip ?? "unknown";
+  if (isRateLimited(checkInAttempts, ip)) {
+    res.status(429).json({ message: "Too many check-in attempts. Please try again later." });
+    return;
+  }
+
+  const phone = body.phone.trim();
+  const name = body.name.trim();
+  if (!name) {
+    res.status(400).json({ message: "Your name is required." });
+    return;
+  }
+  const normalizedPhone = normalizeToE164(phone);
+  if (normalizedPhone == null) {
+    res.status(400).json({ message: "That mobile phone number doesn't look right." });
+    return;
+  }
+
+  const service = activeServices(ctx.services).find((s) => s.id === body.serviceId);
+  if (!service) {
+    res.status(404).json({ message: "Service not found" });
+    return;
+  }
+  const consentEvidence = {
+    ipAddress: ip === "unknown" ? null : ip,
+    userAgent: req.get("user-agent")?.slice(0, 1_000) ?? null,
+  };
+
+  type Outcome =
+    | { kind: "duplicate" }
+    | { kind: "opted_out" }
+    | {
+        kind: "checked_in";
+        visit: typeof sosVisitsTable.$inferSelect;
+        customer: typeof sosCustomersTable.$inferSelect;
+        createdCustomer: boolean;
+      };
+
+  const outcome: Outcome = await db.transaction(async (tx) => {
+    // Serialize a tenant's public queue submissions: this prevents the same
+    // visitor double-clicking their way into two active visits.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(${PUBLIC_CHECK_IN_LOCK_NS}, ${ctx.tenant.id})`,
+    );
+
+    const [existingCustomer] = await tx
+      .select()
+      .from(sosCustomersTable)
+      .where(
+        and(
+          eq(sosCustomersTable.tenantId, ctx.tenant.id),
+          or(
+            eq(sosCustomersTable.phone, normalizedPhone),
+            eq(sosCustomersTable.phone, phone),
+          ),
+        ),
+      )
+      .limit(1);
+
+    let customer = existingCustomer ?? null;
+    let createdCustomer = false;
+    if (!customer) {
+      const [created] = await tx
+        .insert(sosCustomersTable)
+        .values({
+          tenantId: ctx.tenant.id,
+          name,
+          phone: normalizedPhone,
+          // Consent is affirmative-only. New public check-in customers are
+          // opted out unless they actively selected the visible SMS checkbox.
+          smsOptIn: body.smsOptIn === true,
+        })
+        .returning();
+      customer = created;
+      createdCustomer = true;
+    } else if (body.smsOptIn === true && !customer.smsOptIn) {
+      // Do not let an unauthenticated browser override a STOP or other
+      // historic consent choice. START is handled by the verified inbound SMS
+      // path and proves the customer controls this handset.
+      return { kind: "opted_out" as const };
+    }
+
+    const [duplicate] = await tx
+      .select({ id: sosVisitsTable.id })
+      .from(sosVisitsTable)
+      .where(
+        and(
+          eq(sosVisitsTable.tenantId, ctx.tenant.id),
+          eq(sosVisitsTable.customerId, customer.id),
+          eq(sosVisitsTable.serviceType, service.name),
+          ne(sosVisitsTable.status, "checked_out"),
+        ),
+      )
+      .limit(1);
+    if (duplicate) return { kind: "duplicate" as const };
+
+    // Every successful checked public submission gets its own immutable record.
+    // An existing smsOptIn=true flag may predate this CTA, so it is not proof
+    // that the customer saw and affirmatively accepted this disclosure.
+    if (body.smsOptIn === true) {
+      await tx.insert(sosSmsConsentRecordsTable).values({
+        tenantId: ctx.tenant.id,
+        customerId: customer.id,
+        phone: normalizedPhone,
+        source: "public_check_in",
+        disclosureVersion: PUBLIC_CHECK_IN_SMS_CONSENT_VERSION,
+        disclosureText: publicCheckInSmsConsentDisclosure(ctx.settings.businessName),
+        ...consentEvidence,
+      });
+    }
+
+    const [visit] = await tx
+      .insert(sosVisitsTable)
+      .values({
+        tenantId: ctx.tenant.id,
+        customerId: customer.id,
+        serviceType: service.name,
+        partySize: body.partySize,
+      })
+      .returning();
+
+    await tx
+      .update(sosCustomersTable)
+      .set({ visitCount: customer.visitCount + 1, lastVisitAt: new Date() })
+      .where(eq(sosCustomersTable.id, customer.id));
+
+    return { kind: "checked_in" as const, visit, customer, createdCustomer };
+  });
+
+  if (outcome.kind === "duplicate") {
+    res.status(409).json({ message: "You are already checked in for this service." });
+    return;
+  }
+  if (outcome.kind === "opted_out") {
+    res.status(409).json({
+      message: "This number is opted out of text messages. Reply START from that mobile number to opt back in.",
+    });
+    return;
+  }
+
+  if (outcome.createdCustomer) {
+    // Keep public check-ins connected to the same concierge profile system as
+    // staff-created customers, without allowing a linking failure to undo a
+    // completed queue entry.
+    await autoLinkCustomer(outcome.customer).catch((err) =>
+      logger.warn({ err, customerId: outcome.customer.id }, "Public check-in: profile auto-link failed"),
+    );
+  }
+
+  req.log.info(
+    { tenantId: ctx.tenant.id, visitId: outcome.visit.id, customerId: outcome.customer.id },
+    "Public queue check-in created",
+  );
+  res.status(201).json(
+    CreatePublicCheckInResponse.parse({
+      visitId: outcome.visit.id,
+      serviceType: outcome.visit.serviceType,
+      businessName: ctx.settings.businessName,
+      checkedInAt: outcome.visit.checkedInAt.toISOString(),
+    }),
+  );
+});
 
 // ── GET /public/booking/:slug/perks — confirmation-screen partner perks ─────
 // Read-only and slug-scoped like the rest of the public booking surface:

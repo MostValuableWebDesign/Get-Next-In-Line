@@ -73,3 +73,4 @@
 - Co-op feedback SMS replies: inbound texts starting with a standalone 1-5 rating are consumed as post-redemption feedback (matched by phone to the newest open request, 7-day window) BEFORE customer-scoped keyword handling; new redemption write paths must also call requestCoopFeedbackSafe.
 - [Transactional email channel](transactional-email.md) — email sends need an explicit toEmail (else unsupported_channel); concierge automation stays SMS-only; gate on customer emailOptIn.
 - Checkout tip precedence: tip-pool engine owns a tip when a rule resolves OR (servicing staff set AND visit bundled or tenant has live co-op partnership); otherwise tenant gratuity pool config engine — both integration suites encode this contract.
+- [Public SMS consent evidence](public-sms-consent.md) — every successful checked public CTA submission records the displayed disclosure; an unauthenticated browser can never reverse STOP.
