@@ -315,6 +315,9 @@ export const sosVisitsTable = pgTable(
   // if the staff member is later deactivated.
   staffId: integer("staff_id").references(() => sosStaffMembersTable.id),
   estimatedWaitMinutes: integer("estimated_wait_minutes"),
+   // SHA-256 hash of the high-entropy public queue-status capability. The raw
+   // token is returned only once in a customer's check-in tracking URL.
+   trackingTokenHash: text("tracking_token_hash"),
   paymentAmount: numeric("payment_amount", { precision: 10, scale: 2 }),
   // Gratuity captured at checkout, recorded SEPARATELY from service revenue.
   // Tips must never be folded into paymentAmount, revenue, commission bases,

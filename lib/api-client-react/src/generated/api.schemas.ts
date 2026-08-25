@@ -3254,6 +3254,39 @@ export interface PublicCheckInConfirmation {
   serviceType: string;
   businessName: string;
   checkedInAt: string;
+  /**
+     * Position in the active customer queue at the moment of check-in.
+     * @minimum 1
+     */
+  queuePosition: number;
+  /**
+     * Estimated wait from the active queue and currently available resources.
+     * @minimum 0
+     */
+  estimatedWaitMinutes: number;
+  /** Public, business-scoped URL with an unguessable per-check-in capability where the customer can refresh their queue status. */
+  trackingUrl: string;
+}
+
+export interface PublicCheckInStatus {
+  visitId: number;
+  serviceType: string;
+  businessName: string;
+  status: string;
+  /**
+     * Current position when the visit is waiting in the active queue; null once service has begun or ended.
+     * @minimum 1
+     * @nullable
+     */
+  queuePosition: number | null;
+  /**
+     * Current estimate when the visit is waiting in the active queue; null once service has begun or ended.
+     * @minimum 0
+     * @nullable
+     */
+  estimatedWaitMinutes: number | null;
+  checkedInAt: string;
+  trackingUrl: string;
 }
 
 export type PartnerConnectionSummaryStatus = typeof PartnerConnectionSummaryStatus[keyof typeof PartnerConnectionSummaryStatus];

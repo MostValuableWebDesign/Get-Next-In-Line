@@ -6076,6 +6076,38 @@ paths:
         "429":
           description: Too many check-in attempts
 
+  /public/check-in/{slug}/status/{visitId}:
+    get:
+      operationId: getPublicCheckInStatus
+      tags: [public-booking]
+      summary: Public live status for a check-in, scoped to the business slug and without customer contact details
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: visitId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: x-check-in-token
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 40
+      responses:
+        "200":
+          description: Live queue status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicCheckInStatus"
+        "404":
+          description: Active business or check-in not found
+
   /wallet/login/request:
     post:
       operationId: requestWalletLoginCode
@@ -11258,7 +11290,7 @@ components:
 
     PublicCheckInConfirmation:
       type: object
-      required: [visitId, serviceType, businessName, checkedInAt]
+      required: [visitId, serviceType, businessName, checkedInAt, queuePosition, estimatedWaitMinutes, trackingUrl]
       properties:
         visitId:
           type: integer
@@ -11267,6 +11299,44 @@ components:
         businessName:
           type: string
         checkedInAt:
+          type: string
+          format: date-time
+        queuePosition:
+          type: integer
+          minimum: 1
+          description: Position in the active customer queue at the moment of check-in.
+        estimatedWaitMinutes:
+          type: integer
+          minimum: 0
+          description: Estimated wait from the active queue and currently available resources.
+        trackingUrl:
+          type: string
+          description: Public, business-scoped URL with an unguessable per-check-in capability where the customer can refresh their queue status.
+
+    PublicCheckInStatus:
+      type: object
+      required: [visitId, serviceType, businessName, status, queuePosition, estimatedWaitMinutes, checkedInAt, trackingUrl]
+      properties:
+        visitId:
+          type: integer
+        serviceType:
+          type: string
+        businessName:
+          type: string
+        status:
+          type: string
+        queuePosition:
+          type: ["integer", "null"]
+          minimum: 1
+          description: Current position when the visit is waiting in the active queue; null once service has begun or ended.
+        estimatedWaitMinutes:
+          type: ["integer", "null"]
+          minimum: 0
+          description: Current estimate when the visit is waiting in the active queue; null once service has begun or ended.
+        checkedInAt:
+          type: string
+          format: date-time
+        trackingUrl:
           type: string
 
     PartnerConnectionSummary:

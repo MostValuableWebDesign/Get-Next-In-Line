@@ -41,6 +41,8 @@ let staff: ReturnType<typeof request.agent>;
 let tenantId: number;
 let serviceId: number;
 let resourceId: number;
+let firstPublicVisitId: number;
+let firstPublicTrackingToken: string;
 
 // A weekday ~7 days out, so slots are always in the future.
 function bookingDate(): string {
@@ -346,6 +348,13 @@ describe("public digital queue check-in", () => {
 
     expect(res.body.serviceType).toBe(`Public Cut ${RUN}`);
     expect(res.body.businessName).toBe(`PubBook Salon ${RUN}`);
+    expect(res.body.queuePosition).toBe(1);
+    expect(res.body.estimatedWaitMinutes).toBe(0);
+    const trackingToken = res.body.trackingUrl.split("#").at(-1);
+    expect(trackingToken).toMatch(/^[A-Za-z0-9_-]{40,}$/);
+    expect(res.body.trackingUrl).toContain(`/check-in/${SLUG}/status/${res.body.visitId}#${trackingToken}`);
+    firstPublicVisitId = res.body.visitId;
+    firstPublicTrackingToken = trackingToken;
 
     const [customer] = await db
       .select()
@@ -382,6 +391,25 @@ describe("public digital queue check-in", () => {
         }),
       ]),
     );
+
+    const status = await anon
+      .get(`/api/public/check-in/${SLUG}/status/${res.body.visitId}`)
+      .set("x-check-in-token", trackingToken)
+      .expect(200);
+    expect(status.body).toMatchObject({
+      visitId: res.body.visitId,
+      businessName: `PubBook Salon ${RUN}`,
+      serviceType: `Public Cut ${RUN}`,
+      status: "checked_in",
+      queuePosition: 1,
+      estimatedWaitMinutes: 0,
+    });
+
+    await anon.get(`/api/public/check-in/${SLUG}/status/${res.body.visitId}`).expect(404);
+    await anon
+      .get(`/api/public/check-in/${SLUG}/status/${res.body.visitId}`)
+      .set("x-check-in-token", "wrong-tracking-token")
+      .expect(404);
   });
 
   it("records affirmative SMS consent but rejects submissions without a mobile number", async () => {
@@ -533,6 +561,11 @@ describe("public digital queue check-in", () => {
         })
         .expect(201);
 
+      await anon
+        .get(`/api/public/check-in/${otherSlug}/status/${firstPublicVisitId}`)
+        .set("x-check-in-token", firstPublicTrackingToken)
+        .expect(404);
+
       const matchingCustomers = await db
         .select()
         .from(sosCustomersTable)
@@ -542,6 +575,96 @@ describe("public digital queue check-in", () => {
       );
     } finally {
       await db.delete(tenantsTable).where(eq(tenantsTable.id, otherTenant.id));
+    }
+  });
+
+  it("schedules mixed-service work against the earliest available resource", async () => {
+    const queueSlug = `${RUN}-workload`;
+    const [queueTenant] = await db
+      .insert(tenantsTable)
+      .values({ brandName: `Workload ${RUN}`, subdomain: queueSlug, status: "active" })
+      .returning({ id: tenantsTable.id });
+
+    try {
+      await db.insert(sosSettingsTable).values({
+        tenantId: queueTenant.id,
+        businessName: `Workload Queue ${RUN}`,
+      });
+      const [longService, shortService] = await db
+        .insert(sosServicesTable)
+        .values([
+          { tenantId: queueTenant.id, name: `Long Service ${RUN}`, durationMinutes: 90, isActive: true },
+          { tenantId: queueTenant.id, name: `Short Service ${RUN}`, durationMinutes: 15, isActive: true },
+        ])
+        .returning({ id: sosServicesTable.id });
+      const [firstResource, secondResource] = await db
+        .insert(sosResourcesTable)
+        .values([
+          { tenantId: queueTenant.id, name: `Queue Chair A ${RUN}`, resourceType: "chair" },
+          { tenantId: queueTenant.id, name: `Queue Chair B ${RUN}`, resourceType: "chair" },
+        ])
+        .returning({ id: sosResourcesTable.id });
+
+      const first = await anon
+        .post(`/api/public/check-in/${queueSlug}`)
+        .send({
+          serviceId: longService.id,
+          name: `Long Queue Guest ${RUN}`,
+          phone: "+15554440001",
+        })
+        .expect(201);
+      const second = await anon
+        .post(`/api/public/check-in/${queueSlug}`)
+        .send({
+          serviceId: shortService.id,
+          name: `Short Queue Guest ${RUN}`,
+          phone: "+15554440002",
+        })
+        .expect(201);
+
+      // The long service takes one available chair, so the short-service
+      // customer can immediately start at the other chair.
+      expect(second.body).toMatchObject({ queuePosition: 2, estimatedWaitMinutes: 0 });
+
+      await db
+        .update(sosVisitsTable)
+        .set({
+          status: "in_service",
+          resourceId: firstResource.id,
+          serviceStartedAt: new Date(),
+        })
+        .where(eq(sosVisitsTable.id, first.body.visitId));
+      await db
+        .update(sosResourcesTable)
+        .set({ status: "occupied", currentVisitId: first.body.visitId })
+        .where(eq(sosResourcesTable.id, firstResource.id));
+      await db
+        .update(sosVisitsTable)
+        .set({
+          status: "in_service",
+          resourceId: secondResource.id,
+          serviceStartedAt: new Date(),
+        })
+        .where(eq(sosVisitsTable.id, second.body.visitId));
+      await db
+        .update(sosResourcesTable)
+        .set({ status: "occupied", currentVisitId: second.body.visitId })
+        .where(eq(sosResourcesTable.id, secondResource.id));
+
+      const third = await anon
+        .post(`/api/public/check-in/${queueSlug}`)
+        .send({
+          serviceId: shortService.id,
+          name: `Next Queue Guest ${RUN}`,
+          phone: "+15554440003",
+        })
+        .expect(201);
+
+      // The two occupied chairs have 90 and 15 minutes of work remaining.
+      // The next visitor waits for the 15-minute service, not their average.
+      expect(third.body).toMatchObject({ queuePosition: 1, estimatedWaitMinutes: 15 });
+    } finally {
+      await db.delete(tenantsTable).where(eq(tenantsTable.id, queueTenant.id));
     }
   });
 });

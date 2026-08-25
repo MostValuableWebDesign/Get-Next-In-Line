@@ -480,6 +480,7 @@ export * from './publicCheckInConfig';
 export * from './publicCheckInConfigCapacityStatus';
 export * from './publicCheckInConfirmation';
 export * from './publicCheckInInput';
+export * from './publicCheckInStatus';
 export * from './publicCoopApplicationStatus';
 export * from './publicPlatformInvite';
 export * from './publicPlatformInviteStatus';

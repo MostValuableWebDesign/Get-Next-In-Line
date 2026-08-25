@@ -11,7 +11,10 @@ import OperationsHub from "@/pages/OperationsHub";
 import ModuleConsole from "@/pages/ModuleConsole";
 import Login from "@/pages/Login";
 import PublicBookingPage from "@/pages/public-booking";
-import PublicCheckInPage from "@/pages/public-checkin";
+import PublicCheckInPage, {
+  PublicCheckInStatusPage,
+  PublicCheckInStatusUnavailablePage,
+} from "@/pages/public-checkin";
 import JoinInvitePage from "@/pages/join-invite";
 import WalletPage from "@/pages/wallet";
 import { ApplyPage, ApplyStatusPage } from "@/pages/apply";
@@ -217,6 +220,18 @@ function Router() {
         {(params) => <PublicBookingPage slug={params.slug} />}
       </Route>
       {/* Public digital queue check-in — the visible A2P SMS opt-in CTA. */}
+      <Route path="/check-in/:slug/status/:visitId">
+        {(params) =>
+          /^\d+$/.test(params.visitId) ? (
+            <PublicCheckInStatusPage
+              slug={params.slug}
+              visitId={Number(params.visitId)}
+            />
+          ) : (
+            <NotFound />
+          )
+        }
+      </Route>
       <Route path="/check-in/:slug">
         {(params) => <PublicCheckInPage slug={params.slug} />}
       </Route>

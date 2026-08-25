@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { createHash, randomBytes } from "crypto";
 import {
   db,
   tenantsTable,
@@ -8,7 +9,7 @@ import {
   sosResourcesTable,
   sosVisitsTable,
 } from "@workspace/db";
-import { and, eq, lt, gt, ne, or, ilike, sql } from "drizzle-orm";
+import { and, eq, lt, gt, ne, or, ilike, inArray, sql } from "drizzle-orm";
 import {
   GetPublicBookingConfigResponse,
   GetPublicBookingAvailabilityBody,
@@ -18,6 +19,7 @@ import {
   GetPublicCheckInConfigResponse,
   CreatePublicCheckInBody,
   CreatePublicCheckInResponse,
+  GetPublicCheckInStatusResponse,
   ListPublicBookingPerksResponse,
 } from "@workspace/api-zod";
 import { merchantCoopPartnershipsTable } from "@workspace/db";
@@ -32,6 +34,7 @@ import { cachedCapacityStatus } from "../lib/capacityStatus";
 import { normalizeToE164 } from "../lib/sms";
 import { autoLinkCustomer } from "../lib/customerLink";
 import { sendBookingConfirmationEmailSafe } from "../lib/transactionalEmail";
+import { publicAppBaseUrl } from "../lib/email";
 import { logger } from "../lib/logger";
 
 // ── Public booking API ───────────────────────────────────────────────────────
@@ -55,6 +58,14 @@ const SLOT_STEP_MINUTES = 30;
 const DEFAULT_DURATION_MINUTES = 60;
 const MAX_ADVANCE_DAYS = 90;
 const PUBLIC_CHECK_IN_SMS_CONSENT_VERSION = "public-check-in-v1";
+const PUBLIC_QUEUE_STATUSES = ["checked_in", "queued", "assigned", "notified"] as const;
+const PUBLIC_IN_PROGRESS_STATUSES = ["in_service", "payment"] as const;
+const PUBLIC_ACTIVE_SERVICE_STATUSES = [
+  ...PUBLIC_QUEUE_STATUSES,
+  ...PUBLIC_IN_PROGRESS_STATUSES,
+] as const;
+const UNKNOWN_OCCUPIED_RESOURCE_MINUTES = 15;
+const CLEANING_RESOURCE_MINUTES = 5;
 
 function publicCheckInSmsConsentDisclosure(businessName: string): string {
   return `I agree to receive transactional text messages from ${businessName} and Get Next In Line about my digital check-in and queue status. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.`;
@@ -205,6 +216,116 @@ async function getPublicCheckInContext(slug: string) {
   // slug remains the only tenant authority; never accept a tenant id here.
   if (!ctx || ctx.tenant.status !== "active") return null;
   return ctx;
+}
+
+function publicCheckInStatusUrl(slug: string, visitId: number, token: string): string {
+  // URL fragments are never transmitted to servers, proxies, or request logs.
+  // The browser reads this capability and sends it only in x-check-in-token.
+  return `${publicAppBaseUrl()}/check-in/${encodeURIComponent(slug)}/status/${visitId}#${token}`;
+}
+
+async function getPublicQueueSnapshot(
+  tenantId: number,
+  visit: Pick<typeof sosVisitsTable.$inferSelect, "id" | "checkedInAt">,
+  services: SosServiceRow[],
+): Promise<{ queuePosition: number; estimatedWaitMinutes: number }> {
+  const [activeVisits, resources] = await Promise.all([
+    db
+      .select({
+        id: sosVisitsTable.id,
+        status: sosVisitsTable.status,
+        serviceType: sosVisitsTable.serviceType,
+        checkedInAt: sosVisitsTable.checkedInAt,
+        serviceStartedAt: sosVisitsTable.serviceStartedAt,
+        resourceId: sosVisitsTable.resourceId,
+      })
+      .from(sosVisitsTable)
+      .where(
+        and(
+          eq(sosVisitsTable.tenantId, tenantId),
+          inArray(sosVisitsTable.status, PUBLIC_ACTIVE_SERVICE_STATUSES),
+        ),
+      ),
+    db
+      .select({
+        id: sosResourcesTable.id,
+        status: sosResourcesTable.status,
+        currentVisitId: sosResourcesTable.currentVisitId,
+      })
+      .from(sosResourcesTable)
+      .where(eq(sosResourcesTable.tenantId, tenantId)),
+  ]);
+
+  const durations = new Map(services.map((service) => [service.name, service.durationMinutes ?? 30]));
+  const durationFor = (serviceType: string) => Math.max(1, durations.get(serviceType) ?? 30);
+  const operatingResources = resources.filter((resource) => resource.status !== "offline");
+  const availability = (operatingResources.length ? operatingResources : [null]).map((resource) => ({
+    resourceId: resource?.id ?? null,
+    currentVisitId: resource?.currentVisitId ?? null,
+    minutes:
+      resource?.status === "occupied"
+        ? UNKNOWN_OCCUPIED_RESOURCE_MINUTES
+        : resource?.status === "cleaning"
+          ? CLEANING_RESOURCE_MINUTES
+          : 0,
+  }));
+  const nextAvailableIndex = () =>
+    availability.reduce(
+      (earliest, candidate, index) =>
+        candidate.minutes < availability[earliest].minutes ? index : earliest,
+      0,
+    );
+  const remainingWork = (candidate: {
+    status: string;
+    serviceType: string;
+    serviceStartedAt: Date | null;
+  }) => {
+    const serviceMinutes = durationFor(candidate.serviceType);
+    if (candidate.status === "payment") return Math.min(5, serviceMinutes);
+    if (!candidate.serviceStartedAt) return Math.ceil(serviceMinutes / 2);
+    const elapsedMinutes = Math.max(
+      0,
+      Math.floor((Date.now() - candidate.serviceStartedAt.getTime()) / 60_000),
+    );
+    return Math.max(0, serviceMinutes - elapsedMinutes);
+  };
+
+  for (const candidate of activeVisits) {
+    if (
+      !PUBLIC_IN_PROGRESS_STATUSES.includes(
+        candidate.status as (typeof PUBLIC_IN_PROGRESS_STATUSES)[number],
+      )
+    ) {
+      continue;
+    }
+    const assignedResource = availability.findIndex(
+      (resource) =>
+        resource.resourceId === candidate.resourceId ||
+        resource.currentVisitId === candidate.id,
+    );
+    if (assignedResource >= 0) {
+      availability[assignedResource].minutes = remainingWork(candidate);
+    } else {
+      availability[nextAvailableIndex()].minutes += remainingWork(candidate);
+    }
+  }
+
+  const waitingVisits = activeVisits
+    .filter((candidate) =>
+      PUBLIC_QUEUE_STATUSES.includes(candidate.status as (typeof PUBLIC_QUEUE_STATUSES)[number]),
+    )
+    .sort((a, b) => a.checkedInAt.getTime() - b.checkedInAt.getTime() || a.id - b.id);
+  const targetQueueIndex = waitingVisits.findIndex((candidate) => candidate.id === visit.id);
+  for (const candidate of waitingVisits) {
+    const earliestResource = nextAvailableIndex();
+    if (candidate.id === visit.id) break;
+    availability[earliestResource].minutes += durationFor(candidate.serviceType);
+  }
+
+  return {
+    queuePosition: targetQueueIndex + 1,
+    estimatedWaitMinutes: Math.ceil(availability[nextAvailableIndex()].minutes),
+  };
 }
 
 // ── routes ───────────────────────────────────────────────────────────────────
@@ -561,6 +682,58 @@ router.get("/public/check-in/:slug", async (req, res): Promise<void> => {
   );
 });
 
+router.get("/public/check-in/:slug/status/:visitId", async (req, res): Promise<void> => {
+  const visitId = Number(req.params.visitId);
+  const token = req.get("x-check-in-token") ?? "";
+  if (!Number.isSafeInteger(visitId) || visitId < 1 || !/^[A-Za-z0-9_-]{40,}$/.test(token)) {
+    res.status(404).json({ message: "Check-in not found" });
+    return;
+  }
+
+  const ctx = await getPublicCheckInContext(req.params.slug);
+  if (!ctx) {
+    res.status(404).json({ message: "Business not found" });
+    return;
+  }
+
+  const [visit] = await db
+    .select()
+    .from(sosVisitsTable)
+    .where(
+      and(
+        eq(sosVisitsTable.id, visitId),
+        eq(sosVisitsTable.tenantId, ctx.tenant.id),
+        eq(sosVisitsTable.trackingTokenHash, createHash("sha256").update(token).digest("hex")),
+      ),
+    )
+    .limit(1);
+  if (!visit) {
+    res.status(404).json({ message: "Check-in not found" });
+    return;
+  }
+
+  const service = ctx.services.find((item) => item.name === visit.serviceType);
+  const inQueue = PUBLIC_QUEUE_STATUSES.includes(
+    visit.status as (typeof PUBLIC_QUEUE_STATUSES)[number],
+  );
+  const snapshot = inQueue
+    ? await getPublicQueueSnapshot(ctx.tenant.id, visit, ctx.services)
+    : null;
+
+  res.json(
+    GetPublicCheckInStatusResponse.parse({
+      visitId: visit.id,
+      serviceType: visit.serviceType,
+      businessName: ctx.settings.businessName,
+      status: visit.status,
+      queuePosition: snapshot?.queuePosition ?? null,
+      estimatedWaitMinutes: snapshot?.estimatedWaitMinutes ?? null,
+      checkedInAt: visit.checkedInAt.toISOString(),
+      trackingUrl: publicCheckInStatusUrl(ctx.tenant.subdomain, visit.id, token),
+    }),
+  );
+});
+
 router.post("/public/check-in/:slug", async (req, res): Promise<void> => {
   const body = CreatePublicCheckInBody.parse(req.body);
   const ctx = await getPublicCheckInContext(req.params.slug);
@@ -596,6 +769,8 @@ router.post("/public/check-in/:slug", async (req, res): Promise<void> => {
     ipAddress: ip === "unknown" ? null : ip,
     userAgent: req.get("user-agent")?.slice(0, 1_000) ?? null,
   };
+  const trackingToken = randomBytes(32).toString("base64url");
+  const trackingTokenHash = createHash("sha256").update(trackingToken).digest("hex");
 
   type Outcome =
     | { kind: "duplicate" }
@@ -687,6 +862,7 @@ router.post("/public/check-in/:slug", async (req, res): Promise<void> => {
         customerId: customer.id,
         serviceType: service.name,
         partySize: body.partySize,
+        trackingTokenHash,
       })
       .returning();
 
@@ -722,12 +898,20 @@ router.post("/public/check-in/:slug", async (req, res): Promise<void> => {
     { tenantId: ctx.tenant.id, visitId: outcome.visit.id, customerId: outcome.customer.id },
     "Public queue check-in created",
   );
+  const queueSnapshot = await getPublicQueueSnapshot(
+    ctx.tenant.id,
+    outcome.visit,
+    ctx.services,
+  );
   res.status(201).json(
     CreatePublicCheckInResponse.parse({
       visitId: outcome.visit.id,
       serviceType: outcome.visit.serviceType,
       businessName: ctx.settings.businessName,
       checkedInAt: outcome.visit.checkedInAt.toISOString(),
+      queuePosition: queueSnapshot.queuePosition,
+      estimatedWaitMinutes: queueSnapshot.estimatedWaitMinutes,
+      trackingUrl: publicCheckInStatusUrl(ctx.tenant.subdomain, outcome.visit.id, trackingToken),
     }),
   );
 });

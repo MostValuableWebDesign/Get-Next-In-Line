@@ -24,6 +24,17 @@ import { allowedOrigins } from "./lib/allowedOrigins";
 
 const app: Express = express();
 
+export function serializeRequestForLog(req: { id?: unknown; method?: unknown; url?: string }) {
+  return {
+    id: req.id,
+    method: req.method,
+    // Fragments are not normally sent in HTTP requests, but strip them
+    // defensively alongside query strings so access logs cannot retain a
+    // browser capability if an upstream ever forwards one unexpectedly.
+    url: req.url?.split(/[?#]/)[0],
+  };
+}
+
 // Trust Replit's reverse proxy so `req.protocol` reflects HTTPS and secure
 // cookies work correctly behind the proxy layer.
 app.set("trust proxy", 1);
@@ -33,11 +44,7 @@ app.use(
     logger,
     serializers: {
       req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
+        return serializeRequestForLog(req);
       },
       res(res) {
         return {

@@ -265,6 +265,7 @@ import type {
   PublicCheckInConfig,
   PublicCheckInConfirmation,
   PublicCheckInInput,
+  PublicCheckInStatus,
   PublicCoopApplicationStatus,
   PublicPlatformInvite,
   ReadinessStatus,
@@ -20869,6 +20870,88 @@ export const useCreatePublicCheckIn = <TError = ErrorType<void>,
       > => {
       return useMutation(getCreatePublicCheckInMutationOptions(options));
     }
+
+export const getGetPublicCheckInStatusUrl = (slug: string,
+    visitId: number,) => {
+
+
+
+
+  return `/api/public/check-in/${slug}/status/${visitId}`
+}
+
+/**
+ * @summary Public live status for a check-in, scoped to the business slug and without customer contact details
+ */
+export const getPublicCheckInStatus = async (slug: string,
+    visitId: number, options?: RequestInit): Promise<PublicCheckInStatus> => {
+
+  return customFetch<PublicCheckInStatus>(getGetPublicCheckInStatusUrl(slug,visitId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicCheckInStatusQueryKey = (slug: string,
+    visitId: number,) => {
+    return [
+    `/api/public/check-in/${slug}/status/${visitId}`
+    ] as const;
+    }
+
+
+export const getGetPublicCheckInStatusQueryOptions = <TData = Awaited<ReturnType<typeof getPublicCheckInStatus>>, TError = ErrorType<void>>(slug: string,
+    visitId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicCheckInStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicCheckInStatusQueryKey(slug,visitId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicCheckInStatus>>> = ({ signal }) => getPublicCheckInStatus(slug,visitId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: slug !== null && slug !== undefined && visitId !== null && visitId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicCheckInStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicCheckInStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicCheckInStatus>>>
+export type GetPublicCheckInStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Public live status for a check-in, scoped to the business slug and without customer contact details
+ */
+
+export function useGetPublicCheckInStatus<TData = Awaited<ReturnType<typeof getPublicCheckInStatus>>, TError = ErrorType<void>>(
+ slug: string,
+    visitId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicCheckInStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicCheckInStatusQueryOptions(slug,visitId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getRequestWalletLoginCodeUrl = () => {
 

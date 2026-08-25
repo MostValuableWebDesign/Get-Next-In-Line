@@ -10,5 +10,17 @@ export interface PublicCheckInConfirmation {
   visitId: number;
   serviceType: string;
   businessName: string;
-  checkedInAt: string;
+  checkedInAt: Date;
+  /**
+     * Position in the active customer queue at the moment of check-in.
+     * @minimum 1
+     */
+  queuePosition: number;
+  /**
+     * Estimated wait from the active queue and currently available resources.
+     * @minimum 0
+     */
+  estimatedWaitMinutes: number;
+  /** Public, business-scoped URL with an unguessable per-check-in capability where the customer can refresh their queue status. */
+  trackingUrl: string;
 }

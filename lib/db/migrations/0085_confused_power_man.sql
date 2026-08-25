@@ -1,0 +1,1 @@
+ALTER TABLE "sos_visits" ADD COLUMN "tracking_token_hash" text;

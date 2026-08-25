@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   useCreatePublicCheckIn,
   useGetPublicCheckInConfig,
+  useGetPublicCheckInStatus,
+  getGetPublicCheckInStatusQueryKey,
   type PublicCheckInConfig,
   type PublicCheckInConfirmation,
+  type PublicCheckInStatus,
 } from '@workspace/api-client-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle2, Clock3, MessageSquareText, Users } from 'lucide-react';
+import { CheckCircle2, Clock3, ListOrdered, MessageSquareText, RefreshCw, Users } from 'lucide-react';
 import { PRIVACY_POLICY_URL } from './privacy-policy';
 
 const TERMS_URL = 'https://www.getnextinline.com/terms';
@@ -100,6 +103,21 @@ function CheckInFlow({ config, slug }: { config: PublicCheckInConfig; slug: stri
   const businessName = config.businessName || config.brandName;
   const selectedService = config.services.find((service) => service.id === serviceId);
   const validPartySize = Number.parseInt(partySize, 10);
+  const missingFields = [
+    !selectedService ? 'choose a service' : null,
+    !name.trim() ? 'enter your name' : null,
+    !phone.trim() ? 'enter your mobile number' : null,
+    !Number.isInteger(validPartySize) || validPartySize < 1 || validPartySize > 20
+      ? 'set 1–20 guests'
+      : null,
+  ].filter((item): item is string => item !== null);
+  const canSubmit = missingFields.length === 0 && !checkIn.isPending;
+
+  useEffect(() => {
+    if (config.services.length === 1 && serviceId == null) {
+      setServiceId(config.services[0].id);
+    }
+  }, [config.services, serviceId]);
 
   const submit = () => {
     if (!serviceId || !name.trim() || !phone.trim() || !Number.isInteger(validPartySize)) return;
@@ -139,6 +157,18 @@ function CheckInFlow({ config, slug }: { config: PublicCheckInConfig; slug: stri
               You're in the queue for <span className="font-medium text-foreground">{confirmation.serviceType}</span> at{' '}
               {confirmation.businessName}.
             </p>
+            <QueueDetails
+              queuePosition={confirmation.queuePosition}
+              estimatedWaitMinutes={confirmation.estimatedWaitMinutes}
+            />
+            <a
+              href={confirmation.trackingUrl}
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+              data-testid="link-public-checkin-track-status"
+            >
+              Track your queue status
+              <span aria-hidden="true">→</span>
+            </a>
             {smsOptIn && (
               <p className="text-sm text-muted-foreground">
                 We'll send transactional queue updates to your mobile number.
@@ -289,18 +319,20 @@ function CheckInFlow({ config, slug }: { config: PublicCheckInConfig; slug: stri
             </p>
           )}
 
+          <p
+            id="public-checkin-form-help"
+            className="text-center text-xs text-muted-foreground"
+            data-testid="text-public-checkin-form-help"
+          >
+            {missingFields.length > 0
+              ? `To join the queue, ${missingFields.join(', ')}.`
+              : 'Ready to join the queue.'}
+          </p>
           <Button
             className="w-full"
             onClick={submit}
-            disabled={
-              !selectedService ||
-              !name.trim() ||
-              !phone.trim() ||
-              !Number.isInteger(validPartySize) ||
-              validPartySize < 1 ||
-              validPartySize > 20 ||
-              checkIn.isPending
-            }
+            disabled={!canSubmit}
+            aria-describedby="public-checkin-form-help"
             data-testid="button-public-checkin-submit"
           >
             {checkIn.isPending ? 'Checking you in…' : 'Join the queue'}
@@ -308,6 +340,155 @@ function CheckInFlow({ config, slug }: { config: PublicCheckInConfig; slug: stri
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+function QueueDetails({
+  queuePosition,
+  estimatedWaitMinutes,
+}: {
+  queuePosition: number | null;
+  estimatedWaitMinutes: number | null;
+}) {
+  if (queuePosition == null || estimatedWaitMinutes == null) return null;
+
+  return (
+    <div
+      className="grid grid-cols-2 gap-3 rounded-lg border bg-slate-50 p-3 text-left"
+      data-testid="card-public-checkin-queue-details"
+    >
+      <div>
+        <p className="text-xs text-muted-foreground">Your place in line</p>
+        <p className="mt-1 flex items-center gap-1 font-semibold">
+          <ListOrdered className="h-4 w-4 text-primary" />
+          #{queuePosition}
+        </p>
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground">Estimated wait</p>
+        <p className="mt-1 flex items-center gap-1 font-semibold">
+          <Clock3 className="h-4 w-4 text-primary" />
+          {estimatedWaitMinutes === 0 ? 'Up next' : `About ${estimatedWaitMinutes} min`}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function PublicCheckInStatusPage({
+  slug,
+  visitId,
+  token = typeof window === 'undefined' ? '' : window.location.hash.slice(1),
+}: {
+  slug: string;
+  visitId: number;
+  token?: string;
+}) {
+  const hasTrackingToken = /^[A-Za-z0-9_-]{40,}$/.test(token);
+  const { data: status, isLoading, isError, refetch, isFetching } = useGetPublicCheckInStatus(
+    slug,
+    visitId,
+    {
+      query: {
+        queryKey: [...getGetPublicCheckInStatusQueryKey(slug, visitId), token],
+        enabled: hasTrackingToken,
+        refetchInterval: 15_000,
+      },
+      request: {
+        headers: { 'x-check-in-token': token },
+      },
+    },
+  );
+
+  return (
+    <PublicCheckInShell>
+      <section className="space-y-5">
+        {hasTrackingToken && isLoading ? (
+          <div className="space-y-4 p-5">
+            <Skeleton className="h-7 w-2/3" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        ) : !hasTrackingToken || isError || !status ? (
+          <Card>
+            <CardContent className="space-y-2 py-8 text-center">
+              <h1 className="text-xl font-semibold">Check-in not found</h1>
+              <p className="text-sm text-muted-foreground">
+                This queue status link is no longer available. Please check in with the business directly.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <PublicCheckInStatusCard status={status} onRefresh={() => refetch()} isRefreshing={isFetching} />
+        )}
+      </section>
+    </PublicCheckInShell>
+  );
+}
+
+export function PublicCheckInStatusUnavailablePage() {
+  return (
+    <PublicCheckInShell>
+      <section className="space-y-5">
+        <Card>
+          <CardContent className="space-y-2 py-8 text-center">
+            <h1 className="text-xl font-semibold">Check-in not found</h1>
+            <p className="text-sm text-muted-foreground">
+              This queue status link is incomplete or no longer available. Please check in with the business directly.
+            </p>
+          </CardContent>
+        </Card>
+      </section>
+    </PublicCheckInShell>
+  );
+}
+
+function PublicCheckInStatusCard({
+  status,
+  onRefresh,
+  isRefreshing,
+}: {
+  status: PublicCheckInStatus;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) {
+  const statusCopy: Record<string, string> = {
+    checked_in: 'You’re checked in',
+    queued: 'You’re in the queue',
+    assigned: 'You’re assigned and getting closer',
+    notified: 'You’re next in line',
+    in_service: 'Your service is in progress',
+    payment: 'Your service is complete',
+    checked_out: 'Thanks for visiting',
+  };
+
+  return (
+    <>
+      <CheckInHeader businessName={status.businessName} capacityStatus={null} />
+      <Card data-testid="card-public-checkin-status">
+        <CardContent className="space-y-4 pt-6 text-center">
+          <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" />
+          <div className="space-y-1">
+            <h1 className="text-xl font-semibold">{statusCopy[status.status] ?? 'Check-in status'}</h1>
+            <p className="text-sm text-muted-foreground">
+              {status.serviceType} at {status.businessName}
+            </p>
+          </div>
+          <QueueDetails
+            queuePosition={status.queuePosition}
+            estimatedWaitMinutes={status.estimatedWaitMinutes}
+          />
+          {status.queuePosition == null && (
+            <p className="text-sm text-muted-foreground">
+              Your queue position is no longer active. Ask the business if you need help.
+            </p>
+          )}
+          <Button variant="outline" className="w-full" onClick={onRefresh} disabled={isRefreshing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Refreshing…' : 'Refresh status'}
+          </Button>
+        </CardContent>
+      </Card>
+    </>
   );
 }
 

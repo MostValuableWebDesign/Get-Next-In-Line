@@ -8520,11 +8520,52 @@ export const CreatePublicCheckInBody = zod.object({
   "smsOptIn": zod.boolean().optional().describe('Explicit consent to receive transactional SMS queue updates from Get Next In Line and the business being visited.')
 })
 
+
+export const createPublicCheckInResponseEstimatedWaitMinutesMin = 0;
+
+
+
 export const CreatePublicCheckInResponse = zod.object({
   "visitId": zod.number(),
   "serviceType": zod.string(),
   "businessName": zod.string(),
-  "checkedInAt": zod.string()
+  "checkedInAt": zod.coerce.date(),
+  "queuePosition": zod.number().min(1).describe('Position in the active customer queue at the moment of check-in.'),
+  "estimatedWaitMinutes": zod.number().min(createPublicCheckInResponseEstimatedWaitMinutesMin).describe('Estimated wait from the active queue and currently available resources.'),
+  "trackingUrl": zod.string().describe('Public, business-scoped URL with an unguessable per-check-in capability where the customer can refresh their queue status.')
+})
+
+
+/**
+ * @summary Public live status for a check-in, scoped to the business slug and without customer contact details
+ */
+export const GetPublicCheckInStatusParams = zod.object({
+  "slug": zod.coerce.string(),
+  "visitId": zod.coerce.number()
+})
+
+export const getPublicCheckInStatusHeaderXCheckInTokenMin = 40;
+
+
+
+export const GetPublicCheckInStatusHeader = zod.object({
+  "x-check-in-token": zod.string().min(getPublicCheckInStatusHeaderXCheckInTokenMin)
+})
+
+
+export const getPublicCheckInStatusResponseEstimatedWaitMinutesMin = 0;
+
+
+
+export const GetPublicCheckInStatusResponse = zod.object({
+  "visitId": zod.number(),
+  "serviceType": zod.string(),
+  "businessName": zod.string(),
+  "status": zod.string(),
+  "queuePosition": zod.number().min(1).nullable().describe('Current position when the visit is waiting in the active queue; null once service has begun or ended.'),
+  "estimatedWaitMinutes": zod.number().min(getPublicCheckInStatusResponseEstimatedWaitMinutesMin).nullable().describe('Current estimate when the visit is waiting in the active queue; null once service has begun or ended.'),
+  "checkedInAt": zod.coerce.date(),
+  "trackingUrl": zod.string()
 })
 
 
