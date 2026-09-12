@@ -1,4 +1,4 @@
-import { Link, Route, Switch, useLocation } from "wouter";
+import { Link, Route, Switch, useLocation, useSearch } from "wouter";
 import { LayoutDashboard, Users, Clock, DollarSign, Calendar, Zap } from "lucide-react";
 import { OperationsOverviewPage } from "./OperationsOverviewPage";
 import { IntegrationsCatalogPage } from "./IntegrationsCatalogPage";
@@ -6,6 +6,7 @@ import { WorkforceStatePage } from "./WorkforceStatePage";
 import { PayrollStatePage } from "./PayrollStatePage";
 import { TimeAttendanceStatePage } from "./TimeAttendanceStatePage";
 import { SchedulingStatePage } from "./SchedulingStatePage";
+import { withSosTenant } from "@/lib/sos-tenant-url";
 
 const NAV_ITEMS = [
   { path: "/operations", label: "Overview", icon: LayoutDashboard },
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
 
 export default function WorkforceHub() {
   const [location] = useLocation();
+  const search = useSearch();
 
   return (
     <div className="flex flex-col space-y-6 animate-in fade-in duration-300">
@@ -37,7 +39,7 @@ export default function WorkforceHub() {
             return (
               <Link
                 key={item.path}
-                href={item.path}
+                href={withSosTenant(item.path, search)}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                   isActive
                     ? "bg-primary/10 text-primary border-b-2 border-primary"

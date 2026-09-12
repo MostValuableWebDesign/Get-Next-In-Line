@@ -14,12 +14,14 @@ export function parseTenantParam(search: string): number | null {
 
 /**
  * Build an in-app href that carries the active `?tenant=<id>` scope forward.
- * Use for every nav link between /sos pages — dropping the param would reset
- * the tenant scope and break tenant-required APIs (e.g. /api/coop/compliance).
+ * Use for every nav link between tenant-scoped SOS and Operations pages —
+ * dropping the param would reset the tenant scope and break tenant-required APIs.
  */
 export function withSosTenant(path: string, search?: string): string {
   const src = search ?? (typeof window !== 'undefined' ? window.location.search : '');
   const tenant = parseTenantParam(src);
-  if (tenant == null || !path.startsWith('/sos')) return path;
+  const isTenantScopedPath =
+    path.startsWith('/sos') || path === '/operations' || path.startsWith('/operations/');
+  if (tenant == null || !isTenantScopedPath) return path;
   return `${path}${path.includes('?') ? '&' : '?'}tenant=${tenant}`;
 }

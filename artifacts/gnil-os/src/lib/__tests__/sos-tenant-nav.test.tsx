@@ -1,10 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { withSosTenant, parseTenantParam } from '../sos-tenant-url';
 
-// The SOS sidebar builds every nav href through withSosTenant so navigating
-// between /sos pages (e.g. Business Bookings -> Tax & Compliance) never drops
-// the ?tenant=<id> scope. Dropping it would reset the x-tenant-id header and
-// tenant-required APIs (all /api/coop/compliance/* endpoints) would 400.
+// Tenant-scoped navigation builds hrefs through withSosTenant so moving between
+// Business SOS and Operations pages never drops the selected business.
 describe('SOS nav tenant propagation (withSosTenant)', () => {
   it('carries ?tenant forward onto /sos links', () => {
     expect(withSosTenant('/sos/tax-compliance', '?tenant=42')).toBe(
@@ -19,8 +17,14 @@ describe('SOS nav tenant propagation (withSosTenant)', () => {
     );
   });
 
-  it('leaves non-/sos links untouched', () => {
-    expect(withSosTenant('/operations', '?tenant=42')).toBe('/operations');
+  it('carries ?tenant forward onto Operations links', () => {
+    expect(withSosTenant('/operations', '?tenant=42')).toBe('/operations?tenant=42');
+    expect(withSosTenant('/operations/integrations', '?tenant=42')).toBe(
+      '/operations/integrations?tenant=42',
+    );
+  });
+
+  it('leaves unrelated links untouched', () => {
     expect(withSosTenant('/', '?tenant=42')).toBe('/');
   });
 
