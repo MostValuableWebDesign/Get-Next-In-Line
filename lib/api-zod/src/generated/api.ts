@@ -8191,6 +8191,7 @@ export const GetOperationsOverviewResponse = zod.object({
   "preferred": zod.boolean(),
   "status": zod.enum(['not_connected', 'connecting', 'connected', 'syncing', 'degraded', 'reauthorization_required', 'error']),
   "capabilities": zod.array(zod.enum(['employees', 'contractors', 'payroll', 'compensation', 'onboarding', 'benefits', 'tax_documents', 'time_tracking', 'time_off', 'scheduling'])),
+  "scopes": zod.array(zod.string()),
   "connectedAt": zod.coerce.date().nullable(),
   "lastSuccessfulSyncAt": zod.coerce.date().nullable(),
   "lastError": zod.string().nullable()
@@ -8199,11 +8200,183 @@ export const GetOperationsOverviewResponse = zod.object({
   "capability": zod.enum(['employees', 'contractors', 'payroll', 'compensation', 'onboarding', 'benefits', 'tax_documents', 'time_tracking', 'time_off', 'scheduling']),
   "providerId": zod.string().nullable(),
   "providerName": zod.string().nullable(),
-  "state": zod.enum(['connected', 'unavailable'])
+  "state": zod.enum(['connected', 'unavailable', 'missing_scope', 'failed']),
+  "providerStatus": zod.string().nullable(),
+  "missingScopes": zod.array(zod.string()),
+  "syncStatus": zod.string().nullable(),
+  "syncLastError": zod.string().nullable()
 })),
   "connectedProviderCount": zod.number(),
   "attentionRequiredCount": zod.number(),
-  "lastSuccessfulSyncAt": zod.coerce.date().nullable()
+  "lastSuccessfulSyncAt": zod.coerce.date().nullable(),
+  "workforceCount": zod.number(),
+  "unlinkedWorkforceCount": zod.number()
+})
+
+
+/**
+ * @summary Start tenant-scoped Gusto OAuth authorization
+ */
+export const ConnectGustoResponse = zod.object({
+  "authorizationUrl": zod.string()
+})
+
+
+/**
+ * @summary Complete Gusto OAuth authorization using one-time state
+ */
+export const CompleteGustoOAuthQueryParams = zod.object({
+  "code": zod.coerce.string(),
+  "state": zod.coerce.string()
+})
+
+export const CompleteGustoOAuthResponse = zod.void()
+
+
+/**
+ * @summary Get the tenant's Gusto connection status
+ */
+export const GetGustoConnectionStatusResponse = zod.object({
+  "providerId": zod.string(),
+  "state": zod.enum(['not_connected', 'connecting', 'connected', 'syncing', 'degraded', 'reauthorization_required', 'error']),
+  "providerAccountId": zod.string().nullable(),
+  "scopes": zod.array(zod.string()),
+  "connectedAt": zod.coerce.date().nullable(),
+  "lastSuccessfulSyncAt": zod.coerce.date().nullable(),
+  "lastSyncAttemptAt": zod.coerce.date().nullable(),
+  "lastError": zod.string().nullable()
+})
+
+
+/**
+ * @summary Disconnect Gusto and remove stored credentials
+ */
+export const DisconnectGustoResponse = zod.object({
+  "status": zod.enum(['not_connected'])
+})
+
+
+/**
+ * @summary Synchronize tenant workforce records from Gusto
+ */
+export const SyncGustoWorkforceResponse = zod.object({
+  "created": zod.number(),
+  "updated": zod.number(),
+  "unchanged": zod.number(),
+  "errors": zod.number()
+})
+
+
+/**
+ * @summary Synchronize read-only processed and unprocessed payroll runs from Gusto
+ */
+export const SyncGustoPayrollReadOnlyResponse = zod.object({
+  "providerId": zod.string(),
+  "tenantId": zod.number(),
+  "startedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date(),
+  "status": zod.enum(['succeeded', 'partially_succeeded', 'failed']),
+  "recordsRead": zod.number(),
+  "recordsWritten": zod.number(),
+  "errors": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Synchronize read-only current job compensation from Gusto
+ */
+export const SyncGustoCompensationReadOnlyResponse = zod.object({
+  "providerId": zod.string(),
+  "tenantId": zod.number(),
+  "startedAt": zod.coerce.date(),
+  "completedAt": zod.coerce.date(),
+  "status": zod.enum(['succeeded', 'partially_succeeded', 'failed']),
+  "recordsRead": zod.number(),
+  "recordsWritten": zod.number(),
+  "errors": zod.array(zod.string())
+})
+
+
+/**
+ * @summary List normalized read-only payroll runs for the tenant
+ */
+export const listOperationsPayrollResponseGrossPayCentsRegExp = new RegExp('^[0-9]+$');
+export const listOperationsPayrollResponseNetPayCentsRegExp = new RegExp('^[0-9]+$');
+
+
+export const ListOperationsPayrollResponseItem = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['draft', 'processing', 'processed', 'paid', 'cancelled', 'unknown']),
+  "payPeriodStart": zod.string(),
+  "payPeriodEnd": zod.string(),
+  "paymentDate": zod.string().nullable(),
+  "processed": zod.boolean(),
+  "processedDate": zod.string().nullable(),
+  "calculatedAt": zod.coerce.date().nullable(),
+  "grossPayCents": zod.string().regex(listOperationsPayrollResponseGrossPayCentsRegExp).nullable(),
+  "netPayCents": zod.string().regex(listOperationsPayrollResponseNetPayCentsRegExp).nullable(),
+  "currency": zod.string(),
+  "lastSyncedAt": zod.coerce.date()
+})
+export const ListOperationsPayrollResponse = zod.array(ListOperationsPayrollResponseItem)
+
+
+/**
+ * @summary List normalized read-only current compensation for the tenant
+ */
+export const listOperationsCompensationResponseAmountCentsRegExp = new RegExp('^[0-9]+$');
+
+
+export const ListOperationsCompensationResponseItem = zod.object({
+  "id": zod.number(),
+  "workforcePersonId": zod.number().nullable(),
+  "displayName": zod.string().nullable(),
+  "amountCents": zod.string().regex(listOperationsCompensationResponseAmountCentsRegExp),
+  "currency": zod.string(),
+  "interval": zod.enum(['hourly', 'weekly', 'monthly', 'annual', 'paycheck', 'unknown']),
+  "effectiveFrom": zod.string().nullable(),
+  "effectiveTo": zod.string().nullable(),
+  "lastSyncedAt": zod.coerce.date()
+})
+export const ListOperationsCompensationResponse = zod.array(ListOperationsCompensationResponseItem)
+
+
+/**
+ * @summary List normalized provider workforce records and GNIL linkage
+ */
+export const ListOperationsWorkforceResponseItem = zod.object({
+  "id": zod.number(),
+  "providerId": zod.string(),
+  "externalId": zod.string(),
+  "personType": zod.enum(['employee', 'contractor', 'unknown']),
+  "displayName": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "employmentStatus": zod.enum(['active', 'inactive', 'terminated', 'unknown']),
+  "jobTitle": zod.string().nullish(),
+  "lastSyncedAt": zod.coerce.date(),
+  "linked": zod.boolean(),
+  "linkType": zod.string().nullish(),
+  "gnilStaffId": zod.number().nullish(),
+  "gnilResourceId": zod.number().nullish()
+})
+export const ListOperationsWorkforceResponse = zod.array(ListOperationsWorkforceResponseItem)
+
+
+/**
+ * @summary Link or unlink an imported person to a tenant GNIL staff member or resource
+ */
+export const LinkOperationsWorkforcePersonParams = zod.object({
+  "personId": zod.coerce.number()
+})
+
+export const LinkOperationsWorkforcePersonBody = zod.object({
+  "staffId": zod.number().nullish(),
+  "resourceId": zod.number().nullish()
+})
+
+export const LinkOperationsWorkforcePersonResponse = zod.object({
+  "linked": zod.boolean()
 })
 
 

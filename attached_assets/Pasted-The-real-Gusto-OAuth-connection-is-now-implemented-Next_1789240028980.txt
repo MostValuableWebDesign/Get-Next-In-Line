@@ -1,0 +1,199 @@
+The real Gusto OAuth connection is now implemented.
+
+Next implement the first useful data integration: workforce synchronization.
+
+DO NOT redesign Operations.
+DO NOT let Gusto overwrite GNIL bookings, queues, services, customers, chairs/resources, or appointment logic.
+
+GNIL remains authoritative for salon/barbershop operations.
+
+Gusto should be authoritative only for the workforce capabilities explicitly assigned to it.
+
+Goal:
+Synchronize Gusto employees/contractors into normalized GNIL workforce records and safely link them to existing GNIL staff/barbers.
+
+Implement:
+
+1. Determine the correct official Gusto endpoints for:
+
+* company/account identity
+* employees
+* contractors
+* jobs/titles if available
+* compensation if available under currently granted scopes
+
+Use official current documentation.
+Do not invent fields or endpoints.
+
+2. Normalized workforce persistence
+
+Create tenant-scoped tables for provider workforce records.
+
+Example:
+
+```text
+workforce_people
+
+id
+tenant_id
+provider_id
+external_id
+person_type
+first_name
+last_name
+display_name
+email
+phone
+employment_status
+job_title
+hire_date
+termination_date
+provider_updated_at
+last_synced_at
+created_at
+updated_at
+```
+
+Add a unique constraint on:
+
+```text
+tenant_id + provider_id + external_id
+```
+
+Do not create duplicates on repeated sync.
+
+3. GNIL staff linkage
+
+Create an explicit mapping between normalized workforce people and GNIL barber/staff/resource identities.
+
+Example:
+
+```text
+workforce_staff_links
+
+id
+tenant_id
+workforce_person_id
+gnil_resource_id
+link_type
+created_at
+updated_at
+```
+
+Do NOT automatically merge records solely because names match.
+
+Safe auto-match may be allowed only if:
+
+* same tenant
+* exact normalized email or another sufficiently strong identifier
+* one unambiguous match
+
+Otherwise mark as unlinked and require owner confirmation.
+
+4. Sync service
+
+Create a service such as:
+
+```ts
+syncWorkforceEmployees({
+  tenantId,
+  providerId
+})
+```
+
+It should:
+
+* load the tenant's active provider connection
+* ensure the provider owns the `employees` capability
+* fetch provider employees
+* normalize
+* upsert
+* track created/updated/unchanged/error counts
+* update connection sync metadata
+* produce a sync audit record
+
+Make retries idempotent.
+
+5. Contractor support
+
+If Gusto's available scopes/endpoints support contractors, normalize contractors too.
+
+If not available under the verified current integration, leave the capability disabled instead of simulating data.
+
+6. Operations → Staff page
+
+Replace the current placeholder state screen with useful normalized read-only data.
+
+Show:
+
+* employee/staff name
+* employment status
+* role/title
+* provider
+* GNIL barber/resource link status
+* last synced
+
+Add filtering such as:
+
+* linked
+* unlinked
+* active
+* inactive
+
+Provide an owner/admin workflow to link an imported workforce person to an existing GNIL barber/resource.
+
+Do not allow regular staff to arbitrarily re-map identities.
+
+7. Initial sync
+
+After a new Gusto connection:
+
+* do not block the OAuth callback on a huge sync
+* trigger or expose a clear initial synchronization step using the app's existing safe job/background mechanism if available
+* if there is no durable job infrastructure, provide a synchronous/manual `Sync now` endpoint rather than inventing fragile async behavior
+
+8. Manual sync
+
+Add:
+`Sync now`
+
+to the Gusto Manage integration experience.
+
+Display:
+
+* last successful sync
+* last attempted sync
+* errors
+
+9. Capability enforcement
+
+If Gusto is not the primary owner of `employees`, do not use Gusto employee data as active workforce state.
+
+The data can remain stored for historical purposes, but Operations should clearly reflect the configured primary provider.
+
+10. Tests
+
+Cover:
+
+* initial insert
+* repeated idempotent sync
+* updates to an existing employee
+* terminated employee
+* employee removed from response does not get destructively deleted without deliberate provider semantics
+* duplicate external IDs
+* tenant isolation
+* safe staff auto-linking
+* ambiguous matches remain unlinked
+* manual mapping
+* disconnected provider cannot sync
+* provider without employee capability cannot sync
+* sync failure records error without corrupting previous good data
+
+At the end:
+
+* run TypeScript
+* run DB/API/frontend tests affected by the change
+* report changed files
+* report migration names
+* report pass/fail totals
+* report any Gusto fields/endpoints that could not be verified

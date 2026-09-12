@@ -74,3 +74,5 @@
 - [Transactional email channel](transactional-email.md) — email sends need an explicit toEmail (else unsupported_channel); concierge automation stays SMS-only; gate on customer emailOptIn.
 - Checkout tip precedence: tip-pool engine owns a tip when a rule resolves OR (servicing staff set AND visit bundled or tenant has live co-op partnership); otherwise tenant gratuity pool config engine — both integration suites encode this contract.
 - [Public SMS consent evidence](public-sms-consent.md) — every successful checked public CTA submission records the displayed disclosure; an unauthenticated browser can never reverse STOP.
+- [Gusto OAuth lifecycle](gusto-oauth.md) — company-scoped OAuth uses one-time state and serialized refresh-token rotation; legacy partner sandbox OAuth must never represent Gusto.
+- [Workforce synchronization](workforce-sync.md) — provider imports are non-destructive and capability-gated; identity links require exact unambiguous email or explicit owner action.

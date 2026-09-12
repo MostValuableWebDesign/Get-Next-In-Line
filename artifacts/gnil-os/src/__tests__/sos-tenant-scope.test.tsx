@@ -16,7 +16,7 @@ import { Router } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
 
 import { SosTenantSync, getCurrentSosTenantId, parseTenantParam } from '@/lib/sos-tenant';
-import { listSosCalls, listTenants } from '@workspace/api-client-react';
+import { connectGusto, listSosCalls, listTenants } from '@workspace/api-client-react';
 
 function renderSync(path: string) {
   const { hook } = memoryLocation({ path, static: true });
@@ -79,6 +79,15 @@ describe('SosTenantSync scope tracking', () => {
     const calls = mockFetch();
     await listSosCalls();
     expect(calls[0].headers.get('x-tenant-id')).toBe('legacy');
+  });
+
+  it('applies ?tenant= on Operations pages and scopes workforce integration requests', async () => {
+    renderSync('/operations/integrations?tenant=7');
+    expect(getCurrentSosTenantId()).toBe(7);
+
+    const calls = mockFetch();
+    await connectGusto();
+    expect(calls[0].headers.get('x-tenant-id')).toBe('7');
   });
 
   it('resets scope outside /sos pages even when ?tenant= is present', () => {

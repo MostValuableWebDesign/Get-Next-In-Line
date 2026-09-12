@@ -40,6 +40,7 @@ import type {
   BillingSummary,
   CheckoutInput,
   CheckoutResult,
+  CompleteGustoOAuthParams,
   ConciergeClientProfile,
   ConciergeClientProfileInput,
   ConciergeClientProfileUpdate,
@@ -205,7 +206,11 @@ import type {
   GovernanceUserUpdate,
   GratuityLedgerEntry,
   GratuityShiftReportRow,
+  GustoConnectResult,
+  GustoConnectionStatus,
+  GustoDisconnectResult,
   HealthStatus,
+  LinkOperationsWorkforcePerson200,
   ListAdminCoopDisputesParams,
   ListAdminCoopFinancialDisputesParams,
   ListClientProfilesParams,
@@ -227,7 +232,11 @@ import type {
   ModulePricing,
   ModuleTenantCount,
   ModuleTenantSubscriber,
+  OperationsCapabilitySyncResult,
+  OperationsCompensation,
   OperationsOverview,
+  OperationsPayrollRun,
+  OperationsWorkforcePerson,
   PartnerCallbackBody,
   PartnerConnectResult,
   PartnerConnectionStatus,
@@ -359,7 +368,9 @@ import type {
   WalletPassList,
   WalletPassportView,
   WalletReferralEnterBody,
-  WalletSessionResult
+  WalletSessionResult,
+  WorkforceStaffLinkRequest,
+  WorkforceSyncResult
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -19920,6 +19931,825 @@ export function useGetOperationsOverview<TData = Awaited<ReturnType<typeof getOp
 
 
 
+
+export const getConnectGustoUrl = () => {
+
+
+
+
+  return `/api/operations/integrations/gusto/connect`
+}
+
+/**
+ * @summary Start tenant-scoped Gusto OAuth authorization
+ */
+export const connectGusto = async ( options?: RequestInit): Promise<GustoConnectResult> => {
+
+  return customFetch<GustoConnectResult>(getConnectGustoUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getConnectGustoMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof connectGusto>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof connectGusto>>, TError,void, TContext> => {
+
+const mutationKey = ['connectGusto'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof connectGusto>>, void> = () => {
+
+
+          return  connectGusto(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConnectGustoMutationResult = NonNullable<Awaited<ReturnType<typeof connectGusto>>>
+
+    export type ConnectGustoMutationError = ErrorType<void>
+
+    /**
+ * @summary Start tenant-scoped Gusto OAuth authorization
+ */
+export const useConnectGusto = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof connectGusto>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof connectGusto>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getConnectGustoMutationOptions(options));
+    }
+
+export const getCompleteGustoOAuthUrl = (params: CompleteGustoOAuthParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/operations/integrations/gusto/callback?${stringifiedParams}` : `/api/operations/integrations/gusto/callback`
+}
+
+/**
+ * @summary Complete Gusto OAuth authorization using one-time state
+ */
+export const completeGustoOAuth = async (params: CompleteGustoOAuthParams, options?: RequestInit): Promise<unknown> => {
+
+  return customFetch<unknown>(getCompleteGustoOAuthUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompleteGustoOAuthQueryKey = (params?: CompleteGustoOAuthParams,) => {
+    return [
+    `/api/operations/integrations/gusto/callback`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getCompleteGustoOAuthQueryOptions = <TData = Awaited<ReturnType<typeof completeGustoOAuth>>, TError = ErrorType<void>>(params: CompleteGustoOAuthParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof completeGustoOAuth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCompleteGustoOAuthQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof completeGustoOAuth>>> = ({ signal }) => completeGustoOAuth(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof completeGustoOAuth>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type CompleteGustoOAuthQueryResult = NonNullable<Awaited<ReturnType<typeof completeGustoOAuth>>>
+export type CompleteGustoOAuthQueryError = ErrorType<void>
+
+
+/**
+ * @summary Complete Gusto OAuth authorization using one-time state
+ */
+
+export function useCompleteGustoOAuth<TData = Awaited<ReturnType<typeof completeGustoOAuth>>, TError = ErrorType<void>>(
+ params: CompleteGustoOAuthParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof completeGustoOAuth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getCompleteGustoOAuthQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetGustoConnectionStatusUrl = () => {
+
+
+
+
+  return `/api/operations/integrations/gusto/status`
+}
+
+/**
+ * @summary Get the tenant's Gusto connection status
+ */
+export const getGustoConnectionStatus = async ( options?: RequestInit): Promise<GustoConnectionStatus> => {
+
+  return customFetch<GustoConnectionStatus>(getGetGustoConnectionStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGustoConnectionStatusQueryKey = () => {
+    return [
+    `/api/operations/integrations/gusto/status`
+    ] as const;
+    }
+
+
+export const getGetGustoConnectionStatusQueryOptions = <TData = Awaited<ReturnType<typeof getGustoConnectionStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGustoConnectionStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGustoConnectionStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGustoConnectionStatus>>> = ({ signal }) => getGustoConnectionStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGustoConnectionStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGustoConnectionStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getGustoConnectionStatus>>>
+export type GetGustoConnectionStatusQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the tenant's Gusto connection status
+ */
+
+export function useGetGustoConnectionStatus<TData = Awaited<ReturnType<typeof getGustoConnectionStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGustoConnectionStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGustoConnectionStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDisconnectGustoUrl = () => {
+
+
+
+
+  return `/api/operations/integrations/gusto/disconnect`
+}
+
+/**
+ * @summary Disconnect Gusto and remove stored credentials
+ */
+export const disconnectGusto = async ( options?: RequestInit): Promise<GustoDisconnectResult> => {
+
+  return customFetch<GustoDisconnectResult>(getDisconnectGustoUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDisconnectGustoMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectGusto>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof disconnectGusto>>, TError,void, TContext> => {
+
+const mutationKey = ['disconnectGusto'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof disconnectGusto>>, void> = () => {
+
+
+          return  disconnectGusto(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DisconnectGustoMutationResult = NonNullable<Awaited<ReturnType<typeof disconnectGusto>>>
+
+    export type DisconnectGustoMutationError = ErrorType<void>
+
+    /**
+ * @summary Disconnect Gusto and remove stored credentials
+ */
+export const useDisconnectGusto = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disconnectGusto>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof disconnectGusto>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getDisconnectGustoMutationOptions(options));
+    }
+
+export const getSyncGustoWorkforceUrl = () => {
+
+
+
+
+  return `/api/operations/integrations/gusto/sync`
+}
+
+/**
+ * @summary Synchronize tenant workforce records from Gusto
+ */
+export const syncGustoWorkforce = async ( options?: RequestInit): Promise<WorkforceSyncResult> => {
+
+  return customFetch<WorkforceSyncResult>(getSyncGustoWorkforceUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSyncGustoWorkforceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGustoWorkforce>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncGustoWorkforce>>, TError,void, TContext> => {
+
+const mutationKey = ['syncGustoWorkforce'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncGustoWorkforce>>, void> = () => {
+
+
+          return  syncGustoWorkforce(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncGustoWorkforceMutationResult = NonNullable<Awaited<ReturnType<typeof syncGustoWorkforce>>>
+
+    export type SyncGustoWorkforceMutationError = ErrorType<void>
+
+    /**
+ * @summary Synchronize tenant workforce records from Gusto
+ */
+export const useSyncGustoWorkforce = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGustoWorkforce>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncGustoWorkforce>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSyncGustoWorkforceMutationOptions(options));
+    }
+
+export const getSyncGustoPayrollReadOnlyUrl = () => {
+
+
+
+
+  return `/api/operations/integrations/gusto/sync/payroll`
+}
+
+/**
+ * @summary Synchronize read-only processed and unprocessed payroll runs from Gusto
+ */
+export const syncGustoPayrollReadOnly = async ( options?: RequestInit): Promise<OperationsCapabilitySyncResult> => {
+
+  return customFetch<OperationsCapabilitySyncResult>(getSyncGustoPayrollReadOnlyUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSyncGustoPayrollReadOnlyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGustoPayrollReadOnly>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncGustoPayrollReadOnly>>, TError,void, TContext> => {
+
+const mutationKey = ['syncGustoPayrollReadOnly'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncGustoPayrollReadOnly>>, void> = () => {
+
+
+          return  syncGustoPayrollReadOnly(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncGustoPayrollReadOnlyMutationResult = NonNullable<Awaited<ReturnType<typeof syncGustoPayrollReadOnly>>>
+
+    export type SyncGustoPayrollReadOnlyMutationError = ErrorType<void>
+
+    /**
+ * @summary Synchronize read-only processed and unprocessed payroll runs from Gusto
+ */
+export const useSyncGustoPayrollReadOnly = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGustoPayrollReadOnly>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncGustoPayrollReadOnly>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSyncGustoPayrollReadOnlyMutationOptions(options));
+    }
+
+export const getSyncGustoCompensationReadOnlyUrl = () => {
+
+
+
+
+  return `/api/operations/integrations/gusto/sync/compensation`
+}
+
+/**
+ * @summary Synchronize read-only current job compensation from Gusto
+ */
+export const syncGustoCompensationReadOnly = async ( options?: RequestInit): Promise<OperationsCapabilitySyncResult> => {
+
+  return customFetch<OperationsCapabilitySyncResult>(getSyncGustoCompensationReadOnlyUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSyncGustoCompensationReadOnlyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGustoCompensationReadOnly>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof syncGustoCompensationReadOnly>>, TError,void, TContext> => {
+
+const mutationKey = ['syncGustoCompensationReadOnly'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof syncGustoCompensationReadOnly>>, void> = () => {
+
+
+          return  syncGustoCompensationReadOnly(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SyncGustoCompensationReadOnlyMutationResult = NonNullable<Awaited<ReturnType<typeof syncGustoCompensationReadOnly>>>
+
+    export type SyncGustoCompensationReadOnlyMutationError = ErrorType<void>
+
+    /**
+ * @summary Synchronize read-only current job compensation from Gusto
+ */
+export const useSyncGustoCompensationReadOnly = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof syncGustoCompensationReadOnly>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof syncGustoCompensationReadOnly>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSyncGustoCompensationReadOnlyMutationOptions(options));
+    }
+
+export const getListOperationsPayrollUrl = () => {
+
+
+
+
+  return `/api/operations/payroll`
+}
+
+/**
+ * @summary List normalized read-only payroll runs for the tenant
+ */
+export const listOperationsPayroll = async ( options?: RequestInit): Promise<OperationsPayrollRun[]> => {
+
+  return customFetch<OperationsPayrollRun[]>(getListOperationsPayrollUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOperationsPayrollQueryKey = () => {
+    return [
+    `/api/operations/payroll`
+    ] as const;
+    }
+
+
+export const getListOperationsPayrollQueryOptions = <TData = Awaited<ReturnType<typeof listOperationsPayroll>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOperationsPayroll>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOperationsPayrollQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOperationsPayroll>>> = ({ signal }) => listOperationsPayroll({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOperationsPayroll>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOperationsPayrollQueryResult = NonNullable<Awaited<ReturnType<typeof listOperationsPayroll>>>
+export type ListOperationsPayrollQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List normalized read-only payroll runs for the tenant
+ */
+
+export function useListOperationsPayroll<TData = Awaited<ReturnType<typeof listOperationsPayroll>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOperationsPayroll>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOperationsPayrollQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListOperationsCompensationUrl = () => {
+
+
+
+
+  return `/api/operations/compensation`
+}
+
+/**
+ * @summary List normalized read-only current compensation for the tenant
+ */
+export const listOperationsCompensation = async ( options?: RequestInit): Promise<OperationsCompensation[]> => {
+
+  return customFetch<OperationsCompensation[]>(getListOperationsCompensationUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOperationsCompensationQueryKey = () => {
+    return [
+    `/api/operations/compensation`
+    ] as const;
+    }
+
+
+export const getListOperationsCompensationQueryOptions = <TData = Awaited<ReturnType<typeof listOperationsCompensation>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOperationsCompensation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOperationsCompensationQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOperationsCompensation>>> = ({ signal }) => listOperationsCompensation({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOperationsCompensation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOperationsCompensationQueryResult = NonNullable<Awaited<ReturnType<typeof listOperationsCompensation>>>
+export type ListOperationsCompensationQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List normalized read-only current compensation for the tenant
+ */
+
+export function useListOperationsCompensation<TData = Awaited<ReturnType<typeof listOperationsCompensation>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOperationsCompensation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOperationsCompensationQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListOperationsWorkforceUrl = () => {
+
+
+
+
+  return `/api/operations/workforce`
+}
+
+/**
+ * @summary List normalized provider workforce records and GNIL linkage
+ */
+export const listOperationsWorkforce = async ( options?: RequestInit): Promise<OperationsWorkforcePerson[]> => {
+
+  return customFetch<OperationsWorkforcePerson[]>(getListOperationsWorkforceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOperationsWorkforceQueryKey = () => {
+    return [
+    `/api/operations/workforce`
+    ] as const;
+    }
+
+
+export const getListOperationsWorkforceQueryOptions = <TData = Awaited<ReturnType<typeof listOperationsWorkforce>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOperationsWorkforce>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOperationsWorkforceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOperationsWorkforce>>> = ({ signal }) => listOperationsWorkforce({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOperationsWorkforce>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOperationsWorkforceQueryResult = NonNullable<Awaited<ReturnType<typeof listOperationsWorkforce>>>
+export type ListOperationsWorkforceQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List normalized provider workforce records and GNIL linkage
+ */
+
+export function useListOperationsWorkforce<TData = Awaited<ReturnType<typeof listOperationsWorkforce>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOperationsWorkforce>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOperationsWorkforceQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getLinkOperationsWorkforcePersonUrl = (personId: number,) => {
+
+
+
+
+  return `/api/operations/workforce/${personId}/link`
+}
+
+/**
+ * @summary Link or unlink an imported person to a tenant GNIL staff member or resource
+ */
+export const linkOperationsWorkforcePerson = async (personId: number,
+    workforceStaffLinkRequest: WorkforceStaffLinkRequest, options?: RequestInit): Promise<LinkOperationsWorkforcePerson200> => {
+
+  return customFetch<LinkOperationsWorkforcePerson200>(getLinkOperationsWorkforcePersonUrl(personId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(workforceStaffLinkRequest)
+  }
+);}
+
+
+
+
+
+export const getLinkOperationsWorkforcePersonMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkOperationsWorkforcePerson>>, TError,{personId: number;data: BodyType<WorkforceStaffLinkRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof linkOperationsWorkforcePerson>>, TError,{personId: number;data: BodyType<WorkforceStaffLinkRequest>}, TContext> => {
+
+const mutationKey = ['linkOperationsWorkforcePerson'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof linkOperationsWorkforcePerson>>, {personId: number;data: BodyType<WorkforceStaffLinkRequest>}> = (props) => {
+          const {personId,data} = props ?? {};
+
+          return  linkOperationsWorkforcePerson(personId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LinkOperationsWorkforcePersonMutationResult = NonNullable<Awaited<ReturnType<typeof linkOperationsWorkforcePerson>>>
+    export type LinkOperationsWorkforcePersonMutationBody = BodyType<WorkforceStaffLinkRequest>
+    export type LinkOperationsWorkforcePersonMutationError = ErrorType<void>
+
+    /**
+ * @summary Link or unlink an imported person to a tenant GNIL staff member or resource
+ */
+export const useLinkOperationsWorkforcePerson = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof linkOperationsWorkforcePerson>>, TError,{personId: number;data: BodyType<WorkforceStaffLinkRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof linkOperationsWorkforcePerson>>,
+        TError,
+        {personId: number;data: BodyType<WorkforceStaffLinkRequest>},
+        TContext
+      > => {
+      return useMutation(getLinkOperationsWorkforcePersonMutationOptions(options));
+    }
 
 export const getConnectPartnerUrl = (partnerId: string,) => {
 

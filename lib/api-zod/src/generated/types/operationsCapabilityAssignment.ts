@@ -15,4 +15,11 @@ export interface OperationsCapabilityAssignment {
   /** @nullable */
   providerName: string | null;
   state: OperationsCapabilityAssignmentState;
+  /** @nullable */
+  providerStatus: string | null;
+  missingScopes: string[];
+  /** @nullable */
+  syncStatus: string | null;
+  /** @nullable */
+  syncLastError: string | null;
 }

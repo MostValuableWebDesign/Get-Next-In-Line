@@ -15,6 +15,7 @@ export interface OperationsProvider {
   preferred: boolean;
   status: OperationsProviderStatus;
   capabilities: WorkforceCapability[];
+  scopes: string[];
   /** @nullable */
   connectedAt: Date | null;
   /** @nullable */

@@ -603,6 +603,48 @@
       "when": 1787664788420,
       "tag": "0085_confused_power_man",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1789240082789,
+      "tag": "0086_new_ender_wiggin",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1789240644160,
+      "tag": "0087_panoramic_hawkeye",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1789241534443,
+      "tag": "0088_silent_wonder_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1789241986746,
+      "tag": "0089_panoramic_smiling_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1789242751902,
+      "tag": "0090_exotic_the_spike",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1789242950539,
+      "tag": "0091_perpetual_apocalypse",
+      "breakpoints": true
     }
   ]
 }

@@ -71,6 +71,7 @@ async function partnerModules(): Promise<Module[]> {
 }
 
 async function findPartnerModule(partnerId: string): Promise<Module | undefined> {
+  if (partnerId === "gusto") return undefined;
   const mods = await partnerModules();
   return mods.find((m) => m.partnerBrand != null && partnerKey(m.partnerBrand) === partnerId);
 }
@@ -126,7 +127,9 @@ function statusPayload(
 // ── GET /v1/partners — connection state overview for all partner modules ────
 router.get("/v1/partners", async (req, res): Promise<void> => {
   const tenantId = tenantIdFrom(req);
-  const mods = (await partnerModules()).filter((m) => m.partnerBrand != null);
+  const mods = (await partnerModules()).filter(
+    (m) => m.partnerBrand != null && partnerKey(m.partnerBrand) !== "gusto",
+  );
   const conns = await db
     .select()
     .from(partnerConnectionsTable)

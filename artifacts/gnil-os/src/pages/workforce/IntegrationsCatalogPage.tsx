@@ -1,10 +1,21 @@
 import { useState } from "react";
-import { useGetOperationsOverview, getGetOperationsOverviewQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useConnectGusto,
+  useDisconnectGusto,
+  useGetOperationsOverview,
+  useSyncGustoWorkforce,
+  useSyncGustoPayrollReadOnly,
+  useSyncGustoCompensationReadOnly,
+  getGetOperationsOverviewQueryKey,
+  getListOperationsWorkforceQueryKey,
+  getListOperationsPayrollQueryKey,
+  getListOperationsCompensationQueryKey,
+} from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, CheckCircle2, ShieldAlert, PlugZap, Check, Settings2, RefreshCw } from "lucide-react";
+import { AlertCircle, CheckCircle2, ShieldAlert, PlugZap, Check, Settings2, RefreshCw, DollarSign, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PartnerConnectDialog } from "@/components/partners/PartnerConnectDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const STATUS_CONFIG = {
@@ -18,12 +29,58 @@ const STATUS_CONFIG = {
 };
 
 export function IntegrationsCatalogPage() {
+  const queryClient = useQueryClient();
   const { data, isLoading, isError, refetch } = useGetOperationsOverview({
     query: { queryKey: getGetOperationsOverviewQueryKey() }
   });
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<{id: string, name: string, description: string} | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const gustoConnect = useConnectGusto({
+    mutation: {
+    onSuccess: ({ authorizationUrl }) => window.location.assign(authorizationUrl),
+    onError: (error) => setActionError(error instanceof Error ? error.message : "Unable to connect Gusto"),
+    },
+  });
+  const gustoDisconnect = useDisconnectGusto({
+    mutation: {
+      onSuccess: () =>
+        queryClient.invalidateQueries({ queryKey: getGetOperationsOverviewQueryKey() }),
+      onError: (error) =>
+        setActionError(error instanceof Error ? error.message : "Unable to disconnect Gusto"),
+    },
+  });
+  const gustoSync = useSyncGustoWorkforce({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetOperationsOverviewQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListOperationsWorkforceQueryKey() });
+      },
+      onError: (error) =>
+        setActionError(error instanceof Error ? error.message : "Unable to synchronize Gusto"),
+    },
+  });
+
+  const gustoSyncPayroll = useSyncGustoPayrollReadOnly({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetOperationsOverviewQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListOperationsPayrollQueryKey() });
+      },
+      onError: (error) =>
+        setActionError(error instanceof Error ? error.message : "Unable to sync payroll"),
+    },
+  });
+
+  const gustoSyncComp = useSyncGustoCompensationReadOnly({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetOperationsOverviewQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListOperationsCompensationQueryKey() });
+      },
+      onError: (error) =>
+        setActionError(error instanceof Error ? error.message : "Unable to sync compensation"),
+    },
+  });
 
   if (isLoading) {
     return (
@@ -43,9 +100,11 @@ export function IntegrationsCatalogPage() {
     );
   }
 
-  const handleManage = (provider: { providerId: string; name: string; description: string }) => {
-    setSelectedProvider({ id: provider.providerId, name: provider.name, description: provider.description });
-    setDialogOpen(true);
+  const handleManage = (provider: { providerId: string; status: string }) => {
+    setActionError(null);
+    if (provider.providerId !== "gusto") return;
+    if (["connected", "syncing", "degraded"].includes(provider.status)) return;
+    gustoConnect.mutate();
   };
 
   return (
@@ -55,6 +114,11 @@ export function IntegrationsCatalogPage() {
           Connect specialist workforce systems while GNIL remains authoritative for bookings, queues, services, chairs, and customer relationships.
         </p>
       </div>
+      {actionError && (
+        <div className="p-3 border border-destructive/20 bg-destructive/5 rounded-lg text-sm text-destructive">
+          {actionError}
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {data.providers.map((provider) => {
           const config = STATUS_CONFIG[provider.status] || STATUS_CONFIG.not_connected;
@@ -121,13 +185,51 @@ export function IntegrationsCatalogPage() {
                     <span>No sync history</span>
                   )}
                 </div>
-                <Button size="sm" variant={isActive ? "outline" : "default"} onClick={() => handleManage(provider)} className={`h-8 px-4 transition-all ${isActive ? 'hover:bg-primary hover:text-primary-foreground hover:border-primary' : ''}`}>
-                  {isActive ? (
-                    <><Settings2 className="w-3.5 h-3.5 mr-1.5" /> Manage</>
-                  ) : (
-                    "Connect"
-                  )}
+                {isActive ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-8 px-4">
+                        <Settings2 className="w-3.5 h-3.5 mr-1.5" /> Manage
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        disabled={gustoSync.isPending}
+                        onClick={() => gustoSync.mutate()}
+                      >
+                        <RefreshCw className={`mr-2 h-4 w-4 ${gustoSync.isPending ? "animate-spin" : ""}`} />
+                        Sync staff
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={gustoSyncPayroll.isPending}
+                        onClick={() => gustoSyncPayroll.mutate()}
+                      >
+                        <DollarSign className={`mr-2 h-4 w-4 ${gustoSyncPayroll.isPending ? "animate-spin" : ""}`} />
+                        Sync payroll
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={gustoSyncComp.isPending}
+                        onClick={() => gustoSyncComp.mutate()}
+                      >
+                        <Briefcase className={`mr-2 h-4 w-4 ${gustoSyncComp.isPending ? "animate-spin" : ""}`} />
+                        Sync compensation
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        disabled={gustoDisconnect.isPending}
+                        onClick={() => gustoDisconnect.mutate()}
+                      >
+                        Disconnect Gusto
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                <Button size="sm" variant="default" disabled={gustoConnect.isPending} onClick={() => handleManage(provider)} className="h-8 px-4 transition-all">
+                  {provider.status === "error" || provider.status === "reauthorization_required"
+                    ? "Reconnect Gusto"
+                    : "Connect Gusto"}
                 </Button>
+                )}
               </div>
             </div>
           );
@@ -140,16 +242,6 @@ export function IntegrationsCatalogPage() {
           </div>
         )}
       </div>
-
-      {selectedProvider && (
-        <PartnerConnectDialog
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          partnerId={selectedProvider.id}
-          partnerBrand={selectedProvider.name}
-          title={selectedProvider.description}
-        />
-      )}
     </div>
   );
 }

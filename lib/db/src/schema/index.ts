@@ -15,3 +15,4 @@ export * from "./franchise";
 export * from "./procurement";
 export * from "./coopCompliance";
 export * from "./coopSettlement";
+export * from "./workforce";

@@ -5775,6 +5775,196 @@ paths:
               schema:
                 $ref: "#/components/schemas/OperationsOverview"
 
+  /operations/integrations/gusto/connect:
+    post:
+      operationId: connectGusto
+      tags: [operations]
+      summary: Start tenant-scoped Gusto OAuth authorization
+      responses:
+        "200":
+          description: Gusto authorization URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GustoConnectResult"
+        "400":
+          description: Tenant scope is required
+        "503":
+          description: Gusto OAuth is not configured
+
+  /operations/integrations/gusto/callback:
+    get:
+      operationId: completeGustoOAuth
+      tags: [operations]
+      summary: Complete Gusto OAuth authorization using one-time state
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to the Operations integration catalog
+        "400":
+          description: Invalid, expired, or replayed OAuth state
+
+  /operations/integrations/gusto/status:
+    get:
+      operationId: getGustoConnectionStatus
+      tags: [operations]
+      summary: Get the tenant's Gusto connection status
+      responses:
+        "200":
+          description: Gusto connection status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GustoConnectionStatus"
+        "400":
+          description: Tenant scope is required
+
+  /operations/integrations/gusto/disconnect:
+    post:
+      operationId: disconnectGusto
+      tags: [operations]
+      summary: Disconnect Gusto and remove stored credentials
+      responses:
+        "200":
+          description: Gusto was disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GustoDisconnectResult"
+        "400":
+          description: Tenant scope is required
+
+  /operations/integrations/gusto/sync:
+    post:
+      operationId: syncGustoWorkforce
+      tags: [operations]
+      summary: Synchronize tenant workforce records from Gusto
+      responses:
+        "200":
+          description: Idempotent workforce synchronization counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkforceSyncResult"
+        "409":
+          description: Gusto is disconnected or does not own the employees capability
+
+  /operations/integrations/gusto/sync/payroll:
+    post:
+      operationId: syncGustoPayrollReadOnly
+      tags: [operations]
+      summary: Synchronize read-only processed and unprocessed payroll runs from Gusto
+      responses:
+        "200":
+          description: Payroll synchronization result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationsCapabilitySyncResult"
+        "409":
+          description: Gusto is disconnected or does not own the payroll capability
+
+  /operations/integrations/gusto/sync/compensation:
+    post:
+      operationId: syncGustoCompensationReadOnly
+      tags: [operations]
+      summary: Synchronize read-only current job compensation from Gusto
+      responses:
+        "200":
+          description: Compensation synchronization result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationsCapabilitySyncResult"
+        "409":
+          description: Gusto is disconnected or does not own the compensation capability
+
+  /operations/payroll:
+    get:
+      operationId: listOperationsPayroll
+      tags: [operations]
+      summary: List normalized read-only payroll runs for the tenant
+      responses:
+        "200":
+          description: Normalized payroll runs without provider payloads or external identifiers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OperationsPayrollRun"
+
+  /operations/compensation:
+    get:
+      operationId: listOperationsCompensation
+      tags: [operations]
+      summary: List normalized read-only current compensation for the tenant
+      responses:
+        "200":
+          description: Normalized compensation without provider payloads or external identifiers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OperationsCompensation"
+
+  /operations/workforce:
+    get:
+      operationId: listOperationsWorkforce
+      tags: [operations]
+      summary: List normalized provider workforce records and GNIL linkage
+      responses:
+        "200":
+          description: Tenant workforce records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OperationsWorkforcePerson"
+
+  /operations/workforce/{personId}/link:
+    put:
+      operationId: linkOperationsWorkforcePerson
+      tags: [operations]
+      summary: Link or unlink an imported person to a tenant GNIL staff member or resource
+      parameters:
+        - name: personId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkforceStaffLinkRequest"
+      responses:
+        "200":
+          description: Link state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [linked]
+                properties:
+                  linked:
+                    type: boolean
+        "404":
+          description: Workforce person or GNIL identity not found
+
   /v1/partners/{partnerId}/connect:
     post:
       operationId: connectPartner
@@ -7310,6 +7500,7 @@ components:
           preferred,
           status,
           capabilities,
+          scopes,
           connectedAt,
           lastSuccessfulSyncAt,
           lastError,
@@ -7339,6 +7530,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorkforceCapability"
+        scopes:
+          type: array
+          items:
+            type: string
         connectedAt:
           type: ["string", "null"]
           format: date-time
@@ -7350,7 +7545,7 @@ components:
 
     OperationsCapabilityAssignment:
       type: object
-      required: [capability, providerId, providerName, state]
+      required: [capability, providerId, providerName, state, providerStatus, missingScopes, syncStatus, syncLastError]
       properties:
         capability:
           $ref: "#/components/schemas/WorkforceCapability"
@@ -7360,7 +7555,17 @@ components:
           type: ["string", "null"]
         state:
           type: string
-          enum: [connected, unavailable]
+          enum: [connected, unavailable, missing_scope, failed]
+        providerStatus:
+          type: ["string", "null"]
+        missingScopes:
+          type: array
+          items:
+            type: string
+        syncStatus:
+          type: ["string", "null"]
+        syncLastError:
+          type: ["string", "null"]
 
     OperationsOverview:
       type: object
@@ -7371,6 +7576,8 @@ components:
           connectedProviderCount,
           attentionRequiredCount,
           lastSuccessfulSyncAt,
+          workforceCount,
+          unlinkedWorkforceCount,
         ]
       properties:
         providers:
@@ -7388,6 +7595,216 @@ components:
         lastSuccessfulSyncAt:
           type: ["string", "null"]
           format: date-time
+        workforceCount:
+          type: integer
+        unlinkedWorkforceCount:
+          type: integer
+
+    OperationsCapabilitySyncResult:
+      type: object
+      required: [providerId, tenantId, startedAt, completedAt, status, recordsRead, recordsWritten, errors]
+      properties:
+        providerId:
+          type: string
+        tenantId:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [succeeded, partially_succeeded, failed]
+        recordsRead:
+          type: integer
+        recordsWritten:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    OperationsPayrollRun:
+      type: object
+      required:
+        [id, status, payPeriodStart, payPeriodEnd, paymentDate, processed, processedDate, calculatedAt, grossPayCents, netPayCents, currency, lastSyncedAt]
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [draft, processing, processed, paid, cancelled, unknown]
+        payPeriodStart:
+          type: string
+        payPeriodEnd:
+          type: string
+        paymentDate:
+          type: ["string", "null"]
+        processed:
+          type: boolean
+        processedDate:
+          type: ["string", "null"]
+        calculatedAt:
+          type: ["string", "null"]
+          format: date-time
+        grossPayCents:
+          type: ["string", "null"]
+          pattern: "^[0-9]+$"
+        netPayCents:
+          type: ["string", "null"]
+          pattern: "^[0-9]+$"
+        currency:
+          type: string
+        lastSyncedAt:
+          type: string
+          format: date-time
+
+    OperationsCompensation:
+      type: object
+      required: [id, workforcePersonId, displayName, amountCents, currency, interval, effectiveFrom, effectiveTo, lastSyncedAt]
+      properties:
+        id:
+          type: integer
+        workforcePersonId:
+          type: ["integer", "null"]
+        displayName:
+          type: ["string", "null"]
+        amountCents:
+          type: string
+          pattern: "^[0-9]+$"
+        currency:
+          type: string
+        interval:
+          type: string
+          enum: [hourly, weekly, monthly, annual, paycheck, unknown]
+        effectiveFrom:
+          type: ["string", "null"]
+        effectiveTo:
+          type: ["string", "null"]
+        lastSyncedAt:
+          type: string
+          format: date-time
+
+    GustoConnectResult:
+      type: object
+      required: [authorizationUrl]
+      properties:
+        authorizationUrl:
+          type: string
+
+    GustoConnectionStatus:
+      type: object
+      required:
+        [
+          providerId,
+          state,
+          providerAccountId,
+          scopes,
+          connectedAt,
+          lastSuccessfulSyncAt,
+          lastSyncAttemptAt,
+          lastError,
+        ]
+      properties:
+        providerId:
+          type: string
+        state:
+          type: string
+          enum:
+            [
+              not_connected,
+              connecting,
+              connected,
+              syncing,
+              degraded,
+              reauthorization_required,
+              error,
+            ]
+        providerAccountId:
+          type: ["string", "null"]
+        scopes:
+          type: array
+          items:
+            type: string
+        connectedAt:
+          type: ["string", "null"]
+          format: date-time
+        lastSuccessfulSyncAt:
+          type: ["string", "null"]
+          format: date-time
+        lastSyncAttemptAt:
+          type: ["string", "null"]
+          format: date-time
+        lastError:
+          type: ["string", "null"]
+
+    GustoDisconnectResult:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [not_connected]
+
+    WorkforceSyncResult:
+      type: object
+      required: [created, updated, unchanged, errors]
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        unchanged:
+          type: integer
+        errors:
+          type: integer
+
+    OperationsWorkforcePerson:
+      type: object
+      required:
+        [id, providerId, externalId, personType, displayName, employmentStatus, lastSyncedAt, linked]
+      properties:
+        id:
+          type: integer
+        providerId:
+          type: string
+        externalId:
+          type: string
+        personType:
+          type: string
+          enum: [employee, contractor, unknown]
+        displayName:
+          type: string
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        employmentStatus:
+          type: string
+          enum: [active, inactive, terminated, unknown]
+        jobTitle:
+          type: ["string", "null"]
+        lastSyncedAt:
+          type: string
+          format: date-time
+        linked:
+          type: boolean
+        linkType:
+          type: ["string", "null"]
+        gnilStaffId:
+          type: ["integer", "null"]
+        gnilResourceId:
+          type: ["integer", "null"]
+
+    WorkforceStaffLinkRequest:
+      type: object
+      properties:
+        staffId:
+          type: ["integer", "null"]
+        resourceId:
+          type: ["integer", "null"]
 
     NetworkRole:
       type: string

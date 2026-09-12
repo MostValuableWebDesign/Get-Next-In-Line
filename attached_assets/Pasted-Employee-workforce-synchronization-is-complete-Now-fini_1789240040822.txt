@@ -1,0 +1,198 @@
+Employee/workforce synchronization is complete.
+
+Now finish the first Gusto integration release with payroll/compensation visibility and sync hardening.
+
+DO NOT build payroll processing inside GNIL.
+DO NOT allow GNIL to calculate or submit payroll unless an official future requirement explicitly calls for it.
+
+This phase is read-only operational visibility.
+
+Implement:
+
+1. Payroll runs
+
+Using verified official Gusto endpoints/scopes, normalize payroll runs into a model such as:
+
+```text
+provider_payroll_runs
+
+id
+tenant_id
+provider_id
+external_id
+pay_period_start
+pay_period_end
+check_date
+status
+gross_pay
+net_pay
+provider_updated_at
+last_synced_at
+created_at
+updated_at
+```
+
+Only store fields actually available and appropriate.
+
+2. Compensation
+
+Normalize employee compensation where available.
+
+Support useful fields such as:
+
+* employee
+* rate
+* rate type
+* annualized amount if directly provided or safely derivable
+* effective date
+* provider
+
+Do not guess missing payroll values.
+
+3. Payroll UI
+
+Replace the placeholder `/operations/payroll` screen.
+
+Show a useful read-only view:
+
+* recent payroll runs
+* pay period
+* check date
+* status
+* high-level totals where available
+* provider
+* last sync
+
+Add clear copy:
+
+`Payroll is managed by Gusto`
+
+GNIL is providing operational visibility, not becoming the payroll engine.
+
+4. Employee compensation view
+
+Within Staff detail or an appropriate workforce view, show normalized compensation to users with the correct privileged role.
+
+Do not expose compensation to normal staff by default.
+
+Enforce server-side authorization.
+
+5. Sync architecture
+
+Extend synchronization so capabilities may sync independently:
+
+```text
+employees
+contractors
+payroll
+compensation
+onboarding
+```
+
+Each sync must:
+
+* verify capability ownership
+* be tenant scoped
+* be idempotent
+* update sync metadata
+* log failures safely
+
+6. Webhooks
+
+Research official Gusto webhook support for the capabilities actually enabled.
+
+If supported:
+
+* implement webhook endpoint
+* verify signature using the official documented mechanism
+* handle duplicate delivery idempotently
+* store provider event ID
+* reject invalid signatures
+* never trust tenant IDs from webhook payloads without resolving through the connected provider account/company
+
+If the required event is not supported by Gusto, document that and rely on manual/scheduled sync instead.
+
+Do NOT invent webhook event types.
+
+7. Sync recovery
+
+Handle:
+
+* rate limits
+* transient provider errors
+* invalid/expired credentials
+* reauthorization required
+* partial synchronization
+
+Previous successful normalized data must remain available when a later sync fails.
+
+Show degraded/error state without deleting good data.
+
+8. Operations Overview
+
+Make Overview useful.
+
+Show:
+
+* Gusto connection state
+* capabilities owned by Gusto
+* last successful synchronization
+* integrations requiring attention
+* workforce count
+* unlinked GNIL staff count if relevant
+
+Keep the design clean.
+
+9. Time & Attendance / Scheduling
+
+Do NOT fake functionality.
+
+If no verified active provider owns these capabilities, preserve the current provider-needed state.
+
+The screens should explain:
+
+`No provider currently manages this capability.`
+
+Do not imply Gusto handles time tracking or scheduling unless verified and intentionally enabled.
+
+10. Security
+
+Audit:
+
+* tenant isolation
+* compensation/payroll authorization
+* provider token logging
+* webhook authentication
+* provider errors returned to frontend
+* accidental exposure of raw Gusto payloads
+
+11. Tests
+
+Add tests for:
+
+* payroll normalization
+* compensation permissions
+* repeated payroll sync
+* failed sync preserving old records
+* capability enforcement
+* webhook signature verification if implemented
+* webhook idempotency if implemented
+* tenant isolation
+* connection reauthorization state
+* UI empty/error/connected states
+
+At the end run:
+
+* TypeScript checks
+* relevant unit/integration tests
+* API contract generation checks
+* frontend build
+
+Return:
+
+1. exact files changed
+2. migrations
+3. test totals
+4. verified Gusto capabilities
+5. unsupported/unverified capabilities intentionally left disabled
+6. remaining items required before production rollout

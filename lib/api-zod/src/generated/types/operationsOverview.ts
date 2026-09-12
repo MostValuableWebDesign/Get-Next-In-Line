@@ -15,4 +15,6 @@ export interface OperationsOverview {
   attentionRequiredCount: number;
   /** @nullable */
   lastSuccessfulSyncAt: Date | null;
+  workforceCount: number;
+  unlinkedWorkforceCount: number;
 }

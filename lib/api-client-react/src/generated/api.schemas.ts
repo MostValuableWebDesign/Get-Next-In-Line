@@ -41,6 +41,7 @@ export interface OperationsProvider {
   preferred: boolean;
   status: OperationsProviderStatus;
   capabilities: WorkforceCapability[];
+  scopes: string[];
   /** @nullable */
   connectedAt: string | null;
   /** @nullable */
@@ -55,6 +56,8 @@ export type OperationsCapabilityAssignmentState = typeof OperationsCapabilityAss
 export const OperationsCapabilityAssignmentState = {
   connected: 'connected',
   unavailable: 'unavailable',
+  missing_scope: 'missing_scope',
+  failed: 'failed',
 } as const;
 
 export interface OperationsCapabilityAssignment {
@@ -64,6 +67,13 @@ export interface OperationsCapabilityAssignment {
   /** @nullable */
   providerName: string | null;
   state: OperationsCapabilityAssignmentState;
+  /** @nullable */
+  providerStatus: string | null;
+  missingScopes: string[];
+  /** @nullable */
+  syncStatus: string | null;
+  /** @nullable */
+  syncLastError: string | null;
 }
 
 export interface OperationsOverview {
@@ -73,6 +83,195 @@ export interface OperationsOverview {
   attentionRequiredCount: number;
   /** @nullable */
   lastSuccessfulSyncAt: string | null;
+  workforceCount: number;
+  unlinkedWorkforceCount: number;
+}
+
+export type OperationsCapabilitySyncResultStatus = typeof OperationsCapabilitySyncResultStatus[keyof typeof OperationsCapabilitySyncResultStatus];
+
+
+export const OperationsCapabilitySyncResultStatus = {
+  succeeded: 'succeeded',
+  partially_succeeded: 'partially_succeeded',
+  failed: 'failed',
+} as const;
+
+export interface OperationsCapabilitySyncResult {
+  providerId: string;
+  tenantId: number;
+  startedAt: string;
+  completedAt: string;
+  status: OperationsCapabilitySyncResultStatus;
+  recordsRead: number;
+  recordsWritten: number;
+  errors: string[];
+}
+
+export type OperationsPayrollRunStatus = typeof OperationsPayrollRunStatus[keyof typeof OperationsPayrollRunStatus];
+
+
+export const OperationsPayrollRunStatus = {
+  draft: 'draft',
+  processing: 'processing',
+  processed: 'processed',
+  paid: 'paid',
+  cancelled: 'cancelled',
+  unknown: 'unknown',
+} as const;
+
+export interface OperationsPayrollRun {
+  id: number;
+  status: OperationsPayrollRunStatus;
+  payPeriodStart: string;
+  payPeriodEnd: string;
+  /** @nullable */
+  paymentDate: string | null;
+  processed: boolean;
+  /** @nullable */
+  processedDate: string | null;
+  /** @nullable */
+  calculatedAt: string | null;
+  /**
+     * @nullable
+     * @pattern ^[0-9]+$
+     */
+  grossPayCents: string | null;
+  /**
+     * @nullable
+     * @pattern ^[0-9]+$
+     */
+  netPayCents: string | null;
+  currency: string;
+  lastSyncedAt: string;
+}
+
+export type OperationsCompensationInterval = typeof OperationsCompensationInterval[keyof typeof OperationsCompensationInterval];
+
+
+export const OperationsCompensationInterval = {
+  hourly: 'hourly',
+  weekly: 'weekly',
+  monthly: 'monthly',
+  annual: 'annual',
+  paycheck: 'paycheck',
+  unknown: 'unknown',
+} as const;
+
+export interface OperationsCompensation {
+  id: number;
+  /** @nullable */
+  workforcePersonId: number | null;
+  /** @nullable */
+  displayName: string | null;
+  /** @pattern ^[0-9]+$ */
+  amountCents: string;
+  currency: string;
+  interval: OperationsCompensationInterval;
+  /** @nullable */
+  effectiveFrom: string | null;
+  /** @nullable */
+  effectiveTo: string | null;
+  lastSyncedAt: string;
+}
+
+export interface GustoConnectResult {
+  authorizationUrl: string;
+}
+
+export type GustoConnectionStatusState = typeof GustoConnectionStatusState[keyof typeof GustoConnectionStatusState];
+
+
+export const GustoConnectionStatusState = {
+  not_connected: 'not_connected',
+  connecting: 'connecting',
+  connected: 'connected',
+  syncing: 'syncing',
+  degraded: 'degraded',
+  reauthorization_required: 'reauthorization_required',
+  error: 'error',
+} as const;
+
+export interface GustoConnectionStatus {
+  providerId: string;
+  state: GustoConnectionStatusState;
+  /** @nullable */
+  providerAccountId: string | null;
+  scopes: string[];
+  /** @nullable */
+  connectedAt: string | null;
+  /** @nullable */
+  lastSuccessfulSyncAt: string | null;
+  /** @nullable */
+  lastSyncAttemptAt: string | null;
+  /** @nullable */
+  lastError: string | null;
+}
+
+export type GustoDisconnectResultStatus = typeof GustoDisconnectResultStatus[keyof typeof GustoDisconnectResultStatus];
+
+
+export const GustoDisconnectResultStatus = {
+  not_connected: 'not_connected',
+} as const;
+
+export interface GustoDisconnectResult {
+  status: GustoDisconnectResultStatus;
+}
+
+export interface WorkforceSyncResult {
+  created: number;
+  updated: number;
+  unchanged: number;
+  errors: number;
+}
+
+export type OperationsWorkforcePersonPersonType = typeof OperationsWorkforcePersonPersonType[keyof typeof OperationsWorkforcePersonPersonType];
+
+
+export const OperationsWorkforcePersonPersonType = {
+  employee: 'employee',
+  contractor: 'contractor',
+  unknown: 'unknown',
+} as const;
+
+export type OperationsWorkforcePersonEmploymentStatus = typeof OperationsWorkforcePersonEmploymentStatus[keyof typeof OperationsWorkforcePersonEmploymentStatus];
+
+
+export const OperationsWorkforcePersonEmploymentStatus = {
+  active: 'active',
+  inactive: 'inactive',
+  terminated: 'terminated',
+  unknown: 'unknown',
+} as const;
+
+export interface OperationsWorkforcePerson {
+  id: number;
+  providerId: string;
+  externalId: string;
+  personType: OperationsWorkforcePersonPersonType;
+  displayName: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  employmentStatus: OperationsWorkforcePersonEmploymentStatus;
+  /** @nullable */
+  jobTitle?: string | null;
+  lastSyncedAt: string;
+  linked: boolean;
+  /** @nullable */
+  linkType?: string | null;
+  /** @nullable */
+  gnilStaffId?: number | null;
+  /** @nullable */
+  gnilResourceId?: number | null;
+}
+
+export interface WorkforceStaffLinkRequest {
+  /** @nullable */
+  staffId?: number | null;
+  /** @nullable */
+  resourceId?: number | null;
 }
 
 /**
@@ -7498,5 +7697,14 @@ limit?: number;
  * @minimum 0
  */
 offset?: number;
+};
+
+export type CompleteGustoOAuthParams = {
+code: string;
+state: string;
+};
+
+export type LinkOperationsWorkforcePerson200 = {
+  linked: boolean;
 };
 

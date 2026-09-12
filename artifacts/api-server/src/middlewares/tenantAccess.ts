@@ -150,6 +150,17 @@ export async function authorizeTenantAccess(
   // redemption, so those POSTs stay open to staff (membership still checked).
   const staffOperationalPost =
     req.method === "POST" && req.path === "/coop/ambassador/rewards/redeem";
+  const staffCredentialMutation =
+    role === "staff" &&
+    !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
+    req.path.startsWith("/operations/integrations/");
+  if (staffCredentialMutation) {
+    res.status(403).json({
+      error: "Forbidden",
+      message: "Staff accounts cannot change integration credentials",
+    });
+    return;
+  }
   if (
     role === "staff" &&
     !["GET", "HEAD", "OPTIONS"].includes(req.method) &&

@@ -1,0 +1,190 @@
+Continue from the completed workforce provider architecture.
+
+DO NOT redesign the Operations UI.
+DO NOT use the existing sandbox partner OAuth flow for Gusto.
+DO NOT generate fake Gusto tokens.
+DO NOT mark Gusto connected unless Gusto successfully authorizes the tenant.
+
+Goal:
+Implement a real Gusto OAuth connection lifecycle behind the workforce integration architecture.
+
+Before coding:
+
+1. Verify the current official Gusto Embedded / API OAuth documentation and supported authentication flow.
+2. Use the official current endpoints/scopes.
+3. Do not invent unsupported Gusto capabilities.
+
+Implement:
+
+1. Environment configuration
+
+Add required configuration such as:
+
+```text
+GUSTO_CLIENT_ID
+GUSTO_CLIENT_SECRET
+GUSTO_REDIRECT_URI
+```
+
+and any official Gusto environment/base URL required for sandbox vs production.
+
+Secrets must never be exposed to the frontend.
+
+2. Gusto API client
+
+Create a dedicated client such as:
+
+```text
+src/domains/operations/integrations/gusto/GustoClient.ts
+```
+
+Responsibilities:
+
+* build authorization URL
+* exchange authorization code
+* refresh access token
+* revoke/disconnect if supported
+* authenticated GET/POST wrapper
+* timeout handling
+* provider error normalization
+* retry only where safe
+* never log raw tokens
+
+3. Gusto provider adapter
+
+Create:
+
+```text
+GustoProvider.ts
+```
+
+implementing the new `WorkforceProvider` abstraction.
+
+Initially its connection-related functions should be functional even if employee/payroll sync is completed in the next phase.
+
+4. OAuth state protection
+
+Generate cryptographically strong state.
+
+Persist state server-side with:
+
+* tenant
+* provider
+* expiration
+
+Validate callback state before exchanging codes.
+
+Prevent replay.
+
+Do not trust tenant information supplied by the callback.
+
+5. Routes
+
+Add provider-specific workforce integration endpoints, for example:
+
+```text
+POST /operations/integrations/gusto/connect
+GET  /operations/integrations/gusto/callback
+GET  /operations/integrations/gusto/status
+POST /operations/integrations/gusto/disconnect
+```
+
+Naming may follow existing API conventions if a cleaner provider-generic route already exists.
+
+6. Token storage
+
+Store:
+
+* access token encrypted
+* refresh token encrypted
+* expiration
+* granted scopes
+* external company/account identifier
+
+Use existing encryption utilities if secure and appropriate.
+
+Never return tokens to the client.
+
+7. Refresh behavior
+
+Before provider API calls:
+
+* determine whether the access token is expired or near expiration
+* refresh using the refresh token
+* persist the new token data atomically
+
+Handle refresh failure by transitioning the integration into an appropriate reauthorization/error state.
+
+8. UI integration
+
+The existing Gusto card in Operations → Integrations should use the real workflow.
+
+Change the Gusto action behavior so:
+
+Not connected:
+`Connect Gusto`
+
+Connected:
+`Manage`
+
+Error/expired:
+`Reconnect Gusto`
+
+The current `PartnerConnectDialog` sandbox flow must NOT be used for Gusto unless you refactor it into a genuinely provider-aware component that invokes the real Gusto endpoints.
+
+Remove any path where clicking Authorize can create fake `sandbox_access_*` credentials for Gusto.
+
+9. Status semantics
+
+Support meaningful states such as:
+
+* not_connected
+* connecting
+* connected
+* syncing
+* degraded
+* reauthorization_required
+* error
+
+Only show `connected` after successful Gusto authorization and token persistence.
+
+10. Audit trail
+
+Record:
+
+* connection started
+* authorization success
+* authorization failure
+* token refresh success/failure
+* disconnect
+
+Do not record credentials.
+
+11. Tests
+
+Add tests for:
+
+* OAuth state mismatch
+* expired state
+* replayed state
+* successful connection using mocked Gusto HTTP responses
+* failed token exchange
+* encrypted token persistence
+* refresh path
+* disconnect path
+* tenant isolation
+* Gusto never shows connected from the old sandbox partner workflow
+
+12. Keep implementation provider-agnostic above the Gusto layer.
+
+Operations screens should not need direct knowledge of Gusto APIs.
+
+At the end:
+
+* run TypeScript
+* run relevant tests
+* report changed files
+* report tests
+* identify anything requiring actual Gusto developer credentials for final verification
+
+Do not claim live Gusto verification unless an actual Gusto sandbox connection was performed.

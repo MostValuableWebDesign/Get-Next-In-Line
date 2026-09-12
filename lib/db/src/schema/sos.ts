@@ -149,7 +149,10 @@ export const sosResourcesTable = pgTable(
     currentVisitId: integer("current_visit_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("sos_resources_tenant_id_idx").on(t.tenantId)],
+  (t) => [
+    index("sos_resources_tenant_id_idx").on(t.tenantId),
+    unique("sos_resources_tenant_id_id_unique").on(t.tenantId, t.id),
+  ],
 );
 
 export const sosCustomersTable = pgTable(
@@ -271,7 +274,10 @@ export const sosStaffMembersTable = pgTable(
     coopCoverageEnabled: boolean("coop_coverage_enabled").notNull().default(false),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
-  (t) => [index("sos_staff_members_tenant_id_idx").on(t.tenantId)],
+  (t) => [
+    index("sos_staff_members_tenant_id_idx").on(t.tenantId),
+    unique("sos_staff_members_tenant_id_id_unique").on(t.tenantId, t.id),
+  ],
 );
 
 // ── co-op visit bundles ──────────────────────────────────────────────────────

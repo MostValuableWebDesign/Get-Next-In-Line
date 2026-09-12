@@ -1,0 +1,201 @@
+We already completed the Operations / Workforce Hub UI rework.
+
+DO NOT redesign the Operations UI.
+DO NOT rename the current Operations routes.
+DO NOT refactor unrelated modules.
+DO NOT touch booking, queue, customer, services, chairs/resources, or payments logic except where necessary to link workforce identities.
+
+The next goal is to implement the real provider architecture behind Operations.
+
+Current state:
+
+* `/operations`
+* `/operations/integrations`
+* `/operations/workforce`
+* `/operations/payroll`
+* `/operations/time`
+* `/operations/scheduling`
+
+already exist.
+
+* Gusto exists in `providerRegistry.ts`
+* `WorkforceProvider` currently only exposes metadata
+* the existing `PartnerConnectDialog` uses a sandbox/fake OAuth flow and MUST NOT be treated as a real Gusto connection
+* capability ownership is currently inferred by picking the first connected provider supporting a capability
+
+We now need a production-quality provider abstraction.
+
+Implement the following.
+
+1. Expand the workforce provider contract.
+
+Create a provider interface/service contract similar to:
+
+```ts
+interface WorkforceProvider {
+  readonly definition: WorkforceProviderDefinition;
+
+  getConnectionStatus(context: ProviderContext): Promise<ProviderConnectionStatus>;
+
+  listEmployees(context: ProviderContext): Promise<NormalizedEmployee[]>;
+
+  getEmployee?(
+    context: ProviderContext,
+    externalEmployeeId: string
+  ): Promise<NormalizedEmployee | null>;
+
+  listContractors?(
+    context: ProviderContext
+  ): Promise<NormalizedContractor[]>;
+
+  listPayrollRuns?(
+    context: ProviderContext,
+    options?: PayrollQueryOptions
+  ): Promise<NormalizedPayrollRun[]>;
+
+  getCompensation?(
+    context: ProviderContext,
+    externalEmployeeId: string
+  ): Promise<NormalizedCompensation | null>;
+}
+```
+
+Use clean TypeScript domain types.
+
+2. Add normalized workforce domain models.
+
+At minimum create normalized models for:
+
+* Employee
+* Contractor
+* Payroll run
+* Compensation
+* Provider connection status
+* Provider sync result
+
+Normalized employee should support fields such as:
+
+* providerId
+* externalId
+* firstName
+* lastName
+* displayName
+* email
+* phone
+* employmentType
+* employmentStatus
+* jobTitle
+* hireDate
+* terminationDate
+* rawUpdatedAt
+
+Do NOT expose provider-specific response objects to the React UI.
+
+3. Add a provider resolver.
+
+Create a service such as:
+
+```ts
+getWorkforceProvider(providerId: string): WorkforceProvider
+```
+
+Today this may only resolve `"gusto"`, but the system must support future providers without changing Operations screens.
+
+4. Add persistent capability ownership.
+
+Do NOT determine capability ownership with:
+
+```ts
+providers.find(...)
+```
+
+Create a tenant-scoped database model for capability assignment.
+
+Conceptually:
+
+```text
+tenant_integration_capabilities
+
+id
+tenant_id
+capability
+provider_id
+is_primary
+created_at
+updated_at
+```
+
+Add the appropriate unique constraints so a tenant cannot accidentally have multiple primary owners for the same capability.
+
+Capabilities currently include:
+
+* employees
+* contractors
+* payroll
+* compensation
+* onboarding
+* benefits
+* tax_documents
+* time_tracking
+* time_off
+* scheduling
+
+Operations overview must read the persisted assignment instead of automatically choosing the first compatible provider.
+
+5. Add a real integration connection domain model if the existing partner connection schema is not suitable.
+
+It must support at least:
+
+* tenantId
+* providerId
+* status
+* encrypted access token
+* encrypted refresh token
+* token expiration
+* provider account/company identifier
+* scopes
+* connectedAt
+* lastSuccessfulSyncAt
+* lastSyncAttemptAt
+* lastError
+* createdAt
+* updatedAt
+
+Do not break existing partner integrations if they still use `partnerConnectionsTable`.
+
+If workforce integrations deserve a separate table, create one instead of forcing unrelated partner integrations into the same abstraction.
+
+6. Tenant isolation is mandatory.
+
+Every workforce connection, capability assignment, synced record, and future provider operation must be tenant scoped.
+
+Do not trust arbitrary tenant IDs from request bodies.
+
+Use the app's existing authenticated tenant-access conventions.
+
+7. Tests
+
+Add unit/integration tests covering:
+
+* provider registry returns Gusto
+* provider resolver works
+* unknown provider fails safely
+* capability assignment is tenant isolated
+* only one primary provider per tenant+capability
+* provider-specific response types do not leak into normalized types
+* existing Operations overview tests still pass after switching to persisted capability ownership
+
+8. Do not implement Gusto API calls yet in this prompt.
+
+This phase is architecture only.
+
+At the end:
+
+* run TypeScript checks
+* run relevant tests
+* report files changed
+* report migrations added
+* report tests passed/failed
+* list any assumptions
+
+Do not claim the Gusto integration is functional yet.

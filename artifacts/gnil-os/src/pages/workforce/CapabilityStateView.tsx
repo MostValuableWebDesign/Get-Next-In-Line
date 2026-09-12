@@ -35,7 +35,7 @@ export function CapabilityStateView({ capability, title, description }: { capabi
         </div>
         <h3 className="text-xl font-semibold mb-2 text-foreground">No Provider Connected</h3>
         <p className="text-muted-foreground text-center max-w-md mb-6">
-          The <strong>{title}</strong> capability is currently unmanaged. Connect a supported provider to enable {description.toLowerCase()}.
+          No provider currently manages this capability.
         </p>
         <Button asChild>
           <Link href="/operations/integrations">Browse Integrations</Link>

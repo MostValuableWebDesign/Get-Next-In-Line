@@ -12,4 +12,6 @@ export type OperationsCapabilityAssignmentState = typeof OperationsCapabilityAss
 export const OperationsCapabilityAssignmentState = {
   connected: 'connected',
   unavailable: 'unavailable',
+  missing_scope: 'missing_scope',
+  failed: 'failed',
 } as const;

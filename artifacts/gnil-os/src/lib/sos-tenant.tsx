@@ -28,7 +28,11 @@ setTenantHeaderGetter((url) => {
   // /api/coop — with no business selected, the legacy (combined
   // single-tenant) scope must be requested deliberately via the "legacy"
   // sentinel instead of omitting the header.
-  if (url.includes('/api/sos/') || url.includes('/api/coop/')) {
+  if (
+    url.includes('/api/sos/') ||
+    url.includes('/api/coop/') ||
+    url.includes('/api/operations/')
+  ) {
     return currentSosTenantId == null ? 'legacy' : String(currentSosTenantId);
   }
   if (url.includes('/api/gateway/')) {
@@ -53,6 +57,7 @@ function dropSosQueries(queryClient: QueryClient) {
       typeof q.queryKey[0] === 'string' &&
       (q.queryKey[0].includes('/api/sos/') ||
         q.queryKey[0].includes('/api/coop/') ||
+        q.queryKey[0].includes('/api/operations/') ||
         q.queryKey[0].includes('/api/gateway/')),
   });
 }
@@ -73,7 +78,7 @@ export function SosTenantSync() {
   // the ?tenant= scope applies there too — keeping tenant-context handling
   // consistent across every surface that renders SOS data.
   const next =
-    location.startsWith('/sos') || location === '/'
+    location.startsWith('/sos') || location.startsWith('/operations') || location === '/'
       ? parseTenantParam(search)
       : null;
 
