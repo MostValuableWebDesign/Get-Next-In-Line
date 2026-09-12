@@ -7773,7 +7773,7 @@ components:
       properties:
         status:
           type: string
-          enum: [connected]
+          enum: [connected, degraded]
         assigned:
           type: array
           items:

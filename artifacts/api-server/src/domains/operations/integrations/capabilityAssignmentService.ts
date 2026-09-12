@@ -30,6 +30,10 @@ export type CapabilityAssignmentResult = {
   unavailable: WorkforceCapability[];
 };
 
+export type ConnectedCapabilityReconciliationResult = CapabilityAssignmentResult & {
+  status: "connected" | "degraded";
+};
+
 export async function reconcileProviderCapabilityAssignments({
   tenantId,
   providerId,
@@ -122,7 +126,7 @@ export async function reconcileConnectedProviderCapabilities({
 }: {
   tenantId: number;
   providerId: string;
-}): Promise<CapabilityAssignmentResult> {
+}): Promise<ConnectedCapabilityReconciliationResult> {
   const [connection] = await db
     .select()
     .from(workforceIntegrationConnectionsTable)
@@ -148,6 +152,9 @@ export async function reconcileConnectedProviderCapabilities({
       providerId,
       grantedScopes: connection.scopes,
     });
+    let finalStatus: "connected" | "degraded" = connection.status as
+      | "connected"
+      | "degraded";
     if (
       connection.status === "degraded" &&
       connection.lastError === CAPABILITY_RECONCILIATION_ERROR
@@ -156,12 +163,13 @@ export async function reconcileConnectedProviderCapabilities({
         .update(workforceIntegrationConnectionsTable)
         .set({ status: "connected", lastError: null, updatedAt: new Date() })
         .where(eq(workforceIntegrationConnectionsTable.id, connection.id));
+      finalStatus = "connected";
     }
     await db.insert(workforceConnectionEventsTable).values({
       connectionId: connection.id,
       eventType: "capability_reconciliation_succeeded",
     });
-    return result;
+    return { status: finalStatus, ...result };
   } catch (error) {
     await db
       .update(workforceIntegrationConnectionsTable)

@@ -11,4 +11,5 @@ export type GustoReconciliationResultStatus = typeof GustoReconciliationResultSt
 
 export const GustoReconciliationResultStatus = {
   connected: 'connected',
+  degraded: 'degraded',
 } as const;

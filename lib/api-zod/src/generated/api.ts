@@ -8260,7 +8260,7 @@ export const DisconnectGustoResponse = zod.object({
  * @summary Retry tenant-scoped Gusto capability setup using stored credentials
  */
 export const ReconcileGustoResponse = zod.object({
-  "status": zod.enum(['connected']),
+  "status": zod.enum(['connected', 'degraded']),
   "assigned": zod.array(zod.enum(['employees', 'contractors', 'payroll', 'compensation', 'onboarding', 'benefits', 'tax_documents', 'time_tracking', 'time_off', 'scheduling'])),
   "alreadyOwned": zod.array(zod.enum(['employees', 'contractors', 'payroll', 'compensation', 'onboarding', 'benefits', 'tax_documents', 'time_tracking', 'time_off', 'scheduling'])),
   "conflicts": zod.array(zod.object({

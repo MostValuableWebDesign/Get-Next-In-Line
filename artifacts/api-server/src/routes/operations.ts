@@ -117,7 +117,7 @@ router.post("/operations/integrations/gusto/reconcile", integrationAdmin, async 
       tenantId,
       providerId: "gusto",
     });
-    res.json({ status: "connected", ...result });
+    res.json(result);
   } catch (error) {
     if (
       typeof error === "object" &&

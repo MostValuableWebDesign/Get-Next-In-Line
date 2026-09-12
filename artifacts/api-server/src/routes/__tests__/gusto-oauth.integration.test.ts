@@ -263,6 +263,11 @@ describe("Gusto OAuth lifecycle", () => {
         { capability: "compensation", providerId: "gusto" },
       ]),
     );
+    const normalReconciliation = await agent
+      .post("/api/operations/integrations/gusto/reconcile")
+      .set("x-tenant-id", String(tenantC))
+      .expect(200);
+    expect(normalReconciliation.body.status).toBe("connected");
 
     const tenant = { "x-tenant-id": String(tenantC) };
     const staffSync = await agent
@@ -349,10 +354,11 @@ describe("Gusto OAuth lifecycle", () => {
       lastError: "Payroll sync failed",
     });
 
-    await agent
+    const response = await agent
       .post("/api/operations/integrations/gusto/reconcile")
       .set("x-tenant-id", String(tenantB))
       .expect(200);
+    expect(response.body.status).toBe("degraded");
     const [connection] = await db
       .select()
       .from(workforceIntegrationConnectionsTable)

@@ -1,0 +1,247 @@
+The Gusto Retry Setup flow is implemented correctly overall.
+
+DO NOT refactor the architecture.
+DO NOT change OAuth behavior.
+DO NOT change workforce/payroll/compensation sync logic.
+DO NOT change provider ownership rules.
+DO NOT touch unrelated modules.
+
+This task is only to fix one response-status inconsistency.
+
+## Problem
+
+The route:
+
+```text
+POST /api/operations/integrations/gusto/reconcile
+```
+
+currently returns:
+
+```ts
+{ status: "connected", ...result }
+```
+
+whenever capability reconciliation succeeds.
+
+However, `reconcileConnectedProviderCapabilities()` intentionally preserves unrelated degraded states.
+
+Example:
+
+```text
+connection.status = degraded
+connection.lastError = "Payroll sync failed"
+```
+
+Capability reconciliation may succeed, but because the degraded condition is unrelated to capability setup, the database correctly remains:
+
+```text
+status = degraded
+lastError = "Payroll sync failed"
+```
+
+The API must not return:
+
+```json
+{
+  "status": "connected"
+}
+```
+
+when the persisted connection is still degraded.
+
+## Required fix
+
+After capability reconciliation, return the actual resulting provider connection status.
+
+Preferred implementation:
+
+Update:
+
+```ts
+reconcileConnectedProviderCapabilities(...)
+```
+
+to return both:
+
+* the reconciliation result
+* the actual final connection state
+
+For example:
+
+```ts
+{
+  status: "connected" | "degraded",
+  assigned: [...],
+  alreadyOwned: [...],
+  conflicts: [...],
+  unavailable: [...]
+}
+```
+
+or an equivalent typed structure.
+
+Do not infer the status in the route.
+
+The service should determine the actual persisted state after reconciliation.
+
+## Expected behavior
+
+### Capability-setup degraded state
+
+Starting state:
+
+```text
+status = degraded
+lastError =
+"Capability configuration failed. Retry integration setup."
+```
+
+Successful retry:
+
+```text
+status -> connected
+lastError -> null
+```
+
+Response:
+
+```json
+{
+  "status": "connected"
+}
+```
+
+plus the reconciliation result.
+
+### Unrelated degraded state
+
+Starting state:
+
+```text
+status = degraded
+lastError = "Payroll sync failed"
+```
+
+Capability reconciliation succeeds.
+
+Persisted state remains:
+
+```text
+status = degraded
+lastError = "Payroll sync failed"
+```
+
+Response MUST be:
+
+```json
+{
+  "status": "degraded"
+}
+```
+
+plus the reconciliation result.
+
+Do not clear the unrelated error.
+
+### Normal connected state
+
+Starting state:
+
+```text
+status = connected
+```
+
+Successful reconciliation:
+
+```text
+status = connected
+```
+
+Response:
+
+```json
+{
+  "status": "connected"
+}
+```
+
+## Tests
+
+Update/add tests for:
+
+1. Capability setup recovery returns:
+
+```text
+status = connected
+```
+
+2. Normal connected reconciliation returns:
+
+```text
+status = connected
+```
+
+3. Unrelated degraded state remains degraded and API response also returns:
+
+```text
+status = degraded
+```
+
+Add an explicit assertion similar to:
+
+```ts
+expect(response.body.status).toBe("degraded");
+```
+
+Also confirm:
+
+```ts
+expect(connection.lastError).toBe("Payroll sync failed");
+```
+
+## API contract
+
+If the OpenAPI response currently defines only:
+
+```text
+status = connected
+```
+
+update it to allow:
+
+```text
+connected
+degraded
+```
+
+Regenerate the API client/Zod output only if required by the contract change.
+
+Do not manually edit generated files.
+
+## Validation
+
+Run:
+
+* Gusto OAuth/reconcile integration tests
+* capability assignment tests
+* Operations frontend tests if generated client types changed
+* API TypeScript
+* GNIL OS TypeScript
+* frontend build if generated client changed
+
+Report exact pass/fail totals.
+
+## Final report
+
+Return:
+
+* files changed
+* exact reconcile response shape
+* connected recovery test result
+* unrelated degraded test result
+* whether OpenAPI/client generation changed
+
+After this fix, stop modifying the Gusto integration architecture.
+
+The next step is real Gusto demo/sandbox validation.
