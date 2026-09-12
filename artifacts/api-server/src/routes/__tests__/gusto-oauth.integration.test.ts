@@ -16,7 +16,6 @@ import { getFreshGustoAccessToken } from "../../domains/operations/integrations/
 import {
   __configureCapabilityReconciliationForTests,
   CAPABILITY_RECONCILIATION_ERROR,
-  reconcileConnectedProviderCapabilities,
 } from "../../domains/operations/integrations/capabilityAssignmentService";
 
 process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "test-admin-password";
@@ -128,10 +127,13 @@ describe("Gusto OAuth lifecycle", () => {
         }),
       );
 
-    await agent
+    const callback = await agent
       .get("/api/operations/integrations/gusto/callback")
       .query({ state, code: "recoverable-authorization-code" })
       .expect(302);
+    expect(callback.headers.location).toBe(
+      "/operations/integrations?gusto=setup_required",
+    );
 
     const [degraded] = await db
       .select()
@@ -159,9 +161,16 @@ describe("Gusto OAuth lifecycle", () => {
     ).toHaveLength(1);
 
     __configureCapabilityReconciliationForTests();
-    await reconcileConnectedProviderCapabilities({
-      tenantId: tenantD,
-      providerId: "gusto",
+    const recovery = await agent
+      .post("/api/operations/integrations/gusto/reconcile")
+      .set("x-tenant-id", String(tenantD))
+      .expect(200);
+    expect(recovery.body).toMatchObject({
+      status: "connected",
+      assigned: expect.arrayContaining(["employees", "payroll", "compensation"]),
+      alreadyOwned: [],
+      conflicts: [],
+      unavailable: [],
     });
 
     const [recovered] = await db
@@ -232,10 +241,13 @@ describe("Gusto OAuth lifecycle", () => {
         ]),
       );
 
-    await agent
+    const callback = await agent
       .get("/api/operations/integrations/gusto/callback")
       .query({ state, code: "complete-authorization-code" })
       .expect(302);
+    expect(callback.headers.location).toBe(
+      "/operations/integrations?gusto=connected",
+    );
 
     const capabilities = await db
       .select({
@@ -292,6 +304,67 @@ describe("Gusto OAuth lifecycle", () => {
       .post("/api/operations/integrations/gusto/sync")
       .set("x-tenant-id", String(tenantA))
       .expect(403);
+    await staffAgent
+      .post("/api/operations/integrations/gusto/reconcile")
+      .set("x-tenant-id", String(tenantA))
+      .expect(403);
+  });
+
+  it("requires a selected tenant for capability setup retry", async () => {
+    await agent
+      .post("/api/operations/integrations/gusto/reconcile")
+      .set("x-tenant-id", "legacy")
+      .expect(400);
+  });
+
+  it("rejects capability setup retry for a disconnected provider", async () => {
+    await db
+      .delete(workforceIntegrationConnectionsTable)
+      .where(eq(workforceIntegrationConnectionsTable.tenantId, tenantB));
+    await db.insert(workforceIntegrationConnectionsTable).values({
+      tenantId: tenantB,
+      providerId: "gusto",
+      status: "not_connected",
+    });
+
+    const response = await agent
+      .post("/api/operations/integrations/gusto/reconcile")
+      .set("x-tenant-id", String(tenantB))
+      .expect(409);
+    expect(response.body).toEqual({ error: "Gusto is not connected" });
+  });
+
+  it("does not clear an unrelated degraded condition after reconciliation", async () => {
+    await db
+      .delete(workforceIntegrationConnectionsTable)
+      .where(eq(workforceIntegrationConnectionsTable.tenantId, tenantB));
+    await db.insert(workforceIntegrationConnectionsTable).values({
+      tenantId: tenantB,
+      providerId: "gusto",
+      status: "degraded",
+      accessTokenEncrypted: encryptToken("unrelated-access"),
+      refreshTokenEncrypted: encryptToken("unrelated-refresh"),
+      providerAccountId: `unrelated-company-${RUN}`,
+      scopes: ["employees:read"],
+      lastError: "Payroll sync failed",
+    });
+
+    await agent
+      .post("/api/operations/integrations/gusto/reconcile")
+      .set("x-tenant-id", String(tenantB))
+      .expect(200);
+    const [connection] = await db
+      .select()
+      .from(workforceIntegrationConnectionsTable)
+      .where(eq(workforceIntegrationConnectionsTable.tenantId, tenantB));
+    expect(connection.status).toBe("degraded");
+    expect(connection.lastError).toBe("Payroll sync failed");
+    await db
+      .delete(tenantIntegrationCapabilitiesTable)
+      .where(eq(tenantIntegrationCapabilitiesTable.tenantId, tenantB));
+    await db
+      .delete(workforceIntegrationConnectionsTable)
+      .where(eq(workforceIntegrationConnectionsTable.tenantId, tenantB));
   });
 
   it("removes Gusto from the legacy sandbox partner workflow", async () => {
@@ -447,10 +520,13 @@ describe("Gusto OAuth lifecycle", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       jsonResponse({ error: "invalid_grant" }, 401),
     );
-    await agent
+    const callback = await agent
       .get("/api/operations/integrations/gusto/callback")
       .query({ state, code: "bad-code" })
       .expect(302);
+    expect(callback.headers.location).toBe(
+      "/operations/integrations?gusto=error",
+    );
     const status = await agent
       .get("/api/operations/integrations/gusto/status")
       .set("x-tenant-id", String(tenantB))

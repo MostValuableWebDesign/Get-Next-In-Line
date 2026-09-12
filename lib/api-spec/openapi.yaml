@@ -5844,6 +5844,25 @@ paths:
         "400":
           description: Tenant scope is required
 
+  /operations/integrations/gusto/reconcile:
+    post:
+      operationId: reconcileGusto
+      tags: [operations]
+      summary: Retry tenant-scoped Gusto capability setup using stored credentials
+      responses:
+        "200":
+          description: Gusto capability ownership reconciliation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GustoReconciliationResult"
+        "400":
+          description: Tenant scope is required
+        "409":
+          description: Gusto has no usable connected or degraded connection
+        "500":
+          description: Capability setup could not be completed
+
   /operations/integrations/gusto/sync:
     post:
       operationId: syncGustoWorkforce
@@ -7747,6 +7766,36 @@ components:
         status:
           type: string
           enum: [not_connected]
+
+    GustoReconciliationResult:
+      type: object
+      required: [status, assigned, alreadyOwned, conflicts, unavailable]
+      properties:
+        status:
+          type: string
+          enum: [connected]
+        assigned:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkforceCapability"
+        alreadyOwned:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkforceCapability"
+        conflicts:
+          type: array
+          items:
+            type: object
+            required: [capability, providerId]
+            properties:
+              capability:
+                $ref: "#/components/schemas/WorkforceCapability"
+              providerId:
+                type: string
+        unavailable:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkforceCapability"
 
     WorkforceSyncResult:
       type: object

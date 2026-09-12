@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useConnectGusto,
   useDisconnectGusto,
+  useReconcileGusto,
   useGetOperationsOverview,
   useSyncGustoWorkforce,
   useSyncGustoPayrollReadOnly,
@@ -28,6 +29,8 @@ const STATUS_CONFIG = {
   reauthorization_required: { label: "Needs Auth", variant: "destructive" as const, icon: <ShieldAlert className="w-3 h-3 mr-1" /> },
   error: { label: "Error", variant: "destructive" as const, icon: <AlertCircle className="w-3 h-3 mr-1" /> },
 };
+const CAPABILITY_SETUP_ERROR =
+  "Capability configuration failed. Retry integration setup.";
 
 type CapabilityAssignment = {
   capability: string;
@@ -78,6 +81,16 @@ export function IntegrationsCatalogPage() {
         queryClient.invalidateQueries({ queryKey: getGetOperationsOverviewQueryKey() }),
       onError: (error) =>
         setActionError(error instanceof Error ? error.message : "Unable to disconnect Gusto"),
+    },
+  });
+  const gustoReconcile = useReconcileGusto({
+    mutation: {
+      onSuccess: () => {
+        setActionError(null);
+        queryClient.invalidateQueries({ queryKey: getGetOperationsOverviewQueryKey() });
+      },
+      onError: () =>
+        setActionError("Unable to complete Gusto setup. Please try again."),
     },
   });
   const gustoSync = useSyncGustoWorkforce({
@@ -158,6 +171,10 @@ export function IntegrationsCatalogPage() {
         {data.providers.map((provider) => {
           const config = STATUS_CONFIG[provider.status] || STATUS_CONFIG.not_connected;
           const isActive = provider.status === 'connected' || provider.status === 'syncing' || provider.status === 'degraded';
+          const canRetrySetup =
+            provider.providerId === "gusto" &&
+            provider.status === "degraded" &&
+            provider.lastError === CAPABILITY_SETUP_ERROR;
           const staffSyncState = syncActionState(data.capabilityAssignments, "employees");
           const payrollSyncState = syncActionState(data.capabilityAssignments, "payroll");
           const compensationSyncState = syncActionState(
@@ -234,6 +251,22 @@ export function IntegrationsCatalogPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {canRetrySetup && (
+                        <DropdownMenuItem
+                          disabled={gustoReconcile.isPending}
+                          onClick={() => {
+                            setActionError(null);
+                            gustoReconcile.mutate();
+                          }}
+                        >
+                          <RefreshCw
+                            className={`mr-2 h-4 w-4 ${
+                              gustoReconcile.isPending ? "animate-spin" : ""
+                            }`}
+                          />
+                          Retry Setup
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         disabled={!staffSyncState.enabled || gustoSync.isPending}
                         onClick={() => staffSyncState.enabled && gustoSync.mutate()}

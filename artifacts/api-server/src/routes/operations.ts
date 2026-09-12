@@ -36,6 +36,10 @@ import {
   syncCompensation,
   syncPayroll,
 } from "../domains/operations/integrations/payrollCompensationSyncService";
+import {
+  CAPABILITY_RECONCILIATION_ERROR,
+  reconcileConnectedProviderCapabilities,
+} from "../domains/operations/integrations/capabilityAssignmentService";
 
 const router: IRouter = Router();
 
@@ -77,8 +81,12 @@ router.get("/operations/integrations/gusto/callback", async (req, res): Promise<
     return;
   }
   try {
-    await completeGustoConnection(state, code, req.sessionID);
-    res.redirect("/operations/integrations?gusto=connected");
+    const result = await completeGustoConnection(state, code, req.sessionID);
+    res.redirect(
+      `/operations/integrations?gusto=${
+        result.status === "setup_required" ? "setup_required" : "connected"
+      }`,
+    );
   } catch (error) {
     if (error instanceof InvalidOAuthStateError) {
       res.status(400).json({ error: error.message });
@@ -100,6 +108,27 @@ router.get("/operations/integrations/gusto/status", async (req, res): Promise<vo
 router.post("/operations/integrations/gusto/disconnect", integrationAdmin, async (req, res): Promise<void> => {
   await disconnectGusto(requireTenantId(req));
   res.json({ status: "not_connected" });
+});
+
+router.post("/operations/integrations/gusto/reconcile", integrationAdmin, async (req, res): Promise<void> => {
+  const tenantId = requireTenantId(req);
+  try {
+    const result = await reconcileConnectedProviderCapabilities({
+      tenantId,
+      providerId: "gusto",
+    });
+    res.json({ status: "connected", ...result });
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      (error as { status?: number }).status === 409
+    ) {
+      res.status(409).json({ error: "Gusto is not connected" });
+      return;
+    }
+    res.status(500).json({ error: CAPABILITY_RECONCILIATION_ERROR });
+  }
 });
 
 router.post("/operations/integrations/gusto/sync", integrationAdmin, async (req, res): Promise<void> => {

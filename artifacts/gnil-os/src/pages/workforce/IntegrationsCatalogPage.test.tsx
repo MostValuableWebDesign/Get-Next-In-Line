@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IntegrationsCatalogPage } from "./IntegrationsCatalogPage";
 import * as apiClient from "@workspace/api-client-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ vi.mock("@workspace/api-client-react", async () => {
     useGetOperationsOverview: vi.fn(),
     useConnectGusto: vi.fn(),
     useDisconnectGusto: vi.fn(),
+    useReconcileGusto: vi.fn(),
     useSyncGustoWorkforce: vi.fn(),
     useSyncGustoPayrollReadOnly: vi.fn(),
     useSyncGustoCompensationReadOnly: vi.fn(),
@@ -20,6 +21,12 @@ vi.mock("@workspace/api-client-react", async () => {
 
 describe("IntegrationsCatalogPage", () => {
   const queryClient = new QueryClient();
+  beforeEach(() => {
+    vi.mocked(apiClient.useReconcileGusto).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    } as any);
+  });
 
   const renderComponent = () =>
     render(
@@ -141,6 +148,84 @@ describe("IntegrationsCatalogPage", () => {
     compSyncSuccess!();
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: apiClient.getGetOperationsOverviewQueryKey() });
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: apiClient.getListOperationsCompensationQueryKey() });
+  });
+
+  it("shows Retry Setup only for the capability-configuration degraded state and refreshes overview", async () => {
+    vi.mocked(apiClient.useGetOperationsOverview).mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: {
+        providers: [{
+          providerId: "gusto",
+          name: "Gusto",
+          description: "Payroll",
+          status: "degraded",
+          capabilities: ["employees", "payroll", "compensation"],
+          connectedAt: "2023-10-18T00:00:00Z",
+          lastSuccessfulSyncAt: null,
+          lastError: "Capability configuration failed. Retry integration setup.",
+          preferred: true,
+        }],
+        capabilityAssignments: [],
+      },
+    } as any);
+    vi.mocked(apiClient.useConnectGusto).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useDisconnectGusto).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useSyncGustoWorkforce).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useSyncGustoPayrollReadOnly).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useSyncGustoCompensationReadOnly).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    const mutate = vi.fn();
+    let reconcileSuccess: (() => void) | undefined;
+    vi.mocked(apiClient.useReconcileGusto).mockImplementation(((options: any) => {
+      reconcileSuccess = options.mutation.onSuccess;
+      return { mutate, isPending: false };
+    }) as any);
+    const invalidateQueriesSpy = vi.spyOn(queryClient, "invalidateQueries");
+
+    renderComponent();
+    await userEvent.click(screen.getByRole("button", { name: /Manage/i }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Retry Setup" }));
+
+    expect(mutate).toHaveBeenCalledOnce();
+    reconcileSuccess!();
+    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+      queryKey: apiClient.getGetOperationsOverviewQueryKey(),
+    });
+  });
+
+  it.each([
+    { status: "connected", lastError: null },
+    { status: "degraded", lastError: "Payroll sync failed" },
+    { status: "reauthorization_required", lastError: "Gusto authorization required" },
+  ])("does not show Retry Setup for $status with an unrelated condition", async ({ status, lastError }) => {
+    vi.mocked(apiClient.useGetOperationsOverview).mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: {
+        providers: [{
+          providerId: "gusto",
+          name: "Gusto",
+          description: "Payroll",
+          status,
+          capabilities: ["employees", "payroll", "compensation"],
+          connectedAt: "2023-10-18T00:00:00Z",
+          lastSuccessfulSyncAt: null,
+          lastError,
+          preferred: true,
+        }],
+        capabilityAssignments: [],
+      },
+    } as any);
+    vi.mocked(apiClient.useConnectGusto).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useDisconnectGusto).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useSyncGustoWorkforce).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useSyncGustoPayrollReadOnly).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useSyncGustoCompensationReadOnly).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+
+    renderComponent();
+    const manage = screen.queryByRole("button", { name: /Manage/i });
+    if (manage) await userEvent.click(manage);
+    expect(screen.queryByText("Retry Setup")).not.toBeInTheDocument();
   });
 
   it.each([

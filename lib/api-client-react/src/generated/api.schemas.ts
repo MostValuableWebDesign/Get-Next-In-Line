@@ -218,6 +218,26 @@ export interface GustoDisconnectResult {
   status: GustoDisconnectResultStatus;
 }
 
+export type GustoReconciliationResultStatus = typeof GustoReconciliationResultStatus[keyof typeof GustoReconciliationResultStatus];
+
+
+export const GustoReconciliationResultStatus = {
+  connected: 'connected',
+} as const;
+
+export type GustoReconciliationResultConflictsItem = {
+  capability: WorkforceCapability;
+  providerId: string;
+};
+
+export interface GustoReconciliationResult {
+  status: GustoReconciliationResultStatus;
+  assigned: WorkforceCapability[];
+  alreadyOwned: WorkforceCapability[];
+  conflicts: GustoReconciliationResultConflictsItem[];
+  unavailable: WorkforceCapability[];
+}
+
 export interface WorkforceSyncResult {
   created: number;
   updated: number;

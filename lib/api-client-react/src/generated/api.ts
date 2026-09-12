@@ -209,6 +209,7 @@ import type {
   GustoConnectResult,
   GustoConnectionStatus,
   GustoDisconnectResult,
+  GustoReconciliationResult,
   HealthStatus,
   LinkOperationsWorkforcePerson200,
   ListAdminCoopDisputesParams,
@@ -20233,6 +20234,77 @@ export const useDisconnectGusto = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDisconnectGustoMutationOptions(options));
+    }
+
+export const getReconcileGustoUrl = () => {
+
+
+
+
+  return `/api/operations/integrations/gusto/reconcile`
+}
+
+/**
+ * @summary Retry tenant-scoped Gusto capability setup using stored credentials
+ */
+export const reconcileGusto = async ( options?: RequestInit): Promise<GustoReconciliationResult> => {
+
+  return customFetch<GustoReconciliationResult>(getReconcileGustoUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReconcileGustoMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileGusto>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reconcileGusto>>, TError,void, TContext> => {
+
+const mutationKey = ['reconcileGusto'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reconcileGusto>>, void> = () => {
+
+
+          return  reconcileGusto(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReconcileGustoMutationResult = NonNullable<Awaited<ReturnType<typeof reconcileGusto>>>
+
+    export type ReconcileGustoMutationError = ErrorType<void>
+
+    /**
+ * @summary Retry tenant-scoped Gusto capability setup using stored credentials
+ */
+export const useReconcileGusto = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reconcileGusto>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reconcileGusto>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getReconcileGustoMutationOptions(options));
     }
 
 export const getSyncGustoWorkforceUrl = () => {

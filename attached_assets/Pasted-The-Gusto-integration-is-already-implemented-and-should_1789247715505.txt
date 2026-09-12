@@ -1,0 +1,384 @@
+The Gusto integration is already implemented and should NOT be broadly refactored.
+
+DO NOT redesign Operations.
+DO NOT change OAuth architecture.
+DO NOT change workforce/payroll/compensation synchronization logic.
+DO NOT touch unrelated modules.
+
+This task is narrowly focused on exposing the existing capability-reconciliation recovery flow to an admin.
+
+## Goal
+
+The backend already has:
+
+```ts id="xy1jgv"
+reconcileConnectedProviderCapabilities({
+  tenantId,
+  providerId
+})
+```
+
+This correctly repairs a Gusto connection when OAuth succeeded but post-OAuth capability reconciliation failed.
+
+Currently, however, there is no production API/UI workflow for an admin to trigger that retry.
+
+Implement a safe `Retry Setup` flow.
+
+---
+
+## 1. Add an admin-only retry endpoint
+
+Add an endpoint following the existing Operations route conventions.
+
+Recommended:
+
+```text id="p9ad3h"
+POST /operations/integrations/gusto/reconcile
+```
+
+Requirements:
+
+* integration-admin roles only
+* require a valid selected tenant/business
+* provider must already have persisted Gusto credentials
+* provider must be `connected` or `degraded`
+* call:
+
+```ts id="aruy6p"
+reconcileConnectedProviderCapabilities({
+  tenantId,
+  providerId: "gusto"
+})
+```
+
+* do NOT perform a new OAuth flow
+* do NOT request new Gusto credentials
+* do NOT bypass capability scope rules
+
+Return a safe response such as:
+
+```json id="3fmi4k"
+{
+  "status": "connected",
+  "assigned": [],
+  "alreadyOwned": [],
+  "conflicts": [],
+  "unavailable": []
+}
+```
+
+Use the actual reconciliation result structure already present in the codebase.
+
+Do not return credentials, provider raw responses, or internal database errors.
+
+---
+
+## 2. Show Retry Setup only for the correct degraded condition
+
+In the Gusto Manage UI, detect when:
+
+```text id="2tfmzq"
+provider.status = degraded
+AND
+provider.lastError = "Capability configuration failed. Retry integration setup."
+```
+
+For only that condition, display:
+
+```text id="859urh"
+Retry Setup
+```
+
+The action should call the new reconciliation endpoint.
+
+Do not show Retry Setup for unrelated degraded states.
+
+Examples where Retry Setup should NOT appear:
+
+* payroll sync failure
+* compensation sync failure
+* provider outage
+* token refresh failure
+* reauthorization_required
+
+Those should retain their existing handling.
+
+---
+
+## 3. Retry Setup UX
+
+When clicked:
+
+```text id="2b67lc"
+Retry Setup
+→ mutation starts
+→ disable action while pending
+```
+
+On success:
+
+* invalidate Operations overview query
+* refresh provider/capability state
+* clear displayed capability-setup error
+* provider should show Connected if reconciliation successfully repaired the specific degraded state
+
+On failure:
+
+* keep provider degraded
+* show a safe user-facing message such as:
+
+```text id="5lrj07"
+Unable to complete Gusto setup. Please try again.
+```
+
+Do not display raw DB/provider errors.
+
+---
+
+## 4. Improve OAuth callback result slightly
+
+Current behavior can redirect to:
+
+```text id="60j2f6"
+/operations/integrations?gusto=connected
+```
+
+even if OAuth succeeded but capability reconciliation caused the connection to become degraded.
+
+Improve the callback result so the redirect reflects the actual setup outcome.
+
+Preferred behavior:
+
+### OAuth + reconciliation succeed
+
+```text id="yj2h0r"
+/operations/integrations?gusto=connected
+```
+
+### OAuth succeeds but capability setup fails
+
+```text id="gsanwo"
+/operations/integrations?gusto=setup_required
+```
+
+### OAuth/token exchange itself fails
+
+Keep the existing error behavior.
+
+Do NOT treat a capability-reconciliation failure as OAuth credential failure.
+
+If changing the return type of `completeGustoConnection` is useful, use something clear such as:
+
+```ts id="vqaocn"
+{
+  tenantId,
+  status: "connected" | "setup_required"
+}
+```
+
+or equivalent.
+
+Keep credentials preserved in the `setup_required` case.
+
+---
+
+## 5. Do not alter successful connection behavior
+
+Normal successful flow must remain:
+
+```text id="epnwhe"
+Connect Gusto
+↓
+OAuth/token verification
+↓
+capability reconciliation
+↓
+Connected
+↓
+Sync staff/payroll/compensation
+```
+
+No extra user step should be required during normal operation.
+
+`Retry Setup` exists only as a recovery mechanism.
+
+---
+
+## 6. Tests
+
+Add backend tests for:
+
+### Retry endpoint repairs setup
+
+Start from:
+
+```text id="vfoego"
+Gusto credentials valid
+connection = degraded
+lastError = capability reconciliation error
+no capability assignments
+```
+
+Call:
+
+```text id="iu9ips"
+POST /operations/integrations/gusto/reconcile
+```
+
+Expected:
+
+```text id="2wtuj1"
+200
+assignments created
+connection = connected
+lastError = null
+```
+
+### Staff cannot call retry endpoint
+
+Expected:
+
+```text id="wp9l5z"
+403
+```
+
+### Missing tenant/business
+
+Expected:
+
+```text id="36c5qs"
+400
+```
+
+### Disconnected provider
+
+Expected:
+
+```text id="40spdo"
+409
+```
+
+### Unrelated degraded reason
+
+Ensure a reconciliation success does NOT incorrectly clear a degraded state caused by an unrelated error.
+
+---
+
+## 7. Frontend tests
+
+Add tests for:
+
+### Capability setup failure
+
+```text id="d66d2s"
+provider.status = degraded
+provider.lastError =
+"Capability configuration failed. Retry integration setup."
+```
+
+Expected:
+
+```text id="v3q5qt"
+Retry Setup visible
+```
+
+### Normal connected
+
+Expected:
+
+```text id="dwspko"
+Retry Setup not visible
+```
+
+### Other degraded error
+
+Example:
+
+```text id="ty5b7m"
+lastError = "Payroll sync failed"
+```
+
+Expected:
+
+```text id="1e102p"
+Retry Setup not visible
+```
+
+### Retry succeeds
+
+Verify Operations overview query is invalidated/refetched.
+
+---
+
+## 8. Keep scope tight
+
+DO NOT add:
+
+* webhooks
+* new providers
+* scheduling
+* time tracking
+* onboarding
+* contractors
+* tax documents
+* benefits
+* payroll processing
+
+This is only a recovery UX/API task.
+
+---
+
+## 9. Validation
+
+Run:
+
+* Gusto OAuth tests
+* capability assignment tests
+* Operations route tests
+* Operations frontend tests
+* API TypeScript
+* GNIL OS TypeScript
+* frontend production build
+
+Report exact pass/fail totals.
+
+---
+
+## Final report
+
+Return:
+
+### Files changed
+
+### Retry endpoint
+
+Show exact route and authorization.
+
+### Recovery behavior
+
+Demonstrate:
+
+```text id="x88ab3"
+OAuth valid
+capability setup failed
+connection degraded
+Retry Setup clicked
+capabilities reconciled
+connection restored to connected
+```
+
+### Redirect behavior
+
+Show the final redirect for:
+
+* successful setup
+* setup required
+* OAuth failure
+
+### Tests
+
+Provide commands and pass/fail totals.
+
+After this task, stop modifying Gusto architecture.
+
+The next step is to connect and test against a real Gusto demo/sandbox account.

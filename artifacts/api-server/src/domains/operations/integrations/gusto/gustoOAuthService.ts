@@ -102,7 +102,7 @@ export async function completeGustoConnection(
   rawState: string,
   code: string,
   sessionId: string,
-): Promise<{ tenantId: number; status: "connected" }> {
+): Promise<{ tenantId: number; status: "connected" | "setup_required"; scopes: string[] }> {
   const stateHash = hash(rawState);
   const now = new Date();
   const result = await db.transaction(async (tx) => {
@@ -224,6 +224,7 @@ export async function completeGustoConnection(
   } catch {
     // OAuth credentials remain valid. The reconciliation service records a
     // safe degraded state and can be retried independently.
+    return { ...completion, status: "setup_required" };
   }
   return completion;
 }
