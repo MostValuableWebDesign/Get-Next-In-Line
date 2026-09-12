@@ -1,0 +1,575 @@
+Rework the entire **Operations** tab of Get Next In Line so it is no longer a collection of internally built operational tools.
+
+The new direction is:
+
+**Operations should become an Integration Hub and Workforce Operations Orchestration layer.**
+
+The app should integrate with external platforms that already specialize in payroll, HR, benefits, employee onboarding, tax documents, time tracking, scheduling, and related workforce functions instead of rebuilding all of those systems internally.
+
+## Primary Integration Strategy
+
+Treat **Gusto as the primary/default workforce operations integration**.
+
+Architect the Operations area so Gusto can become the main connected provider for as many supported workforce functions as possible.
+
+Examples include:
+
+* Employee / contractor records
+* Payroll
+* Compensation
+* Hiring and onboarding
+* Employee status
+* Tax documents
+* Benefits information
+* Time off / PTO where supported
+* Time tracking where supported
+* Payroll history
+* Workforce reporting
+* Contractor payments where supported
+
+Do not assume Gusto supports every function. Verify supported capabilities through the integration layer and expose only capabilities that the connected provider actually supports.
+
+The system must be designed so other providers can be added later without rewriting the Operations UI or business logic.
+
+Potential future integrations could include:
+
+* ADP
+* QuickBooks Payroll
+* Square
+* Homebase
+* Deputy
+* When I Work
+* Rippling
+* Paychex
+* Toast
+* other payroll, HR, scheduling, accounting, and workforce platforms
+
+## Core Architectural Change
+
+Create a provider-agnostic Operations Integration architecture.
+
+Do not write Gusto-specific logic directly throughout controllers, UI components, or domain services.
+
+Create an abstraction similar to:
+
+```ts
+interface WorkforceProvider {
+  getConnectionStatus(): Promise<ConnectionStatus>;
+
+  listEmployees(): Promise<Employee[]>;
+  getEmployee(id: string): Promise<Employee | null>;
+
+  getPayrollSummary?(range: DateRange): Promise<PayrollSummary>;
+  listPayrollRuns?(range?: DateRange): Promise<PayrollRun[]>;
+
+  getCompensation?(employeeId: string): Promise<Compensation>;
+
+  listTimeOff?(range?: DateRange): Promise<TimeOffRecord[]>;
+  requestTimeOff?(input: TimeOffRequest): Promise<ProviderResult>;
+
+  getBenefits?(employeeId?: string): Promise<BenefitRecord[]>;
+
+  getTaxDocuments?(employeeId: string): Promise<TaxDocument[]>;
+
+  syncEmployees?(): Promise<SyncResult>;
+
+  capabilities(): WorkforceCapabilities;
+}
+```
+
+Then implement:
+
+```text
+WorkforceProvider
+        |
+        +-- GustoProvider
+        +-- FutureAdpProvider
+        +-- FutureSquareProvider
+        +-- FutureHomebaseProvider
+```
+
+The application should interact with the provider interface, not directly with Gusto.
+
+## Capability-Based Design
+
+Every integration must declare what it supports.
+
+Example:
+
+```ts
+type WorkforceCapabilities = {
+  employees: boolean;
+  payroll: boolean;
+  compensation: boolean;
+  onboarding: boolean;
+  contractors: boolean;
+  benefits: boolean;
+  taxDocuments: boolean;
+  timeTracking: boolean;
+  timeOff: boolean;
+  scheduling: boolean;
+};
+```
+
+The Operations UI must dynamically adapt to these capabilities.
+
+If Gusto supports payroll but not the type of scheduling GNIL requires, the UI should clearly show:
+
+```text
+Payroll
+Connected through Gusto
+
+Scheduling
+No scheduling provider connected
+[Connect Provider]
+```
+
+Do not fake support for a capability.
+
+## Operations UI Reframe
+
+Replace the existing Operations experience with the following structure.
+
+### 1. Operations Overview
+
+Show high-level connected operational data.
+
+Examples:
+
+* Workforce provider
+* Payroll status
+* Employees synced
+* Contractors synced
+* Last synchronization
+* Upcoming payroll
+* Time-off status
+* Integration health
+* Errors requiring attention
+
+This page should summarize external systems rather than becoming a separate HR/payroll system.
+
+### 2. Integrations
+
+Create a dedicated Integrations section.
+
+Cards should include:
+
+**Gusto**
+Workforce, payroll, HR, benefits
+Status: Connected / Not Connected
+[Connect Gusto]
+[Manage Connection]
+
+Additional providers should appear as available integrations later.
+
+Each integration card should contain:
+
+* provider logo/name
+* description
+* connection state
+* supported capabilities
+* last successful sync
+* sync status
+* reconnect button
+* disconnect button
+* configuration/settings
+
+### 3. Workforce
+
+The Workforce screen should display normalized employee data retrieved from the active workforce provider.
+
+GNIL may maintain lightweight local references required for barber-shop functionality, but external workforce systems should remain authoritative for HR/payroll data.
+
+For example:
+
+```text
+GNIL Barber Resource
+        |
+        | providerEmployeeId
+        v
+Gusto Employee
+```
+
+Do not duplicate full payroll/HR records in GNIL unless technically required.
+
+Local records should primarily contain:
+
+* GNIL resource ID
+* tenant ID
+* provider
+* provider employee ID
+* synchronization metadata
+* barber-specific application settings
+
+### 4. Payroll
+
+Do not build a payroll engine.
+
+Create a payroll view powered by the provider.
+
+The screen may show:
+
+* next payroll date
+* payroll status
+* payroll totals
+* employee compensation summary
+* recent payroll history
+
+Actions that belong inside Gusto should deep-link to Gusto when appropriate.
+
+Example:
+
+```text
+Next payroll
+September 18
+
+Status
+Draft
+
+Estimated payroll
+$8,450
+
+[View in Gusto]
+```
+
+GNIL should not reproduce complex payroll calculation logic.
+
+### 5. Time & Attendance
+
+Build this as a provider-integrated module.
+
+If the connected provider supports time tracking, synchronize with it.
+
+If GNIL needs its own barber-specific clock-in functionality, design it as operational event data that can later be pushed to the provider.
+
+Example:
+
+```text
+GNIL clock event
+        ↓
+Operations integration service
+        ↓
+Gusto or another time/payroll provider
+```
+
+Never tightly couple GNIL clock events directly to Gusto APIs.
+
+### 6. Scheduling
+
+Scheduling must use the same provider/capability model.
+
+If Gusto cannot serve as the required scheduling system, allow another integration to own this capability.
+
+For example:
+
+```text
+Workforce / Payroll → Gusto
+Scheduling → Homebase
+Accounting → QuickBooks
+Payments → Stripe
+Messaging → Twilio
+```
+
+One tenant may therefore have multiple Operations providers, with one provider assigned as the primary provider for each capability.
+
+## Integration Assignment Model
+
+Implement a concept of capability ownership.
+
+Example database concept:
+
+```text
+tenant_integrations
+
+id
+tenant_id
+provider
+status
+provider_account_id
+connected_at
+last_synced_at
+metadata
+```
+
+And:
+
+```text
+tenant_integration_capabilities
+
+tenant_id
+capability
+integration_id
+is_primary
+```
+
+Example:
+
+```text
+Tenant: Cold Cutters
+
+employees        → Gusto
+payroll          → Gusto
+compensation     → Gusto
+benefits         → Gusto
+time_off         → Gusto
+scheduling       → Homebase
+payments         → Stripe
+sms              → Twilio
+```
+
+There should only be one primary provider for a capability at a time unless a capability explicitly supports multiple providers.
+
+## Provider Sync Model
+
+Do not make the frontend call Gusto directly.
+
+Use:
+
+```text
+Frontend
+   ↓
+GNIL API
+   ↓
+Operations Integration Service
+   ↓
+Provider Adapter
+   ↓
+Gusto API
+```
+
+Support both:
+
+* pull synchronization
+* provider webhooks where available
+
+Persist provider IDs and synchronization state.
+
+Maintain fields such as:
+
+```text
+provider
+provider_object_id
+last_synced_at
+sync_status
+sync_error
+provider_updated_at
+```
+
+Where applicable, provider webhooks should update local projections/cache instead of requiring constant polling.
+
+## Source of Truth Rules
+
+Clearly define which system owns each data type.
+
+Example:
+
+```text
+Employee legal identity → Gusto
+Payroll → Gusto
+Tax documents → Gusto
+Benefits → Gusto
+
+Barber display name → GNIL
+Bookable services → GNIL
+Appointment schedule → GNIL
+Walk-in queue → GNIL
+Barber booking availability → GNIL
+Customer relationships → GNIL
+```
+
+Avoid bidirectional synchronization unless it is truly necessary.
+
+Prefer one source of truth per field/domain.
+
+## Gusto Implementation
+
+Implement Gusto as the first WorkforceProvider.
+
+Create files/modules similar to:
+
+```text
+domains/
+  operations/
+    integrations/
+      types.ts
+      providerRegistry.ts
+
+      gusto/
+        gusto.client.ts
+        gusto.provider.ts
+        gusto.auth.ts
+        gusto.mapper.ts
+        gusto.webhooks.ts
+
+    workforce/
+      workforce.service.ts
+
+    payroll/
+      payroll.service.ts
+
+    sync/
+      integrationSync.service.ts
+
+    operations.routes.ts
+```
+
+The Gusto API client should contain HTTP/OAuth concerns only.
+
+`GustoProvider` should translate Gusto objects into GNIL's normalized provider models.
+
+Do not leak raw Gusto response objects through the rest of the application.
+
+## OAuth / Authorization
+
+Use Gusto's supported OAuth authorization flow.
+
+Never store provider credentials in frontend code.
+
+Tokens must remain server-side and encrypted where appropriate.
+
+Support:
+
+* connect
+* callback
+* refresh
+* revoke/disconnect
+* expired connection handling
+* permission failures
+* reauthorization
+
+Do not expose access tokens through API responses or logs.
+
+## Error Handling
+
+Every integration should support states such as:
+
+```text
+not_connected
+connecting
+connected
+syncing
+degraded
+reauthorization_required
+error
+```
+
+The UI should give actionable messages.
+
+Example:
+
+```text
+Gusto needs to be reconnected.
+
+Payroll information may be outdated.
+
+[Reconnect Gusto]
+```
+
+A provider failure must not break unrelated GNIL functions such as booking or the walk-in queue.
+
+## Sync Safety
+
+All synchronization should be idempotent.
+
+Provider retries must not create duplicate employees or records.
+
+Use provider IDs as stable external identifiers.
+
+Where webhooks are available:
+
+* validate signatures
+* make webhook handling idempotent
+* persist event IDs when appropriate
+* safely handle duplicate delivery
+* safely handle out-of-order delivery
+
+## Barber-Specific Requirement
+
+Do not confuse a workforce employee with a bookable barber resource.
+
+A person may exist in Gusto but not be a barber.
+
+Example:
+
+```text
+Gusto employee
+    ↓ optional link
+GNIL resource / barber
+```
+
+Owners should be able to link an imported employee to a GNIL barber/resource.
+
+Example UI:
+
+```text
+Marcus Johnson
+Imported from Gusto
+
+Role: Barber
+
+Linked GNIL resource:
+Marcus — Chair 3
+
+[Change Link]
+```
+
+This link should allow payroll/workforce data to remain external while GNIL continues controlling:
+
+* appointments
+* queue
+* services
+* chairs/resources
+* booking availability
+* customer assignments
+
+## Migration / Cleanup
+
+Review the existing Operations functionality before deleting anything.
+
+Classify every existing Operations function as one of:
+
+```text
+KEEP IN GNIL
+INTEGRATE THROUGH PROVIDER
+DEPRECATE
+REWORK AS PROVIDER-AGNOSTIC
+```
+
+As a general rule:
+
+If the feature belongs to payroll, HR, benefits, tax, employee onboarding, or another mature external workforce system, prefer provider integration.
+
+If the feature is unique to running a barber shop inside GNIL, keep it internal.
+
+Do not remove existing database tables or API behavior until dependencies are identified.
+
+Create a migration path and preserve backward compatibility where reasonable.
+
+## Desired Result
+
+The new Operations concept should feel like:
+
+**"Connect the tools you already use and manage operations from one place."**
+
+Not:
+
+**"GNIL is trying to replace payroll, HR, scheduling, accounting, and every other business platform."**
+
+The architecture should allow a shop owner to connect Gusto first and immediately populate supported Operations screens from Gusto data.
+
+Gusto should be the preferred workforce provider, but the architecture must remain provider-agnostic.
+
+Before making major destructive changes, inspect the current Operations UI, routes, database models, and services and produce:
+
+1. Current Operations inventory
+2. KEEP / INTEGRATE / DEPRECATE / REWORK classification
+3. Proposed provider architecture
+4. Database changes
+5. API changes
+6. UI changes
+7. Gusto capability mapping
+8. Migration plan
+9. Tests required
+10. Then implement the refactor in logical phases
+
+Do not blindly add another integration layer on top of the existing Operations implementation. Refactor the area around the new integration-first model and remove duplicated operational responsibility where external providers should own it.
