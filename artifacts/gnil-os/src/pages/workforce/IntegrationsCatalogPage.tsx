@@ -1,0 +1,155 @@
+import { useState } from "react";
+import { useGetOperationsOverview, getGetOperationsOverviewQueryKey } from "@workspace/api-client-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AlertCircle, CheckCircle2, ShieldAlert, PlugZap, Check, Settings2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { PartnerConnectDialog } from "@/components/partners/PartnerConnectDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+
+const STATUS_CONFIG = {
+  not_connected: { label: "Not Connected", variant: "secondary" as const, icon: null },
+  connecting: { label: "Connecting", variant: "outline" as const, icon: <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> },
+  connected: { label: "Connected", variant: "default" as const, icon: <CheckCircle2 className="w-3 h-3 mr-1" /> },
+  syncing: { label: "Syncing", variant: "default" as const, icon: <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> },
+  degraded: { label: "Degraded", variant: "destructive" as const, icon: <AlertCircle className="w-3 h-3 mr-1" /> },
+  reauthorization_required: { label: "Needs Auth", variant: "destructive" as const, icon: <ShieldAlert className="w-3 h-3 mr-1" /> },
+  error: { label: "Error", variant: "destructive" as const, icon: <AlertCircle className="w-3 h-3 mr-1" /> },
+};
+
+export function IntegrationsCatalogPage() {
+  const { data, isLoading, isError, refetch } = useGetOperationsOverview({
+    query: { queryKey: getGetOperationsOverviewQueryKey() }
+  });
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<{id: string, name: string, description: string} | null>(null);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[1,2,3].map(i => <Skeleton key={i} className="h-32 rounded-xl" />)}
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 border border-dashed rounded-xl bg-muted/20">
+        <AlertCircle className="w-10 h-10 text-destructive mb-4" />
+        <h3 className="text-lg font-medium">Failed to load integrations</h3>
+        <Button onClick={() => refetch()} variant="outline" className="mt-4">Retry</Button>
+      </div>
+    );
+  }
+
+  const handleManage = (provider: { providerId: string; name: string; description: string }) => {
+    setSelectedProvider({ id: provider.providerId, name: provider.name, description: provider.description });
+    setDialogOpen(true);
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-muted-foreground text-sm">
+          Connect specialist workforce systems while GNIL remains authoritative for bookings, queues, services, chairs, and customer relationships.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        {data.providers.map((provider) => {
+          const config = STATUS_CONFIG[provider.status] || STATUS_CONFIG.not_connected;
+          const isActive = provider.status === 'connected' || provider.status === 'syncing' || provider.status === 'degraded';
+          
+          return (
+            <div key={provider.providerId} className={`flex flex-col border rounded-xl overflow-hidden transition-all duration-300 hover:shadow-md ${isActive ? 'border-primary/30 shadow-sm bg-card' : 'border-border/60 bg-muted/5'}`}>
+              <div className="p-5 flex-1">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`size-12 rounded-lg flex items-center justify-center text-xl font-bold shadow-sm transition-colors ${isActive ? 'bg-primary text-primary-foreground' : 'bg-background border text-muted-foreground'}`}>
+                      {provider.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold tracking-tight leading-tight">{provider.name}</h3>
+                      {provider.preferred && (
+                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[9px] uppercase tracking-wider h-4 px-1.5 mt-1">Preferred Partner</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Badge variant={config.variant} className={isActive ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : ''}>
+                    {config.icon}
+                    {config.label}
+                  </Badge>
+                </div>
+                
+                <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem] mb-5">
+                  {provider.description}
+                </p>
+                
+                <div className="pt-4 border-t border-border/50">
+                  <h4 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+                    <PlugZap className="w-3.5 h-3.5" /> Capabilities
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {provider.capabilities.length > 0 ? (
+                      provider.capabilities.map(cap => (
+                        <span key={cap} className="px-2 py-1 bg-muted/50 border rounded-md text-xs text-foreground font-medium transition-colors hover:bg-muted">
+                          {cap.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">None listed</span>
+                    )}
+                  </div>
+                </div>
+                
+                {provider.lastError && (
+                  <div className="mt-4 p-3 border border-destructive/20 bg-destructive/5 rounded-lg text-xs text-destructive flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{provider.lastError}</span>
+                  </div>
+                )}
+              </div>
+              
+              <div className={`px-5 py-3 flex items-center justify-between transition-colors ${isActive ? 'bg-primary/5 border-t border-primary/10' : 'bg-muted/30 border-t border-border/50'}`}>
+                <div className="text-xs text-muted-foreground font-medium">
+                  {provider.lastSuccessfulSyncAt ? (
+                    <span className="flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      Synced {new Date(provider.lastSuccessfulSyncAt).toLocaleDateString()}
+                    </span>
+                  ) : (
+                    <span>No sync history</span>
+                  )}
+                </div>
+                <Button size="sm" variant={isActive ? "outline" : "default"} onClick={() => handleManage(provider)} className={`h-8 px-4 transition-all ${isActive ? 'hover:bg-primary hover:text-primary-foreground hover:border-primary' : ''}`}>
+                  {isActive ? (
+                    <><Settings2 className="w-3.5 h-3.5 mr-1.5" /> Manage</>
+                  ) : (
+                    "Connect"
+                  )}
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+        {data.providers.length === 0 && (
+          <div className="col-span-full py-16 text-center text-muted-foreground border border-dashed rounded-xl flex flex-col items-center justify-center">
+            <PlugZap className="w-12 h-12 text-muted-foreground/30 mb-4" />
+            <p className="font-medium text-foreground">No integrations available</p>
+            <p className="text-sm mt-1">There are no provider systems in the catalog yet.</p>
+          </div>
+        )}
+      </div>
+
+      {selectedProvider && (
+        <PartnerConnectDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          partnerId={selectedProvider.id}
+          partnerBrand={selectedProvider.name}
+          title={selectedProvider.description}
+        />
+      )}
+    </div>
+  );
+}

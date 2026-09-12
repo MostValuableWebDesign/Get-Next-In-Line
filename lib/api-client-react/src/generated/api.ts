@@ -227,6 +227,7 @@ import type {
   ModulePricing,
   ModuleTenantCount,
   ModuleTenantSubscriber,
+  OperationsOverview,
   PartnerCallbackBody,
   PartnerConnectResult,
   PartnerConnectionStatus,
@@ -19831,6 +19832,83 @@ export function useListPartnerConnections<TData = Awaited<ReturnType<typeof list
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListPartnerConnectionsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOperationsOverviewUrl = () => {
+
+
+
+
+  return `/api/operations/overview`
+}
+
+/**
+ * @summary Get the tenant's provider-agnostic workforce operations overview
+ */
+export const getOperationsOverview = async ( options?: RequestInit): Promise<OperationsOverview> => {
+
+  return customFetch<OperationsOverview>(getGetOperationsOverviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOperationsOverviewQueryKey = () => {
+    return [
+    `/api/operations/overview`
+    ] as const;
+    }
+
+
+export const getGetOperationsOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getOperationsOverview>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOperationsOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOperationsOverviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOperationsOverview>>> = ({ signal }) => getOperationsOverview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOperationsOverview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOperationsOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getOperationsOverview>>>
+export type GetOperationsOverviewQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the tenant's provider-agnostic workforce operations overview
+ */
+
+export function useGetOperationsOverview<TData = Awaited<ReturnType<typeof getOperationsOverview>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOperationsOverview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOperationsOverviewQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

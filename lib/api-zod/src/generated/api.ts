@@ -8181,6 +8181,33 @@ export const ListPartnerConnectionsResponse = zod.array(ListPartnerConnectionsRe
 
 
 /**
+ * @summary Get the tenant's provider-agnostic workforce operations overview
+ */
+export const GetOperationsOverviewResponse = zod.object({
+  "providers": zod.array(zod.object({
+  "providerId": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "preferred": zod.boolean(),
+  "status": zod.enum(['not_connected', 'connecting', 'connected', 'syncing', 'degraded', 'reauthorization_required', 'error']),
+  "capabilities": zod.array(zod.enum(['employees', 'contractors', 'payroll', 'compensation', 'onboarding', 'benefits', 'tax_documents', 'time_tracking', 'time_off', 'scheduling'])),
+  "connectedAt": zod.coerce.date().nullable(),
+  "lastSuccessfulSyncAt": zod.coerce.date().nullable(),
+  "lastError": zod.string().nullable()
+})),
+  "capabilityAssignments": zod.array(zod.object({
+  "capability": zod.enum(['employees', 'contractors', 'payroll', 'compensation', 'onboarding', 'benefits', 'tax_documents', 'time_tracking', 'time_off', 'scheduling']),
+  "providerId": zod.string().nullable(),
+  "providerName": zod.string().nullable(),
+  "state": zod.enum(['connected', 'unavailable'])
+})),
+  "connectedProviderCount": zod.number(),
+  "attentionRequiredCount": zod.number(),
+  "lastSuccessfulSyncAt": zod.coerce.date().nullable()
+})
+
+
+/**
  * @summary Initiate the OAuth-style handshake for a partner module
  */
 export const ConnectPartnerParams = zod.object({

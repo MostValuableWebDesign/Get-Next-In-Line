@@ -12,6 +12,7 @@ import sosRouter from "./sos";
 import tipPoolingRouter from "./tipPooling";
 import conciergeRouter from "./concierge";
 import partnersRouter from "./partners";
+import operationsRouter from "./operations";
 import coopRouter from "./coop";
 import coopSurgeRouter from "./coopSurge";
 import coopRetailRouter from "./coopRetail";
@@ -121,6 +122,7 @@ router.use(billingRouter);
 router.use(adminRouter);
 router.use(conciergeRouter); // AI Concierge & Automation module
 router.use(partnersRouter); // Partner-Direct Integrations proxy engine (/v1/partners)
+router.use(operationsRouter); // Provider-agnostic Operations Integration Hub
 router.use(coopRouter);     // Merchant co-op partnerships (/coop)
 router.use(coopSurgeRouter); // Surge pricing & traffic balancing (/coop/capacity, /coop/surge-*)
 router.use(coopRetailRouter); // Co-op shelf-space retail inventory (/coop/retail)

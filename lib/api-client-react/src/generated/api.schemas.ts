@@ -5,6 +5,76 @@
  * Get Next In Line — GHL + GNIL OS API
  * OpenAPI spec version: 0.1.0
  */
+export type WorkforceCapability = typeof WorkforceCapability[keyof typeof WorkforceCapability];
+
+
+export const WorkforceCapability = {
+  employees: 'employees',
+  contractors: 'contractors',
+  payroll: 'payroll',
+  compensation: 'compensation',
+  onboarding: 'onboarding',
+  benefits: 'benefits',
+  tax_documents: 'tax_documents',
+  time_tracking: 'time_tracking',
+  time_off: 'time_off',
+  scheduling: 'scheduling',
+} as const;
+
+export type OperationsProviderStatus = typeof OperationsProviderStatus[keyof typeof OperationsProviderStatus];
+
+
+export const OperationsProviderStatus = {
+  not_connected: 'not_connected',
+  connecting: 'connecting',
+  connected: 'connected',
+  syncing: 'syncing',
+  degraded: 'degraded',
+  reauthorization_required: 'reauthorization_required',
+  error: 'error',
+} as const;
+
+export interface OperationsProvider {
+  providerId: string;
+  name: string;
+  description: string;
+  preferred: boolean;
+  status: OperationsProviderStatus;
+  capabilities: WorkforceCapability[];
+  /** @nullable */
+  connectedAt: string | null;
+  /** @nullable */
+  lastSuccessfulSyncAt: string | null;
+  /** @nullable */
+  lastError: string | null;
+}
+
+export type OperationsCapabilityAssignmentState = typeof OperationsCapabilityAssignmentState[keyof typeof OperationsCapabilityAssignmentState];
+
+
+export const OperationsCapabilityAssignmentState = {
+  connected: 'connected',
+  unavailable: 'unavailable',
+} as const;
+
+export interface OperationsCapabilityAssignment {
+  capability: WorkforceCapability;
+  /** @nullable */
+  providerId: string | null;
+  /** @nullable */
+  providerName: string | null;
+  state: OperationsCapabilityAssignmentState;
+}
+
+export interface OperationsOverview {
+  providers: OperationsProvider[];
+  capabilityAssignments: OperationsCapabilityAssignment[];
+  connectedProviderCount: number;
+  attentionRequiredCount: number;
+  /** @nullable */
+  lastSuccessfulSyncAt: string | null;
+}
+
 /**
  * Hierarchical network-governance role
  */

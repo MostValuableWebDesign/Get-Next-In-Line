@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import CommandCenter from "@/pages/Dashboard";
 import TenantDetail from "@/pages/TenantDetail";
 import OperationsHub from "@/pages/OperationsHub";
+import WorkforceHub from "@/pages/workforce/WorkforceHub";
 import ModuleConsole from "@/pages/ModuleConsole";
 import Login from "@/pages/Login";
 import PublicBookingPage from "@/pages/public-booking";
@@ -116,7 +117,12 @@ function ProtectedApp() {
             White-Label Resale Engines (Media) tab, which this now selects */}
         <Route path="/marketing" component={OperationsHub} />
         {/* Unified Operations hub — Modules tab */}
-        <Route path="/operations" component={OperationsHub} />
+        <Route path="/operations" component={WorkforceHub} />
+        <Route path="/operations/integrations" component={WorkforceHub} />
+        <Route path="/operations/workforce" component={WorkforceHub} />
+        <Route path="/operations/payroll" component={WorkforceHub} />
+        <Route path="/operations/time" component={WorkforceHub} />
+        <Route path="/operations/scheduling" component={WorkforceHub} />
         {/* Unified Operations hub — merged Partners tab (grid + services) */}
         <Route path="/partners" component={OperationsHub} />
         {/* Unified Operations hub — Media tab (old Media & Assets page URL) */}

@@ -5762,6 +5762,19 @@ paths:
                 items:
                   $ref: "#/components/schemas/PartnerConnectionSummary"
 
+  /operations/overview:
+    get:
+      operationId: getOperationsOverview
+      tags: [operations]
+      summary: Get the tenant's provider-agnostic workforce operations overview
+      responses:
+        "200":
+          description: Connected providers, capability ownership, and integration health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationsOverview"
+
   /v1/partners/{partnerId}/connect:
     post:
       operationId: connectPartner
@@ -7271,6 +7284,111 @@ paths:
 
 components:
   schemas:
+    WorkforceCapability:
+      type: string
+      enum:
+        [
+          employees,
+          contractors,
+          payroll,
+          compensation,
+          onboarding,
+          benefits,
+          tax_documents,
+          time_tracking,
+          time_off,
+          scheduling,
+        ]
+
+    OperationsProvider:
+      type: object
+      required:
+        [
+          providerId,
+          name,
+          description,
+          preferred,
+          status,
+          capabilities,
+          connectedAt,
+          lastSuccessfulSyncAt,
+          lastError,
+        ]
+      properties:
+        providerId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        preferred:
+          type: boolean
+        status:
+          type: string
+          enum:
+            [
+              not_connected,
+              connecting,
+              connected,
+              syncing,
+              degraded,
+              reauthorization_required,
+              error,
+            ]
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkforceCapability"
+        connectedAt:
+          type: ["string", "null"]
+          format: date-time
+        lastSuccessfulSyncAt:
+          type: ["string", "null"]
+          format: date-time
+        lastError:
+          type: ["string", "null"]
+
+    OperationsCapabilityAssignment:
+      type: object
+      required: [capability, providerId, providerName, state]
+      properties:
+        capability:
+          $ref: "#/components/schemas/WorkforceCapability"
+        providerId:
+          type: ["string", "null"]
+        providerName:
+          type: ["string", "null"]
+        state:
+          type: string
+          enum: [connected, unavailable]
+
+    OperationsOverview:
+      type: object
+      required:
+        [
+          providers,
+          capabilityAssignments,
+          connectedProviderCount,
+          attentionRequiredCount,
+          lastSuccessfulSyncAt,
+        ]
+      properties:
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationsProvider"
+        capabilityAssignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/OperationsCapabilityAssignment"
+        connectedProviderCount:
+          type: integer
+        attentionRequiredCount:
+          type: integer
+        lastSuccessfulSyncAt:
+          type: ["string", "null"]
+          format: date-time
+
     NetworkRole:
       type: string
       enum: [super_admin, district_manager, merchant, staff]

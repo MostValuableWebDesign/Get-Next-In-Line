@@ -204,7 +204,6 @@ function PartnerSections() {
  */
 
 const TAB_ROUTES: Record<string, string> = {
-  modules: '/operations',
   media: '/media',
   partners: '/partners',
 };
@@ -214,9 +213,9 @@ function tabForLocation(location: string): string {
   // Resale Engines group — old /marketing deep links land on that tab.
   if (location.startsWith('/marketing')) return 'media';
   const match = Object.entries(TAB_ROUTES).find(
-    ([tab, path]) => tab !== 'modules' && location.startsWith(path),
+    ([tab, path]) => location.startsWith(path),
   );
-  return match ? match[0] : 'modules';
+  return match ? match[0] : 'media';
 }
 
 export default function OperationsHub() {
@@ -233,19 +232,13 @@ export default function OperationsHub() {
         }}
       >
         <TabsList data-testid="operations-tabs" className="flex-wrap h-auto">
-          <TabsTrigger value="modules" data-testid="tab-modules">Modules</TabsTrigger>
+          <Link href="/operations" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-muted hover:text-muted-foreground text-muted-foreground">Workforce</Link>
           <TabsTrigger value="media" data-testid="tab-media">Media</TabsTrigger>
           <TabsTrigger value="partners" data-testid="tab-partners">
             Partners
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="modules" className="mt-4">
-          <ModuleGrid
-            categorySlug="operations"
-            title="Public Core Service Modules"
-            description="Service modules for payroll, booking, tracking, and backend operations."
-          />
-        </TabsContent>
+
         <TabsContent value="media" className="mt-4 space-y-4">
           {/* Former standalone Media & Assets page — same module marketplace,
               now a tab. /media deep links select this tab, and so do old
