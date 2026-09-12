@@ -17,6 +17,7 @@ import { AlertCircle, CheckCircle2, ShieldAlert, PlugZap, Check, Settings2, Refr
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { getCurrentSosTenantId } from "@/lib/sos-tenant";
 
 const STATUS_CONFIG = {
   not_connected: { label: "Not Connected", variant: "secondary" as const, icon: null },
@@ -30,6 +31,7 @@ const STATUS_CONFIG = {
 
 export function IntegrationsCatalogPage() {
   const queryClient = useQueryClient();
+  const hasSelectedBusiness = getCurrentSosTenantId() != null;
   const { data, isLoading, isError, refetch } = useGetOperationsOverview({
     query: { queryKey: getGetOperationsOverviewQueryKey() }
   });
@@ -103,6 +105,10 @@ export function IntegrationsCatalogPage() {
   const handleManage = (provider: { providerId: string; status: string }) => {
     setActionError(null);
     if (provider.providerId !== "gusto") return;
+    if (!hasSelectedBusiness) {
+      setActionError("Select a business before connecting a workforce provider.");
+      return;
+    }
     if (["connected", "syncing", "degraded"].includes(provider.status)) return;
     gustoConnect.mutate();
   };

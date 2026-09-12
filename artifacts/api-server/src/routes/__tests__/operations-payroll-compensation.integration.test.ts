@@ -72,6 +72,21 @@ afterAll(async () => {
 });
 
 describe("privileged payroll and compensation operations routes", () => {
+  it("returns a tenant-context 400 instead of a server error when no business is selected", async () => {
+    const payroll = await admin.get("/api/operations/payroll").set("x-tenant-id", "legacy").expect(400);
+    expect(payroll.body).toEqual({
+      message: "Select a business before using workforce integrations",
+    });
+
+    const connect = await admin
+      .post("/api/operations/integrations/gusto/connect")
+      .set("x-tenant-id", "legacy")
+      .expect(400);
+    expect(connect.body).toEqual({
+      message: "Select a business before using workforce integrations",
+    });
+  });
+
   it("denies staff both read lists and sync mutations", async () => {
     const tenant = { "x-tenant-id": String(tenantId) };
     await staff.get("/api/operations/payroll").set(tenant).expect(403);

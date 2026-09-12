@@ -24,6 +24,7 @@ import {
 } from "../domains/operations/integrations/gusto/gustoOAuthService";
 import { GustoConfigurationError } from "../domains/operations/integrations/gusto/GustoClient";
 import { requireRole } from "../middlewares/roles";
+import { TenantContextError } from "../lib/tenantScope";
 import {
   listWorkforcePeople,
   setWorkforceStaffLink,
@@ -48,7 +49,7 @@ function tenantIdFrom(req: Request): number | null {
 function requireTenantId(req: Request): number {
   const tenantId = tenantIdFrom(req);
   if (tenantId == null) {
-    throw Object.assign(new Error("A valid x-tenant-id header is required"), { status: 400 });
+    throw new TenantContextError("Select a business before using workforce integrations");
   }
   return tenantId;
 }
