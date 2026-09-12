@@ -1,0 +1,431 @@
+The current Gusto integration is implemented and largely correct.
+
+DO NOT redesign the Operations UI.
+DO NOT rewrite the provider architecture.
+DO NOT change booking, queue, customers, services, chairs/resources, Stripe, Twilio, or unrelated partner integrations.
+DO NOT weaken backend capability ownership enforcement.
+
+This task is limited to fixing two remaining reliability/UX issues.
+
+## 1. Handle capability reconciliation failure after successful OAuth
+
+Current flow:
+
+```text
+Gusto OAuth succeeds
+→ credentials/token state are persisted as connected
+→ capability reconciliation runs afterward
+```
+
+Problem:
+
+If capability reconciliation fails after the OAuth transaction has already persisted the connection as `connected`, GNIL can end up in a partial state:
+
+```text
+Gusto = connected
+but
+required capability assignments were not created
+```
+
+Then sync actions may fail with ownership-related 409 responses.
+
+Fix this without rewriting the OAuth flow.
+
+### Required behavior
+
+After successful OAuth and token introspection:
+
+1. Persist the verified Gusto connection as currently implemented.
+2. Run `reconcileProviderCapabilityAssignments`.
+3. If reconciliation succeeds:
+
+   * leave connection healthy/connected
+   * clear any capability-setup-related error
+4. If reconciliation fails:
+
+   * DO NOT delete the valid OAuth credentials
+   * DO NOT mark the OAuth token invalid
+   * change the workforce integration state to `degraded`
+   * set a safe `lastError`, for example:
+
+```text
+Capability configuration failed. Retry integration setup.
+```
+
+* log an integration event such as:
+
+```text
+capability_reconciliation_failed
+```
+
+* do not expose raw database/provider errors or secrets to the frontend
+
+The valid Gusto connection should remain recoverable without requiring a new OAuth flow unless credentials themselves are invalid.
+
+### Retry behavior
+
+Add a reusable service operation so capability reconciliation can be retried independently from OAuth.
+
+For example:
+
+```ts
+reconcileConnectedProviderCapabilities({
+  tenantId,
+  providerId
+})
+```
+
+It should:
+
+* load the existing connected provider
+* use its persisted granted scopes
+* call the existing provider-neutral capability reconciliation service
+* restore connection status from `degraded` to `connected` if reconciliation succeeds and no other degraded condition remains
+
+Do not duplicate capability mapping logic.
+
+### Testing
+
+Add tests for:
+
+#### Successful OAuth + successful reconciliation
+
+```text
+OAuth succeeds
+capability reconciliation succeeds
+connection = connected
+expected assignments exist
+```
+
+#### Successful OAuth + failed reconciliation
+
+Simulate a reconciliation/database failure.
+
+Expected:
+
+```text
+credentials remain persisted
+providerAccountId remains persisted
+connection = degraded
+lastError indicates capability configuration problem
+```
+
+The connection must NOT incorrectly remain healthy `connected`.
+
+#### Retry succeeds
+
+After the failed reconciliation:
+
+```text
+retry reconciliation
+→ assignments created
+→ connection returns to connected
+```
+
+if no other failure exists.
+
+---
+
+## 2. Make Gusto Manage actions capability-aware
+
+Current Gusto Manage menu shows:
+
+```text
+Sync staff
+Sync payroll
+Sync compensation
+```
+
+whenever the Gusto provider is active.
+
+Problem:
+
+This ignores the actual capability ownership and state.
+
+For example:
+
+```text
+employees    → Gusto
+payroll      → ADP
+compensation → Gusto
+```
+
+The UI still shows `Sync payroll`, even though the backend will correctly reject it.
+
+Or:
+
+```text
+compensation → Gusto
+state = missing_scope
+```
+
+The UI still allows an action that cannot succeed.
+
+Fix the frontend using the existing Operations overview data.
+
+DO NOT weaken backend protection.
+
+### Required UI logic
+
+Use:
+
+```ts
+data.capabilityAssignments
+```
+
+to determine whether each action is available.
+
+For each action:
+
+### Sync staff
+
+Enabled only when:
+
+```text
+capability = employees
+providerId = gusto
+state = connected
+```
+
+### Sync payroll
+
+Enabled only when:
+
+```text
+capability = payroll
+providerId = gusto
+state = connected
+```
+
+### Sync compensation
+
+Enabled only when:
+
+```text
+capability = compensation
+providerId = gusto
+state = connected
+```
+
+### Behavior for unavailable actions
+
+Prefer either:
+
+* hide actions Gusto does not own, or
+* show them disabled with a useful reason
+
+Use disabled states if they improve discoverability.
+
+Examples:
+
+```text
+Sync payroll
+Disabled — Managed by another provider
+```
+
+```text
+Sync compensation
+Disabled — Additional Gusto permission required
+```
+
+```text
+Sync staff
+Disabled — Capability setup required
+```
+
+Do not allow users to click an action that is already known to fail.
+
+---
+
+## 3. Keep provider status separate from capability state
+
+Do not assume:
+
+```text
+Gusto connected
+=
+all Gusto capabilities available
+```
+
+A provider can be connected while individual capabilities are:
+
+```text
+connected
+missing_scope
+failed
+unavailable
+owned by another provider
+```
+
+Keep this distinction intact.
+
+The provider card can remain `Connected` while specific sync actions are unavailable.
+
+---
+
+## 4. Preserve backend enforcement
+
+Do NOT remove or weaken checks such as:
+
+```text
+provider must own the primary capability
+provider must have required scopes
+provider must be connected
+```
+
+These checks are correct.
+
+This task only aligns frontend behavior and recovery handling with those backend rules.
+
+---
+
+## 5. Add frontend tests
+
+Add tests for the integration Manage menu.
+
+At minimum:
+
+### All Gusto capabilities healthy
+
+```text
+employees -> Gusto / connected
+payroll -> Gusto / connected
+compensation -> Gusto / connected
+```
+
+Expected:
+
+```text
+Sync staff = enabled
+Sync payroll = enabled
+Sync compensation = enabled
+```
+
+### Payroll owned by another provider
+
+```text
+employees -> Gusto / connected
+payroll -> ADP / connected
+compensation -> Gusto / connected
+```
+
+Expected:
+
+```text
+Sync staff = enabled
+Sync payroll = hidden or disabled
+Sync compensation = enabled
+```
+
+### Missing compensation scope
+
+```text
+compensation -> Gusto / missing_scope
+```
+
+Expected:
+
+```text
+Sync compensation = disabled
+```
+
+### Failed capability
+
+```text
+payroll -> Gusto / failed
+```
+
+Expected:
+
+```text
+Sync payroll = disabled
+```
+
+Do not rely only on backend 409 responses for UX correctness.
+
+---
+
+## 6. Keep scope narrow
+
+Do NOT add:
+
+* Gusto webhooks
+* scheduling
+* time tracking
+* time off
+* onboarding
+* contractor sync
+* tax documents
+* benefits
+* payroll processing
+* new providers
+
+Those are outside this task.
+
+---
+
+## 7. Validation
+
+Run:
+
+* backend Operations/Gusto tests
+* capability assignment tests
+* Gusto OAuth integration tests
+* workforce sync tests
+* payroll/compensation tests
+* Operations frontend tests
+* API server TypeScript
+* GNIL OS TypeScript
+* frontend production build
+
+Report all failures honestly.
+
+---
+
+## Final report
+
+Return:
+
+### Files changed
+
+List every changed source/test file.
+
+### OAuth recovery behavior
+
+Show the final state for:
+
+```text
+OAuth success
++
+capability reconciliation failure
+```
+
+Expected:
+
+```text
+OAuth credentials preserved
+connection = degraded
+capability setup can be retried
+```
+
+### Capability-aware UI behavior
+
+Show:
+
+```text
+employees -> Gusto
+payroll -> another provider
+compensation -> Gusto / missing_scope
+```
+
+and explain exactly which actions are enabled/disabled.
+
+### Tests
+
+Provide exact commands and pass/fail totals.
+
+### Remaining limitations
+
+Do not expand scope.
+
+After this task, the intended next step is real Gusto demo/sandbox verification rather than further architecture work.

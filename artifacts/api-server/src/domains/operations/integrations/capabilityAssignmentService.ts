@@ -1,9 +1,27 @@
 import { and, eq, sql } from "drizzle-orm";
-import { db, tenantIntegrationCapabilitiesTable } from "@workspace/db";
+import {
+  db,
+  tenantIntegrationCapabilitiesTable,
+  workforceConnectionEventsTable,
+  workforceIntegrationConnectionsTable,
+} from "@workspace/db";
 import { getWorkforceProviderDefinition } from "./providerDefinitions";
 import type { WorkforceCapability } from "./types";
 
 const CAPABILITY_ASSIGNMENT_LOCK_NAMESPACE = 1_947_837_203;
+export const CAPABILITY_RECONCILIATION_ERROR =
+  "Capability configuration failed. Retry integration setup.";
+
+let reconcileAssignments = reconcileProviderCapabilityAssignments;
+
+export function __configureCapabilityReconciliationForTests(
+  implementation?: typeof reconcileProviderCapabilityAssignments,
+): void {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("Capability reconciliation test configuration is test-only");
+  }
+  reconcileAssignments = implementation ?? reconcileProviderCapabilityAssignments;
+}
 
 export type CapabilityAssignmentResult = {
   assigned: WorkforceCapability[];
@@ -96,4 +114,68 @@ export async function reconcileProviderCapabilityAssignments({
 
     return result;
   });
+}
+
+export async function reconcileConnectedProviderCapabilities({
+  tenantId,
+  providerId,
+}: {
+  tenantId: number;
+  providerId: string;
+}): Promise<CapabilityAssignmentResult> {
+  const [connection] = await db
+    .select()
+    .from(workforceIntegrationConnectionsTable)
+    .where(
+      and(
+        eq(workforceIntegrationConnectionsTable.tenantId, tenantId),
+        eq(workforceIntegrationConnectionsTable.providerId, providerId),
+      ),
+    )
+    .limit(1);
+  if (
+    !connection?.accessTokenEncrypted ||
+    !connection.refreshTokenEncrypted ||
+    !connection.providerAccountId ||
+    !["connected", "degraded"].includes(connection.status)
+  ) {
+    throw Object.assign(new Error(`${providerId} is not connected`), { status: 409 });
+  }
+
+  try {
+    const result = await reconcileAssignments({
+      tenantId,
+      providerId,
+      grantedScopes: connection.scopes,
+    });
+    if (
+      connection.status === "degraded" &&
+      connection.lastError === CAPABILITY_RECONCILIATION_ERROR
+    ) {
+      await db
+        .update(workforceIntegrationConnectionsTable)
+        .set({ status: "connected", lastError: null, updatedAt: new Date() })
+        .where(eq(workforceIntegrationConnectionsTable.id, connection.id));
+    }
+    await db.insert(workforceConnectionEventsTable).values({
+      connectionId: connection.id,
+      eventType: "capability_reconciliation_succeeded",
+    });
+    return result;
+  } catch (error) {
+    await db
+      .update(workforceIntegrationConnectionsTable)
+      .set({
+        status: "degraded",
+        lastError: CAPABILITY_RECONCILIATION_ERROR,
+        updatedAt: new Date(),
+      })
+      .where(eq(workforceIntegrationConnectionsTable.id, connection.id));
+    await db.insert(workforceConnectionEventsTable).values({
+      connectionId: connection.id,
+      eventType: "capability_reconciliation_failed",
+      details: JSON.stringify({ message: CAPABILITY_RECONCILIATION_ERROR }),
+    });
+    throw error;
+  }
 }

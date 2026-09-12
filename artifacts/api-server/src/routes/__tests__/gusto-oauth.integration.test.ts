@@ -7,11 +7,17 @@ import {
   tenantsTable,
   usersTable,
   userTenantMembershipsTable,
+  workforceConnectionEventsTable,
   workforceIntegrationConnectionsTable,
   workforceOAuthStatesTable,
 } from "@workspace/db";
 import { decryptToken, encryptToken } from "../../lib/partnerCrypto";
 import { getFreshGustoAccessToken } from "../../domains/operations/integrations/gusto/gustoOAuthService";
+import {
+  __configureCapabilityReconciliationForTests,
+  CAPABILITY_RECONCILIATION_ERROR,
+  reconcileConnectedProviderCapabilities,
+} from "../../domains/operations/integrations/capabilityAssignmentService";
 
 process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "test-admin-password";
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || "test-session-secret";
@@ -28,6 +34,7 @@ let agent: ReturnType<typeof request.agent>;
 let tenantA: number;
 let tenantB: number;
 let tenantC: number;
+let tenantD: number;
 let staffUserId: number;
 let staffAgent: ReturnType<typeof request.agent>;
 
@@ -60,11 +67,13 @@ beforeAll(async () => {
       { brandName: `Gusto A ${RUN}`, subdomain: `${RUN}-a`, status: "active" },
       { brandName: `Gusto B ${RUN}`, subdomain: `${RUN}-b`, status: "active" },
       { brandName: `Gusto C ${RUN}`, subdomain: `${RUN}-c`, status: "active" },
+      { brandName: `Gusto D ${RUN}`, subdomain: `${RUN}-d`, status: "active" },
     ])
     .returning({ id: tenantsTable.id });
   tenantA = tenants[0].id;
   tenantB = tenants[1].id;
   tenantC = tenants[2].id;
+  tenantD = tenants[3].id;
   const [staff] = await db
     .insert(usersTable)
     .values({
@@ -87,15 +96,91 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  __configureCapabilityReconciliationForTests();
 });
 
 afterAll(async () => {
   vi.restoreAllMocks();
   await db.delete(usersTable).where(eq(usersTable.id, staffUserId));
-  await db.delete(tenantsTable).where(inArray(tenantsTable.id, [tenantA, tenantB, tenantC]));
+  await db
+    .delete(tenantsTable)
+    .where(inArray(tenantsTable.id, [tenantA, tenantB, tenantC, tenantD]));
 });
 
 describe("Gusto OAuth lifecycle", () => {
+  it("preserves verified credentials as degraded and recovers when capability setup is retried", async () => {
+    const state = await begin(tenantD);
+    __configureCapabilityReconciliationForTests(async () => {
+      throw new Error("simulated database failure with sensitive details");
+    });
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          access_token: "recoverable-access-token",
+          refresh_token: "recoverable-refresh-token",
+          expires_in: 7200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          scope: "employees:read payrolls:read compensations:read",
+          resource: { type: "Company", uuid: `recoverable-company-${RUN}` },
+        }),
+      );
+
+    await agent
+      .get("/api/operations/integrations/gusto/callback")
+      .query({ state, code: "recoverable-authorization-code" })
+      .expect(302);
+
+    const [degraded] = await db
+      .select()
+      .from(workforceIntegrationConnectionsTable)
+      .where(eq(workforceIntegrationConnectionsTable.tenantId, tenantD));
+    expect(degraded.status).toBe("degraded");
+    expect(degraded.lastError).toBe(CAPABILITY_RECONCILIATION_ERROR);
+    expect(degraded.lastError).not.toContain("sensitive");
+    expect(degraded.providerAccountId).toBe(`recoverable-company-${RUN}`);
+    expect(decryptToken(degraded.accessTokenEncrypted!)).toBe("recoverable-access-token");
+    expect(decryptToken(degraded.refreshTokenEncrypted!)).toBe("recoverable-refresh-token");
+    expect(
+      await db
+        .select()
+        .from(workforceConnectionEventsTable)
+        .where(
+          and(
+            eq(workforceConnectionEventsTable.connectionId, degraded.id),
+            eq(
+              workforceConnectionEventsTable.eventType,
+              "capability_reconciliation_failed",
+            ),
+          ),
+        ),
+    ).toHaveLength(1);
+
+    __configureCapabilityReconciliationForTests();
+    await reconcileConnectedProviderCapabilities({
+      tenantId: tenantD,
+      providerId: "gusto",
+    });
+
+    const [recovered] = await db
+      .select()
+      .from(workforceIntegrationConnectionsTable)
+      .where(eq(workforceIntegrationConnectionsTable.tenantId, tenantD));
+    expect(recovered.status).toBe("connected");
+    expect(recovered.lastError).toBeNull();
+    const assignments = await db
+      .select({ capability: tenantIntegrationCapabilitiesTable.capability })
+      .from(tenantIntegrationCapabilitiesTable)
+      .where(eq(tenantIntegrationCapabilitiesTable.tenantId, tenantD));
+    expect(assignments.map((row) => row.capability).sort()).toEqual([
+      "compensation",
+      "employees",
+      "payroll",
+    ]);
+  });
+
   it("makes first-time employee, payroll, and compensation sync usable after OAuth", async () => {
     const state = await begin(tenantC);
     vi.spyOn(globalThis, "fetch")

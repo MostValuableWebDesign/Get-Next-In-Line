@@ -46,6 +46,11 @@ describe("IntegrationsCatalogPage", () => {
             preferred: true,
           }
         ],
+        capabilityAssignments: [
+          { capability: "employees", providerId: "gusto", state: "connected" },
+          { capability: "payroll", providerId: "gusto", state: "connected" },
+          { capability: "compensation", providerId: "gusto", state: "connected" },
+        ],
       },
     } as any);
 
@@ -63,6 +68,9 @@ describe("IntegrationsCatalogPage", () => {
     expect(await screen.findByText("Sync staff")).toBeInTheDocument();
     expect(screen.getByText("Sync payroll")).toBeInTheDocument();
     expect(screen.getByText("Sync compensation")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Sync staff/i })).not.toHaveAttribute("data-disabled");
+    expect(screen.getByRole("menuitem", { name: /Sync payroll/i })).not.toHaveAttribute("data-disabled");
+    expect(screen.getByRole("menuitem", { name: /Sync compensation/i })).not.toHaveAttribute("data-disabled");
   });
 
   it("invalidates both overview and specific data queries on sync success", async () => {
@@ -82,6 +90,11 @@ describe("IntegrationsCatalogPage", () => {
             lastError: null,
             preferred: true,
           }
+        ],
+        capabilityAssignments: [
+          { capability: "employees", providerId: "gusto", state: "connected" },
+          { capability: "payroll", providerId: "gusto", state: "connected" },
+          { capability: "compensation", providerId: "gusto", state: "connected" },
         ],
       },
     } as any);
@@ -128,5 +141,72 @@ describe("IntegrationsCatalogPage", () => {
     compSyncSuccess!();
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: apiClient.getGetOperationsOverviewQueryKey() });
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: apiClient.getListOperationsCompensationQueryKey() });
+  });
+
+  it.each([
+    {
+      name: "payroll is owned by another provider",
+      assignments: [
+        { capability: "employees", providerId: "gusto", state: "connected" },
+        { capability: "payroll", providerId: "adp", state: "connected" },
+        { capability: "compensation", providerId: "gusto", state: "connected" },
+      ],
+      action: "Sync payroll",
+      reason: "Managed by another provider",
+    },
+    {
+      name: "compensation needs another scope",
+      assignments: [
+        { capability: "employees", providerId: "gusto", state: "connected" },
+        { capability: "payroll", providerId: "gusto", state: "connected" },
+        { capability: "compensation", providerId: "gusto", state: "missing_scope" },
+      ],
+      action: "Sync compensation",
+      reason: "Additional Gusto permission required",
+    },
+    {
+      name: "payroll capability failed",
+      assignments: [
+        { capability: "employees", providerId: "gusto", state: "connected" },
+        { capability: "payroll", providerId: "gusto", state: "failed" },
+        { capability: "compensation", providerId: "gusto", state: "connected" },
+      ],
+      action: "Sync payroll",
+      reason: "Capability sync needs attention",
+    },
+  ])("disables unavailable actions when $name", async ({ assignments, action, reason }) => {
+    vi.mocked(apiClient.useGetOperationsOverview).mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: {
+        providers: [
+          {
+            providerId: "gusto",
+            name: "Gusto",
+            description: "Payroll",
+            status: "connected",
+            capabilities: ["employees", "payroll", "compensation"],
+            connectedAt: "2023-10-18T00:00:00Z",
+            lastSuccessfulSyncAt: null,
+            lastError: null,
+            preferred: true,
+          },
+        ],
+        capabilityAssignments: assignments,
+      },
+    } as any);
+    vi.mocked(apiClient.useConnectGusto).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useDisconnectGusto).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useSyncGustoWorkforce).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useSyncGustoPayrollReadOnly).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+    vi.mocked(apiClient.useSyncGustoCompensationReadOnly).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+
+    renderComponent();
+    await userEvent.click(screen.getByRole("button", { name: /Manage/i }));
+
+    expect(await screen.findByText(reason)).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: new RegExp(action, "i") })).toHaveAttribute(
+      "data-disabled",
+    );
   });
 });

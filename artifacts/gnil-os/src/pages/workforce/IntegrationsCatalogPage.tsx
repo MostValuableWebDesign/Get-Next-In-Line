@@ -29,6 +29,35 @@ const STATUS_CONFIG = {
   error: { label: "Error", variant: "destructive" as const, icon: <AlertCircle className="w-3 h-3 mr-1" /> },
 };
 
+type CapabilityAssignment = {
+  capability: string;
+  providerId?: string | null;
+  state?: string | null;
+};
+
+function syncActionState(
+  assignments: CapabilityAssignment[],
+  capability: "employees" | "payroll" | "compensation",
+) {
+  const assignment = assignments.find((candidate) => candidate.capability === capability);
+  if (!assignment) {
+    return { enabled: false, reason: "Capability setup required" };
+  }
+  if (assignment.providerId !== "gusto") {
+    return { enabled: false, reason: "Managed by another provider" };
+  }
+  if (assignment.state === "missing_scope") {
+    return { enabled: false, reason: "Additional Gusto permission required" };
+  }
+  if (assignment.state === "failed") {
+    return { enabled: false, reason: "Capability sync needs attention" };
+  }
+  if (assignment.state !== "connected") {
+    return { enabled: false, reason: "Capability setup required" };
+  }
+  return { enabled: true, reason: null };
+}
+
 export function IntegrationsCatalogPage() {
   const queryClient = useQueryClient();
   const hasSelectedBusiness = getCurrentSosTenantId() != null;
@@ -129,6 +158,12 @@ export function IntegrationsCatalogPage() {
         {data.providers.map((provider) => {
           const config = STATUS_CONFIG[provider.status] || STATUS_CONFIG.not_connected;
           const isActive = provider.status === 'connected' || provider.status === 'syncing' || provider.status === 'degraded';
+          const staffSyncState = syncActionState(data.capabilityAssignments, "employees");
+          const payrollSyncState = syncActionState(data.capabilityAssignments, "payroll");
+          const compensationSyncState = syncActionState(
+            data.capabilityAssignments,
+            "compensation",
+          );
           
           return (
             <div key={provider.providerId} className={`flex flex-col border rounded-xl overflow-hidden transition-all duration-300 hover:shadow-md ${isActive ? 'border-primary/30 shadow-sm bg-card' : 'border-border/60 bg-muted/5'}`}>
@@ -200,25 +235,46 @@ export function IntegrationsCatalogPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
-                        disabled={gustoSync.isPending}
-                        onClick={() => gustoSync.mutate()}
+                        disabled={!staffSyncState.enabled || gustoSync.isPending}
+                        onClick={() => staffSyncState.enabled && gustoSync.mutate()}
                       >
                         <RefreshCw className={`mr-2 h-4 w-4 ${gustoSync.isPending ? "animate-spin" : ""}`} />
-                        Sync staff
+                        <span className="flex flex-col">
+                          <span>Sync staff</span>
+                          {staffSyncState.reason && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {staffSyncState.reason}
+                            </span>
+                          )}
+                        </span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        disabled={gustoSyncPayroll.isPending}
-                        onClick={() => gustoSyncPayroll.mutate()}
+                        disabled={!payrollSyncState.enabled || gustoSyncPayroll.isPending}
+                        onClick={() => payrollSyncState.enabled && gustoSyncPayroll.mutate()}
                       >
                         <DollarSign className={`mr-2 h-4 w-4 ${gustoSyncPayroll.isPending ? "animate-spin" : ""}`} />
-                        Sync payroll
+                        <span className="flex flex-col">
+                          <span>Sync payroll</span>
+                          {payrollSyncState.reason && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {payrollSyncState.reason}
+                            </span>
+                          )}
+                        </span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        disabled={gustoSyncComp.isPending}
-                        onClick={() => gustoSyncComp.mutate()}
+                        disabled={!compensationSyncState.enabled || gustoSyncComp.isPending}
+                        onClick={() => compensationSyncState.enabled && gustoSyncComp.mutate()}
                       >
                         <Briefcase className={`mr-2 h-4 w-4 ${gustoSyncComp.isPending ? "animate-spin" : ""}`} />
-                        Sync compensation
+                        <span className="flex flex-col">
+                          <span>Sync compensation</span>
+                          {compensationSyncState.reason && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {compensationSyncState.reason}
+                            </span>
+                          )}
+                        </span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive"
