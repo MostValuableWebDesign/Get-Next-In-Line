@@ -1,10 +1,11 @@
 import type { WorkforceProvider, WorkforceProviderDefinition } from "./types";
 import { gustoProvider } from "./gustoProvider";
+import { listWorkforceProviderDefinitions } from "./providerDefinitions";
 
 const PROVIDERS: readonly WorkforceProvider[] = [gustoProvider];
 
 export function listWorkforceProviders(): readonly WorkforceProviderDefinition[] {
-  return PROVIDERS.map((provider) => provider.definition);
+  return listWorkforceProviderDefinitions();
 }
 
 export function getWorkforceProvider(providerId: string): WorkforceProvider {

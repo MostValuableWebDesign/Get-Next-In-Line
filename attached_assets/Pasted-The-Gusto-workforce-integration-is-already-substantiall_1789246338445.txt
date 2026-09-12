@@ -1,0 +1,471 @@
+The Gusto workforce integration is already substantially implemented.
+
+DO NOT redesign the Operations UI.
+DO NOT rewrite the provider architecture.
+DO NOT refactor unrelated booking, queue, customer, services, chairs/resources, Stripe, Twilio, or partner integration code.
+DO NOT replace the existing Gusto OAuth, workforce sync, payroll sync, or compensation sync unless a specific bug requires it.
+
+This task is a focused production-readiness cleanup.
+
+## 1. Fix capability ownership initialization
+
+Current problem:
+
+The sync services correctly require Gusto to be the primary owner of capabilities such as:
+
+* employees
+* payroll
+* compensation
+
+However, after a successful real Gusto OAuth connection there may be no persisted `tenant_integration_capabilities` rows, causing valid sync requests to fail with:
+
+```text
+gusto is not the primary owner of employees
+```
+
+or equivalent 409 errors.
+
+Implement a production-safe capability assignment flow.
+
+### Required behavior
+
+After a successful Gusto OAuth connection and successful token introspection, determine the capabilities GNIL can actually use from the granted scopes.
+
+Use the currently verified mappings:
+
+```text
+employees:read
+    -> employees
+
+payrolls:read
+    -> payroll
+
+compensations:read + employees:read
+    -> compensation
+```
+
+Only create assignments for capabilities that:
+
+1. GNIL actually implements for Gusto
+2. the authenticated Gusto connection has the required granted scopes for
+
+Persist them as primary assignments in `tenant_integration_capabilities`.
+
+### Important conflict rule
+
+DO NOT silently steal a capability from another provider.
+
+For each capability:
+
+* If no primary provider exists:
+  assign Gusto as primary.
+
+* If Gusto is already primary:
+  leave it unchanged.
+
+* If another provider is already primary:
+  DO NOT replace it automatically.
+  Preserve the existing provider.
+  Surface that capability as needing explicit owner/admin reassignment if necessary.
+
+The operation must be idempotent.
+
+Repeated OAuth/reconnect must not create duplicate assignments.
+
+### Scope downgrade/reconnect behavior
+
+If a reconnect grants fewer scopes than before:
+
+* do not claim the capability is healthy
+* existing assignment may remain persisted for administrative history
+* Operations overview should surface `missing_scope`
+* sync must remain blocked until the required scope is restored or another provider becomes primary
+
+Do not silently delete configuration simply because a scope disappeared.
+
+---
+
+## 2. Remove unsupported Gusto capability advertising
+
+Current Gusto provider definition advertises:
+
+```ts
+capabilities: [
+  "employees",
+  "payroll",
+  "compensation",
+  "onboarding"
+]
+```
+
+but onboarding functionality is not actually implemented through the current adapter.
+
+Change the Gusto provider definition so it advertises only functionality GNIL currently implements.
+
+For now this should be:
+
+```ts
+capabilities: [
+  "employees",
+  "payroll",
+  "compensation"
+]
+```
+
+Do not advertise:
+
+* onboarding
+* contractors
+* benefits
+* tax_documents
+* time_tracking
+* time_off
+* scheduling
+
+unless the current code contains a real, verified implementation for the capability.
+
+Keep the general capability taxonomy so future providers can support these later.
+
+---
+
+## 3. Fix unsupported Payroll UI copy
+
+The Payroll page currently mentions functionality such as:
+
+```text
+W-2 and 1099 payroll runs, tax documentation, and compensation structures.
+```
+
+This is misleading because tax documents and full contractor/1099 functionality are not currently implemented.
+
+Replace this with accurate copy such as:
+
+```text
+View payroll runs and compensation data from your connected workforce provider.
+```
+
+When Gusto is connected, retain wording that makes the source-of-truth boundary clear:
+
+```text
+Payroll is managed by Gusto. GNIL provides operational visibility into recent payroll data and does not process payroll.
+```
+
+Do not imply GNIL files taxes, processes payroll, handles benefits, or manages tax documents.
+
+---
+
+## 4. Ensure successful Gusto connect leads to usable sync
+
+Add an end-to-end integration test around the backend flow using mocked Gusto HTTP responses.
+
+Test this sequence:
+
+```text
+1. tenant has no capability assignments
+2. admin starts Gusto connection
+3. valid OAuth callback succeeds
+4. token_info returns Company resource
+5. granted scopes contain:
+   employees:read
+   payrolls:read
+   compensations:read
+6. Gusto becomes connected
+7. capability assignments are created:
+   employees -> gusto
+   payroll -> gusto
+   compensation -> gusto
+8. Sync Staff succeeds
+9. Sync Payroll succeeds
+10. Sync Compensation succeeds
+```
+
+Specifically assert that the sync endpoints do NOT return the old:
+
+```text
+409 gusto is not the primary owner...
+```
+
+after a normal first-time connection.
+
+---
+
+## 5. Test capability assignment conflict safety
+
+Add a separate test:
+
+```text
+tenant already has:
+scheduling -> some_other_provider
+payroll -> some_other_provider
+```
+
+Then connect Gusto.
+
+Expected behavior:
+
+* employees may be assigned to Gusto if unowned
+* compensation may be assigned to Gusto if unowned
+* payroll must remain owned by the existing provider
+* Gusto must NOT overwrite payroll ownership
+* no duplicate primary records may exist
+
+Also test reconnect/idempotency.
+
+Connecting Gusto twice should not duplicate capability rows.
+
+---
+
+## 6. Test missing scopes
+
+Add tests for partial authorization.
+
+Example:
+
+Gusto token has only:
+
+```text
+employees:read
+```
+
+Expected:
+
+```text
+employees -> assigned/available through Gusto
+payroll -> not newly assigned to Gusto
+compensation -> not newly assigned to Gusto
+```
+
+Operations overview should accurately report unsupported/missing-scope state.
+
+Do not create fake support.
+
+---
+
+## 7. Keep capability ownership provider-agnostic
+
+Do not hard-code capability assignment logic deep inside UI components.
+
+Prefer a service/helper such as:
+
+```ts
+reconcileProviderCapabilityAssignments({
+  tenantId,
+  providerId,
+  grantedScopes
+})
+```
+
+It should use the provider registry definition:
+
+```ts
+definition.capabilities
+definition.requiredScopes
+```
+
+rather than duplicating Gusto-specific scope logic everywhere.
+
+This allows future providers like Homebase, ADP, Square, or Rippling to use the same mechanism.
+
+A Gusto-specific OAuth service can invoke this generic service after successful authorization.
+
+---
+
+## 8. Do not break existing capability enforcement
+
+Keep the existing protection that sync only operates when the provider:
+
+* is connected
+* advertises the capability
+* has required scopes
+* is the persisted primary capability owner
+
+Do not weaken `requirePrimaryCapability()` just to make tests pass.
+
+The fix is to correctly establish capability ownership, not bypass it.
+
+---
+
+## 9. Verify connection state behavior
+
+Confirm that:
+
+### Successful auth
+
+```text
+connected
+```
+
+is shown only after successful real OAuth/token verification.
+
+### Missing scope
+
+Capability shows:
+
+```text
+missing_scope
+```
+
+where appropriate.
+
+### Failed refresh
+
+Connection remains:
+
+```text
+reauthorization_required
+```
+
+### Provider API failure after a previous successful sync
+
+Connection may become:
+
+```text
+degraded
+```
+
+and previous good workforce/payroll/compensation data remains intact.
+
+Do not delete normalized data because a later API request fails.
+
+---
+
+## 10. Validate authorization
+
+Review the Operations routes added during the previous implementation.
+
+At minimum:
+
+* connect Gusto -> integration admin only
+* disconnect Gusto -> integration admin only
+* manual staff sync -> integration admin only
+* manual payroll sync -> integration admin only
+* manual compensation sync -> integration admin only
+* staff identity linking -> integration admin only
+* payroll listing -> privileged roles only
+* compensation listing -> privileged roles only
+
+Do not expose compensation/payroll to normal staff.
+
+Keep server-side authorization even if the UI hides the controls.
+
+---
+
+## 11. Do not add Gusto webhooks in this task
+
+Manual sync is acceptable for this release.
+
+Do NOT expand scope into webhook infrastructure unless webhook code already exists and only requires a trivial fix.
+
+Webhook support can be handled in a later phase.
+
+---
+
+## 12. Do not build payroll processing
+
+GNIL must remain read-only with respect to payroll.
+
+Do NOT add:
+
+* payroll submission
+* payroll calculation
+* tax filing
+* payroll approval
+* employee direct deposit management
+* benefits enrollment
+
+The purpose is visibility and operational integration.
+
+---
+
+## 13. Run validation
+
+After implementing the fixes, run:
+
+* TypeScript checks
+* API server tests related to Operations/Gusto
+* workforce sync integration tests
+* payroll/compensation integration tests
+* Operations frontend tests
+* API/OpenAPI generation validation if schemas changed
+* frontend production build
+
+Fix regressions caused by this task.
+
+Do not hide failing tests.
+
+---
+
+## Final report
+
+When finished, return:
+
+### Files changed
+
+List every source/test/schema file changed.
+
+### Capability assignment behavior
+
+Show exactly what happens after a new Gusto connection with these scopes:
+
+```text
+employees:read
+payrolls:read
+compensations:read
+```
+
+Expected:
+
+```text
+employees    -> Gusto
+payroll      -> Gusto
+compensation -> Gusto
+```
+
+### Conflict behavior
+
+Show what happens if payroll is already owned by another provider.
+
+### Gusto capabilities now advertised
+
+Expected currently:
+
+```text
+employees
+payroll
+compensation
+```
+
+### Tests
+
+Provide exact test commands and pass/fail totals.
+
+### Production limitations remaining
+
+Explicitly list anything intentionally not implemented, including:
+
+* webhook-driven automatic synchronization
+* onboarding
+* contractors if still unverified
+* benefits
+* tax documents
+* time tracking
+* time off
+* scheduling
+
+Do not claim these features are supported until they have real provider implementations.
+
+The goal of this task is NOT another architectural rewrite.
+
+The goal is to make the existing Gusto implementation internally consistent so that:
+
+```text
+Connect Gusto
+    ↓
+capabilities are correctly assigned
+    ↓
+Sync Staff works
+Sync Payroll works
+Sync Compensation works
+```
+
+without manual database setup.

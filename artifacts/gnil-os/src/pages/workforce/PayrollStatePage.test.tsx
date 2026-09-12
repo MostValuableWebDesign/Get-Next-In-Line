@@ -99,7 +99,7 @@ describe("PayrollStatePage", () => {
     renderComponent();
     expect(
       screen.getByText(
-        /Payroll is managed by Gusto. GNIL provides operational visibility into recent runs, not payroll processing./i
+        /Payroll is managed by Gusto. GNIL provides operational visibility into recent payroll data and does not process payroll./i
       )
     ).toBeInTheDocument();
     expect(screen.getByText(/No payroll runs found./i)).toBeInTheDocument();

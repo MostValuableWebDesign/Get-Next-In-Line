@@ -3,6 +3,7 @@ import request from "supertest";
 import { and, eq, inArray } from "drizzle-orm";
 import {
   db,
+  tenantIntegrationCapabilitiesTable,
   tenantsTable,
   usersTable,
   userTenantMembershipsTable,
@@ -26,6 +27,7 @@ let app: import("express").Express;
 let agent: ReturnType<typeof request.agent>;
 let tenantA: number;
 let tenantB: number;
+let tenantC: number;
 let staffUserId: number;
 let staffAgent: ReturnType<typeof request.agent>;
 
@@ -57,10 +59,12 @@ beforeAll(async () => {
     .values([
       { brandName: `Gusto A ${RUN}`, subdomain: `${RUN}-a`, status: "active" },
       { brandName: `Gusto B ${RUN}`, subdomain: `${RUN}-b`, status: "active" },
+      { brandName: `Gusto C ${RUN}`, subdomain: `${RUN}-c`, status: "active" },
     ])
     .returning({ id: tenantsTable.id });
   tenantA = tenants[0].id;
   tenantB = tenants[1].id;
+  tenantC = tenants[2].id;
   const [staff] = await db
     .insert(usersTable)
     .values({
@@ -88,10 +92,100 @@ beforeEach(() => {
 afterAll(async () => {
   vi.restoreAllMocks();
   await db.delete(usersTable).where(eq(usersTable.id, staffUserId));
-  await db.delete(tenantsTable).where(inArray(tenantsTable.id, [tenantA, tenantB]));
+  await db.delete(tenantsTable).where(inArray(tenantsTable.id, [tenantA, tenantB, tenantC]));
 });
 
 describe("Gusto OAuth lifecycle", () => {
+  it("makes first-time employee, payroll, and compensation sync usable after OAuth", async () => {
+    const state = await begin(tenantC);
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          access_token: "complete-access-token",
+          refresh_token: "complete-refresh-token",
+          expires_in: 7200,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          scope: "employees:read payrolls:read compensations:read",
+          resource: { type: "Company", uuid: `complete-company-${RUN}` },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse([
+          {
+            uuid: `employee-${RUN}`,
+            first_name: "Ada",
+            last_name: "Lovelace",
+            work_email: `${RUN}@example.com`,
+            jobs: [{ uuid: `job-${RUN}`, title: "Engineer", primary: true }],
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(
+        jsonResponse([
+          {
+            uuid: `employee-${RUN}`,
+            first_name: "Ada",
+            last_name: "Lovelace",
+            work_email: `${RUN}@example.com`,
+            jobs: [{ uuid: `job-${RUN}`, title: "Engineer", primary: true }],
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse([
+          {
+            uuid: `compensation-${RUN}`,
+            job_uuid: `job-${RUN}`,
+            rate: "42.50",
+            payment_unit: "Hour",
+            effective_date: "2026-01-01",
+          },
+        ]),
+      );
+
+    await agent
+      .get("/api/operations/integrations/gusto/callback")
+      .query({ state, code: "complete-authorization-code" })
+      .expect(302);
+
+    const capabilities = await db
+      .select({
+        capability: tenantIntegrationCapabilitiesTable.capability,
+        providerId: tenantIntegrationCapabilitiesTable.providerId,
+      })
+      .from(tenantIntegrationCapabilitiesTable)
+      .where(eq(tenantIntegrationCapabilitiesTable.tenantId, tenantC));
+    expect(capabilities).toEqual(
+      expect.arrayContaining([
+        { capability: "employees", providerId: "gusto" },
+        { capability: "payroll", providerId: "gusto" },
+        { capability: "compensation", providerId: "gusto" },
+      ]),
+    );
+
+    const tenant = { "x-tenant-id": String(tenantC) };
+    const staffSync = await agent
+      .post("/api/operations/integrations/gusto/sync")
+      .set(tenant)
+      .expect(200);
+    const payrollSync = await agent
+      .post("/api/operations/integrations/gusto/sync/payroll")
+      .set(tenant)
+      .expect(200);
+    const compensationSync = await agent
+      .post("/api/operations/integrations/gusto/sync/compensation")
+      .set(tenant)
+      .expect(200);
+
+    expect(staffSync.body).not.toMatchObject({ status: 409 });
+    expect(payrollSync.body.status).toBe("succeeded");
+    expect(compensationSync.body.status).toBe("succeeded");
+  });
+
   it("rejects mismatched state", async () => {
     await begin();
     await agent

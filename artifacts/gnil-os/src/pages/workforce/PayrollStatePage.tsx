@@ -81,7 +81,7 @@ export function PayrollStatePage() {
               Payroll Runs
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              W-2 and 1099 payroll runs, tax documentation, and compensation structures.
+              View payroll runs and compensation data from your connected workforce provider.
             </p>
           </div>
         </div>
@@ -113,7 +113,7 @@ export function PayrollStatePage() {
             Payroll Runs
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Payroll is managed by {provider?.name}. GNIL provides operational visibility into recent runs, not payroll processing.
+            Payroll is managed by {provider?.name}. GNIL provides operational visibility into recent payroll data and does not process payroll.
           </p>
         </div>
       </div>

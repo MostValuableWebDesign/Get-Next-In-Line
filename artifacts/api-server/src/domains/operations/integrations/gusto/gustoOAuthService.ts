@@ -8,6 +8,7 @@ import {
 } from "@workspace/db";
 import { decryptToken, encryptToken } from "../../../../lib/partnerCrypto";
 import { GustoApiError, GustoClient, loadGustoConfig } from "./GustoClient";
+import { reconcileProviderCapabilityAssignments } from "../capabilityAssignmentService";
 
 const PROVIDER_ID = "gusto";
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -186,7 +187,11 @@ export async function completeGustoConnection(
         scopes: tokenInfo.scopes,
       }),
     });
-    return { tenantId: result.tenantId, status: "connected" as const };
+    return {
+      tenantId: result.tenantId,
+      status: "connected" as const,
+      scopes: tokenInfo.scopes,
+    };
   } catch (error) {
      const message = "Gusto authorization failed";
      const hasUsableConnection =
@@ -211,6 +216,11 @@ export async function completeGustoConnection(
   }
   });
   if ("error" in completion) throw completion.error;
+  await reconcileProviderCapabilityAssignments({
+    tenantId: completion.tenantId,
+    providerId: PROVIDER_ID,
+    grantedScopes: completion.scopes,
+  });
   return completion;
 }
 

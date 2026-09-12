@@ -76,3 +76,4 @@
 - [Public SMS consent evidence](public-sms-consent.md) — every successful checked public CTA submission records the displayed disclosure; an unauthenticated browser can never reverse STOP.
 - [Gusto OAuth lifecycle](gusto-oauth.md) — company-scoped OAuth uses one-time state and serialized refresh-token rotation; legacy partner sandbox OAuth must never represent Gusto.
 - [Workforce synchronization](workforce-sync.md) — provider imports are non-destructive and capability-gated; identity links require exact unambiguous email or explicit owner action.
+- [Workforce provider metadata](workforce-provider-metadata.md) — capability reconciliation uses metadata isolated from executable adapters to avoid OAuth/registry import cycles.

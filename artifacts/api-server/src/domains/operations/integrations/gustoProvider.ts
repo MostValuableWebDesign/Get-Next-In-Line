@@ -9,21 +9,10 @@ import type {
   ProviderConnectionStatus,
   ProviderContext,
   WorkforceProvider,
-  WorkforceProviderDefinition,
 } from "./types";
+import { GUSTO_DEFINITION } from "./providerDefinitions";
 
-export const GUSTO_DEFINITION: WorkforceProviderDefinition = {
-  providerId: "gusto",
-  name: "Gusto",
-  description: "Workforce records and payroll through a connected Gusto account.",
-  preferred: true,
-  capabilities: ["employees", "payroll", "compensation", "onboarding"],
-  requiredScopes: {
-    employees: ["employees:read"],
-    payroll: ["payrolls:read"],
-    compensation: ["compensations:read", "employees:read"],
-  },
-};
+export { GUSTO_DEFINITION } from "./providerDefinitions";
 
 export class WorkforceProviderOperationUnavailableError extends Error {
   constructor(providerId: string, operation: string) {

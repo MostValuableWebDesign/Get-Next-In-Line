@@ -48,8 +48,8 @@ describe("workforce provider registry", () => {
       "employees",
       "payroll",
       "compensation",
-      "onboarding",
     ]);
+    expect(gusto.capabilities).not.toContain("onboarding");
     expect(gusto.capabilities).not.toContain("contractors");
     expect(gusto.capabilities).not.toContain("benefits");
     expect(gusto.capabilities).not.toContain("tax_documents");
