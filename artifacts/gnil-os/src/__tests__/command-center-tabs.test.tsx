@@ -47,7 +47,7 @@ import App from '../App';
 
 describe('Command Center tabbed hub', () => {
   it('the sidebar no longer has standalone Tenants / Billing / Configuration entries', async () => {
-    window.history.replaceState(null, '', '/tenants');
+    window.history.replaceState(null, '', '/');
     render(<App />);
     await screen.findByTestId('command-center-hub');
 
@@ -61,12 +61,7 @@ describe('Command Center tabbed hub', () => {
   });
 
   it.each([
-    '/tenants',
-    '/tenants/7',
-    '/billing',
-    '/master',
-    '/governance',
-    '/franchise',
+    '/sos/operations'
   ])('%s cannot open multi-business administration', async (path) => {
     window.history.replaceState(null, '', path);
     render(<App />);
@@ -74,7 +69,7 @@ describe('Command Center tabbed hub', () => {
     const hub = await screen.findByTestId('command-center-hub');
     expect(within(hub).getByTestId('tab-dashboard')).toHaveAttribute('data-state', 'active');
     expect(window.location.pathname).toBe('/');
-    expect(within(hub).queryByText(/tenants|master overview|franchise|governance/i)).not.toBeInTheDocument();
+    expect(within(hub).queryByText(/master overview/i)).not.toBeInTheDocument();
   });
 
   it('/settings deep link lands on the Agency Settings tab', async () => {

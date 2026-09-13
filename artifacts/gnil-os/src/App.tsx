@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Route, Switch, Router as WouterRouter, Redirect, useSearch } from "wouter";
+import { Route, Switch, Router as WouterRouter, Redirect, useSearch, useLocation } from "wouter";
 import { Shell } from "@/components/layout/Shell";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -20,6 +20,17 @@ import { ApplyPage, ApplyStatusPage } from "@/pages/apply";
 import NotFound from "@/pages/not-found";
 import PrivacyPolicyPage from "@/pages/privacy-policy";
 import TermsOfServicePage from "@/pages/terms-of-service";
+
+// Platform Control Plane
+import { PlatformRouteGuard } from "@/components/platform/PlatformRouteGuard";
+import { PlatformShell } from "@/components/platform/PlatformShell";
+import PlatformDashboard from "@/pages/platform/Dashboard";
+import PlatformTenants from "@/pages/platform/tenants/index";
+import PlatformTenantDetail from "@/pages/platform/tenants/detail";
+import PlatformGovernance from "@/pages/platform/Governance";
+import PlatformBilling from "@/pages/platform/Billing";
+import PlatformModules from "@/pages/platform/Modules";
+import PlatformFranchise from "@/pages/platform/Franchise";
 
 // SOS Operations section (merged from the former standalone SOS app)
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
@@ -61,6 +72,26 @@ function RedirectSosBookings({ tab }: { tab?: string }) {
   return <Redirect to={q ? `/sos/bookings?${q}` : '/sos/bookings'} replace />;
 }
 
+/** Wraps all platform pages — enforces super_admin role. */
+function ProtectedPlatformApp() {
+  return (
+    <PlatformRouteGuard>
+      <PlatformShell>
+        <Switch>
+          <Route path="/platform" component={PlatformDashboard} />
+          <Route path="/platform/tenants" component={PlatformTenants} />
+          <Route path="/platform/tenants/:id" component={PlatformTenantDetail} />
+          <Route path="/platform/governance" component={PlatformGovernance} />
+          <Route path="/platform/billing" component={PlatformBilling} />
+          <Route path="/platform/modules" component={PlatformModules} />
+          <Route path="/platform/franchise" component={PlatformFranchise} />
+          <Route component={NotFound} />
+        </Switch>
+      </PlatformShell>
+    </PlatformRouteGuard>
+  );
+}
+
 /** Wraps all protected pages — redirects to /login until session is confirmed. */
 function ProtectedApp() {
   const { authState } = useAuth();
@@ -86,14 +117,15 @@ function ProtectedApp() {
       <Switch>
         {/* Single-business client command center. */}
         <Route path="/" component={CommandCenter} />
-        {/* Retired platform-administration URLs return to the client dashboard. */}
-        <Route path="/master"><Redirect to="/" replace /></Route>
-        <Route path="/tenants"><Redirect to="/" replace /></Route>
-        <Route path="/governance"><Redirect to="/" replace /></Route>
+        {/* Retired platform-administration URLs return to the platform control plane. */}
+        <Route path="/master"><Redirect to="/platform" replace /></Route>
+        <Route path="/tenants"><Redirect to="/platform/tenants" replace /></Route>
+        <Route path="/governance"><Redirect to="/platform/governance" replace /></Route>
         <Route path="/tenants/:id/settings"><Redirect to="/settings" replace /></Route>
         <Route path="/tenants/:id/ai-receptionist"><Redirect to="/sos/bookings?tab=ai-receptionist" replace /></Route>
         <Route path="/tenants/:id/concierge"><Redirect to="/sos/bookings?tab=ai-receptionist" replace /></Route>
-        <Route path="/tenants/:id"><Redirect to="/" replace /></Route>
+        <Route path="/tenants/:id">{(params) => <Redirect to={`/platform/tenants/${params?.id}`} replace />}</Route>
+
         {/* Old GNIL Bridge marketing URL — its modules were folded into the
             White-Label Resale Engines (Media) tab, which this now selects */}
         <Route path="/marketing" component={OperationsHub} />
@@ -109,10 +141,11 @@ function ProtectedApp() {
         {/* Unified Operations hub — Media tab (old Media & Assets page URL) */}
         <Route path="/media" component={OperationsHub} />
         <Route path="/modules/:id"><Redirect to="/operations" replace /></Route>
-        <Route path="/billing"><Redirect to="/" replace /></Route>
+
+        <Route path="/billing"><Redirect to="/platform/billing" replace /></Route>
         <Route path="/compliance"><Redirect to="/sos/tax-compliance" replace /></Route>
         <Route path="/partnerships"><Redirect to="/sos/bookings" replace /></Route>
-        <Route path="/franchise"><Redirect to="/" replace /></Route>
+        <Route path="/franchise"><Redirect to="/platform/franchise" replace /></Route>
         {/* Connector Registry is folded into Configuration — old links land
             on its Connectors section. */}
         <Route path="/connectors">
@@ -195,6 +228,11 @@ function ProtectedApp() {
 }
 
 function Router() {
+  const [location] = useLocation();
+  if (location.startsWith("/platform")) {
+    return <ProtectedPlatformApp />;
+  }
+
   return (
     <Switch>
       <Route path="/login" component={Login} />

@@ -70,6 +70,8 @@ const SOS_NAV_ITEMS: NavItem[] = [
 
 import { useOnlineStatus } from '@/hooks/use-online';
 import { EmergencyCheckinBanner } from '@/components/layout/EmergencyCheckinBanner';
+import { useSessionRole } from '@/hooks/useAuth';
+import { Shield } from 'lucide-react';
 
 /** Nav list — closes the mobile drawer after each click */
 function NavMenu({ location, items }: { location: string; items: typeof NAV_ITEMS }) {
@@ -142,6 +144,8 @@ function ConnectionBanner({ isOnline, settled }: { isOnline: boolean; settled: b
 export function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { isOnline, settled } = useOnlineStatus();
+  const role = useSessionRole();
+
   const currentLabel =
     [...NAV_ITEMS, ...SOS_NAV_ITEMS].find(
       (n) => n.path === location || n.aliases?.includes(location),
@@ -162,6 +166,32 @@ export function Shell({ children }: { children: ReactNode }) {
               Business (SOS)
             </div>
             <NavMenu location={location} items={SOS_NAV_ITEMS} />
+
+            {role === 'super_admin' && (
+              <>
+                <div className="px-3 pt-4 pb-1 text-xs font-mono uppercase tracking-widest text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
+                  Administration
+                </div>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location.startsWith('/platform')}
+                      tooltip="Platform Control Plane"
+                      className="data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium h-10 text-teal-500 hover:text-teal-400 data-[active=true]:text-white"
+                    >
+                      <Link
+                        href="/platform"
+                        className="flex items-center gap-3 px-3"
+                      >
+                        <Shield className="size-5" />
+                        <span>Platform Control</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </>
+            )}
           </SidebarContent>
         </Sidebar>
         <main className="flex-1 flex flex-col h-[100dvh] overflow-hidden">

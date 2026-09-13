@@ -45,9 +45,9 @@ export function useAuth(): { authState: AuthState } {
         if (res.ok) {
           try {
             const body = (await res.json()) as { role?: NetworkRole };
-            setCachedRole(body.role ?? "super_admin");
+            setCachedRole(body.role ?? "staff");
           } catch {
-            setCachedRole("super_admin");
+            setCachedRole("staff");
           }
           setAuthState("authenticated");
         } else {
