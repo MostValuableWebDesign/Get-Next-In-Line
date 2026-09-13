@@ -103,7 +103,7 @@ describe('partner module cards — no pricing wording', () => {
       <ModuleGrid categorySlug="partners" title="Partner Integrations" description="desc" />,
     );
 
-    const card = screen.getByTestId('link-module-console-20');
+    const card = screen.getByTestId('module-card-20');
     expect(within(card).queryByText('0% Markup')).not.toBeInTheDocument();
     expect(within(card).queryByTestId('passthrough-pricing-20')).not.toBeInTheDocument();
     expect(within(card).queryByText(/Pass-through/)).not.toBeInTheDocument();
@@ -118,7 +118,7 @@ describe('partner module cards — no pricing wording', () => {
       <ModuleGrid categorySlug="operations" title="Core Operations" description="desc" />,
     );
 
-    const card = screen.getByTestId('link-module-console-1');
+    const card = screen.getByTestId('module-card-1');
     expect(within(card).getByText('Retail Price')).toBeInTheDocument();
     expect(within(card).getByText('Profit Margin')).toBeInTheDocument();
     expect(within(card).getByText('$150')).toBeInTheDocument();

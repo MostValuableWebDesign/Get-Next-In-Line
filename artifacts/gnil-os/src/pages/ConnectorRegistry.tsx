@@ -1,16 +1,12 @@
-import { useState } from 'react';
-import { Link } from 'wouter';
 import {
   useGetConnectorRegistry,
   useGetModulesPricing,
-  type ConnectorRegistryEntry,
 } from '@workspace/api-client-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { EditConnectorDialog } from '@/components/EditConnectorDialog';
 import { formatCurrency } from '@/lib/format';
-import { ShieldAlert, Package, Pencil, PanelsTopLeft } from 'lucide-react';
+import { ShieldAlert, Package } from 'lucide-react';
 
 // The former "marketing" group was folded into media (White-Label Resale
 // Engines); unknown slugs still render after the known ones.
@@ -25,7 +21,6 @@ const CATEGORY_ORDER = ['operations', 'partners', 'media'];
 export function ConnectorRegistrySection() {
   const { data: entries, isLoading } = useGetConnectorRegistry();
   const { data: pricing } = useGetModulesPricing();
-  const [editing, setEditing] = useState<ConnectorRegistryEntry | null>(null);
 
   if (isLoading) {
     return (
@@ -114,28 +109,6 @@ export function ConnectorRegistrySection() {
                           <span className="text-sm text-muted-foreground italic">—</span>
                         )}
                       </div>
-                      <div className="flex md:justify-end gap-1">
-                        <Button
-                          asChild
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Open ${m.name} module console`}
-                          data-testid={`link-module-console-${m.id}`}
-                        >
-                          <Link href={`/modules/${m.id}`}>
-                            <PanelsTopLeft className="size-4" />
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEditing(m)}
-                          aria-label={`Edit ${m.name}`}
-                          data-testid={`button-edit-${m.id}`}
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                      </div>
                     </div>
                   );
                 })}
@@ -145,9 +118,6 @@ export function ConnectorRegistrySection() {
         );
       })}
 
-      {editing && (
-        <EditConnectorDialog key={editing.id} entry={editing} onClose={() => setEditing(null)} />
-      )}
     </div>
   );
 }

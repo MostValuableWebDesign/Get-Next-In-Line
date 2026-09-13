@@ -1,4 +1,3 @@
-import { useAllTenants } from '@/hooks/useAllTenants';
 import { useState } from 'react';
 import {
   useListEmergencyBroadcasts, getListEmergencyBroadcastsQueryKey,
@@ -29,13 +28,8 @@ import { CheckCircle2, CircleDot, Megaphone, Radio, ShieldCheck, Store } from 'l
 /**
  * Co-Op Emergency & Crisis Network Broadcast console.
  *
- * Shared between two surfaces:
- *  - Merchant (tenantId != null, header attached automatically on /sos pages):
- *    a local leader broadcasts to their accepted co-op partner network.
- *  - Admin Command Center (tenantId == null, unscoped): platform-wide or
- *    selected-tenant broadcasts.
- * Both see delivery progress, the live check-in roster, and can resolve
- * their own broadcasts.
+ * A local business broadcasts to its accepted co-op partner network.
+ * Business context is resolved automatically by the API.
  */
 
 export const ALERT_TYPES = [
@@ -88,7 +82,6 @@ export function checkinBadge(status: string | null) {
 export function EmergencyBroadcastContent({ tenantId }: { tenantId: number | null }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const isAdmin = tenantId == null;
 
   const { data: broadcasts, isLoading } = useListEmergencyBroadcasts({
     query: { queryKey: getListEmergencyBroadcastsQueryKey(), refetchInterval: POLL_MS },
@@ -121,9 +114,7 @@ export function EmergencyBroadcastContent({ tenantId }: { tenantId: number | nul
             <Radio className="w-5 h-5 text-destructive" /> Emergency Network Broadcasts
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            {isAdmin
-              ? 'Push a critical community alert to the whole platform or selected businesses. Each target\u2019s subscribers get an SMS and the owner is prompted to check in.'
-              : 'Push a critical alert to your co-op partner network. Every partner\u2019s subscribers get an SMS and each business is prompted to check in as Open, Temporarily Closed, or Safe.'}
+            Push a critical alert to your co-op partner network. Every partner&apos;s subscribers get an SMS and each business is prompted to check in as Open, Temporarily Closed, or Safe.
           </p>
         </div>
         <Button onClick={() => setComposeOpen(true)} data-testid="button-compose-broadcast">
@@ -134,7 +125,6 @@ export function EmergencyBroadcastContent({ tenantId }: { tenantId: number | nul
       <ComposeDialog
         open={composeOpen}
         onOpenChange={setComposeOpen}
-        isAdmin={isAdmin}
         onCreated={invalidate}
       />
 
@@ -152,7 +142,7 @@ export function EmergencyBroadcastContent({ tenantId }: { tenantId: number | nul
             <BroadcastCard
               key={b.id}
               broadcast={b}
-              canResolve={b.status === 'active' && (isAdmin || b.senderTenantId === tenantId)}
+              canResolve={b.status === 'active'}
               onResolve={() => resolveBroadcast.mutate({ id: b.id })}
               resolving={resolveBroadcast.isPending}
             />
@@ -238,12 +228,10 @@ function BroadcastCard({
 function ComposeDialog({
   open,
   onOpenChange,
-  isAdmin,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  isAdmin: boolean;
   onCreated: () => void;
 }) {
   const { toast } = useToast();
@@ -251,11 +239,6 @@ function ComposeDialog({
   const [alertType, setAlertType] = useState('weather_closure');
   const [headline, setHeadline] = useState('');
   const [message, setMessage] = useState('');
-  const [adminScope, setAdminScope] = useState<'platform' | 'selected'>('platform');
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-
-  // Admin selected-scope target picker only.
-  const { data: tenants } = useAllTenants({ enabled: isAdmin && open });
 
   const create = useCreateEmergencyBroadcast({
     mutation: {
@@ -264,7 +247,6 @@ function ComposeDialog({
         onOpenChange(false);
         setHeadline('');
         setMessage('');
-        setSelectedIds(new Set());
         toast({
           title: 'Emergency broadcast sent',
           description: 'Subscriber texts are going out and partners are being prompted to check in.',
@@ -290,11 +272,6 @@ function ComposeDialog({
         alertType: alertType as 'weather_closure' | 'power_outage' | 'safety_alert' | 'schedule_change' | 'other',
         headline: headline.trim(),
         message: message.trim(),
-        ...(isAdmin
-          ? adminScope === 'selected'
-            ? { scope: 'selected' as const, targetTenantIds: [...selectedIds] }
-            : { scope: 'platform' as const }
-          : {}),
       },
     });
   };
@@ -305,9 +282,7 @@ function ComposeDialog({
         <DialogHeader>
           <DialogTitle>Send Emergency Broadcast</DialogTitle>
           <DialogDescription>
-            {isAdmin
-              ? 'This alert reaches every targeted business and their subscribers immediately.'
-              : 'This alert reaches every accepted co-op partner and their subscribers immediately.'}
+            This alert reaches every accepted co-op partner and their subscribers immediately.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -335,39 +310,6 @@ function ComposeDialog({
               </Select>
             </div>
           </div>
-          {isAdmin && (
-            <div className="space-y-1.5">
-              <Label>Targeting</Label>
-              <Select value={adminScope} onValueChange={(v) => setAdminScope(v as 'platform' | 'selected')}>
-                <SelectTrigger data-testid="select-broadcast-scope"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="platform">Whole platform</SelectItem>
-                  <SelectItem value="selected">Selected businesses</SelectItem>
-                </SelectContent>
-              </Select>
-              {adminScope === 'selected' && (
-                <div className="border rounded-lg max-h-40 overflow-auto divide-y mt-2" data-testid="list-target-tenants">
-                  {(tenants ?? []).map(t => (
-                    <label key={t.id} className="flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(t.id)}
-                        onChange={(e) => {
-                          setSelectedIds(prev => {
-                            const next = new Set(prev);
-                            if (e.target.checked) next.add(t.id); else next.delete(t.id);
-                            return next;
-                          });
-                        }}
-                        data-testid={`checkbox-target-${t.id}`}
-                      />
-                      {t.brandName}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
           <div className="space-y-1.5">
             <Label>Headline</Label>
             <Input
@@ -393,7 +335,7 @@ function ComposeDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             onClick={submit}
-            disabled={create.isPending || (isAdmin && adminScope === 'selected' && selectedIds.size === 0)}
+            disabled={create.isPending}
             data-testid="button-send-broadcast"
           >
             <Megaphone className="w-4 h-4 mr-2" />

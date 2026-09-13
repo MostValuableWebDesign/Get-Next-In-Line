@@ -22,7 +22,7 @@ import {
  * rating, a Y/N "would you recommend", and comments; this view aggregates
  * those responses per accepted partnership and network-wide, highlights
  * trending themes, and lists the automated weekly/monthly insight reports.
- * All data is tenant-scoped server-side (x-tenant-id attaches automatically
+ * All data is tenant-scoped server-side (business context resolves automatically
  * for /api/coop/ URLs).
  */
 export function CoopSentimentContent({ tenantId }: { tenantId: number | null }) {

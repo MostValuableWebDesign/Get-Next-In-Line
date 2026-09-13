@@ -1,12 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'wouter';
+import { Link } from 'wouter';
 import {
   useListSosCalls, useListSosMessages, useSimulateSosCall, useSendSosMessage, useRetrySosMessage,
   useGetSosSettings, useUpdateSosSettings, getGetSosSettingsQueryKey,
-  useGetTenantSettings, useUpdateTenantSettings, getGetTenantSettingsQueryKey,
-  useGetTenant, getGetTenantQueryKey,
   getListSosCallsQueryKey, getListSosMessagesQueryKey,
-  useListSosServices, getListSosServicesQueryKey,
+  useListSosServices,
   type SosCustomer,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,7 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Bot, MessageSquare, Phone, Play, Send } from 'lucide-react';
+import { Bot, MessageSquare, Phone, Play, Send } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
@@ -39,59 +37,27 @@ import { CustomerPicker } from '@/components/sos/customer-picker';
  * Rendered in two contexts:
  *  - /sos/ai-receptionist — the automatically resolved business settings, plus the
  *    call log, simulator, and SMS history
- *  - /tenants/:id/ai-receptionist — that tenant's own receptionist
- *    settings (configuration only; call/SMS logs are business-wide views)
+ *  - embedded in Business Bookings — the same automatically resolved business
+ *    settings and receptionist operations
  *
  * This page is the single editing home for AI Receptionist settings — the
  * Configuration page only shows read-only status linking here.
  */
 export function AiReceptionistPage({
   embedded = false,
-  tenantId: tenantIdProp = null,
 }: {
   embedded?: boolean;
-  /** Explicit business scope for the platform Tenant Detail embed only. */
-  tenantId?: number | null;
 }) {
-  const params = useParams<{ id?: string }>();
-  const routeTenantId = params.id != null ? Number(params.id) : null;
-  const tenantId = tenantIdProp ?? routeTenantId;
-  const isTenantScoped = tenantId != null && Number.isInteger(tenantId);
-  // The platform Tenant Detail embed links to Communications instead of
-  // duplicating logs.
-  const showLogs = !isTenantScoped || tenantIdProp != null;
-
   const globalQuery = useGetSosSettings({
-    query: { queryKey: getGetSosSettingsQueryKey(), enabled: !isTenantScoped },
+    query: { queryKey: getGetSosSettingsQueryKey() },
   });
-  const tenantQuery = useGetTenantSettings(tenantId ?? 0, {
-    query: {
-      queryKey: getGetTenantSettingsQueryKey(tenantId ?? 0),
-      enabled: isTenantScoped,
-    },
-  });
-  const { data: tenant } = useGetTenant(tenantId ?? 0, {
-    query: { queryKey: getGetTenantQueryKey(tenantId ?? 0), enabled: isTenantScoped },
-  });
-  const settings = isTenantScoped ? tenantQuery.data : globalQuery.data;
-
-  const updateGlobal = useUpdateSosSettings();
-  const updateTenant = useUpdateTenantSettings();
-  const update = isTenantScoped
-    ? { isPending: updateTenant.isPending }
-    : { isPending: updateGlobal.isPending };
+  const settings = globalQuery.data;
+  const update = useUpdateSosSettings();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [aiReceptionistEnabled, setAiReceptionistEnabled] = useState(false);
   const initialized = useRef(false);
-
-  // Re-initialize local form state when switching between settings records
-  // (global ↔ tenant, or one tenant to another) so stale values from the
-  // previous scope are never saved into the new one.
-  useEffect(() => {
-    initialized.current = false;
-  }, [tenantId]);
 
   useEffect(() => {
     if (settings && !initialized.current) {
@@ -103,9 +69,7 @@ export function AiReceptionistPage({
   const save = (data: { aiReceptionistEnabled: boolean }) => {
     const onSuccess = () => {
       queryClient.invalidateQueries({
-        queryKey: isTenantScoped
-          ? getGetTenantSettingsQueryKey(tenantId!)
-          : getGetSosSettingsQueryKey(),
+        queryKey: getGetSosSettingsQueryKey(),
       });
       toast({ title: 'AI Receptionist settings saved' });
     };
@@ -116,11 +80,7 @@ export function AiReceptionistPage({
         variant: 'destructive',
       });
     };
-    if (isTenantScoped) {
-      updateTenant.mutate({ id: tenantId!, data }, { onSuccess, onError });
-    } else {
-      updateGlobal.mutate({ data }, { onSuccess, onError });
-    }
+    update.mutate({ data }, { onSuccess, onError });
   };
 
   // Inline enable from the disabled-state banner — no cross-page hop.
@@ -131,33 +91,10 @@ export function AiReceptionistPage({
 
   return (
     <div className={embedded ? "space-y-6" : "p-8 max-w-6xl mx-auto space-y-6"} data-testid="page-ai-receptionist">
-      {isTenantScoped && !embedded && (
-        <Button
-          asChild
-          variant="ghost"
-          size="sm"
-          className="gap-2 -ml-2 text-muted-foreground"
-          data-testid="link-back-tenant"
-        >
-          <Link href={`/tenants/${tenantId}`}>
-            <ArrowLeft className="w-4 h-4" /> Back to {tenant?.brandName ?? 'Tenant'}
-          </Link>
-        </Button>
-      )}
       <div>
         <h1 className={embedded ? "text-xl font-semibold tracking-tight" : "text-3xl font-bold tracking-tight"}>AI Receptionist</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {isTenantScoped ? (
-            <>
-              Receptionist settings for{' '}
-              <span className="font-medium" data-testid="text-ai-receptionist-tenant">
-                {tenant?.brandName ?? `tenant #${tenantId}`}
-              </span>{' '}
-              only — changes here never affect other businesses.
-            </>
-          ) : (
-            'Configure, test, and monitor the AI Receptionist — settings, call logs, and SMS broadcasts, all in one place.'
-          )}
+          Configure, test, and monitor the AI Receptionist — settings, call logs, and SMS broadcasts, all in one place.
         </p>
       </div>
 
@@ -210,10 +147,7 @@ export function AiReceptionistPage({
               data-testid="switch-ai-receptionist"
             />
           </div>
-          <ServiceVocabularyCard
-            tenantId={tenantId}
-            legacyServiceNames={settings?.serviceNames}
-          />
+          <ServiceVocabularyCard legacyServiceNames={settings?.serviceNames} />
           <div className="flex justify-end">
             <Button
               onClick={() => save({ aiReceptionistEnabled })}
@@ -226,26 +160,6 @@ export function AiReceptionistPage({
         </CardContent>
       </Card>
 
-      {/* Per-tenant, the call and SMS logs live on the unified
-          Communications tab — link there instead of duplicating them. */}
-      {isTenantScoped && !showLogs && (
-        <div
-          className="flex items-center justify-between gap-3 rounded-lg border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground"
-          data-testid="banner-comms-link"
-        >
-          <span>Looking for call logs and SMS history? They're in the Communications tab.</span>
-          <Button asChild variant="outline" size="sm" className="shrink-0" data-testid="link-communications-tab">
-            <Link href={`/tenants/${tenantId}?tab=communications`}>
-              <MessageSquare className="w-4 h-4 mr-1.5" /> View Communications
-            </Link>
-          </Button>
-        </div>
-      )}
-
-      {/* Call logs, the simulator, and SMS history — business-wide on the
-          global page, scoped by x-tenant-id when a business is selected. */}
-      {showLogs && (
-        <>
       {/* ── Call log ──────────────────────────────────────────────────── */}
       <div className="space-y-4" data-testid="section-call-logs">
         <div className="flex justify-between items-center">
@@ -264,7 +178,7 @@ export function AiReceptionistPage({
           >
             <span>SMS is in simulated mode — messages are logged but not actually sent.</span>
             <Button asChild variant="outline" size="sm" className="shrink-0">
-              <Link href={isTenantScoped ? `/tenants/${tenantId}?tab=settings` : '/settings#sms'}>
+              <Link href="/settings#sms">
                 Go live in Configuration
               </Link>
             </Button>
@@ -280,8 +194,6 @@ export function AiReceptionistPage({
         <h2 className="text-xl font-semibold">SMS Broadcast History</h2>
         <MessageLogList />
       </div>
-        </>
-      )}
     </div>
   );
 }
@@ -291,23 +203,13 @@ export function AiReceptionistPage({
  * Service Menu (with the legacy comma-separated setting as fallback for
  * scopes not yet backfilled). Editing happens on the Services tab of
  * Business Bookings; this card just shows what the receptionist recognizes.
- *
- * The normal page uses automatic business resolution. The platform Tenant
- * Detail embed passes an explicit business id.
  */
 function ServiceVocabularyCard({
-  tenantId,
   legacyServiceNames,
 }: {
-  tenantId: number | null;
   legacyServiceNames: string | null | undefined;
 }) {
-  const { data: catalog, isLoading } = useListSosServices({
-    // Keep platform Tenant Detail caches isolated from the normal app view.
-    query: { queryKey: [...getListSosServicesQueryKey(), { tenantId }] },
-    request:
-      tenantId != null ? { headers: { 'x-tenant-id': String(tenantId) } } : undefined,
-  });
+  const { data: catalog, isLoading } = useListSosServices();
   const activeNames = (catalog ?? []).filter((s) => s.isActive).map((s) => s.name);
   const legacyNames = (legacyServiceNames ?? '')
     .split(',')

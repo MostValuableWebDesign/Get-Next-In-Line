@@ -1,0 +1,197 @@
+GNIL should support two clearly separated application contexts:
+
+```text
+1. GNIL Client App
+   one deployment
+   one client
+   one business
+
+2. GNIL Platform Control Plane
+   internal software-owner administration
+   may manage multiple client installations
+```
+
+The client must never experience the platform’s multi-business concepts.
+
+Do NOT remove internal tenant database scoping.
+Do NOT rewrite the core single-business runtime.
+Do NOT expose platform tools to normal merchant/staff users.
+
+## 1. Audit route/UI ownership
+
+Classify all routes/pages/modules into:
+
+```text
+CLIENT_APP
+PLATFORM_CONTROL_PLANE
+PUBLIC
+INTERNAL_INTEGRATION
+```
+
+Pay special attention to:
+
+* tenants
+* tenant detail
+* governance
+* franchise
+* platform billing
+* multi-business reporting
+* provisioning
+* platform emergency targeting
+* co-op administration
+
+## 2. Client app requirements
+
+The client app must always resolve the sole active business automatically.
+
+Normal users must never see:
+
+```text
+Tenant
+Tenant ID
+Select Business
+Switch Business
+Installations
+Organizations
+Tenant Operations
+```
+
+Client navigation should contain only business-operating features.
+
+## 3. Platform control plane requirements
+
+If multi-business tools are retained, place them behind a clearly separate platform-only boundary.
+
+Requirements:
+
+* `super_admin` / platform-admin only
+* not linked from merchant/staff navigation
+* distinct route namespace where practical, such as:
+
+```text
+/platform/*
+```
+
+* clear naming that this is internal platform administration
+* no accidental exposure to merchant/front-desk/staff roles
+
+Do not rename internal tenant IDs just for cosmetics.
+
+## 4. Tenant/business administration
+
+Move or isolate:
+
+* Tenant Operations
+* Tenant Detail
+* platform business provisioning
+* cross-business user assignment
+* installation billing
+* module provisioning reports
+* multi-business health/status
+* platform-wide broadcasts
+
+into the control plane.
+
+## 5. Franchise/multi-location review
+
+Determine whether franchise functionality is actually part of the client product.
+
+If the current product requirement is strictly one business / one location, move franchise administration to platform-only or remove it from client navigation.
+
+Do not add a location selector to the client app.
+
+## 6. Co-op distinction
+
+Keep cross-business co-op participant IDs where required.
+
+Differentiate:
+
+```text
+business A transacting with business B
+```
+
+from:
+
+```text
+user switching GNIL business context
+```
+
+The first may remain.
+The second must not exist in the client app.
+
+## 7. Authorization
+
+Add/verify explicit platform-only guards for control-plane routes.
+
+Normal roles such as:
+
+```text
+merchant
+manager
+staff
+front desk
+```
+
+must receive 403 or have no route access to platform control-plane functions.
+
+## 8. Frontend navigation tests
+
+Verify:
+
+### Merchant
+
+No platform links.
+
+### Staff
+
+No platform links.
+
+### Front desk
+
+No platform links.
+
+### Platform admin
+
+Platform control-plane navigation may appear.
+
+## 9. API separation
+
+Normal client APIs should continue automatically resolving the app business.
+
+Platform endpoints may explicitly reference business IDs because their purpose is administering multiple installations.
+
+Make this distinction clear in code comments and API contracts.
+
+## 10. Final report
+
+Return:
+
+### Client app routes
+
+List major namespaces.
+
+### Platform routes
+
+List all retained multi-business namespaces.
+
+### Authorization
+
+Show platform-only roles.
+
+### Navigation
+
+Show what a merchant sees vs platform admin.
+
+### Remaining explicit tenant IDs
+
+Explain why each is platform or transactional rather than client business selection.
+
+End state:
+
+```text
+Client:
+"I log in and operate my business."
+
+Platform owner:
+"I can administer GNIL installations separately."
+```

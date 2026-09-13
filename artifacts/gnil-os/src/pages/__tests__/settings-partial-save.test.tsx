@@ -24,19 +24,14 @@ vi.mock('@workspace/api-client-react', () => ({
   useGetSosSettings: () => ({ data: settings, isLoading: false }),
   useUpdateSosSettings: () => ({ mutate, isPending: false }),
   getGetSosSettingsQueryKey: () => ['/api/sos/settings'],
-  // Tenant-scoped variants (unused on the legacy /settings route, but the
-  // component calls the hooks unconditionally with `enabled: false`).
   // Live Twilio webhook console check shown in the SMS section.
   useGetSosTwilioWebhookStatus: () => ({ data: undefined, isLoading: false }),
   getGetSosTwilioWebhookStatusQueryKey: () => ['/api/sos/twilio/webhook-status'],
-  useGetTenant: () => ({ data: undefined, isLoading: false }),
-  getGetTenantQueryKey: (id: number) => ['/api/tenants', id],
-  useGetTenantSettings: () => ({ data: undefined, isLoading: false }),
-  getGetTenantSettingsQueryKey: (id: number) => ['/api/tenants', id, 'settings'],
-  useUpdateTenantSettings: () => ({ mutate: vi.fn(), isPending: false }),
   // "Send test text" control in the SMS section.
   useSendSosTestSms: () => ({ mutate: vi.fn(), isPending: false }),
   useConfigureSosTwilioWebhook: () => ({ mutate: vi.fn(), isPending: false }),
+  useGetCoopTaxonomy: () => ({ data: [], isLoading: false }),
+  getGetCoopTaxonomyQueryKey: () => ['/api/coop/taxonomy'],
   // Product Catalog section (folded into Configuration) — empty registry.
   useGetConnectorRegistry: () => ({ data: [], isLoading: false }),
   useGetModulesPricing: () => ({ data: [], isLoading: false }),

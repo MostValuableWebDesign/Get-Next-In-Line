@@ -13,29 +13,7 @@ vi.mock('@workspace/api-client-react', async (importOriginal) => {
       isError: false,
       isFetched: true,
     }),
-    // Tenants tab
-    useListTenants: () => ({
-      data: [
-        {
-          id: 7,
-          brandName: 'Acme Corp',
-          subdomain: 'acme',
-          contactName: 'Jane Doe',
-          contactEmail: 'jane@acme.com',
-          status: 'active',
-          mrr: 500,
-          modulesEnabled: 3,
-        },
-      ],
-      isLoading: false,
-    }),
-    // Billing tab
-    useGetBillingSummary: () => ({
-      data: { totalMrr: 500, byCategory: [], topTenants: [] },
-      isLoading: false,
-    }),
     useGetModulesPricing: () => ({ data: [], isLoading: false }),
-    // Billing waits for the module list (partner pass-through classification)
     useListModules: () => ({ data: [], isLoading: false }),
     // Agency Settings tab (Configuration + connector registry section)
     useGetSosSettings: () => ({
@@ -82,28 +60,21 @@ describe('Command Center tabbed hub', () => {
     expect(screen.getByRole('link', { name: /Business Bookings/ })).toBeInTheDocument();
   });
 
-  it('/tenants deep link lands on the Tenants tab and survives refresh (URL unchanged)', async () => {
-    window.history.replaceState(null, '', '/tenants');
+  it.each([
+    '/tenants',
+    '/tenants/7',
+    '/billing',
+    '/master',
+    '/governance',
+    '/franchise',
+  ])('%s cannot open multi-business administration', async (path) => {
+    window.history.replaceState(null, '', path);
     render(<App />);
 
     const hub = await screen.findByTestId('command-center-hub');
-    expect(within(hub).getByTestId('tab-tenants')).toHaveAttribute('data-state', 'active');
-    // The tenant grid renders, with its rows.
-    expect(await within(hub).findByTestId('row-tenant-7')).toBeInTheDocument();
-    // Tab state lives in the URL so refresh/link-sharing keeps the tab.
-    expect(window.location.pathname).toBe('/tenants');
-  });
-
-  it('/billing deep link lands on the Billing tab', async () => {
-    window.history.replaceState(null, '', '/billing');
-    render(<App />);
-
-    const hub = await screen.findByTestId('command-center-hub');
-    expect(within(hub).getByTestId('tab-billing')).toHaveAttribute('data-state', 'active');
-    expect(
-      await within(hub).findByRole('heading', { name: /Billing & Finance/ }),
-    ).toBeInTheDocument();
-    expect(window.location.pathname).toBe('/billing');
+    expect(within(hub).getByTestId('tab-dashboard')).toHaveAttribute('data-state', 'active');
+    expect(window.location.pathname).toBe('/');
+    expect(within(hub).queryByText(/tenants|master overview|franchise|governance/i)).not.toBeInTheDocument();
   });
 
   it('/settings deep link lands on the Agency Settings tab', async () => {

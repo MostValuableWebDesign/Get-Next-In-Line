@@ -1,0 +1,174 @@
+GNIL has already been converted to a single-business runtime for normal client usage.
+
+Current remaining environment problem:
+
+The development database still contains multiple active businesses, which correctly causes the canonical single-business resolver to reject normal `/sos/*` and `/operations/*` requests.
+
+The product rule is:
+
+```text
+One GNIL deployment
+=
+One client
+=
+One active business
+```
+
+This task is ONLY to correct the current development business records safely.
+
+DO NOT change the single-business resolver.
+DO NOT weaken the 0 / 1 / multiple active business validation.
+DO NOT delete tenant/business rows unnecessarily.
+DO NOT reset application data.
+
+## 1. Inspect current businesses
+
+Query the current tenant/business table and report:
+
+* ID
+* brand name
+* subdomain
+* status
+* whether the business contains meaningful operational data
+* whether it appears to be the actual client business
+* approximate counts where useful for:
+
+  * customers
+  * appointments
+  * services
+  * staff/resources
+  * workforce records
+  * Gusto connections
+  * queue/visit records
+
+Determine which record is the real GNIL client business.
+
+Do not guess solely from the first row or lowest ID.
+
+## 2. Preserve the real business
+
+The actual client business must remain:
+
+```text
+status = active
+```
+
+Do not change its ID.
+
+Do not move its data.
+
+Do not recreate it.
+
+Do not create a replacement business.
+
+## 3. Deactivate extra development/test businesses
+
+For every other currently active development/demo/test business, change it to an existing appropriate non-active status supported by the schema.
+
+Examples may include:
+
+```text
+inactive
+suspended
+archived
+```
+
+Use only a valid existing status.
+
+Do NOT delete the records.
+
+Do NOT cascade-delete their historical data.
+
+The intended final condition is:
+
+```text
+active business count = 1
+```
+
+## 4. Verify canonical resolution
+
+After cleanup, verify:
+
+```text
+requireAppBusiness()
+```
+
+returns the intended client business.
+
+Verify:
+
+```text
+GET /api/operations/overview
+```
+
+works with no `x-tenant-id`.
+
+Verify a normal SOS endpoint works without a tenant header.
+
+Verify:
+
+```text
+POST /api/operations/integrations/gusto/connect
+```
+
+reaches normal Gusto configuration/OAuth logic without a business-selection error.
+
+Do not complete external OAuth unless credentials are already configured and safe to use.
+
+## 5. Protect against accidental future duplicates
+
+Do NOT add a database unique constraint that prevents historical inactive businesses from existing.
+
+However, inspect seed/bootstrap/development setup code for anything that automatically creates multiple active businesses.
+
+If found:
+
+* stop normal single-business startup from creating multiple active businesses
+* keep test fixtures capable of creating multiple tenants where explicitly needed for isolation tests
+* do not weaken tests for multiple-active-business rejection
+
+## 6. Tests
+
+Keep and verify tests for:
+
+```text
+0 active businesses -> configuration error
+1 active business -> automatic resolution
+2+ active businesses -> configuration error
+```
+
+Add or update a bootstrap/seed test if necessary so the standard dev environment does not accidentally end with multiple active businesses.
+
+## 7. Final report
+
+Return:
+
+### Businesses before
+
+List active businesses found.
+
+### Chosen client business
+
+Explain why this is the one preserved as active.
+
+### Businesses changed
+
+List IDs/names and old/new status.
+
+### Final state
+
+```text
+active business count = 1
+```
+
+### Runtime validation
+
+Show results for:
+
+* Operations overview
+* one SOS route
+* Gusto connect route
+
+all without `x-tenant-id`.
+
+Do not change unrelated architecture.

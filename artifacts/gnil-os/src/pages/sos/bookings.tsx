@@ -256,7 +256,7 @@ export function BookingsPage() {
           {/* Former standalone /sos/ai-receptionist page — config, call logs,
               inbound simulator, and SMS broadcast history, now a tab here.
               The old URL redirects to this tab. */}
-          <AiReceptionistPage embedded tenantId={null} />
+          <AiReceptionistPage embedded />
         </TabsContent>
 
         <TabsContent value="coop" className="mt-0">

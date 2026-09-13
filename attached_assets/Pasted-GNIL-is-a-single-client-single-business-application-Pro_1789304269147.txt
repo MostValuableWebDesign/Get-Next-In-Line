@@ -1,0 +1,220 @@
+GNIL is a single-client, single-business application.
+
+Product rule:
+
+```text
+One deployment
+=
+One client
+=
+One business
+```
+
+The core `/sos/*` and `/operations/*` runtime already follows this model.
+
+However, the repository still contains platform-style multi-business product surfaces such as:
+
+* Tenant Operations
+* Tenant Detail
+* Governance business assignment
+* franchise/multi-location administration
+* multi-business billing/reporting
+* cross-business administration
+* business provisioning/simulation
+* platform business targeting
+
+For this product, these should NOT exist as normal application features.
+
+DO NOT change the internal tenant_id database scoping strategy.
+DO NOT remove tenant foreign keys broadly.
+DO NOT change public booking slug behavior.
+DO NOT break signed webhooks.
+DO NOT remove co-op counterparty IDs where they represent another business in a B2B transaction.
+
+## 1. Audit multi-business UI/routes
+
+Search for:
+
+```text
+Tenant Operations
+Tenant Detail
+tenants
+tenant management
+business assignments
+franchise
+multi-location
+organization switcher
+business provisioning
+platform billing
+tenant reporting
+business targeting
+workspace
+installation
+```
+
+Classify each occurrence as:
+
+```text
+normal client feature
+platform/admin feature
+internal infrastructure
+cross-business transaction identity
+```
+
+## 2. Remove normal access to platform-style multi-business pages
+
+Remove from the normal GNIL client navigation:
+
+* Tenant Operations
+* Tenant Detail
+* multi-business dashboards
+* tenant/business provisioning
+* franchise controller
+* cross-installation reports
+* platform billing controls
+* business assignment management
+* business-targeted platform broadcasts
+
+The business owner should never encounter these.
+
+## 3. Route handling
+
+For routes that exist only to administer multiple GNIL client businesses, either:
+
+* remove them if truly unused, or
+* isolate them behind a clearly separate internal platform/admin surface
+
+Do not leave them casually mounted as normal merchant application features.
+
+If retaining any internal route, document exactly why.
+
+## 4. Governance cleanup
+
+Normal business users should manage:
+
+```text
+their staff
+their roles
+their permissions
+```
+
+They should not assign users across businesses or tenants.
+
+Remove any normal UI for cross-business membership assignment.
+
+Keep ordinary role-based authorization.
+
+## 5. Franchise/multi-location
+
+This GNIL deployment is one business.
+
+Do not retain a multi-location franchise controller as a normal feature.
+
+Do not add a location selector.
+
+If basic address/location data exists, treat it as attributes of the single business.
+
+## 6. Platform billing/reporting
+
+Normal owners should only see billing/reporting relevant to their own GNIL deployment.
+
+Remove:
+
+```text
+all-tenants revenue
+cross-business module reporting
+multi-tenant billing summaries
+installation comparison
+```
+
+from the client experience.
+
+## 7. Preserve legitimate cross-business domain concepts
+
+Do NOT confuse multi-business administration with B2B/co-op relationships.
+
+A co-op transaction may legitimately reference:
+
+```text
+host business
+counterparty business
+partner business
+```
+
+Those IDs may remain because they represent transaction participants, not a user-selected app context.
+
+Document these explicitly.
+
+## 8. Frontend navigation
+
+Search all navigation, command center, sidebar, settings, marketplace, admin menus, and route registries.
+
+The normal client app should conceptually contain:
+
+```text
+Dashboard
+Front Desk
+Bookings
+Queue
+Customers
+Staff
+Services
+Resources
+Operations
+Integrations
+Reports
+Settings
+```
+
+not:
+
+```text
+Tenants
+Businesses
+Organizations
+Franchise
+Installations
+Tenant Operations
+```
+
+## 9. Tests
+
+Add regression tests proving normal merchant/front-desk/staff users cannot navigate to multi-business administration.
+
+Remove obsolete frontend tests that protect tenant-switching/platform-business UX.
+
+Do not remove backend isolation tests.
+
+## 10. Final audit
+
+Search repository again for:
+
+```text
+Tenant Operations
+Tenant Detail
+Manage Tenants
+Switch Business
+Business Assignment
+Franchise Controller
+multi-tenant
+```
+
+Explain every remaining occurrence.
+
+## Final report
+
+Return:
+
+* pages/routes removed
+* navigation removed
+* platform-only code retained and why
+* cross-business transactional IDs retained and why
+* tests
+* any dead code removed
+
+End state:
+
+```text
+The GNIL client operates one business.
+No multi-business administration appears anywhere in the client product.
+```

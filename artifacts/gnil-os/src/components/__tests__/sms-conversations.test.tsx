@@ -46,11 +46,11 @@ vi.mock('@workspace/api-client-react', () => ({
 
 import { SmsConversations } from '../sms-conversations';
 
-function renderIt(tenantId?: number) {
+function renderIt() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <SmsConversations tenantId={tenantId} />
+      <SmsConversations />
     </QueryClientProvider>,
   );
 }
@@ -219,32 +219,10 @@ describe('SmsConversations', () => {
     expect(screen.queryByTestId('input-reply')).not.toBeInTheDocument();
   });
 
-  it('scopes reads and replies to the tenant when tenantId is given', () => {
-    renderIt(7);
-    const tenantHeaders = { headers: { 'x-tenant-id': '7' } };
-
-    const msgOpts = (hookCalls.messages[0] as unknown[])[1] as {
-      query: { queryKey: unknown[] };
-      request?: unknown;
-    };
-    expect(msgOpts.request).toEqual(tenantHeaders);
-    expect(msgOpts.query.queryKey).toContainEqual({ tenantId: 7 });
-
-    const custOpts = (hookCalls.customers[0] as unknown[])[1] as {
-      query: { queryKey: unknown[] };
-      request?: unknown;
-    };
-    expect(custOpts.request).toEqual(tenantHeaders);
-    expect(custOpts.query.queryKey).toContainEqual({ tenantId: 7 });
-
-    const sendOpts = (hookCalls.send[0] as unknown[])[0] as { request?: unknown };
-    expect(sendOpts.request).toEqual(tenantHeaders);
-  });
-
-  it('stays unscoped (no tenant header) without a tenantId', () => {
+  it('uses automatic business scope without a tenant header', () => {
     renderIt();
-    const msgOpts = (hookCalls.messages[0] as unknown[])[1] as { request?: unknown };
-    expect(msgOpts.request).toBeUndefined();
+    const msgOpts = (hookCalls.messages[0] as unknown[])[1] as { request?: unknown } | undefined;
+    expect(msgOpts?.request).toBeUndefined();
     const sendOpts = (hookCalls.send[0] as unknown[])[0] as { request?: unknown } | undefined;
     expect(sendOpts?.request).toBeUndefined();
   });

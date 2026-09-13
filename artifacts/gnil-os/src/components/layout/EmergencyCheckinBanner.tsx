@@ -38,7 +38,7 @@ export function EmergencyCheckinBanner() {
   const [location] = useLocation();
   const search = useSearch();
   // Same scoping rule as the SOS tenant sync: only /sos pages carry a
-  // business scope, and the API client attaches x-tenant-id automatically.
+  // business scope, resolved automatically by the API.
   const tenantId = location.startsWith('/sos') ? parseTenantParam(search) : null;
   if (tenantId == null) return null;
   return <BannerInner key={tenantId} tenantId={tenantId} />;

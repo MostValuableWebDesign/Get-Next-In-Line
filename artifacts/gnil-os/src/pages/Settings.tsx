@@ -8,23 +8,13 @@ import {
   useConfigureSosTwilioWebhook,
   useSendSosTestSms,
   type SosTestSmsResult,
-  useGetTenantSettings,
-  useUpdateTenantSettings,
-  getGetTenantSettingsQueryKey,
-  useGetTenant,
-  getGetTenantQueryKey,
   useGetCoopTaxonomy,
   getGetCoopTaxonomyQueryKey,
-  useListTenantReviews,
-  useCreateTenantReview,
-  useUpdateTenantReview,
-  useDeleteTenantReview,
-  getListTenantReviewsQueryKey,
   type SosSettings,
   type SosSettingsUpdate,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useParams } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Activity, ArrowLeft, Bot, Building2, ExternalLink, MapPin, MessageSquare, Search, ShieldCheck, Star, Trash2 } from 'lucide-react';
+import { Activity, Bot, Building2, ExternalLink, MapPin, MessageSquare, Search, ShieldCheck } from 'lucide-react';
 import { ConnectorRegistrySection } from '@/pages/ConnectorRegistry';
 import { TenantCoopPartnershipsSection } from '@/pages/CoopPartnerships';
 
@@ -46,47 +36,27 @@ import { TenantCoopPartnershipsSection } from '@/pages/CoopPartnerships';
  * saves independently via a partial PATCH, so saving one section never
  * clobbers unsaved edits in another.
  *
- * Rendered in two contexts:
- *  - `/settings` — the legacy/global configuration record
- *  - `/tenants/:id/settings` — that tenant's own settings record
+ * Settings is the single-business Command Center configuration tab. The
+ * server supplies the active business scope automatically; this page never
+ * selects a tenant or injects tenant context into requests.
  */
-export default function Settings({ embedded = false }: { embedded?: boolean }) {
-  const params = useParams<{ id?: string }>();
-  const tenantId = params.id != null ? Number(params.id) : null;
-  const isTenantScoped = tenantId != null && Number.isInteger(tenantId);
-
-  const globalQuery = useGetSosSettings({
-    query: { queryKey: getGetSosSettingsQueryKey(), enabled: !isTenantScoped },
+export default function Settings() {
+  const settingsQuery = useGetSosSettings({
+    query: { queryKey: getGetSosSettingsQueryKey() },
   });
-  const tenantQuery = useGetTenantSettings(tenantId ?? 0, {
-    query: {
-      queryKey: getGetTenantSettingsQueryKey(tenantId ?? 0),
-      enabled: isTenantScoped,
-    },
-  });
-  const { data: tenant } = useGetTenant(tenantId ?? 0, {
-    query: { queryKey: getGetTenantQueryKey(tenantId ?? 0), enabled: isTenantScoped },
-  });
-
-  const settings: SosSettings | undefined = isTenantScoped
-    ? tenantQuery.data
-    : globalQuery.data;
-  const isLoading = isTenantScoped ? tenantQuery.isLoading : globalQuery.isLoading;
-  const loadError = isTenantScoped ? tenantQuery.error : globalQuery.error;
+  const settings: SosSettings | undefined = settingsQuery.data;
+  const isLoading = settingsQuery.isLoading;
+  const loadError = settingsQuery.error;
 
   // Live Twilio console check: is the number's "A message comes in" webhook
-  // actually pointed at this app? Scoped like the settings record itself.
-  const webhookScope = isTenantScoped ? String(tenantId) : 'legacy';
+  // actually pointed at this app? The server resolves the active business.
   const webhookQuery = useGetSosTwilioWebhookStatus({
     query: {
-      queryKey: [...getGetSosTwilioWebhookStatusQueryKey(), { scope: webhookScope }],
+      queryKey: getGetSosTwilioWebhookStatusQueryKey(),
     },
-    request: { headers: { 'x-tenant-id': webhookScope } },
   });
   const webhook = webhookQuery.data;
-  const configureWebhook = useConfigureSosTwilioWebhook({
-    request: { headers: { 'x-tenant-id': webhookScope } },
-  });
+  const configureWebhook = useConfigureSosTwilioWebhook();
   // Track which webhook a pending fix targets so only that button spins.
   const [fixingTarget, setFixingTarget] = useState<'sms' | 'voice' | null>(null);
   const runWebhookFix = (target: 'sms' | 'voice') => {
@@ -99,7 +69,7 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
           // indicator updates immediately, then refetch to stay honest with
           // the server.
           queryClient.setQueryData(
-            [...getGetSosTwilioWebhookStatusQueryKey(), { scope: webhookScope }],
+             getGetSosTwilioWebhookStatusQueryKey(),
             result.check,
           );
           queryClient.invalidateQueries({
@@ -134,8 +104,7 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
   };
 
   const updateGlobal = useUpdateSosSettings();
-  const updateTenant = useUpdateTenantSettings();
-  const isPending = updateGlobal.isPending || updateTenant.isPending;
+  const isPending = updateGlobal.isPending;
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -151,9 +120,7 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
   const [smsFromNumber, setSmsFromNumber] = React.useState('');
   const [testSmsRecipient, setTestSmsRecipient] = React.useState('');
   const [testSmsResult, setTestSmsResult] = React.useState<SosTestSmsResult | null>(null);
-  const testSms = useSendSosTestSms({
-    request: { headers: { 'x-tenant-id': isTenantScoped ? String(tenantId) : 'legacy' } },
-  });
+  const testSms = useSendSosTestSms();
   const [noShowShieldEnabled, setNoShowShieldEnabled] = React.useState(false);
   const [noShowDepositAmount, setNoShowDepositAmount] = React.useState('25');
   const [noShowCancellationWindowHours, setNoShowCancellationWindowHours] = React.useState('24');
@@ -182,11 +149,6 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
   });
 
   const initialized = useRef(false);
-
-  // Re-initialize local form state when switching between settings records.
-  useEffect(() => {
-    initialized.current = false;
-  }, [tenantId]);
 
   useEffect(() => {
     if (settings && !initialized.current) {
@@ -242,13 +204,13 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
     if (isLoading) return;
     const hash = window.location.hash.replace('#', '');
     if (!hash) return;
-    if (hash === 'ai-receptionist' && !isTenantScoped) {
+    if (hash === 'ai-receptionist') {
       navigate('/sos/bookings?tab=ai-receptionist', { replace: true });
       return;
     }
     const el = document.getElementById(hash);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [isLoading, isTenantScoped, navigate]);
+  }, [isLoading, navigate]);
 
   const saveSection = (
     sectionLabel: string,
@@ -287,10 +249,7 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
   ) => {
     const onSuccess = () => {
       queryClient.invalidateQueries({
-        queryKey:
-          tenantId == null
-            ? getGetSosSettingsQueryKey()
-            : getGetTenantSettingsQueryKey(tenantId),
+        queryKey: getGetSosSettingsQueryKey(),
       });
       toast({ title: `${sectionLabel} saved` });
     };
@@ -304,11 +263,7 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
         variant: 'destructive',
       });
     };
-    if (isTenantScoped) {
-      updateTenant.mutate({ id: tenantId!, data }, { onSuccess, onError });
-    } else {
-      updateGlobal.mutate({ data }, { onSuccess, onError });
-    }
+    updateGlobal.mutate({ data }, { onSuccess, onError });
   };
 
   if (isLoading) {
@@ -321,49 +276,26 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
     );
   }
 
-  if (isTenantScoped && (loadError || !settings)) {
+  if (loadError || !settings) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-bold tracking-tight">Tenant not found</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Configuration unavailable</h1>
         <p className="text-muted-foreground">
-          This tenant does not exist or is no longer available.
+          We couldn't load your business configuration. Please try again.
         </p>
         <Button asChild variant="outline">
-          <Link href="/tenants">Back to Tenant Operations</Link>
+          <Link href="/settings">Back to Settings</Link>
         </Button>
       </div>
     );
   }
 
   return (
-    <div className={embedded ? "space-y-6" : "max-w-3xl mx-auto space-y-6"} data-testid="page-settings">
-      {isTenantScoped && !embedded && (
-        <Button
-          asChild
-          variant="ghost"
-          size="sm"
-          className="gap-2 -ml-2 text-muted-foreground"
-          data-testid="link-back-tenant"
-        >
-          <Link href={`/tenants/${tenantId}`}>
-            <ArrowLeft className="w-4 h-4" /> Back to {tenant?.brandName ?? 'Tenant'}
-          </Link>
-        </Button>
-      )}
+    <div className="max-w-3xl mx-auto space-y-6" data-testid="page-settings">
       <div>
-        <h1 className={embedded ? "text-xl font-semibold tracking-tight" : "text-3xl font-bold tracking-tight"}>Configuration</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Configuration</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {isTenantScoped ? (
-            <>
-              Settings for{' '}
-              <span className="font-medium" data-testid="text-settings-tenant">
-                {tenant?.brandName ?? `tenant #${tenantId}`}
-              </span>{' '}
-              only — changes here never affect other businesses.
-            </>
-          ) : (
-            'One place to configure your business profile, modules, and integrations.'
-          )}
+          One place to configure your business profile, modules, and integrations.
         </p>
       </div>
 
@@ -417,10 +349,9 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       </Card>
 
       {/* ── AI Receptionist module ───────────────────────────────────────
-          AI Receptionist settings are edited only in the AI Receptionist
-          console (global: Business Bookings → AI Receptionist tab;
-          per-tenant: Tenant Detail → AI Receptionist tab). No duplicated
-          status here — just a compact jump link so the two can't drift. */}
+          AI Receptionist settings are edited only in the Business Bookings
+          AI Receptionist tab. No duplicated status here — just a compact
+          jump link so the two can't drift. */}
       <Card id="ai-receptionist" className="scroll-mt-6" data-testid="section-ai-receptionist-link">
         <CardContent className="p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
@@ -435,13 +366,7 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
           </div>
           <Button asChild variant="outline" className="shrink-0" data-testid="link-manage-ai-receptionist">
             <Link
-              href={
-                isTenantScoped
-                  ? // Carry the tenant context into the SOS console so the
-                    // call/SMS logs and banners there show this business only.
-                    `/sos/bookings?tab=ai-receptionist&tenant=${tenantId}`
-                  : '/sos/bookings?tab=ai-receptionist'
-              }
+              href="/sos/bookings?tab=ai-receptionist"
             >
               <ExternalLink className="w-4 h-4 mr-2" /> Open Console
             </Link>
@@ -492,51 +417,43 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       </Card>
 
       {/* ── Online Booking (public page + embeddable widget) ────────── */}
-      {isTenantScoped && (
-        <OnlineBookingCard
-          slug={tenant?.subdomain ?? null}
-          openTime={openTime}
-          closeTime={closeTime}
-          setOpenTime={setOpenTime}
-          setCloseTime={setCloseTime}
-          onSave={() => saveSection('Online Booking', { openTime, closeTime })}
-          isPending={isPending}
-        />
-      )}
+      <OnlineBookingCard
+        slug={null}
+        openTime={openTime}
+        closeTime={closeTime}
+        setOpenTime={setOpenTime}
+        setCloseTime={setCloseTime}
+        onSave={() => saveSection('Online Booking', { openTime, closeTime })}
+        isPending={isPending}
+      />
 
-      {/* ── Local SEO & Landing Page (tenant-scoped only) ───────────── */}
-      {isTenantScoped && (
-        <LocalSeoCard
-          slug={tenant?.subdomain ?? null}
-          seo={seo}
-          setSeo={setSeo}
-          onSave={() => saveSection('Local SEO profile', seo)}
-          isPending={isPending}
-        />
-      )}
+      {/* ── Local SEO & Landing Page ────────────────────────────────── */}
+      <LocalSeoCard
+        slug={null}
+        seo={seo}
+        setSeo={setSeo}
+        onSave={() => saveSection('Local SEO profile', seo)}
+        isPending={isPending}
+      />
 
-      {/* ── Marketing Branding (tenant-scoped only) ─────────────────── */}
-      {isTenantScoped && (
-        <BrandingCard
-          branding={branding}
-          setBranding={setBranding}
-          onSave={() => saveSection('Marketing branding', branding)}
-          isPending={isPending}
-        />
-      )}
+      {/* ── Marketing Branding ─────────────────────────────────────── */}
+      <BrandingCard
+        branding={branding}
+        setBranding={setBranding}
+        onSave={() => saveSection('Marketing branding', branding)}
+        isPending={isPending}
+      />
 
-      {/* ── Co-Op Network (tenant-scoped only) ──────────────────────── */}
-      {isTenantScoped && (
-        <CoopNetworkCard
-          coop={coop}
-          setCoop={setCoop}
-          onSave={() => saveSection('Co-Op Network', coop)}
-          isPending={isPending}
-        />
-      )}
+      {/* ── Co-Op Network ───────────────────────────────────────────── */}
+      <CoopNetworkCard
+        coop={coop}
+        setCoop={setCoop}
+        onSave={() => saveSection('Co-Op Network', coop)}
+        isPending={isPending}
+      />
 
-      {/* ── Co-Op Search Radius (tenant-scoped only) ────────────────── */}
-      {isTenantScoped && settings && (
+      {/* ── Co-Op Search Radius ────────────────────────────────────── */}
+      {settings && (
         <CoopRadiusCard
           settings={settings}
           onSave={(overrideMiles) =>
@@ -546,15 +463,11 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
         />
       )}
 
-      {/* ── Customer Reviews (tenant-scoped only) ───────────────────── */}
-      {isTenantScoped && <ReviewsCard tenantId={tenantId!} />}
+      {/* ── Merchant co-op partnerships ─────────────────────────────── */}
+      {settings?.tenantId != null && <TenantCoopPartnershipsSection tenantId={settings.tenantId} />}
 
-      {/* ── Merchant co-op partnerships (tenant-scoped only) ────────── */}
-      {isTenantScoped && <TenantCoopPartnershipsSection tenantId={tenantId!} />}
-
-      {/* ── Co-Op reciprocity threshold (tenant-scoped only) ────────── */}
-      {isTenantScoped && (
-        <Card id="coop-reciprocity" className="scroll-mt-6" data-testid="section-coop-reciprocity">
+      {/* ── Co-Op reciprocity threshold ─────────────────────────────── */}
+      <Card id="coop-reciprocity" className="scroll-mt-6" data-testid="section-coop-reciprocity">
           <CardHeader>
             <CardTitle>Co-Op Reciprocity Threshold</CardTitle>
             <CardDescription>
@@ -608,7 +521,6 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
             </div>
           </CardContent>
         </Card>
-      )}
 
       {/* ── No-Show Shield & Deposits ───────────────────────────────── */}
       <Card id="no-show-shield" className="scroll-mt-6" data-testid="section-no-show-shield">
@@ -1081,11 +993,9 @@ export default function Settings({ embedded = false }: { embedded?: boolean }) {
       {/* ── Connector Registry (admin-only, global config only) ─────────
           Folded in from the former standalone /connectors page; deep links
           land here via /settings#connectors. */}
-      {!isTenantScoped && (
-        <div id="connectors" className="scroll-mt-6 pt-4" data-testid="section-connectors">
-          <ConnectorRegistrySection />
-        </div>
-      )}
+      <div id="connectors" className="scroll-mt-6 pt-4" data-testid="section-connectors">
+        <ConnectorRegistrySection />
+      </div>
     </div>
   );
 }
@@ -1103,7 +1013,7 @@ type SeoProfile = {
 };
 
 /**
- * Local SEO & Landing Page section (tenant-scoped only): the business profile
+ * Local SEO & Landing Page section: the business profile
  * fields that feed the public landing page's metadata and Schema.org
  * LocalBusiness JSON-LD, plus a link to view the live landing page.
  */
@@ -1208,7 +1118,7 @@ const DENSITY_LABELS: Record<string, string> = {
 };
 
 /**
- * Co-Op Search Radius section (tenant-scoped only). Shows the auto-detected
+ * Co-Op Search Radius section. Shows the auto-detected
  * density classification and radius, with a slider override the merchant can
  * set (persists, never clobbered by re-detection) or revert to automatic.
  */
@@ -1300,7 +1210,7 @@ function CoopRadiusCard({
 }
 
 /**
- * Marketing Branding section (tenant-scoped only): logo upload (stored as a
+ * Marketing Branding section: logo upload (stored as a
  * client-resized data URL) and brand colors used by the Co-Op Marketing Hub
  * asset generator. Sensible defaults apply when unset.
  */
@@ -1413,7 +1323,7 @@ function BrandingCard({
 }
 
 /**
- * Co-Op Network section (tenant-scoped only): the business's Level 2
+ * Co-Op Network section: the business's Level 2
  * sub-category (the category firewall key — same-sub-category competitors
  * never see each other) and the 1–15 mile local discovery radius slider.
  */
@@ -1496,145 +1406,7 @@ function CoopNetworkCard({
 }
 
 /**
- * Customer Reviews section (tenant-scoped only): add reviews, toggle which
- * ones appear on the public landing page, and delete mistakes.
- */
-function ReviewsCard({ tenantId }: { tenantId: number }) {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { data: reviews, isLoading } = useListTenantReviews(tenantId, {
-    query: { queryKey: getListTenantReviewsQueryKey(tenantId) },
-  });
-  const createReview = useCreateTenantReview();
-  const updateReview = useUpdateTenantReview();
-  const deleteReview = useDeleteTenantReview();
-
-  const [authorName, setAuthorName] = React.useState('');
-  const [rating, setRating] = React.useState('5');
-  const [body, setBody] = React.useState('');
-
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: getListTenantReviewsQueryKey(tenantId) });
-
-  const onAdd = () => {
-    const r = Math.max(1, Math.min(5, Math.round(parseFloat(rating) || 5)));
-    if (!authorName.trim()) {
-      toast({ title: 'Author name is required', variant: 'destructive' });
-      return;
-    }
-    createReview.mutate(
-      { id: tenantId, data: { authorName: authorName.trim(), rating: r, body: body.trim() } },
-      {
-        onSuccess: () => {
-          setAuthorName('');
-          setRating('5');
-          setBody('');
-          refresh();
-          toast({ title: 'Review added' });
-        },
-        onError: () => toast({ title: "Couldn't add review", variant: 'destructive' }),
-      },
-    );
-  };
-
-  return (
-    <Card id="reviews" className="scroll-mt-6" data-testid="section-reviews">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Star className="w-5 h-5 text-primary" /> Customer Reviews
-        </CardTitle>
-        <CardDescription>
-          Reviews shown on your public landing page. Toggle visibility to control which ones appear.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="p-4 border rounded-lg space-y-3" data-testid="form-add-review">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="grid gap-2 col-span-2">
-              <Label>Customer name</Label>
-              <Input value={authorName} onChange={(e) => setAuthorName(e.target.value)} data-testid="input-review-author" />
-            </div>
-            <div className="grid gap-2">
-              <Label>Rating (1–5)</Label>
-              <Input type="number" min="1" max="5" step="1" value={rating} onChange={(e) => setRating(e.target.value)} data-testid="input-review-rating" />
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Label>Review text</Label>
-            <textarea
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={2}
-              className="rounded-md border bg-background p-2 text-sm"
-              data-testid="input-review-body"
-            />
-          </div>
-          <div className="flex justify-end">
-            <Button onClick={onAdd} disabled={createReview.isPending} data-testid="button-add-review">
-              Add Review
-            </Button>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <Skeleton className="h-16 w-full" />
-        ) : !reviews || reviews.length === 0 ? (
-          <p className="text-sm text-muted-foreground" data-testid="text-no-reviews">
-            No reviews yet. Add your first customer review above.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {reviews.map((r) => (
-              <div key={r.id} className="flex items-start justify-between gap-3 p-3 border rounded-lg" data-testid={`row-review-${r.id}`}>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{r.authorName}</span>
-                    <span className="text-amber-500 text-sm tracking-widest">
-                      {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
-                    </span>
-                  </div>
-                  {r.body && <p className="text-sm text-muted-foreground mt-0.5">{r.body}</p>}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">{r.isVisible ? 'Public' : 'Hidden'}</span>
-                    <Switch
-                      checked={r.isVisible}
-                      onCheckedChange={(checked) =>
-                        updateReview.mutate(
-                          { id: tenantId, reviewId: r.id, data: { isVisible: checked } },
-                          { onSuccess: refresh, onError: () => toast({ title: "Couldn't update review", variant: 'destructive' }) },
-                        )
-                      }
-                      data-testid={`switch-review-visible-${r.id}`}
-                    />
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-muted-foreground"
-                    onClick={() =>
-                      deleteReview.mutate(
-                        { id: tenantId, reviewId: r.id },
-                        { onSuccess: refresh, onError: () => toast({ title: "Couldn't delete review", variant: 'destructive' }) },
-                      )
-                    }
-                    data-testid={`button-delete-review-${r.id}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
- * Online Booking section (tenant-scoped only): business hours that drive the
+ * Online Booking section: business hours that drive the
  * public page's offered slots, the business's public booking link, and the
  * copy-paste iframe embed snippet for WordPress/Wix/Squarespace/Shopify.
  */

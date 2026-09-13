@@ -6,10 +6,8 @@ import { Shell } from "@/components/layout/Shell";
 import { useAuth } from "@/hooks/useAuth";
 
 import CommandCenter from "@/pages/Dashboard";
-import TenantDetail from "@/pages/TenantDetail";
 import OperationsHub from "@/pages/OperationsHub";
 import WorkforceHub from "@/pages/workforce/WorkforceHub";
-import ModuleConsole from "@/pages/ModuleConsole";
 import Login from "@/pages/Login";
 import PublicBookingPage from "@/pages/public-booking";
 import PublicCheckInPage, {
@@ -86,27 +84,16 @@ function ProtectedApp() {
   return (
     <Shell>
       <Switch>
-        {/* Command Center hub — tabs for Dashboard (/), Tenants (/tenants),
-            Billing (/billing), and Agency Settings (/settings). Each tab
-            keeps its own URL so old links/bookmarks land on the right tab. */}
+        {/* Single-business client command center. */}
         <Route path="/" component={CommandCenter} />
-        <Route path="/master" component={CommandCenter} />
-        <Route path="/tenants" component={CommandCenter} />
-        <Route path="/governance" component={CommandCenter} />
-        {/* Tenant Settings and AI Receptionist are now tabs inside Tenant
-            Detail — old standalone URLs redirect to the matching tab. */}
-        <Route path="/tenants/:id/settings">
-          {(params) => <Redirect to={`/tenants/${params.id}?tab=settings`} replace />}
-        </Route>
-        <Route path="/tenants/:id/ai-receptionist">
-          {(params) => <Redirect to={`/tenants/${params.id}?tab=ai-receptionist`} replace />}
-        </Route>
-        <Route path="/tenants/:id" component={TenantDetail} />
-        {/* Concierge is folded into Tenant Detail as tabs — old deep links
-            land on the Engagement Rules tab. */}
-        <Route path="/tenants/:id/concierge">
-          {(params) => <Redirect to={`/tenants/${params.id}?tab=rules`} replace />}
-        </Route>
+        {/* Retired platform-administration URLs return to the client dashboard. */}
+        <Route path="/master"><Redirect to="/" replace /></Route>
+        <Route path="/tenants"><Redirect to="/" replace /></Route>
+        <Route path="/governance"><Redirect to="/" replace /></Route>
+        <Route path="/tenants/:id/settings"><Redirect to="/settings" replace /></Route>
+        <Route path="/tenants/:id/ai-receptionist"><Redirect to="/sos/bookings?tab=ai-receptionist" replace /></Route>
+        <Route path="/tenants/:id/concierge"><Redirect to="/sos/bookings?tab=ai-receptionist" replace /></Route>
+        <Route path="/tenants/:id"><Redirect to="/" replace /></Route>
         {/* Old GNIL Bridge marketing URL — its modules were folded into the
             White-Label Resale Engines (Media) tab, which this now selects */}
         <Route path="/marketing" component={OperationsHub} />
@@ -121,20 +108,18 @@ function ProtectedApp() {
         <Route path="/partners" component={OperationsHub} />
         {/* Unified Operations hub — Media tab (old Media & Assets page URL) */}
         <Route path="/media" component={OperationsHub} />
-        <Route path="/modules/:id" component={ModuleConsole} />
-        <Route path="/billing" component={CommandCenter} />
-        <Route path="/compliance" component={CommandCenter} />
-        <Route path="/partnerships" component={CommandCenter} />
-        <Route path="/franchise" component={CommandCenter} />
+        <Route path="/modules/:id"><Redirect to="/operations" replace /></Route>
+        <Route path="/billing"><Redirect to="/" replace /></Route>
+        <Route path="/compliance"><Redirect to="/sos/tax-compliance" replace /></Route>
+        <Route path="/partnerships"><Redirect to="/sos/bookings" replace /></Route>
+        <Route path="/franchise"><Redirect to="/" replace /></Route>
         {/* Connector Registry is folded into Configuration — old links land
             on its Connectors section. */}
         <Route path="/connectors">
           <Redirect to="/settings#connectors" replace />
         </Route>
-        {/* /modules/:id is the canonical Module Console route — the old admin
-            path redirects so bookmarks and stale links keep working. */}
         <Route path="/admin/modules/:id">
-          {(params) => <Redirect to={`/modules/${params.id}`} replace />}
+          <Redirect to="/operations" replace />
         </Route>
         <Route path="/settings" component={CommandCenter} />
         {/* SOS Operations section — the old standalone SOS Dashboard is folded

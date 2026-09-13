@@ -25,14 +25,12 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  // Command Center hub: Dashboard (/), plus the Tenants (/tenants),
-  // Billing (/billing), and Agency Settings (/settings) tabs — the old
-  // standalone sidebar entries were folded in as tabs.
+  // Single-business command center: Dashboard and Settings.
   {
     name: 'Command Center',
     path: '/',
     icon: LayoutDashboard,
-    aliases: ['/tenants', '/billing', '/settings'],
+    aliases: ['/settings'],
   },
   // Unified hub: Modules (/operations), Media (/media — White-Label Resale
   // Engines; old /marketing links land here too),
