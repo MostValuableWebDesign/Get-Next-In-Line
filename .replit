@@ -121,3 +121,7 @@ channel = "stable-25_05"
 
 [userenv.production]
 APP_BASE_URL = "https://getnextinline.com"
+
+[userenv.shared]
+GUSTO_ENVIRONMENT = "demo"
+GUSTO_REDIRECT_URI = "https://caaefb8e-0e74-45b2-ac67-2fd3679474d4-00-1bo4lsi8lmnvh.kirk.replit.dev/api/operations/integrations/gusto/callback"
