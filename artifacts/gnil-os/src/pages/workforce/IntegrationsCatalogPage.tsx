@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useConnectGusto,
@@ -63,6 +63,7 @@ function syncActionState(
 
 export function IntegrationsCatalogPage() {
   const queryClient = useQueryClient();
+  const gustoOAuthWindow = useRef<Window | null>(null);
   const hasSelectedBusiness = getCurrentSosTenantId() != null;
   const { data, isLoading, isError, refetch } = useGetOperationsOverview({
     query: { queryKey: getGetOperationsOverviewQueryKey() }
@@ -71,8 +72,21 @@ export function IntegrationsCatalogPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const gustoConnect = useConnectGusto({
     mutation: {
-    onSuccess: ({ authorizationUrl }) => window.location.assign(authorizationUrl),
-    onError: (error) => setActionError(error instanceof Error ? error.message : "Unable to connect Gusto"),
+      onSuccess: ({ authorizationUrl }) => {
+        const oauthWindow = gustoOAuthWindow.current;
+        gustoOAuthWindow.current = null;
+        if (oauthWindow && !oauthWindow.closed) {
+          oauthWindow.opener = null;
+          oauthWindow.location.replace(authorizationUrl);
+        } else {
+          setActionError("The Gusto login window was closed. Please try again.");
+        }
+      },
+      onError: (error) => {
+        gustoOAuthWindow.current?.close();
+        gustoOAuthWindow.current = null;
+        setActionError(error instanceof Error ? error.message : "Unable to connect Gusto");
+      },
     },
   });
   const gustoDisconnect = useDisconnectGusto({
@@ -152,6 +166,14 @@ export function IntegrationsCatalogPage() {
       return;
     }
     if (["connected", "syncing", "degraded"].includes(provider.status)) return;
+    const oauthWindow = window.open("about:blank", "_blank");
+    if (!oauthWindow) {
+      setActionError("Allow pop-ups for this site, then try Connect Gusto again.");
+      return;
+    }
+    oauthWindow.document.title = "Connecting to Gusto…";
+    oauthWindow.document.body.textContent = "Opening Gusto securely…";
+    gustoOAuthWindow.current = oauthWindow;
     gustoConnect.mutate();
   };
 
