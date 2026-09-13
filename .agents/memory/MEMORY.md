@@ -1,6 +1,6 @@
 # Memory index
 
-- SOS tenant scope applies on /sos pages AND the Command Center root "/" (Live Operations is embedded there); SosTenantSync + operations page selector both encode this — new SOS surfaces must keep ?tenant= handling consistent.
+- [Single-business runtime](sos-tenant-scoping.md) — normal SOS and Operations APIs resolve exactly one active business; headers no longer select it, while database queries remain tenant-scoped.
 - Visit-advance "notify" returns an optional `notification` {attempted,status,error} on the SosVisit response so staff see failed/skipped "you're next" texts; keep populating it on any new notify path.
 
 - [Module checkout payment modes](module-checkout.md) — live Stripe path provisions only via webhook (snapshot + pending→completed claim); simulated path is test default; all provisioning through provisionModuleItems.
@@ -16,7 +16,6 @@
 - [Twilio SMS transport](twilio-sms-transport.md) — connector withholds raw creds; sends go via connectors-sdk proxy (disabled under NODE_ENV=test); inbound signature checks still need TWILIO_AUTH_TOKEN.
 - [Twilio CTA vetting](twilio-cta-vetting.md) — campaign message flow must point to a live booking CTA reviewers can follow, not just the privacy policy.
 - [Dev DB drift behind Drizzle schema](dev-db-drift.md) — on missing-column query errors, diff information_schema vs schema and push additive DDL.
-- [SOS tenant scoping](sos-tenant-scoping.md) — `x-tenant-id` is now mandatory on /api/sos: numeric id or the explicit `"legacy"` sentinel (NULL scope); missing/malformed → 400. coop/safety still treat non-numeric as null. Campaign codes unique per (tenant, code); coop redemption codes per (host, code) — lookups must stay caller-scoped.
 - [messages.origin classification](messages-origin.md) — filter message surfaces on `origin`, never on tenant_id nullability; tenant scoping is a separate filter.
 - [Drizzle silent migrate failures](drizzle-migrations.md) — fixed: db:push uses a custom loud migrator; recover out-of-band/mixed-state DDL via `pnpm run db:reconcile`, never hand-stamp hashes.
 - api-zod schemas come from a different zod instance than api-server's; `instanceof ZodError` fails across them — duck-type on `err.name === "ZodError"` in error middleware.

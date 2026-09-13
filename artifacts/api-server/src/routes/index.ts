@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { requireAuth } from "../middlewares/auth";
 import { authorizeTenantAccess } from "../middlewares/tenantAccess";
+import { applyAppBusinessContext } from "../lib/tenantScope";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import agencyRouter from "./agency";
@@ -98,6 +99,16 @@ router.use((req, res, next) => {
     return;
   }
   requireAuth(req, res, next);
+});
+// Normal business surfaces always resolve the one active business configured
+// for this deployment. This runs before tenant membership authorization so the
+// existing user+role+tenant checks continue to apply without a client header.
+router.use((req, res, next) => {
+  if (SESSION_EXEMPT_PATHS.has(req.path) || SESSION_EXEMPT_PATTERNS.some((p) => p.test(req.path))) {
+    next();
+    return;
+  }
+  applyAppBusinessContext(req, res, next).catch(next);
 });
 // User↔tenant authorization: after session auth, verify the session user may
 // act on every tenant the request references (x-tenant-id header, URL param,

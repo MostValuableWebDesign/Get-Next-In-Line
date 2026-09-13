@@ -1,4 +1,3 @@
-import { useAllTenants } from '@/hooks/useAllTenants';
 import React, { useState } from 'react';
 import { 
   useListSosVisits, useListSosResources, useListSosWaitlist,
@@ -8,14 +7,12 @@ import {
   useGetSosSettings, getGetSosSettingsQueryKey,
   useGetSosDashboard, getGetSosDashboardQueryKey,
   useRetryFailedSosMessages,
-  useListTenants,
   SosVisitStatus,
   type SosCustomer
 } from '@workspace/api-client-react';
 import { CustomerPicker } from '@/components/sos/customer-picker';
 import { ServiceTypeInput } from '@/components/sos/service-type-input';
-import { parseTenantParam } from '@/lib/sos-tenant';
-import { Link, useLocation, useSearch } from 'wouter';
+import { Link } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,18 +31,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const searchString = useSearch();
-  const [location, setLocation] = useLocation();
-
-  // Selected business scope — same ?tenant=<id> URL contract as the other
-  // SOS pages, so staff always see which business's live queue is on screen.
-  const selectedTenant = parseTenantParam(searchString);
-  const { data: tenants } = useAllTenants();
-  const selectedTenantName = tenants?.find(t => t.id === selectedTenant)?.brandName ?? null;
-  const changeTenant = (v: string) => {
-    const tenant = v === 'all' ? null : Number(v);
-    setLocation(tenant == null ? location : `${location}?tenant=${tenant}`, { replace: true });
-  };
   
   // Live polling
   const { data: visits } = useListSosVisits(
@@ -68,7 +53,7 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
     query: { queryKey: getGetSosDashboardQueryKey(), refetchInterval: 30000 },
   });
   const failedSmsToday = dashboard?.messagesFailedToday ?? 0;
-  const messageLogHref = `/bookings?tab=ai-receptionist${selectedTenant != null ? `&tenant=${selectedTenant}` : ''}`;
+  const messageLogHref = '/bookings?tab=ai-receptionist';
 
   // Bulk-retry today's failed texts in one click (Twilio-outage recovery).
   const retryFailed = useRetryFailedSosMessages();
@@ -203,55 +188,19 @@ export function OperationsPage({ embedded = false }: { embedded?: boolean }) {
             <>
               <h2 className="text-xl font-semibold tracking-tight">Live Operations</h2>
               <p className="text-muted-foreground text-sm mt-1">
-                {selectedTenant != null ? (
-                  <>
-                    Showing{' '}
-                    <span className="font-medium" data-testid="text-operations-business-scope">
-                      {selectedTenantName ?? `business #${selectedTenant}`}
-                    </span>{' '}
-                    only.
-                  </>
-                ) : (
-                  'Active visits, resources, and the smart waitlist — all businesses (legacy).'
-                )}
+                Active visits, resources, and the smart waitlist.
               </p>
             </>
           ) : (
             <>
               <h1 className="text-3xl font-bold tracking-tight">Operations Center</h1>
               <p className="text-muted-foreground text-sm mt-1">
-                {selectedTenant != null ? (
-                  <>
-                    Showing{' '}
-                    <span className="font-medium" data-testid="text-operations-business-scope">
-                      {selectedTenantName ?? `business #${selectedTenant}`}
-                    </span>{' '}
-                    only.
-                  </>
-                ) : (
-                  'Live command center for active visits and resources — all businesses (legacy).'
-                )}
+                Live command center for active visits and resources.
               </p>
             </>
           )}
         </div>
         <div className="flex items-center gap-3">
-          <Select
-            value={selectedTenant != null ? String(selectedTenant) : 'all'}
-            onValueChange={changeTenant}
-          >
-            <SelectTrigger className="w-[220px]" data-testid="select-operations-business">
-              <SelectValue placeholder="All businesses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All businesses (legacy)</SelectItem>
-              {tenants?.map(t => (
-                <SelectItem key={t.id} value={String(t.id)} data-testid={`option-operations-business-${t.id}`}>
-                  {t.brandName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <CheckInDialog />
         </div>
       </div>

@@ -1,9 +1,8 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { WorkforceStatePage } from "./WorkforceStatePage";
 import * as apiClient from "@workspace/api-client-react";
 import * as useAuth from "@/hooks/useAuth";
-import * as tenantScope from "@/lib/sos-tenant";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 vi.mock("@workspace/api-client-react", async () => {
@@ -21,16 +20,8 @@ vi.mock("@/hooks/useAuth", () => ({
   useSessionRole: vi.fn(),
 }));
 
-vi.mock("@/lib/sos-tenant", () => ({
-  getCurrentSosTenantId: vi.fn(),
-}));
-
 describe("WorkforceStatePage", () => {
   const queryClient = new QueryClient();
-
-  beforeEach(() => {
-    vi.mocked(tenantScope.getCurrentSosTenantId).mockReturnValue(1);
-  });
 
   const renderComponent = () =>
     render(
@@ -39,8 +30,7 @@ describe("WorkforceStatePage", () => {
       </QueryClientProvider>
     );
 
-  it("does not request tenant-owned workforce data until a business is selected", () => {
-    vi.mocked(tenantScope.getCurrentSosTenantId).mockReturnValue(null);
+  it("loads workforce data directly without a business selector", () => {
     vi.mocked(useAuth.useSessionRole).mockReturnValue("super_admin");
     vi.mocked(apiClient.useListOperationsWorkforce).mockReturnValue({ isLoading: false } as any);
     vi.mocked(apiClient.useListOperationsCompensation).mockReturnValue({ isLoading: false } as any);
@@ -49,13 +39,9 @@ describe("WorkforceStatePage", () => {
 
     renderComponent();
 
-    expect(screen.getByRole("heading", { name: "Select a business" })).toBeInTheDocument();
-    expect(apiClient.useListOperationsWorkforce).toHaveBeenCalledWith({
-      query: expect.objectContaining({ enabled: false }),
-    });
-    expect(apiClient.useListOperationsCompensation).toHaveBeenCalledWith({
-      query: expect.objectContaining({ enabled: false }),
-    });
+    expect(screen.queryByText(/select a business/i)).not.toBeInTheDocument();
+    expect(apiClient.useListOperationsWorkforce).toHaveBeenCalled();
+    expect(apiClient.useListOperationsCompensation).toHaveBeenCalled();
   });
 
   it("does not fetch or render compensation for staff role", () => {

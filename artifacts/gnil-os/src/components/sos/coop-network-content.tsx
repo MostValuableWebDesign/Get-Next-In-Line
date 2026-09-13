@@ -86,7 +86,7 @@ const PLAZA_EXCLUSIVITY_MESSAGE =
  * accept/decline incoming invites. Accepted partnerships go live on both
  * businesses' checkout, receipt, and customer pass surfaces automatically.
  *
- * All requests are scoped by the selected business (?tenant= → x-tenant-id).
+ * Platform and co-op administration requests carry an explicit business scope.
  */
 export function CoopNetworkContent({ tenantId }: { tenantId: number | null }) {
   if (tenantId == null) {

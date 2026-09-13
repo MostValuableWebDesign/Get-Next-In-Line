@@ -17,6 +17,7 @@ import {
   __configureCapabilityReconciliationForTests,
   CAPABILITY_RECONCILIATION_ERROR,
 } from "../../domains/operations/integrations/capabilityAssignmentService";
+import { __configureAppBusinessResolverForTests } from "../../lib/tenantScope";
 
 process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "test-admin-password";
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || "test-session-secret";
@@ -107,6 +108,21 @@ afterAll(async () => {
 });
 
 describe("Gusto OAuth lifecycle", () => {
+  it("connects and reads status without a tenant header", async () => {
+    __configureAppBusinessResolverForTests(async () => ({
+      id: tenantA,
+      brandName: `Gusto A ${RUN}`,
+      status: "active",
+    }));
+    try {
+      await agent.post("/api/operations/integrations/gusto/connect").expect(200);
+      await agent.get("/api/operations/integrations/gusto/status").expect(200);
+      await agent.get("/api/operations/overview").expect(200);
+    } finally {
+      __configureAppBusinessResolverForTests(null);
+    }
+  });
+
   it("preserves verified credentials as degraded and recovers when capability setup is retried", async () => {
     const state = await begin(tenantD);
     __configureCapabilityReconciliationForTests(async () => {

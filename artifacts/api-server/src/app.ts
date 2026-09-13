@@ -225,6 +225,14 @@ app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
     res.status(400).json({ message: (err as Error).message });
     return;
   }
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { name?: string }).name === "AppBusinessConfigurationError"
+  ) {
+    res.status(503).json({ message: (err as Error).message });
+    return;
+  }
   if (res.headersSent) {
     next(err);
     return;

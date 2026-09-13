@@ -1,0 +1,122 @@
+Clean up the API contract after the backend and frontend have already been converted to single-business behavior.
+
+Do NOT redesign routes.
+Do NOT alter domain logic.
+Do NOT manually edit generated client files.
+
+## Goal
+
+Client-facing GNIL APIs must no longer expose or require:
+
+```http
+x-tenant-id
+```
+
+for normal operation.
+
+## 1. Audit OpenAPI
+
+Search:
+
+```text
+x-tenant-id
+tenant header
+tenantId header
+business selection header
+```
+
+Identify every endpoint that still declares tenant context.
+
+## 2. Remove tenant header from client-facing routes
+
+Remove the header from endpoints now using automatic single-business resolution.
+
+This should include normal:
+
+* Operations
+* Gusto
+* Workforce
+* Payroll
+* Compensation
+* Booking
+* Queue
+* Customers
+* Services
+* Resources
+* Memberships
+* Payments
+* Settings
+
+Do not remove tenant/business identifiers from true platform/operator-only endpoints if they legitimately manage multiple installations.
+
+## 3. Regenerate clients
+
+Use the repository’s normal generation commands.
+
+Regenerate:
+
+```text
+API React client
+API schemas
+Zod schemas
+```
+
+Do NOT hand-edit generated files.
+
+## 4. Search generated output
+
+Verify generated hooks for GNIL client-facing routes no longer accept or require tenant header parameters.
+
+Examples:
+
+```text
+useGetOperationsOverview
+useConnectGusto
+useReconcileGusto
+useSyncGustoWorkforce
+useSyncGustoPayrollReadOnly
+useSyncGustoCompensationReadOnly
+```
+
+should operate without a tenant-header argument.
+
+## 5. Frontend compatibility
+
+Fix only type/usage errors caused by regenerated signatures.
+
+Do not add a tenant header back manually to make things compile.
+
+## 6. Tests
+
+Verify:
+
+* generated API contract compiles
+* frontend hooks compile
+* backend OpenAPI validation passes
+* Operations/Gusto frontend tests pass
+* API tests still pass without tenant headers
+
+## Validation
+
+Run:
+
+* OpenAPI validation
+* API client generation
+* API Zod generation
+* API server typecheck
+* GNIL OS typecheck
+* affected backend tests
+* affected frontend tests
+* frontend build
+
+## Final report
+
+Return:
+
+* OpenAPI files changed
+* generated files changed
+* every remaining x-tenant-id occurrence
+* why each remaining occurrence is legitimate
+* pass/fail totals
+
+Do not begin broad cleanup beyond API contract/header concerns in this prompt.

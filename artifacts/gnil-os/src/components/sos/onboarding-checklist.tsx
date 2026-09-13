@@ -31,7 +31,6 @@ export function OnboardingChecklist({
   const { data: onboarding } = useGetSosOnboarding({
     query: {
       // Key includes the tenant so switching businesses refetches; the
-      // x-tenant-id header itself is attached globally by SosTenantSync.
       queryKey: [...getGetSosOnboardingQueryKey(), { tenant: tenantId }],
       // Steps complete elsewhere in the app (services/staff tabs, settings),
       // so keep the done/not-done state live while the checklist is visible.

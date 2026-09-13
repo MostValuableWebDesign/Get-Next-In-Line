@@ -35,7 +35,6 @@ vi.mock('@workspace/api-client-react', () => ({
   useDeleteSosResource: () => ({ mutate: deleteMutate, isPending: false }),
   useListTenants: () => ({ data: [] }),
   getListTenantsQueryKey: () => ['tenants'],
-  setTenantHeaderGetter: () => {},
   getListSosVisitsQueryKey: (p?: unknown) => ['visits', p],
   getListSosResourcesQueryKey: () => ['resources'],
   getListSosWaitlistQueryKey: () => ['waitlist'],

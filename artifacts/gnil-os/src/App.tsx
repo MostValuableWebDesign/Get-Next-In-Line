@@ -26,7 +26,6 @@ import TermsOfServicePage from "@/pages/terms-of-service";
 // SOS Operations section (merged from the former standalone SOS app)
 import { BookingsPage as SosBookings } from "@/pages/sos/bookings";
 import TaxCompliancePage from "@/pages/sos/tax-compliance";
-import { SosTenantSync } from "@/lib/sos-tenant";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,22 +48,17 @@ function RedirectSosCustomers() {
   const params = new URLSearchParams(useSearch());
   const tab = params.get('tab') === 'plans' ? 'plans' : 'customers';
   const customer = params.get('customer');
-  const tenant = params.get('tenant');
-  const to = `/sos/bookings?tab=${tab}${customer ? `&customer=${encodeURIComponent(customer)}` : ''}${tenant ? `&tenant=${encodeURIComponent(tenant)}` : ''}`;
+  const to = `/sos/bookings?tab=${tab}${customer ? `&customer=${encodeURIComponent(customer)}` : ''}`;
   return <Redirect to={to} replace />;
 }
 
 /**
- * Redirect an old standalone SOS page into Business Bookings, preserving the
- * selected-business context (?tenant=<id>) so links from a tenant's
- * Configuration page land on that business's scoped view.
+ * Redirect an old standalone SOS page into Business Bookings.
  */
 function RedirectSosBookings({ tab }: { tab?: string }) {
   const params = new URLSearchParams(useSearch());
   const out = new URLSearchParams();
   if (tab) out.set('tab', tab);
-  const tenant = params.get('tenant');
-  if (tenant) out.set('tenant', tenant);
   const q = out.toString();
   return <Redirect to={q ? `/sos/bookings?${q}` : '/sos/bookings'} replace />;
 }
@@ -270,9 +264,6 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          {/* Keeps the x-tenant-id scope on /api/sos/* requests in sync with
-              the ?tenant= param on SOS pages (legacy view elsewhere). */}
-          <SosTenantSync />
           <Router />
         </WouterRouter>
         <Toaster />

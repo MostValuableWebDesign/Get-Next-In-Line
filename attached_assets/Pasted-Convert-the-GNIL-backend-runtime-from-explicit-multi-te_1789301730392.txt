@@ -1,0 +1,240 @@
+Convert the GNIL backend runtime from explicit multi-tenant selection to automatic single-business resolution.
+
+Product rule:
+
+```text
+One GNIL deployment
+=
+One client
+=
+One business
+=
+One booking operation
+```
+
+Do NOT remove tenantId columns yet.
+Do NOT perform a broad database migration.
+Do NOT touch unrelated feature logic.
+Do NOT change authorization roles.
+
+## Goal
+
+Client-facing API routes must stop requiring:
+
+```http
+x-tenant-id
+```
+
+and must automatically operate against the single configured GNIL business.
+
+## 1. Audit backend tenancy usage
+
+Search backend code for:
+
+```text
+tenantId
+tenant_id
+x-tenant-id
+requireTenantId
+tenantIdFrom
+selected tenant
+userTenantMembership
+legacy tenant
+```
+
+Map the major runtime dependencies before editing.
+
+## 2. Create one canonical single-business resolver
+
+Create a reusable backend helper/service such as:
+
+```ts
+requireAppBusiness()
+```
+
+or equivalent.
+
+Behavior:
+
+```text
+0 active businesses
+→ configuration error
+
+1 active business
+→ return it
+
+2+ active businesses
+→ configuration integrity error
+```
+
+Do NOT silently choose the first row.
+
+Return at minimum the internal business/tenant ID.
+
+If the codebase already has an appropriate business-status model, use the existing definition of an active operational business.
+
+## 3. Replace client-facing tenant header resolution
+
+Replace client-facing use of:
+
+```ts
+requireTenantId(req)
+tenantIdFrom(req)
+```
+
+with the canonical business resolver.
+
+Apply this to:
+
+* Operations overview
+* Gusto connect
+* Gusto callback-related tenant resolution where applicable
+* Gusto status
+* Gusto disconnect
+* Gusto Retry Setup
+* Gusto staff sync
+* Gusto payroll sync
+* Gusto compensation sync
+* workforce listing/linking
+* payroll listing
+* compensation listing
+* booking routes
+* queue routes
+* customer routes
+* services
+* resources/chairs
+* memberships
+* payments
+* SMS workflows
+* owner/admin settings
+* any other normal client-facing domain route requiring tenant headers
+
+Do not change true platform/operator-only tooling if it legitimately manages multiple installations.
+
+## 4. Preserve internal scoping
+
+Continue passing the resolved internal business ID into existing services and queries.
+
+Example:
+
+```ts
+const business = await requireAppBusiness();
+
+await syncPayroll({
+  tenantId: business.id,
+  providerId: "gusto",
+});
+```
+
+Do NOT weaken tenant-scoped database queries.
+
+## 5. Auth and roles
+
+Keep all current role checks.
+
+Single business means:
+
+```text
+user + role + app business
+```
+
+not:
+
+```text
+user + role + selected tenant
+```
+
+Do not remove staff/merchant/admin authorization.
+
+## 6. Gusto
+
+All Gusto routes must work without x-tenant-id:
+
+```text
+POST /operations/integrations/gusto/connect
+GET  /operations/integrations/gusto/status
+POST /operations/integrations/gusto/reconcile
+POST /operations/integrations/gusto/disconnect
+POST /operations/integrations/gusto/sync
+POST /operations/integrations/gusto/sync/payroll
+POST /operations/integrations/gusto/sync/compensation
+```
+
+Preserve:
+
+* OAuth
+* encrypted tokens
+* capability ownership
+* Retry Setup
+* employee sync
+* payroll sync
+* compensation sync
+
+Do not redesign Gusto.
+
+## 7. Tests
+
+Update backend tests so standard client-facing routes do NOT send x-tenant-id.
+
+Add tests for the resolver:
+
+### No active business
+
+Expected clear configuration error.
+
+### Exactly one active business
+
+Expected automatic resolution.
+
+### Multiple active businesses
+
+Expected configuration integrity error.
+
+Also verify:
+
+```text
+GET /operations/overview
+```
+
+works without x-tenant-id.
+
+Verify Gusto connect/reconcile/status/sync routes work without x-tenant-id.
+
+## 8. Do not remove schema yet
+
+Keep:
+
+```text
+tenantId
+tenant_id
+tenant foreign keys
+tenant indexes
+tenant-scoped unique constraints
+```
+
+unless a specific one is provably obsolete and removal is risk-free.
+
+This phase is runtime behavior only.
+
+## Validation
+
+Run:
+
+* API typecheck
+* backend Operations/Gusto tests
+* booking tests
+* queue tests
+* auth/role tests
+* DB drift check
+
+## Final report
+
+Return:
+
+* new resolver location
+* routes converted
+* routes intentionally left tenant-aware and why
+* test results
+* any blockers for frontend conversion
+
+Do not begin frontend cleanup in this prompt.

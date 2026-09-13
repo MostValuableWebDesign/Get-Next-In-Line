@@ -38,7 +38,7 @@ export function TipPoolingContent() {
     return (
       <Card className="border-dashed">
         <CardContent className="p-10 text-center text-muted-foreground" data-testid="text-tips-pick-business">
-          Select a specific business above to manage tip pooling.
+          Tip pooling is unavailable until the app business configuration is complete.
         </CardContent>
       </Card>
     );

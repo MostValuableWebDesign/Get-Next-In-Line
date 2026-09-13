@@ -1,0 +1,203 @@
+Perform the final repository-wide cleanup and regression audit for the GNIL single-business conversion.
+
+The backend, frontend runtime, and API contracts have already been converted.
+
+Do NOT redesign architecture.
+Do NOT remove tenant database columns merely for naming cleanup.
+Do NOT add new features.
+
+## Goal
+
+Verify there is no client-facing multi-business behavior left.
+
+## 1. Repository-wide search
+
+Search all source, tests, docs, and generated code for:
+
+```text
+x-tenant-id
+getCurrentSosTenantId
+setCurrentSosTenantId
+selected business
+selected tenant
+Select a business
+Switch business
+business selector
+tenant selector
+tenant switcher
+current tenant
+legacy tenant
+userTenantMembership
+tenantId
+tenant_id
+```
+
+Classify every remaining occurrence as:
+
+```text
+internal database scoping
+platform/operator-only
+legacy compatibility
+test fixture
+client-facing bug
+```
+
+Fix every remaining client-facing bug.
+
+Do not remove valid internal scoping simply because the word tenant exists.
+
+## 2. Dead code cleanup
+
+Remove code that is now provably unused because business selection no longer exists:
+
+* selector components
+* selection hooks
+* local/session storage keys
+* header injection helpers
+* switch-business actions
+* selected-business guards
+* dead tests for switching behavior
+
+Do not remove shared data models still used internally.
+
+## 3. User-facing terminology
+
+Ensure client-visible text does not expose:
+
+```text
+tenant
+tenant ID
+workspace selector
+organization switcher
+```
+
+Use normal business wording where appropriate.
+
+## 4. Validate major workflows
+
+Verify one-business behavior across:
+
+```text
+Login
+Owner/Admin
+Front Desk
+Beauty Pros/Staff
+Services
+Resources/Chairs
+Customers
+Appointments
+Booking
+Queue
+Memberships
+Payments
+SMS
+Operations
+Integrations
+Gusto
+Workforce
+Payroll
+Compensation
+Settings
+```
+
+No workflow should ask the user to select a business.
+
+## 5. Gusto final check
+
+Confirm:
+
+```text
+Connect
+Status
+Retry Setup
+Sync Staff
+Sync Payroll
+Sync Compensation
+Disconnect
+```
+
+all work without x-tenant-id or selected-business state.
+
+## 6. Business integrity
+
+Verify the canonical resolver still enforces:
+
+```text
+0 businesses → configuration error
+1 business → automatic
+2+ active businesses → configuration integrity error
+```
+
+Do not weaken this to “pick first.”
+
+## 7. Full regression validation
+
+Run all practical relevant checks, including:
+
+* API server typecheck
+* GNIL OS typecheck
+* DB drift
+* OpenAPI validation
+* Operations/Gusto tests
+* workforce tests
+* payroll/compensation tests
+* booking tests
+* queue tests
+* customer tests
+* auth/role tests
+* frontend workforce tests
+* frontend booking tests
+* frontend production build
+
+If the full workspace has pre-existing unrelated failures, clearly separate:
+
+```text
+new regression
+vs
+pre-existing failure
+```
+
+## 8. Final architecture report
+
+Return:
+
+### Before
+
+How multi-business context worked.
+
+### After
+
+How single-business resolution now works.
+
+### Client-facing removals
+
+List:
+
+* selectors
+* switchers
+* selected-business guards
+* tenant headers
+* tenant storage
+
+### Internal tenant structure retained
+
+List the remaining tenant concepts and why they remain.
+
+### Platform-only exceptions
+
+List any intentional multi-installation/admin tooling.
+
+### Validation
+
+Exact commands and exact results.
+
+### Remaining risks
+
+Only real remaining risks, not speculative architecture ideas.
+
+End state must be:
+
+```text
+The client logs in and operates their one business.
+No business selection exists anywhere in normal GNIL usage.
+```

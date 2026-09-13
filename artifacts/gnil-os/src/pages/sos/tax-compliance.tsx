@@ -24,7 +24,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { getCurrentSosTenantId } from '@/lib/sos-tenant';
 import { Scale, Download, Plus, AlertTriangle } from 'lucide-react';
 import { usePagedList } from '@/hooks/usePagedList';
 
@@ -145,12 +144,10 @@ export default function TaxCompliancePage() {
     setExporting(true);
     try {
       const base = import.meta.env.BASE_URL;
-      const tenantId = getCurrentSosTenantId();
       const res = await fetch(
         `${base}api/coop/compliance/export?period=${encodeURIComponent(period)}&layout=${layout}&dataset=${dataset}`,
         {
           credentials: 'include',
-          headers: tenantId != null ? { 'x-tenant-id': String(tenantId) } : undefined,
         },
       );
       if (!res.ok) throw new Error(`Export failed (${res.status})`);

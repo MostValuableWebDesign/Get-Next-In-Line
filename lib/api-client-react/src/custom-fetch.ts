@@ -44,24 +44,6 @@ export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
 }
 
-export type TenantHeaderGetter = (url: string) => string | null;
-
-let _tenantHeaderGetter: TenantHeaderGetter | null = null;
-
-/**
- * Register a getter that supplies a tenant id for the `x-tenant-id` header.
- * Before every fetch the getter is invoked with the request URL; when it
- * returns a non-null string, an `x-tenant-id: <id>` header is attached —
- * unless the call site already set one explicitly (explicit headers win).
- *
- * Lets an app scope a whole family of endpoints (e.g. /api/sos/*) to the
- * currently selected business without threading headers through every hook.
- * Pass `null` to clear the getter.
- */
-export function setTenantHeaderGetter(getter: TenantHeaderGetter | null): void {
-  _tenantHeaderGetter = getter;
-}
-
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
@@ -377,15 +359,6 @@ export async function customFetch<T = unknown>(
   }
 
   const requestInfo = { method, url: resolveUrl(input) };
-
-  // Attach tenant context when a tenant header getter is configured and the
-  // call site did not already provide an explicit x-tenant-id header.
-  if (_tenantHeaderGetter && !headers.has("x-tenant-id")) {
-    const tenantId = _tenantHeaderGetter(requestInfo.url);
-    if (tenantId != null) {
-      headers.set("x-tenant-id", tenantId);
-    }
-  }
 
   const response = await fetch(input, { ...init, method, headers });
 

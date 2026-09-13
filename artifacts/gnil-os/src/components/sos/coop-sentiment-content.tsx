@@ -30,7 +30,7 @@ export function CoopSentimentContent({ tenantId }: { tenantId: number | null }) 
     return (
       <Card data-testid="card-sentiment-pick-business">
         <CardContent className="py-10 text-center text-sm text-muted-foreground">
-          Select a business above to see its co-op customer sentiment analytics.
+          Co-op sentiment is unavailable until the app business configuration is complete.
         </CardContent>
       </Card>
     );

@@ -8,6 +8,7 @@ import {
   userTenantMembershipsTable,
 } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
+import { __configureAppBusinessResolverForTests } from "../../lib/tenantScope";
 
 // ---------------------------------------------------------------------------
 // Integration tests for user↔tenant access authorization: a signed-in user
@@ -193,12 +194,18 @@ describe("platform-admin-only surfaces", () => {
   });
 });
 
-describe("legacy scope and session behavior", () => {
-  it("member requests need explicit tenant context; the legacy scope is opt-in", async () => {
-    // SOS routes now reject requests without tenant context outright…
-    await memberAgent.get("/api/sos/dashboard").expect(400);
-    // …and the legacy NULL-tenant scope stays reachable via explicit opt-in.
-    await memberAgent.get("/api/sos/dashboard").set("x-tenant-id", "legacy").expect(200);
+describe("automatic business scope and session behavior", () => {
+  it("authorizes a member against the automatically resolved app business", async () => {
+    __configureAppBusinessResolverForTests(async () => ({
+      id: tenantA,
+      brandName: `Access A ${RUN}`,
+      status: "active",
+    }));
+    try {
+      await memberAgent.get("/api/sos/dashboard").expect(200);
+    } finally {
+      __configureAppBusinessResolverForTests(null);
+    }
   });
 
   it("unauthenticated requests remain 401, not 403", async () => {

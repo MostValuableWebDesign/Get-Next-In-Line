@@ -1,6 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useSearch } from 'wouter';
-import { withSosTenant } from '@/lib/sos-tenant-url';
+import { Link, useLocation } from 'wouter';
 import {
   Sidebar,
   SidebarContent,
@@ -77,10 +76,6 @@ import { EmergencyCheckinBanner } from '@/components/layout/EmergencyCheckinBann
 /** Nav list — closes the mobile drawer after each click */
 function NavMenu({ location, items }: { location: string; items: typeof NAV_ITEMS }) {
   const { isMobile, setOpenMobile } = useSidebar();
-  // Carry the active ?tenant=<id> scope forward on /sos links — dropping it
-  // would reset the tenant context (and tenant-required APIs would 400).
-  const search = useSearch();
-
   return (
     <SidebarMenu>
       {items.map((item) => (
@@ -92,7 +87,7 @@ function NavMenu({ location, items }: { location: string; items: typeof NAV_ITEM
             className="data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground font-medium h-10"
           >
             <Link
-              href={withSosTenant(item.path, search)}
+              href={item.path}
               className="flex items-center gap-3 px-3"
               onClick={() => {
                 if (isMobile) setOpenMobile(false);

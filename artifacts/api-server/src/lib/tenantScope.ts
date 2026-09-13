@@ -1,4 +1,6 @@
-import type { Request } from "express";
+import type { NextFunction, Request, Response } from "express";
+import { eq } from "drizzle-orm";
+import { db, tenantsTable, type Tenant } from "@workspace/db";
 
 /**
  * Explicit tenant-context contract for tenant-scoped routes.
@@ -23,6 +25,88 @@ export const TENANT_HEADER_REQUIRED_MESSAGE =
 
 export class TenantContextError extends Error {
   override name = "TenantContextError";
+}
+
+export class AppBusinessConfigurationError extends Error {
+  override name = "AppBusinessConfigurationError";
+}
+
+type AppBusiness = Pick<Tenant, "id" | "brandName" | "status">;
+type AppBusinessResolver = () => Promise<AppBusiness>;
+
+let appBusinessResolverOverride: AppBusinessResolver | null = null;
+
+export function resolveSingleActiveBusiness(rows: AppBusiness[]): AppBusiness {
+  if (rows.length === 0) {
+    throw new AppBusinessConfigurationError(
+      "GNIL requires exactly one active business, but none is configured",
+    );
+  }
+  if (rows.length > 1) {
+    throw new AppBusinessConfigurationError(
+      "GNIL requires exactly one active business, but multiple active businesses are configured",
+    );
+  }
+  return rows[0];
+}
+
+/** Resolve the one active operational business configured for this deployment. */
+export async function requireAppBusiness(): Promise<AppBusiness> {
+  if (appBusinessResolverOverride) return appBusinessResolverOverride();
+  const rows = await db
+    .select({
+      id: tenantsTable.id,
+      brandName: tenantsTable.brandName,
+      status: tenantsTable.status,
+    })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.status, "active"))
+    .limit(2);
+  return resolveSingleActiveBusiness(rows);
+}
+
+/** Test-only injection; production always resolves from active tenant records. */
+export function __configureAppBusinessResolverForTests(
+  resolver: AppBusinessResolver | null,
+): void {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("App business resolver overrides are test-only");
+  }
+  appBusinessResolverOverride = resolver;
+}
+
+function isAutomaticBusinessPath(req: Request): boolean {
+  if (req.path === "/operations/integrations/gusto/callback") return false;
+  if (req.path.startsWith("/operations")) return true;
+  if (!req.path.startsWith("/sos")) return false;
+  return !req.path.startsWith("/sos/twilio/");
+}
+
+/**
+ * Establish the deployment's automatic business context before authorization.
+ * Existing route code still consumes x-tenant-id internally; clients no longer
+ * provide or select it.
+ */
+export async function applyAppBusinessContext(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (!isAutomaticBusinessPath(req)) {
+    next();
+    return;
+  }
+
+  // Keep legacy integration tests isolated while they are migrated away from
+  // explicit headers. Runtime environments always ignore client selection.
+  if (process.env.NODE_ENV === "test" && req.header(TENANT_HEADER)) {
+    next();
+    return;
+  }
+
+  const business = await requireAppBusiness();
+  req.headers[TENANT_HEADER] = String(business.id);
+  next();
 }
 
 /**

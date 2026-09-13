@@ -53,7 +53,7 @@ function tenantIdFrom(req: Request): number | null {
 function requireTenantId(req: Request): number {
   const tenantId = tenantIdFrom(req);
   if (tenantId == null) {
-    throw new TenantContextError("Select a business before using workforce integrations");
+    throw new TenantContextError("Business context is unavailable. Check the app configuration.");
   }
   return tenantId;
 }

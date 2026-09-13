@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSessionRole } from "@/hooks/useAuth";
-import { getCurrentSosTenantId } from "@/lib/sos-tenant";
 
 type Filter = "all" | "linked" | "unlinked" | "active" | "inactive";
 
@@ -21,18 +20,15 @@ import { formatMoneyExact } from "@/lib/formatMoneyExact";
 
 export function WorkforceStatePage() {
   const queryClient = useQueryClient();
-  const hasSelectedBusiness = getCurrentSosTenantId() != null;
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState<string | null>(null);
   const workforce = useListOperationsWorkforce({
     query: {
-      enabled: hasSelectedBusiness,
       queryKey: getListOperationsWorkforceQueryKey(),
     },
   });
   const staff = useListSosStaff({
     query: {
-      enabled: hasSelectedBusiness,
       queryKey: getListSosStaffQueryKey(),
     },
   });
@@ -42,7 +38,7 @@ export function WorkforceStatePage() {
 
   const comp = useListOperationsCompensation({
     query: {
-      enabled: hasSelectedBusiness && isPrivileged,
+      enabled: isPrivileged,
       queryKey: getListOperationsCompensationQueryKey(),
     }
   });
@@ -67,17 +63,6 @@ export function WorkforceStatePage() {
       }),
     [filter, workforce.data],
   );
-
-  if (!hasSelectedBusiness) {
-    return (
-      <div className="rounded-xl border border-dashed p-10 text-center">
-        <h2 className="text-lg font-semibold">Select a business</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Choose a business from the tenant selector before viewing or linking workforce records.
-        </p>
-      </div>
-    );
-  }
 
   if (workforce.isLoading || (isPrivileged && comp.isLoading)) {
     return <Skeleton className="h-72 rounded-xl" />;

@@ -75,7 +75,7 @@ describe("privileged payroll and compensation operations routes", () => {
   it("returns a tenant-context 400 instead of a server error when no business is selected", async () => {
     const payroll = await admin.get("/api/operations/payroll").set("x-tenant-id", "legacy").expect(400);
     expect(payroll.body).toEqual({
-      message: "Select a business before using workforce integrations",
+      message: "Business context is unavailable. Check the app configuration.",
     });
 
     const connect = await admin
@@ -83,7 +83,7 @@ describe("privileged payroll and compensation operations routes", () => {
       .set("x-tenant-id", "legacy")
       .expect(400);
     expect(connect.body).toEqual({
-      message: "Select a business before using workforce integrations",
+      message: "Business context is unavailable. Check the app configuration.",
     });
   });
 

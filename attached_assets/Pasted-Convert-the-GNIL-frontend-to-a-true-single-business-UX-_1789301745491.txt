@@ -1,0 +1,212 @@
+Convert the GNIL frontend to a true single-business UX.
+
+Backend single-business resolution is already implemented from the previous phase.
+
+Do NOT change backend architecture in this task unless a tiny compatibility fix is necessary.
+Do NOT touch unrelated design/features.
+
+## Goal
+
+The client should never have to:
+
+```text
+Select a business
+Switch business
+Choose tenant
+Choose organization
+Set current tenant
+```
+
+There is one GNIL deployment for one client business.
+
+## 1. Audit frontend tenancy state
+
+Search for:
+
+```text
+getCurrentSosTenantId
+setCurrentSosTenantId
+selectedBusiness
+selectedTenant
+currentBusiness
+currentTenant
+business selector
+tenant selector
+switch business
+localStorage
+sessionStorage
+x-tenant-id
+Select a business
+No business selected
+```
+
+Identify all UI/state/header dependencies.
+
+## 2. Remove business selection UI
+
+Remove or retire client-facing:
+
+* business selector dropdowns
+* business switchers
+* tenant selector dialogs
+* workspace selectors
+* “Select Business” pages
+* selected-business empty states
+* selected-business badges where they exist only for switching context
+
+Do not remove normal Business Settings for the one business.
+
+## 3. Remove selected-business guards
+
+Delete logic such as:
+
+```ts
+if (!hasSelectedBusiness) {
+  ...
+}
+```
+
+and messages such as:
+
+```text
+Select a business before connecting Gusto.
+Select a business before using workforce integrations.
+Choose a business to continue.
+No business selected.
+```
+
+Authorized users should access the app directly.
+
+## 4. Remove tenant header injection
+
+Search the API client wrapper/interceptors/hooks for:
+
+```http
+x-tenant-id
+```
+
+Stop injecting this header into normal GNIL requests.
+
+Do NOT manually edit generated API client files if the header still exists in OpenAPI.
+If generation changes are needed, defer them to the next prompt.
+
+For now, remove app-specific runtime header injection.
+
+## 5. Remove selected-business storage/state
+
+If frontend stores selected tenant/business in:
+
+```text
+localStorage
+sessionStorage
+context
+zustand
+redux
+React context
+URL params
+```
+
+remove that selection state where it is no longer needed.
+
+Do not remove unrelated business profile data.
+
+## 6. Operations and Gusto
+
+These pages should load directly:
+
+```text
+Operations
+Integrations
+Workforce
+Payroll
+Compensation
+```
+
+Gusto should work:
+
+```text
+Connect Gusto
+Retry Setup
+Sync staff
+Sync payroll
+Sync compensation
+Disconnect
+```
+
+without checking selected business state.
+
+## 7. Booking/client flow
+
+Ensure public booking remains:
+
+```text
+service
+→ barber/beauty professional
+→ date
+→ time
+→ customer info
+```
+
+Do not introduce business/location selection.
+
+## 8. Preserve one-business settings
+
+The app may still display/edit:
+
+```text
+Business Name
+Logo
+Address
+Phone
+Hours
+Booking Settings
+Queue Settings
+Payments
+Integrations
+Staff
+Services
+```
+
+Those are properties of the one business.
+
+Do not confuse “business settings” with “business selection.”
+
+## 9. Tests
+
+Update frontend tests that mock:
+
+```text
+getCurrentSosTenantId
+selected business
+tenant selection
+```
+
+Add tests proving:
+
+* Operations loads directly
+* Integrations loads directly
+* Workforce loads directly
+* Payroll loads directly
+* Gusto Connect has no selected-business prerequisite
+* no “Select a business” UI appears in normal client flow
+
+## Validation
+
+Run:
+
+* GNIL OS typecheck
+* workforce/operations frontend tests
+* booking frontend tests if affected
+* frontend production build
+
+## Final report
+
+Return:
+
+* removed selector/switcher components
+* removed storage/state helpers
+* remaining tenant-related frontend code and why
+* test results
+* any OpenAPI/header cleanup needed next
+
+Do not regenerate OpenAPI/client code in this phase unless unavoidable.

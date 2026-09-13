@@ -37,7 +37,7 @@ import { CustomerPicker } from '@/components/sos/customer-picker';
  * Comms page (live logs).
  *
  * Rendered in two contexts:
- *  - /sos/ai-receptionist — the legacy/global settings record, plus the
+ *  - /sos/ai-receptionist — the automatically resolved business settings, plus the
  *    call log, simulator, and SMS history
  *  - /tenants/:id/ai-receptionist — that tenant's own receptionist
  *    settings (configuration only; call/SMS logs are business-wide views)
@@ -50,18 +50,15 @@ export function AiReceptionistPage({
   tenantId: tenantIdProp = null,
 }: {
   embedded?: boolean;
-  /** Business scope from the SOS business selector (?tenant=) — when set,
-   *  settings load from that tenant's record and the call/SMS logs are
-   *  scoped to it via the x-tenant-id header. */
+  /** Explicit business scope for the platform Tenant Detail embed only. */
   tenantId?: number | null;
 }) {
   const params = useParams<{ id?: string }>();
   const routeTenantId = params.id != null ? Number(params.id) : null;
   const tenantId = tenantIdProp ?? routeTenantId;
   const isTenantScoped = tenantId != null && Number.isInteger(tenantId);
-  // Logs render on the global console and on the business-scoped console
-  // (where the x-tenant-id header filters them); the Tenant Detail embed
-  // links to its Communications tab instead of duplicating them.
+  // The platform Tenant Detail embed links to Communications instead of
+  // duplicating logs.
   const showLogs = !isTenantScoped || tenantIdProp != null;
 
   const globalQuery = useGetSosSettings({
@@ -295,11 +292,8 @@ export function AiReceptionistPage({
  * scopes not yet backfilled). Editing happens on the Services tab of
  * Business Bookings; this card just shows what the receptionist recognizes.
  *
- * Works with any known tenant scope: when a tenant id is available (from the
- * ?tenant= URL param or from route/props, e.g. the Tenant Detail embed) the
- * catalog is fetched with an explicit x-tenant-id header, so the list is
- * correct even off the /sos pages where the automatic header getter would
- * fall back to the legacy scope.
+ * The normal page uses automatic business resolution. The platform Tenant
+ * Detail embed passes an explicit business id.
  */
 function ServiceVocabularyCard({
   tenantId,
@@ -309,9 +303,7 @@ function ServiceVocabularyCard({
   legacyServiceNames: string | null | undefined;
 }) {
   const { data: catalog, isLoading } = useListSosServices({
-    // Include the tenant in the query key so caches never mix scopes, and
-    // pass the header explicitly — explicit headers win over the URL-derived
-    // getter, which only knows about ?tenant= on /sos pages.
+    // Keep platform Tenant Detail caches isolated from the normal app view.
     query: { queryKey: [...getListSosServicesQueryKey(), { tenantId }] },
     request:
       tenantId != null ? { headers: { 'x-tenant-id': String(tenantId) } } : undefined,
@@ -323,7 +315,7 @@ function ServiceVocabularyCard({
     .filter(Boolean);
   const usingLegacy = catalog != null && catalog.length === 0;
   const names = usingLegacy ? legacyNames : activeNames;
-  const servicesUrl = tenantId != null ? `/sos/bookings?tab=services&tenant=${tenantId}` : '/sos/bookings?tab=services';
+  const servicesUrl = '/sos/bookings?tab=services';
 
   return (
     <div className="p-4 border rounded-lg space-y-2" data-testid="card-service-vocabulary">

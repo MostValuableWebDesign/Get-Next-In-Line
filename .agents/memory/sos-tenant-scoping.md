@@ -1,10 +1,10 @@
 ---
-name: SOS tenant scoping
-description: How tenant context flows through SOS operational routes and data.
+name: Single-business runtime scoping
+description: How one configured active business is resolved while internal tenant isolation remains intact.
 ---
 
-- SOS operational tables (customers, visits, appointments, waitlist, calls, resources) carry a nullable `tenant_id`; NULL = legacy single-tenant rows.
-- Tenant context is passed as the `x-tenant-id` request header (chosen over query params because orval collides on query params for parameterized paths). No header → strict legacy scope (NULL-tenant rows only, never unscoped).
-- **Why:** settings are per-tenant; operational flows must resolve the right tenant's settings (`resolveSettings(tenantId)`) so one tenant's receptionist toggle/service names govern only its own queue.
-- Direct-ID routes (get/patch/delete/cancel/claim/renew by id) must also carry the strict tenant predicate — list scoping alone fails code review as bypassable broken access control. Rows without their own tenant column (plan enrollments, operational messages) inherit scope via a join to their customer.
-- **How to apply:** ALL SOS reads and cross-row mutations use *strict* matching (`tenantMatch`): with context only that tenant's rows, without context only NULL-tenant legacy rows — never unscoped. Writes stamp tenant from the parent customer/appointment row when one exists, else the header. Code review rejects any unscoped fallback as a cross-tenant leak.
+Normal authenticated SOS and Operations requests automatically resolve the deployment's sole active business. Zero or multiple active businesses are configuration errors; never choose the first row and never trust a client tenant header to select a business.
+
+**Why:** The product deployment contract is one client and one business, but tenant columns still provide internal query isolation during this runtime-only migration phase.
+
+**How to apply:** Resolve business context before membership authorization, then continue passing its internal tenant ID through every existing scoped query and direct-ID predicate. Keep public slug routes, signed webhooks, gateway tokens, and true platform administration on their independent resolution models.

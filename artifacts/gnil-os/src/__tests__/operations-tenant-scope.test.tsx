@@ -1,10 +1,4 @@
-/**
- * Live Operations tenant context:
- *  - with ?tenant=<id> in the URL, the header shows the selected business
- *    name so staff always know which business's queue is live;
- *  - without it, the header states the combined (legacy) scope;
- *  - the business selector is rendered with the tenant options.
- */
+/** Live Operations is a direct single-business surface with no selector. */
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -32,7 +26,6 @@ vi.mock('@workspace/api-client-react', () => ({
       { id: 9, brandName: 'Fade Factory' },
     ],
   }),
-  setTenantHeaderGetter: () => {},
   getListSosVisitsQueryKey: (p?: unknown) => ['visits', p],
   getListSosResourcesQueryKey: () => ['resources'],
   getListSosWaitlistQueryKey: () => ['waitlist'],
@@ -58,16 +51,17 @@ function renderPage(path: string) {
 }
 
 describe('Live Operations business scope', () => {
-  it('shows the selected business name from ?tenant=', () => {
+  it('ignores obsolete tenant query parameters and shows no selector', () => {
     renderPage('/?tenant=7');
-    expect(screen.getByTestId('text-operations-business-scope')).toHaveTextContent('Glow Salon');
-    expect(screen.getByTestId('select-operations-business')).toBeInTheDocument();
+    expect(screen.getByText('Active visits, resources, and the smart waitlist.')).toBeInTheDocument();
+    expect(screen.queryByTestId('select-operations-business')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Glow Salon/i)).not.toBeInTheDocument();
   });
 
-  it('states the combined legacy scope when no business is selected', () => {
+  it('loads directly without selected-business or legacy copy', () => {
     renderPage('/');
-    expect(screen.queryByTestId('text-operations-business-scope')).toBeNull();
-    expect(screen.getAllByText(/all businesses \(legacy\)/i).length).toBeGreaterThan(0);
-    expect(screen.getByTestId('select-operations-business')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Live Operations' })).toBeInTheDocument();
+    expect(screen.queryByText(/select a business|all businesses|legacy/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('select-operations-business')).not.toBeInTheDocument();
   });
 });

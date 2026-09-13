@@ -7,6 +7,7 @@ import {
   tenantsTable,
   workforceIntegrationConnectionsTable,
 } from "@workspace/db";
+import { __configureAppBusinessResolverForTests } from "../../lib/tenantScope";
 
 process.env.ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "test-admin-password";
 process.env.SESSION_SECRET = process.env.SESSION_SECRET || "test-session-secret";
@@ -18,6 +19,7 @@ let app: import("express").Express;
 let agent: ReturnType<typeof request.agent>;
 let tenantA: number;
 let tenantB: number;
+let tenantWithoutWorkforce: number;
 
 beforeAll(async () => {
   app = (await import("../../app")).default;
@@ -29,10 +31,12 @@ beforeAll(async () => {
     .values([
       { brandName: `Workforce A ${RUN}`, subdomain: `${RUN}-a`, status: "active" },
       { brandName: `Workforce B ${RUN}`, subdomain: `${RUN}-b`, status: "active" },
+      { brandName: `Workforce Empty ${RUN}`, subdomain: `${RUN}-empty`, status: "active" },
     ])
     .returning({ id: tenantsTable.id });
   tenantA = tenants[0].id;
   tenantB = tenants[1].id;
+  tenantWithoutWorkforce = tenants[2].id;
 
   await db.insert(workforceIntegrationConnectionsTable).values([
     {
@@ -56,7 +60,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.delete(tenantsTable).where(inArray(tenantsTable.id, [tenantA, tenantB]));
+  await db
+    .delete(tenantsTable)
+    .where(inArray(tenantsTable.id, [tenantA, tenantB, tenantWithoutWorkforce]));
 });
 
 describe("Operations workforce persistence", () => {
@@ -130,10 +136,19 @@ describe("Operations workforce persistence", () => {
   });
 
   it("does not treat legacy partner OAuth state as a workforce connection", async () => {
-    const response = await agent.get("/api/operations/overview").expect(200);
-    expect(response.body.connectedProviderCount).toBe(0);
-    expect(response.body.providers).toEqual([
-      expect.objectContaining({ providerId: "gusto", status: "not_connected" }),
-    ]);
+    __configureAppBusinessResolverForTests(async () => ({
+      id: tenantWithoutWorkforce,
+      brandName: `Workforce Empty ${RUN}`,
+      status: "active",
+    }));
+    try {
+      const response = await agent.get("/api/operations/overview").expect(200);
+      expect(response.body.connectedProviderCount).toBe(0);
+      expect(response.body.providers).toEqual([
+        expect.objectContaining({ providerId: "gusto", status: "not_connected" }),
+      ]);
+    } finally {
+      __configureAppBusinessResolverForTests(null);
+    }
   });
 });

@@ -69,14 +69,6 @@ describe("POST /api/sos/sms/test-send", () => {
       .expect(401);
   });
 
-  it("rejects requests without tenant context", async () => {
-    const res = await agent
-      .post("/api/sos/sms/test-send")
-      .set("x-tenant-id", "")
-      .send({});
-    expect(res.status).toBe(400);
-  });
-
   it("sends to the configured default recipient in simulated mode and records the message", async () => {
     process.env.TEST_SMS_RECIPIENT = CUSTOM_RECIPIENT;
     const res = await agent.post("/api/sos/sms/test-send").send({}).expect(201);

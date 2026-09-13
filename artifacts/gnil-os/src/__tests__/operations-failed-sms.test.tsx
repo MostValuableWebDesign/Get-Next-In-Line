@@ -28,7 +28,6 @@ vi.mock('@workspace/api-client-react', () => ({
   useDeleteSosResource: () => ({ mutate: vi.fn(), isPending: false }),
   getListTenantsQueryKey: () => ['tenants'],
   useListTenants: () => ({ data: [{ id: 7, brandName: 'Glow Salon' }] }),
-  setTenantHeaderGetter: () => {},
   getListSosVisitsQueryKey: (p?: unknown) => ['visits', p],
   getListSosResourcesQueryKey: () => ['resources'],
   getListSosWaitlistQueryKey: () => ['waitlist'],
@@ -65,7 +64,7 @@ describe('Live Operations failed-SMS banner', () => {
     );
     expect(screen.getByTestId('link-failed-sms-log').closest('a')).toHaveAttribute(
       'href',
-      expect.stringContaining('tenant=7'),
+      '/bookings?tab=ai-receptionist',
     );
   });
 
